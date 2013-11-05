@@ -184,8 +184,7 @@ AJ_Status AJ_IdentifyMessage(AJ_Message* msg);
  *
  * @param msg     The property GET or SET message to identify
  * @param propId  Returns the id for the identified property
- * @param sig     Buffer to fill in with the signature of the identified property
- * @param len     Length of the signature buffer
+ * @param sig     Pointer to string to return the signature
  *
  * @return   Return AJ_Status
  *         - ER_OK if the property was identified
@@ -193,7 +192,7 @@ AJ_Status AJ_IdentifyMessage(AJ_Message* msg);
  *         - AJ_ERR_DISALLOWED if the property exists but has access rights do not permit the requested GET or SET operation.
  */
 AJ_EXPORT
-AJ_Status AJ_UnmarshalPropertyArgs(AJ_Message* msg, uint32_t* propId, char* sig, size_t len);
+AJ_Status AJ_UnmarshalPropertyArgs(AJ_Message* msg, uint32_t* propId, const char** sig);
 
 /**
  * This function marshals the first two arguments of a property SET or GET message.
@@ -328,3 +327,4 @@ typedef AJ_Status (*AJ_MutterHook)(AJ_Message* msg, uint32_t msgId, uint8_t msgT
  * @}
  */
 #endif
+

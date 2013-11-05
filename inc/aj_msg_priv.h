@@ -21,7 +21,7 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
-#include "aj_msg.h"
+#include <alljoyn.h>
 
 
 /**
@@ -93,7 +93,38 @@ AJ_EXPORT
 size_t AJ_GetTypeSize(char typeId);
 
 /**
+ * Lookup the message identifier and set the msgId on the message.
+ *
+ * @param msg    The message already initialized with object, interface, and member fields
+ * @param secure Returns boolen indicating if the object or interface was marked secure
+ *
+ * @return  - AJ_OK if the message was found
+ *          - AJ_ERR_SIGNATURE if the message was found but the signature was missing or incorrect.
+ *            The message identified is still set.
+ *          - AJ_ERR_NO_MATCH if the message could not be identified
+ */
+AJ_EXPORT
+AJ_Status AJ_LookupMessageId(AJ_Message* msg, uint8_t* secure);
+
+/**
+ * Lookup a property identifier and get the property signature
+ *
+ * @param msg     A property Get or Set method call or reply message
+ * @param iface   The interface the property is defined on
+ * @param prop    The property name
+ * @param propId  Returns the property identifier
+ * @param sig     Returns the property type signature
+ * @param secure  Returns boolen indicating if the property is on an object or interface marked secure
+ *
+ * @return  - AJ_OK if the message was found
+ *          - AJ_ERR_NO_MATCH if the property could not be identified
+ */
+AJ_EXPORT
+AJ_Status AJ_IdentifyProperty(AJ_Message* msg, const char* iface, const char* prop, uint32_t* propId, const char** sig, uint8_t* secure);
+
+/**
  * @}
  */
 
 #endif
+

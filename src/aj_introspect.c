@@ -28,6 +28,8 @@
 #include "aj_introspect.h"
 #include "aj_std.h"
 #include "aj_msg.h"
+#include "aj_msg_priv.h"
+#include "aj_debug.h"
 #include "aj_util.h"
 #include "aj_debug.h"
 
@@ -500,6 +502,13 @@ static AJ_Status CheckSignature(const char* encoding, const AJ_Message* msg)
 {
     const char* sig = msg->signature ? msg->signature : "";
     char direction = (msg->hdr->msgType == AJ_MSG_METHOD_CALL) ? IN_ARG : OUT_ARG;
+
+    /*
+     * Wild card in the message is ok.
+     */
+    if (*sig == '*') {
+        return AJ_OK;
+    }
     while (*encoding) {
         /*
          * Skip until we find a direction character
@@ -550,7 +559,7 @@ static AJ_Status ComposeSignature(const char* encoding, char direction, char* si
     return AJ_OK;
 }
 
-static AJ_Status MatchProp(const char* member, const char* prop, uint8_t op, char* sig, size_t len)
+static AJ_Status MatchProp(const char* member, const char* prop, uint8_t op, const char** sig)
 {
     const char* encoding = member;
 
@@ -572,10 +581,8 @@ static AJ_Status MatchProp(const char* member, const char* prop, uint8_t op, cha
         AJ_ErrPrintf(("MatchProp(): AJ_ERR_DISALLOWED\n"));
         return AJ_ERR_DISALLOWED;
     }
-    /*
-     * Compose the signature from information in the member encoding.
-     */
-    return ComposeSignature(member, *encoding, sig, len);
+    *sig = ++encoding;
+    return AJ_OK;
 }
 
 static uint32_t MatchMember(const char* encoding, const AJ_Message* msg)
@@ -618,11 +625,16 @@ static AJ_InterfaceDescription FindInterface(const AJ_InterfaceDescription* inte
     return NULL;
 }
 
-static AJ_Status LookupMessageId(const AJ_Object* list, AJ_Message* msg, uint8_t* secure)
+AJ_Status AJ_LookupMessageId(AJ_Message* msg, uint8_t* secure)
 {
-    const AJ_Object* obj = list;
-    uint8_t pIndex = 0;
-    if (obj) {
+    uint8_t oIndex = 0;
+
+    for (oIndex = 0; oIndex < ArraySize(objectLists); ++oIndex) {
+        uint8_t pIndex = 0;
+        const AJ_Object* obj = objectLists[oIndex];
+        if (!obj) {
+            continue;
+        }
         while (obj->path) {
             /*
              * Match the object path. The wildcard entry is for interfaces that are automatically
@@ -633,17 +645,15 @@ static AJ_Status LookupMessageId(const AJ_Object* list, AJ_Message* msg, uint8_t
                 AJ_InterfaceDescription desc = FindInterface(obj->interfaces, msg->iface, &iIndex);
                 if (desc) {
                     uint8_t mIndex = 0;
-                    *secure = SecurityApplies(*desc, obj, list);
+                    *secure = SecurityApplies(*desc, obj, objectLists[oIndex]);
                     /*
                      * Skip the interface name and iterate over the members of the interface
                      */
                     while (*(++desc)) {
                         if (MatchMember(*desc, msg)) {
-                            AJ_Status status = CheckSignature(*desc, msg);
-                            if (status == AJ_OK) {
-                                msg->msgId = (pIndex << 16) | (iIndex << 8) | mIndex;
-                            }
-                            return status;
+                            msg->msgId = (oIndex << 24) | (pIndex << 16) | (iIndex << 8) | mIndex;
+                            AJ_InfoPrintf(("Identified message %x\n", msg->msgId));
+                            return CheckSignature(*desc, msg);
                         }
                         ++mIndex;
                     }
@@ -886,15 +896,14 @@ static ReplyContext* FindReplyContext(uint32_t serial) {
     return NULL;
 }
 
-AJ_Status AJ_UnmarshalPropertyArgs(AJ_Message* msg, uint32_t* propId, char* sig, size_t len)
+AJ_Status AJ_IdentifyProperty(AJ_Message* msg, const char* iface, const char* prop, uint32_t* propId, const char** sigPtr, uint8_t* secure)
 {
     AJ_Status status = AJ_ERR_NO_MATCH;
     uint8_t oIndex = (msg->msgId >> 24);
     uint8_t pIndex = (msg->msgId >> 16);
+    uint8_t iIndex;
     const AJ_Object* obj;
-    char* iface;
-    uint8_t secure = FALSE;
-    char* prop;
+    AJ_InterfaceDescription desc;
 
 #ifndef NDEBUG
     if ((oIndex > ArraySize(objectLists)) || !CheckIndex(objectLists[oIndex], pIndex, sizeof(AJ_Object))) {
@@ -906,39 +915,48 @@ AJ_Status AJ_UnmarshalPropertyArgs(AJ_Message* msg, uint32_t* propId, char* sig,
 
     *propId = AJ_INVALID_PROP_ID;
 
-    status = AJ_UnmarshalArgs(msg, "ss", &iface, &prop);
-    if (status == AJ_OK) {
-        uint8_t iIndex;
-        AJ_InterfaceDescription desc = FindInterface(obj->interfaces, iface, &iIndex);
-        if (desc) {
-            uint8_t mIndex = 0;
-            /*
-             * Security is based on the interface the property is defined on.
-             */
-            secure = SecurityApplies(*desc, obj, objectLists[oIndex]);
-            /*
-             * Iterate over the interface members to locate the property is being accessed.
-             */
-            while (*(++desc)) {
-                status = MatchProp(*desc, prop, msg->msgId & 0xFF, sig, len);
-                if (status != AJ_ERR_NO_MATCH) {
-                    if (status == AJ_OK) {
-                        *propId = (oIndex << 24) | (pIndex << 16) | (iIndex << 8) | mIndex;
-                        AJ_InfoPrintf(("Identified property %x sig \"%s\"\n", *propId, sig));
-                    }
-                    break;
+    desc = FindInterface(obj->interfaces, iface, &iIndex);
+    if (desc) {
+        uint8_t mIndex = 0;
+        /*
+         * Security is based on the interface the property is defined on.
+         */
+        *secure = SecurityApplies(*desc, obj, objectLists[oIndex]);
+        /*
+         * Iterate over the interface members to locate the property is being accessed.
+         */
+        while (*(++desc)) {
+            status = MatchProp(*desc, prop, msg->msgId & 0xFF, sigPtr);
+            if (status != AJ_ERR_NO_MATCH) {
+                if (status == AJ_OK) {
+                    *propId = (oIndex << 24) | (pIndex << 16) | (iIndex << 8) | mIndex;
+                    AJ_InfoPrintf(("Identified property %x sig \"%s\"\n", *propId, *sigPtr));
                 }
-                ++mIndex;
+                break;
             }
+            ++mIndex;
         }
     }
-    /*
-     * If the interface is secure check the message must be encrypted
-     */
-    if ((status == AJ_OK) && secure && !(msg->hdr->flags & AJ_FLAG_ENCRYPTED)) {
-        AJ_ErrPrintf(("AJ_UnmarshalPropertyArgs(): AJ_ERR_SECURITY\n"));
-        status = AJ_ERR_SECURITY;
-        AJ_WarnPrintf(("Security violation accessing property\n"));
+    return status;
+}
+
+AJ_Status AJ_UnmarshalPropertyArgs(AJ_Message* msg, uint32_t* propId, const char** sig)
+{
+    AJ_Status status;
+    uint8_t secure = FALSE;
+    char* iface;
+    char* prop;
+
+    status = AJ_UnmarshalArgs(msg, "ss", &iface, &prop);
+    if (status == AJ_OK) {
+        status = AJ_IdentifyProperty(msg, iface, prop, propId, sig, &secure);
+        /*
+         * If the interface is secure check the message must be encrypted
+         */
+        if ((status == AJ_OK) && secure && !(msg->hdr->flags & AJ_FLAG_ENCRYPTED)) {
+            status = AJ_ERR_SECURITY;
+            AJ_WarnPrintf(("Security violation accessing property\n"));
+        }
     }
     return status;
 }
@@ -954,19 +972,10 @@ AJ_Status AJ_IdentifyMessage(AJ_Message* msg)
 #endif
     msg->msgId = AJ_INVALID_MSG_ID;
     if ((msg->hdr->msgType == AJ_MSG_METHOD_CALL) || (msg->hdr->msgType == AJ_MSG_SIGNAL)) {
-        uint32_t oIndex;
         /*
          * Methods and signals
          */
-        for (oIndex = 0; oIndex < ArraySize(objectLists); ++oIndex) {
-            secure = FALSE;
-            status = LookupMessageId(objectLists[oIndex], msg, &secure);
-            if (status == AJ_OK) {
-                msg->msgId |= (oIndex << 24);
-                AJ_InfoPrintf(("AJ_IdentifyMessage(): Identified message %x\n", msg->msgId));
-                break;
-            }
-        }
+        status = AJ_LookupMessageId(msg, &secure);
         if ((status == AJ_OK) && secure && !(msg->hdr->flags & AJ_FLAG_ENCRYPTED)) {
             AJ_ErrPrintf(("AJ_IdentifyMessage(): AJ_ERR_SECURITY\n"));
             status = AJ_ERR_SECURITY;
@@ -977,6 +986,8 @@ AJ_Status AJ_IdentifyMessage(AJ_Message* msg)
          */
         if ((status != AJ_OK) && (msg->hdr->msgType == AJ_MSG_METHOD_CALL) && !(msg->hdr->flags & AJ_FLAG_NO_REPLY_EXPECTED)) {
             AJ_Message reply;
+
+            AJ_DumpMsg("Rejecting unidentified method call", msg, FALSE);
             AJ_MarshalStatusMsg(msg, &reply, status);
             status = AJ_DeliverMsg(&reply);
             /*

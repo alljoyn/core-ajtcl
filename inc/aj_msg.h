@@ -182,15 +182,17 @@ struct _AJ_Message {
 };
 
 /**
- * Unmarshals a message returning a message structure.
- *
+ * Unmarshals a message returning a message structure. Note that if a message is received but is not
+ * recognized this function will return an uninitialized msg with msgId == 0. The application must
+ * be prepared to handle this case.
  *
  * @param bus     The bus attachment
  * @param msg     Pointer to a structure to receive the unmarshalled message
  * @param timeout How long to wait for a message
  *
  * @return
- *          - AJ_OK if a message header was succesfully unmarshaled
+ *          - AJ_OK if a message header was succesfully unmarshaled. Note that the message may have
+ *            been consumed or rejected internally in which case the msgId will be zero.
  *          - AJ_ERR_UNMARSHAL if the message was badly formed
  *          - AJ_ERR_RESOURCES if the message header is too big to unmarshal into the attached buffer
  *          - AJ_ERR_TIMEOUT if there was no message to unmarshal within the timeout period

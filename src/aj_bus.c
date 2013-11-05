@@ -547,14 +547,14 @@ static AJ_Status PropAccess(AJ_Message* msg, PropCallback* cb, uint8_t op)
     AJ_Status status;
     AJ_Message reply;
     uint32_t propId;
-    char sig[16];
+    const char* sig;
 
     AJ_InfoPrintf(("PropAccess(msg=0x%p, cb=0x%p, op=%d.)\n", msg, cb, op));
 
     /*
      * Find out which property is being accessed and whether the access is a GET or SET
      */
-    status = AJ_UnmarshalPropertyArgs(msg, &propId, sig, sizeof(sig));
+    status = AJ_UnmarshalPropertyArgs(msg, &propId, &sig);
     if (status == AJ_OK) {
         AJ_MarshalReplyMsg(msg, &reply);
         /*
