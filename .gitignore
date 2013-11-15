@@ -20,6 +20,7 @@ cscope.out
 *.ilk
 *.dep
 *.creds
+*.a
 bin
 obj
 gen
@@ -30,3 +31,4 @@ build
 ajlite.nvram
 libajtcl.so
 ajtcl.dll
+whitespace.db
