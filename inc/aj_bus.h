@@ -302,6 +302,22 @@ AJ_Status AJ_BusSetSignalRule(AJ_BusAttachment* bus, const char* ruleString, uin
 AJ_EXPORT
 AJ_Status AJ_BusSetSignalRule2(AJ_BusAttachment* bus, const char* signalName, const char* interfaceName, uint8_t rule);
 
+/**
+ * Add a SIGNAL match rule. A rule must be added for every non-session signal that the application
+ * is interested in receiving.
+ *
+ * @param bus           The bus attachment
+ * @param ruleString    Match rule to be added/removed
+ * @param rule          Either AJ_BUS_SIGNAL_ALLOW or AJ_BUS_SIGNAL_DENY
+ * @param flags         Flags associated with the new rule
+ *
+ * @return  Return AJ_Status
+ *         - AJ_OK if the request was sent
+ *         - An error status otherwise
+ */
+AJ_EXPORT
+AJ_Status AJ_BusSetSignalRuleFlags(AJ_BusAttachment* bus, const char* ruleString, uint8_t rule, uint8_t flags);
+
 #define AJ_SETLINKTIMEOUT_SUCCESS          1   /**< SetLinkTimeout reply: Success */
 #define AJ_SETLINKTIMEOUT_NO_DEST_SUPPORT  2   /**< SetLinkTimeout reply: Destination endpoint does not support link monitoring */
 #define AJ_SETLINKTIMEOUT_NO_SESSION       3   /**< SetLinkTimeout reply: Session with given id does not exist */
