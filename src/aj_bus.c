@@ -387,6 +387,23 @@ static AJ_Status HandleGetMachineId(AJ_Message* msg, AJ_Message* reply)
     return AJ_MarshalArgs(reply, "s", guidStr);
 }
 
+AJ_Status AJ_BusRemoveSessionMember(AJ_BusAttachment* bus, uint32_t sessionId, const char* member)
+{
+    AJ_Status status;
+    AJ_Message msg;
+
+    AJ_InfoPrintf(("AJ_BusRemoveSessionMember(bus=0x%p, sessionId=%d, member=%s.)\n", bus, sessionId, member));
+    status = AJ_MarshalMethodCall(bus, &msg, AJ_METHOD_REMOVE_SESSION_MEMBER, AJ_BusDestination, 0, 0, TIMEOUT);
+    if (status == AJ_OK) {
+        AJ_MarshalArgs(&msg, "us", sessionId, member);
+    }
+    if (status == AJ_OK) {
+        status = AJ_DeliverMsg(&msg);
+    }
+    return status;
+
+}
+
 AJ_Status AJ_BusHandleBusMessage(AJ_Message* msg)
 {
     AJ_Status status = AJ_OK;

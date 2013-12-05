@@ -339,7 +339,19 @@ AJ_Status AJ_BusSetSignalRuleFlags(AJ_BusAttachment* bus, const char* ruleString
  */
 AJ_EXPORT
 AJ_Status AJ_BusSetLinkTimeout(AJ_BusAttachment* bus, uint32_t sessionId, uint32_t linkTimeout);
-
+/*
+ * Use to remove a member from the session
+ *
+ * @param bus           The bus attachment your on
+ * @param sessionId     The session ID for the session your removing the member from
+ * @param member        The unique ID of the member you wish to remove from the session
+ *
+ * @return  Return AJ_Status
+ *          - AJ_OK if the member was removed successfully
+ *          - An error if not removed
+ */
+AJ_EXPORT
+AJ_Status AJ_BusRemoveSessionMember(AJ_BusAttachment* bus, uint32_t sessionId, const char* member);
 /**
  * Invoke a built-in handler for standard bus messages. Signals passed to this function that are
  * not bus messages are silently ignored. Method calls passed to this function that are not
