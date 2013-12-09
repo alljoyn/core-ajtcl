@@ -1,0 +1,3 @@
+# Run the 3D airplane client as
+
+java -Djava.library.path=. -jar ecompass.jar

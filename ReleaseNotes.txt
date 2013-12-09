@@ -1,0 +1,44 @@
+AllSeen Alliance version number 3.4.5 is the same Release described in this file.
+
+-----------------------------------------------
+AllJoyn Thin Client Version 3.4.1 Release Notes
+-----------------------------------------------
+
+Platform Support
+----------------
+1) Linux Ubuntu (32 and 64 bit x86)
+2) Windows XP (32 bit x86)
+3) Windows 7 (32 and 64 bit x86)
+4) Windows 8 (32 and 64 bit x86)
+5) Arduino 
+
+
+Features added in Version 3.4.1
+-------------------------------
+None
+
+Issues Addressed in Version 3.4.1
+---------------------------------
+
+ALLJOYN-2473: Wait 3 seconds for reply to NameOwnerChanged ADD_MATCH.
+
+ALLJOYN-2213: Provide a new API to allow message args and struct and array elements to be skipped rather than unmarshaled.
+
+ALLJOYN-2472: do nothing in response to RemoveNatch method.
+
+ALLJOYN-2422: removed redundant call to AJ_SetSIgnalRule2.
+
+ALLJOYN-2456: fixed a bug in the random number in EncryptRounds; parameters were reversed.
+
+ALLJOYN-2422: removed redundant NameOwnerChanged registration.
+
+Compatibility
+-------------
+
+No known issues.
+
+Change history
+--------------
+
+3.4.1 - Bug fixes.
+3.4.0 - Support for Object Level Security.
