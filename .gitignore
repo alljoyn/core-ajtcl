@@ -16,6 +16,7 @@ cscope.out
 *.exe
 *.sln
 *.o
+*.os
 *.ilk
 *.dep
 *.creds
@@ -26,4 +27,6 @@ libs
 html
 latex
 build
-
+ajlite.nvram
+libajtcl.so
+ajtcl.dll

@@ -76,6 +76,7 @@ const char* AJ_GetUniqueName(AJ_BusAttachment* bus);
  *         - AJ_OK if the request was sent
  *         - An error status otherwise
  */
+AJ_EXPORT
 AJ_Status AJ_BusRequestName(AJ_BusAttachment* bus, const char* name, uint32_t flags);
 
 #define AJ_TRANSPORT_NONE      0x0000    /**< no transports */
@@ -98,6 +99,7 @@ AJ_Status AJ_BusRequestName(AJ_BusAttachment* bus, const char* name, uint32_t fl
  *         - AJ_OK if the request was sent
  *         - An error status otherwise
  */
+AJ_EXPORT
 AJ_Status AJ_BusReleaseName(AJ_BusAttachment* bus, const char* name);
 
 #define AJ_BUS_START_ADVERTISING 0      /**< start advertising */
@@ -115,6 +117,7 @@ AJ_Status AJ_BusReleaseName(AJ_BusAttachment* bus, const char* name);
  *         - AJ_OK if the request was sent
  *         - An error status otherwise
  */
+AJ_EXPORT
 AJ_Status AJ_BusAdvertiseName(AJ_BusAttachment* bus, const char* name, uint16_t transportMask, uint8_t op);
 
 #define AJ_BUS_START_FINDING 0       /**< Start finding advertised name */
@@ -136,6 +139,7 @@ AJ_Status AJ_BusAdvertiseName(AJ_BusAttachment* bus, const char* name, uint16_t 
  *         - AJ_OK if the request was sent
  *         - An error status otherwise
  */
+AJ_EXPORT
 AJ_Status AJ_BusFindAdvertisedName(AJ_BusAttachment* bus, const char* namePrefix, uint8_t op);
 
 /**
@@ -151,6 +155,7 @@ AJ_Status AJ_BusFindAdvertisedName(AJ_BusAttachment* bus, const char* namePrefix
  *         - AJ_OK if the request was sent
  *         - An error status otherwise
  */
+AJ_EXPORT
 AJ_Status AJ_BusFindAdvertisedNameByTransport(AJ_BusAttachment* bus, const char* namePrefix, uint16_t transport, uint8_t op);
 
 #define AJ_SESSION_PROXIMITY_ANY          0xFF   /**< No proximity restrictions */
@@ -185,6 +190,7 @@ typedef struct _AJ_SessionOpts {
  *         - AJ_OK if the request was sent
  *         - An error status otherwise
  */
+AJ_EXPORT
 AJ_Status AJ_BusBindSessionPort(AJ_BusAttachment* bus, uint16_t port, const AJ_SessionOpts* opts);
 
 /**
@@ -197,6 +203,7 @@ AJ_Status AJ_BusBindSessionPort(AJ_BusAttachment* bus, uint16_t port, const AJ_S
  *         - AJ_OK if the request was sent
  *         - An error status otherwise
  */
+AJ_EXPORT
 AJ_Status AJ_BusUnbindSession(AJ_BusAttachment* bus, uint16_t port);
 
 /**
@@ -209,6 +216,7 @@ AJ_Status AJ_BusUnbindSession(AJ_BusAttachment* bus, uint16_t port);
  *         - AJ_OK if the request was sent
  *         - An error status otherwise
  */
+AJ_EXPORT
 AJ_Status AJ_BusCancelSessionless(AJ_BusAttachment* bus, uint32_t serialNum);
 
 /**
@@ -229,6 +237,7 @@ AJ_Status AJ_BusCancelSessionless(AJ_BusAttachment* bus, uint32_t serialNum);
  *          - AJ_OK if the message was succesfully delivered
  *          - AJ_ERR_MARSHAL if the message arguments were incompletely marshaled
  */
+AJ_EXPORT
 AJ_Status AJ_BusReplyAcceptSession(AJ_Message* msg, uint32_t accept);
 
 /**
@@ -243,6 +252,7 @@ AJ_Status AJ_BusReplyAcceptSession(AJ_Message* msg, uint32_t accept);
  *         - AJ_OK if the request was sent
  *         - An error status otherwise
  */
+AJ_EXPORT
 AJ_Status AJ_BusJoinSession(AJ_BusAttachment* bus, const char* sessionHost, uint16_t port, const AJ_SessionOpts* opts);
 
 /**
@@ -255,6 +265,7 @@ AJ_Status AJ_BusJoinSession(AJ_BusAttachment* bus, const char* sessionHost, uint
  *         - AJ_OK if the request was sent
  *         - An error status otherwise
  */
+AJ_EXPORT
 AJ_Status AJ_BusLeaveSession(AJ_BusAttachment* bus, uint32_t sessionId);
 
 #define AJ_BUS_SIGNAL_ALLOW  0     /**< Allow signals */
@@ -272,6 +283,7 @@ AJ_Status AJ_BusLeaveSession(AJ_BusAttachment* bus, uint32_t sessionId);
  *         - AJ_OK if the request was sent
  *         - An error status otherwise
  */
+AJ_EXPORT
 AJ_Status AJ_BusSetSignalRule(AJ_BusAttachment* bus, const char* ruleString, uint8_t rule);
 
 /**
@@ -287,6 +299,7 @@ AJ_Status AJ_BusSetSignalRule(AJ_BusAttachment* bus, const char* ruleString, uin
  *         - AJ_OK if the request was sent
  *         - An error status otherwise
  */
+AJ_EXPORT
 AJ_Status AJ_BusSetSignalRule2(AJ_BusAttachment* bus, const char* signalName, const char* interfaceName, uint8_t rule);
 
 #define AJ_SETLINKTIMEOUT_SUCCESS          1   /**< SetLinkTimeout reply: Success */
@@ -308,6 +321,7 @@ AJ_Status AJ_BusSetSignalRule2(AJ_BusAttachment* bus, const char* signalName, co
  *         - AJ_OK if the link timwout request was sent
  *         - An error status otherwise
  */
+AJ_EXPORT
 AJ_Status AJ_BusSetLinkTimeout(AJ_BusAttachment* bus, uint32_t sessionId, uint32_t linkTimeout);
 
 /**
@@ -330,6 +344,7 @@ AJ_Status AJ_BusSetLinkTimeout(AJ_BusAttachment* bus, uint32_t sessionId, uint32
  * @return  Return AJ_Status
  *         - AJ_OK if the message was handled or ingored
  */
+AJ_EXPORT
 AJ_Status AJ_BusHandleBusMessage(AJ_Message* msg);
 
 /**
@@ -390,6 +405,7 @@ typedef AJ_Status (*AJ_BusPropGetCallback)(AJ_Message* replyMsg, uint32_t propId
  *
  * @return  Return AJ_Status
  */
+AJ_EXPORT
 AJ_Status AJ_BusPropGet(AJ_Message* msg, AJ_BusPropGetCallback callback, void* context);
 
 /**
@@ -416,6 +432,7 @@ typedef AJ_Status (*AJ_BusPropSetCallback)(AJ_Message* replyMsg, uint32_t propId
  *
  * @return  Return AJ_Status
  */
+AJ_EXPORT
 AJ_Status AJ_BusPropSet(AJ_Message* msg, AJ_BusPropSetCallback callback, void* context);
 
 /**

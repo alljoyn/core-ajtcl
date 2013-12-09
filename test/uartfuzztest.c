@@ -34,6 +34,7 @@ static uint8_t* rxBuffer;
  */
 void HardFault_Handler(void)
 {
+    assert(0);
     while (1) ;
 }
 
@@ -53,9 +54,10 @@ void HardFault_Handler(void)
 #pragma pack(1)
 typedef struct __packetStart {
     uint8_t boundary;
-    uint8_t seq : 4;
     uint8_t ack : 4;
-    uint8_t type;
+    uint8_t seq : 4;
+    uint8_t type : 4;
+    uint8_t : 4;
     uint8_t len[2];
 } PacketStart;
 
@@ -142,7 +144,7 @@ void FuzzBuffer(uint8_t* buf, uint32_t len)
         /*
          * change the ack number
          */
-        ps->seq = rand() % 16;
+        ps->ack = rand() % 16;
         break;
 
     case 5:
@@ -158,6 +160,7 @@ void FuzzBuffer(uint8_t* buf, uint32_t len)
          */
         ps->len[0] = rand() % 256;
         ps->len[1] = rand() % 256;
+        packetLen = (ps->len[0] << 8) | ps->len[1];
         break;
 
     case 7:
@@ -194,66 +197,67 @@ int AJ_Main()
 {
     AJ_Status status;
 
-    int windows = 1 << (rand() % 3); // randomize window width 1,2,4
-    int blocksize = 50 + (rand() % 1000); // randomize packet size 50 - 1050
-    AJ_Printf("Windows:%i Blocksize:%i\n", windows, blocksize);
-    txBuffer = (uint8_t*) AJ_Malloc(blocksize);
-    rxBuffer = (uint8_t*) AJ_Malloc(blocksize);
-    memset(txBuffer, 0x41,  blocksize);
-    memset(rxBuffer, 'r', blocksize);
+    while (1) {
+        int windows = 1 << (rand() % 3); // randomize window width 1,2,4
+        int blocksize = 50 + (rand() % 1000); // randomize packet size 50 - 1050
+        AJ_Printf("Windows:%i Blocksize:%i\n", windows, blocksize);
+        txBuffer = (uint8_t*) AJ_Malloc(blocksize);
+        rxBuffer = (uint8_t*) AJ_Malloc(blocksize);
+        memset(txBuffer, 0x41,  blocksize);
+        memset(rxBuffer, 'r', blocksize);
 
 #ifdef READTEST
-    status = AJ_SerialInit("/dev/ttyUSB0", BITRATE, windows, blocksize);
+        status = AJ_SerialInit("/dev/ttyUSB0", BITRATE, windows, blocksize);
 #else
-    status = AJ_SerialInit("/dev/ttyUSB1", BITRATE, windows, blocksize);
+        status = AJ_SerialInit("/dev/ttyUSB1", BITRATE, windows, blocksize);
 #endif
 
-    AJ_Printf("serial init was %u\n", status);
-
-    // Change the buffer transmission function to one that fuzzes the output.
-    AJ_SetTxSerialTransmit(&FuzzBuffer);
-
-
-
-#ifdef READTEST
-    AJ_Sleep(2000); // wait for the writing side to be running, this should test the queuing of data.
-    // try to read everything at once
-    int i = 0;
-
-    //for ( ; i < 10000; ++i) {
-    while (1) {
-        AJ_SerialRecv(rxBuffer, blocksize, 50000, NULL);
-    }
-
-
-    AJ_DumpBytes("Post serial recv", rxBuffer, blocksize);
-    AJ_Sleep(500);
-#else
-    AJ_Sleep(5000);
-    int i = 0;
-
-
-    while (1) {
-        // change the packet to be sent every time through the loop.
-        memset(txBuffer, 0x41 + (i % 26), blocksize);
-        memset(rxBuffer, 0x41 + (i % 26), blocksize);
-        AJ_SerialSend(txBuffer, blocksize);
-        ++i;
-        if (i % 500 == 0) {
-            AJ_Printf("Hit iteration %d\n", i);
+        AJ_Printf("serial init was %u\n", status);
+        if (status != AJ_OK) {
+            continue; // init failed perhaps from bad parameters, start the loop again
         }
-        AJ_SerialRecv(rxBuffer, blocksize, 50000, NULL);
-    }
 
-    AJ_Printf("post serial send\n");
+        // Change the buffer transmission function to one that fuzzes the output.
+        AJ_SetTxSerialTransmit(&FuzzBuffer);
+
+#ifdef READTEST
+        AJ_Sleep(2000); // wait for the writing side to be running, this should test the queuing of data.
+        // try to read everything at once
+        int i = 0;
+
+        while (1) {
+            AJ_SerialRecv(rxBuffer, blocksize, 50000, NULL);
+        }
+
+
+        AJ_DumpBytes("Post serial recv", rxBuffer, blocksize);
+        AJ_Sleep(500);
+#else
+        AJ_Sleep(5000);
+        int i = 0;
+
+
+        while (1) {
+            // change the packet to be sent every time through the loop.
+            memset(txBuffer, 0x41 + (i % 26), blocksize);
+            memset(rxBuffer, 0x41 + (i % 26), blocksize);
+            AJ_SerialSend(txBuffer, blocksize);
+            ++i;
+            if (i % 20 == 0) {
+                AJ_Printf("Hit iteration %d\n", i);
+                break;
+            }
+            AJ_SerialRecv(rxBuffer, blocksize, 5000, NULL);
+        }
+
+        AJ_Printf("post serial send\n");
 #endif
 
-
-    while (1) {
-        AJ_StateMachine();
+        // clean up and start again
+        AJ_SerialShutdown();
+        AJ_Free(txBuffer);
+        AJ_Free(rxBuffer);
     }
-
-
     return(0);
 }
 

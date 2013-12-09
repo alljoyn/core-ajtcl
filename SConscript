@@ -26,14 +26,19 @@ elif platform.system() == 'Windows':
 vars = Variables()
 
 # Common build variables
-vars.Add(EnumVariable('TARG', 'Target platform variant', default_target, allowed_values=('win32', 'linux', 'arduino', 'linux-uart')))
+vars.Add(EnumVariable('TARG', 'Target platform variant', default_target, allowed_values=('win32', 'linux', 'arduino')))
 vars.Add(EnumVariable('VARIANT', 'Build variant', 'debug', allowed_values=('debug', 'release')))
-vars.Add(PathVariable('ALLJOYN_DIR', 'The path to the AllJoyn repositories', os.environ.get('ALLJOYN_DIR'), PathVariable.PathIsDir))
 vars.Add(PathVariable('GTEST_DIR', 'The path to googletest sources', os.environ.get('GTEST_DIR'), PathVariable.PathIsDir))
-vars.Add(EnumVariable('MSVC_VERSION', 'MSVC compiler version - Windows', '10.0', allowed_values=('8.0', '9.0', '10.0', '11.0', '11.0Exp')))
 vars.Add(EnumVariable('WS', 'Whitespace Policy Checker', 'check', allowed_values=('check', 'detail', 'fix', 'off')))
 
-env = Environment(variables = vars, MSVC_VERSION='${MSVC_VERSION}')
+if default_msvc_version:
+    vars.Add(EnumVariable('MSVC_VERSION', 'MSVC compiler version - Windows', default_msvc_version, allowed_values=('8.0', '9.0', '10.0', '11.0', '11.0Exp')))
+
+if ARGUMENTS.get('TARG', default_target) == 'win32':
+    msvc_version = ARGUMENTS.get('MSVC_VERSION')
+    env = Environment(variables = vars, MSVC_VERSION=msvc_version, TARGET_ARCH='x86')
+else:
+    env = Environment(variables = vars)
 Help(vars.GenerateHelpText(env))
 
 # Define compile/link options only for win32/linux.
@@ -52,7 +57,7 @@ if env['TARG'] == 'win32':
         env.Append(LINKFLAGS=['/opt:ref'])
         env.Append(LFLAGS=['/NODEFAULTLIB:libcmt.lib'])
         env.Append(LINKFLAGS=['/NODEFAULTLIB:libcmt.lib'])
-elif env['TARG'] in [ 'linux', 'linux-uart' ]:
+elif env['TARG'] in [ 'linux' ]:
     if os.environ.has_key('CROSS_PREFIX'):
         env.Replace(CC = os.environ['CROSS_PREFIX'] + 'gcc')
         env.Replace(CXX = os.environ['CROSS_PREFIX'] + 'g++')
@@ -62,8 +67,13 @@ elif env['TARG'] in [ 'linux', 'linux-uart' ]:
     if os.environ.has_key('CROSS_PATH'):
         env['ENV']['PATH'] = ':'.join([ os.environ['CROSS_PATH'], env['ENV']['PATH'] ] )
 
+    if os.environ.has_key('CROSS_CFLAGS'):
+        env.Append(CFLAGS=os.environ['CROSS_CFLAGS'].split())
+
+    if os.environ.has_key('CROSS_LINKFLAGS'):
+        env.Append(LINKFLAGS=os.environ['CROSS_LINKFLAGS'].split())
+
     env['libs'] = ['rt', 'crypto', 'pthread']
-    env.Append(LINKFLAGS=[''])
     env.Append(CFLAGS=['-Wall',
                        '-pipe',
                        '-static',
@@ -77,16 +87,6 @@ elif env['TARG'] in [ 'linux', 'linux-uart' ]:
         env.Append(CPPDEFINES=['NDEBUG'])
         env.Append(CFLAGS='-Os')
         env.Append(LINKFLAGS='-s')
-
-if env['TARG'] in [ 'linux-uart' ]:
-    env.Append(CPPDEFINES = ['AJ_SERIAL_CONNECTION'])
-#    env.Append(CPPDEFINES = ['AJ_DEBUG_PACKET_LISTS'])
-    env.Append(CPPDEFINES = ['AJ_DEBUG_SERIAL_RECV', 'AJ_DEBUG_SERIAL_TARGET'])
-
-if env['TARG'] in [ 'linux-uart' ]:
-    env.Append(CPPDEFINES = ['AJ_SERIAL_CONNECTION'])
-#    env.Append(CPPDEFINES = ['AJ_DEBUG_PACKET_LISTS'])
-
 
 # Include paths
 env['includes'] = [ os.getcwd() + '/inc', os.getcwd() + '/target/${TARG}']
@@ -102,7 +102,7 @@ env['aj_sw_crypto'] = [Glob('crypto/*.c')]
 env['aj_malloc'] = [Glob('malloc/*.c')]
 
 # Set-up the environment for Win/Linux
-if env['TARG'] in [ 'win32', 'linux', 'linux-uart' ]:
+if env['TARG'] in [ 'win32', 'linux' ]:
     # To compile, sources need access to include files
     env.Append(CPPPATH = [env['includes']])
 
@@ -112,26 +112,30 @@ if env['TARG'] in [ 'win32', 'linux', 'linux-uart' ]:
     # Win/Linux programs need their own 'main' function
     env.Append(CPPDEFINES = ['AJ_MAIN'])
 
+    # Produce shared libraries for these platforms
+    srcs = env['aj_srcs'] + env['aj_targ_srcs']
+    if env['TARG'] == 'win32':
+        srcs += env['aj_sw_crypto'] + env['aj_malloc']
+
+    env.SharedLibrary('ajtcl', srcs)
 
 # Build objects for the target-specific sources and AllJoyn Thin Client sources
 if env['TARG'] == 'win32':
     env['aj_obj'] = env.Object(env['aj_srcs'] + env['aj_targ_srcs'] + env['aj_sw_crypto'] + env['aj_malloc'])
-else:
-    if env['TARG'] in [ 'linux', 'linux-uart' ]:
-        env['aj_obj'] = env.Object(env['aj_srcs'] + env['aj_targ_srcs'])
+elif env['TARG'] in [ 'linux' ]:
+    env['aj_obj'] = env.StaticObject(env['aj_srcs'] + env['aj_targ_srcs'])
+    env['aj_shobj'] = env.SharedObject(env['aj_srcs'] + env['aj_targ_srcs'])
+    env.StaticLibrary('ajtcl', env['aj_obj'])
+    env.SharedLibrary('ajtcl', env['aj_shobj'])
 
 Export('env')
 
 if env['WS'] != 'off' and not env.GetOption('clean') and not env.GetOption('help'):
-    if not env.has_key('ALLJOYN_DIR'):
-       print "ALLJOYN_DIR not set (it is needed when WS option is enabled)"
-       Exit()
-
     # Set the location of the uncrustify config file
     env['uncrustify_cfg'] = os.getcwd() + '/ajuncrustify.cfg'
 
     import sys
-    bin_dir = env['ALLJOYN_DIR'] + '/build_core/tools/bin'
+    bin_dir = os.getcwd() + '/tools'
     sys.path.append(bin_dir)
     import whitespace
 

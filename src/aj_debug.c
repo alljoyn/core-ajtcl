@@ -33,7 +33,7 @@
 
 #define CHUNKING 16
 
-void AJ_DumpBytes(const char* tag, const uint8_t* data, uint32_t len)
+void _AJ_DumpBytes(const char* tag, const uint8_t* data, uint32_t len)
 {
     uint32_t i;
     char ascii[CHUNKING + 1];
@@ -65,7 +65,7 @@ void AJ_DumpBytes(const char* tag, const uint8_t* data, uint32_t len)
 
 static const char* const msgType[] = { "INVALID", "CALL", "REPLY", "ERROR", "SIGNAL" };
 
-void AJ_DumpMsg(const char* tag, AJ_Message* msg, uint8_t body)
+void _AJ_DumpMsg(const char* tag, AJ_Message* msg, uint8_t body)
 {
     if (msg->hdr && _AJ_DbgHeader(AJ_DEBUG_ERROR, NULL, 0)) {
 #if DUMP_MSG_RAW
@@ -98,8 +98,6 @@ void AJ_DumpMsg(const char* tag, AJ_Message* msg, uint8_t body)
     }
 }
 
-AJ_DebugLevel AJ_DbgLevel = AJ_DEBUG_INFO;
-
 int _AJ_DbgHeader(AJ_DebugLevel level, const char* file, int line)
 {
     static AJ_Time t;
@@ -118,7 +116,7 @@ int _AJ_DbgHeader(AJ_DebugLevel level, const char* file, int line)
                 }
                 ++fn;
             }
-            AJ_Printf("%03d.%03d %s@%d ", msec / 1000, msec % 1000, file, line);
+            AJ_Printf("%03d.%03d %s:%d ", msec / 1000, msec % 1000, file, line);
         } else {
             AJ_Printf("%03d.%03d ", msec / 1000, msec % 1000);
         }
@@ -127,6 +125,10 @@ int _AJ_DbgHeader(AJ_DebugLevel level, const char* file, int line)
         return FALSE;
     }
 }
+
+
+AJ_DebugLevel AJ_DbgLevel = AJ_DEBUG_INFO;
+uint8_t dbgALL = 0;
 
 #endif
 
@@ -176,6 +178,5 @@ const char* AJ_StatusText(AJ_Status status)
     default:
         return "<unknown>";
     }
-
 #endif
 }

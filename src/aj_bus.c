@@ -17,7 +17,14 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
+/**
+ * Per-module definition of the current module for debug logging.  Must be defined
+ * prior to first inclusion of aj_debug.h
+ */
+#define AJ_MODULE BUS
+
 #include "aj_target.h"
+#include "aj_debug.h"
 #include "aj_msg.h"
 #include "aj_bufio.h"
 #include "aj_bus.h"
@@ -27,6 +34,13 @@
 #include "aj_introspect.h"
 #include "aj_peer.h"
 
+/**
+ * Turn on per-module debug printing by setting this variable to non-zero value
+ * (usually in debugger).
+ */
+#ifndef NDEBUG
+uint8_t dbgBUS = 0;
+#endif
 
 /**
  * Timeout for the method calls in this module
@@ -43,6 +57,9 @@ AJ_Status AJ_BusRequestName(AJ_BusAttachment* bus, const char* name, uint32_t fl
     AJ_Status status;
     AJ_Message msg;
 
+    AJ_InfoPrintf(("AJ_BusRequestName(bus=0x%p, name=\"%s\", flags=0x%x)\n", bus, name, flags));
+
+
     status = AJ_MarshalMethodCall(bus, &msg, AJ_METHOD_REQUEST_NAME, AJ_BusDestination, 0, 0, TIMEOUT);
     if (status == AJ_OK) {
         status = AJ_MarshalArgs(&msg, "su", name, flags);
@@ -57,6 +74,8 @@ AJ_Status AJ_BusReleaseName(AJ_BusAttachment* bus, const char* name)
 {
     AJ_Status status;
     AJ_Message msg;
+
+    AJ_InfoPrintf(("AJ_BusReleaseName(bus=0x%p, name=\"%s\")\n", bus, name));
 
     status = AJ_MarshalMethodCall(bus, &msg, AJ_METHOD_RELEASE_NAME, AJ_BusDestination, 0, 0, TIMEOUT);
     if (status == AJ_OK) {
@@ -74,6 +93,8 @@ AJ_Status AJ_BusAdvertiseName(AJ_BusAttachment* bus, const char* name, uint16_t 
     AJ_Message msg;
     uint32_t msgId = (op == AJ_BUS_START_ADVERTISING) ? AJ_METHOD_ADVERTISE_NAME : AJ_METHOD_CANCEL_ADVERTISE;
 
+    AJ_InfoPrintf(("AJ_BusAdvertiseName(bus=0x%p, name=\"%s\", transportMask=0x%x, op=%d.)\n", bus, name, transportMask, op));
+
     status = AJ_MarshalMethodCall(bus, &msg, msgId, AJ_BusDestination, 0, 0, TIMEOUT);
     if (status == AJ_OK) {
         status = AJ_MarshalArgs(&msg, "sq", name, transportMask);
@@ -90,6 +111,8 @@ AJ_Status AJ_BusFindAdvertisedName(AJ_BusAttachment* bus, const char* namePrefix
     AJ_Message msg;
     uint32_t msgId = (op == AJ_BUS_START_FINDING) ? AJ_METHOD_FIND_NAME : AJ_METHOD_CANCEL_FIND_NAME;
 
+    AJ_InfoPrintf(("AJ_BusFindAdvertiseName(bus=0x%p, namePrefix=\"%s\", op=%d.)\n", bus, namePrefix, op));
+
     status = AJ_MarshalMethodCall(bus, &msg, msgId, AJ_BusDestination, 0, 0, TIMEOUT);
     if (status == AJ_OK) {
         status = AJ_MarshalArgs(&msg, "s", namePrefix);
@@ -100,31 +123,22 @@ AJ_Status AJ_BusFindAdvertisedName(AJ_BusAttachment* bus, const char* namePrefix
     return status;
 }
 
-AJ_Status AJ_BusFindAdvertisedNameByTransport(AJ_BusAttachment* bus, const char* namePrefix, uint16_t transpsort, uint8_t op)
+AJ_Status AJ_BusFindAdvertisedNameByTransport(AJ_BusAttachment* bus, const char* namePrefix, uint16_t transport, uint8_t op)
 {
     AJ_Status status;
     AJ_Message msg;
     uint32_t msgId = (op == AJ_BUS_START_FINDING) ? AJ_METHOD_FIND_NAME_BY_TRANSPORT : AJ_METHOD_CANCEL_FIND_NAME_BY_TRANSPORT;
 
+    AJ_InfoPrintf(("AJ_BusFindAdvertiseNameByTransport(bus=0x%p, namePrefix=\"%s\", transport=%d., op=%d.)\n", bus, namePrefix, transport, op));
+
     status = AJ_MarshalMethodCall(bus, &msg, msgId, AJ_BusDestination, 0, 0, TIMEOUT);
     if (status == AJ_OK) {
-        status = AJ_MarshalArgs(&msg, "sq", namePrefix, transpsort);
+        status = AJ_MarshalArgs(&msg, "sq", namePrefix, transport);
     }
     if (status == AJ_OK) {
         status = AJ_DeliverMsg(&msg);
     }
     return status;
-}
-
-static void MarshalDictEntry(AJ_Message* msg, AJ_Arg* dictionary, const char* key, const char* valSig, uint32_t val)
-{
-    AJ_Arg entry;
-
-    AJ_MarshalContainer(msg, &entry, AJ_ARG_DICT_ENTRY);
-    AJ_MarshalArgs(msg, "s", key);
-    AJ_MarshalVariant(msg, valSig);
-    AJ_MarshalArgs(msg, valSig, val);
-    AJ_MarshalCloseContainer(msg, &entry);
 }
 
 static AJ_Status MarshalSessionOpts(AJ_Message* msg, const AJ_SessionOpts* opts)
@@ -133,10 +147,10 @@ static AJ_Status MarshalSessionOpts(AJ_Message* msg, const AJ_SessionOpts* opts)
 
     AJ_MarshalContainer(msg, &dictionary, AJ_ARG_ARRAY);
 
-    MarshalDictEntry(msg, &dictionary, "traf",  "y", opts->traffic);
-    MarshalDictEntry(msg, &dictionary, "multi", "b", opts->isMultipoint);
-    MarshalDictEntry(msg, &dictionary, "prox",  "y", opts->proximity);
-    MarshalDictEntry(msg, &dictionary, "trans", "q", opts->transports);
+    AJ_MarshalArgs(msg, "{sv}", "traf",  "y", opts->traffic);
+    AJ_MarshalArgs(msg, "{sv}", "multi", "b", opts->isMultipoint);
+    AJ_MarshalArgs(msg, "{sv}", "prox",  "y", opts->proximity);
+    AJ_MarshalArgs(msg, "{sv}", "trans", "q", opts->transports);
 
     AJ_MarshalCloseContainer(msg, &dictionary);
 
@@ -158,6 +172,8 @@ AJ_Status AJ_BusBindSessionPort(AJ_BusAttachment* bus, uint16_t port, const AJ_S
     AJ_Status status;
     AJ_Message msg;
 
+    AJ_InfoPrintf(("AJ_BusBindSessionPort(bus=0x%p, port=%d., opts=0x%p)\n", bus, port, opts));
+
     if (!opts) {
         opts = &defaultSessionOpts;
     }
@@ -177,6 +193,8 @@ AJ_Status AJ_BusUnbindSession(AJ_BusAttachment* bus, uint16_t port)
     AJ_Status status;
     AJ_Message msg;
 
+    AJ_InfoPrintf(("AJ_BusUnbindSession(bus=0x%p, port=%d.)\n", bus, port));
+
     status = AJ_MarshalMethodCall(bus, &msg, AJ_METHOD_UNBIND_SESSION, AJ_BusDestination, 0, 0, TIMEOUT);
     if (status == AJ_OK) {
         AJ_MarshalArgs(&msg, "q", port);
@@ -192,6 +210,8 @@ AJ_Status AJ_BusCancelSessionless(AJ_BusAttachment* bus, uint32_t serialNum)
     AJ_Status status;
     AJ_Message msg;
 
+    AJ_InfoPrintf(("AJ_BusCancelSessionless(bus=0x%p, serialNum=%d.)\n", bus, serialNum));
+
     status = AJ_MarshalMethodCall(bus, &msg, AJ_METHOD_CANCEL_SESSIONLESS, AJ_BusDestination, 0, 0, TIMEOUT);
     if (status == AJ_OK) {
         AJ_MarshalArgs(&msg, "u", serialNum);
@@ -206,6 +226,8 @@ AJ_Status AJ_BusJoinSession(AJ_BusAttachment* bus, const char* sessionHost, uint
 {
     AJ_Status status;
     AJ_Message msg;
+
+    AJ_InfoPrintf(("AJ_BusJoinSession(bus=0x%p, sessionHost=\"%s\", port=%d., opts=0x%p)\n", bus, sessionHost, port, opts));
 
     if (!opts) {
         opts = &defaultSessionOpts;
@@ -229,6 +251,8 @@ AJ_Status AJ_BusLeaveSession(AJ_BusAttachment* bus, uint32_t sessionId)
     AJ_Status status;
     AJ_Message msg;
 
+    AJ_InfoPrintf(("AJ_BusLeaveSession(bus=0x%p, sessionId=%d.)\n", bus, sessionId));
+
     status = AJ_MarshalMethodCall(bus, &msg, AJ_METHOD_LEAVE_SESSION, AJ_BusDestination, 0, 0, TIMEOUT);
     if (status == AJ_OK) {
         status = AJ_MarshalArgs(&msg, "u", sessionId);
@@ -244,6 +268,8 @@ AJ_Status AJ_BusSetLinkTimeout(AJ_BusAttachment* bus, uint32_t sessionId, uint32
     AJ_Status status;
     AJ_Message msg;
 
+    AJ_InfoPrintf(("AJ_BusSetLinkTimeout(bus=0x%p, sessionId=%d., linkTimeout=%d.)\n", bus, sessionId, linkTimeout));
+
     status = AJ_MarshalMethodCall(bus, &msg, AJ_METHOD_SET_LINK_TIMEOUT, AJ_BusDestination, 0, 0, TIMEOUT);
     if (status == AJ_OK) {
         (void)AJ_MarshalArgs(&msg, "u", sessionId);
@@ -258,6 +284,8 @@ AJ_Status AJ_BusSetSignalRule(AJ_BusAttachment* bus, const char* ruleString, uin
     AJ_Status status;
     AJ_Message msg;
     uint32_t msgId = (rule == AJ_BUS_SIGNAL_ALLOW) ? AJ_METHOD_ADD_MATCH : AJ_METHOD_REMOVE_MATCH;
+
+    AJ_InfoPrintf(("AJ_BusSetSignalRule(bus=0x%p, ruleString=\"%s\", rule=%d.)\n", bus, ruleString, rule));
 
     status = AJ_MarshalMethodCall(bus, &msg, msgId, AJ_DBusDestination, 0, 0, TIMEOUT);
     if (status == AJ_OK) {
@@ -281,6 +309,8 @@ AJ_Status AJ_BusSetSignalRule2(AJ_BusAttachment* bus, const char* signalName, co
     AJ_Message msg;
     const char* str[5];
     uint32_t msgId = (rule == AJ_BUS_SIGNAL_ALLOW) ? AJ_METHOD_ADD_MATCH : AJ_METHOD_REMOVE_MATCH;
+
+    AJ_InfoPrintf(("AJ_BusSetSignalRule2(bus=0x%p, signalName=\"%s\", interfaceName=\"%s\", rule=%d.)\n", bus, signalName, interfaceName, rule));
 
     str[0] = "type='signal',member='";
     str[1] = signalName;
@@ -309,9 +339,35 @@ AJ_Status AJ_BusSetSignalRule2(AJ_BusAttachment* bus, const char* signalName, co
     return status;
 }
 
+AJ_Status AJ_BusSetSignalRuleFlags(AJ_BusAttachment* bus, const char* ruleString, uint8_t rule, uint8_t flags)
+{
+    AJ_Status status;
+    AJ_Message msg;
+    uint32_t msgId = (rule == AJ_BUS_SIGNAL_ALLOW) ? AJ_METHOD_ADD_MATCH : AJ_METHOD_REMOVE_MATCH;
+
+    AJ_InfoPrintf(("AJ_BusSetSignalRule(bus=0x%p, ruleString=\"%s\", rule=%d.)\n", bus, ruleString, rule));
+
+    status = AJ_MarshalMethodCall(bus, &msg, msgId, AJ_DBusDestination, 0, flags, TIMEOUT);
+    if (status == AJ_OK) {
+        uint32_t sz = 0;
+        uint8_t nul = 0;
+        sz = (uint32_t)strlen(ruleString);
+        status = AJ_DeliverMsgPartial(&msg, sz + 5);
+        AJ_MarshalRaw(&msg, &sz, 4);
+        AJ_MarshalRaw(&msg, ruleString, strlen(ruleString));
+        AJ_MarshalRaw(&msg, &nul, 1);
+    }
+    if (status == AJ_OK) {
+        status = AJ_DeliverMsg(&msg);
+    }
+    return status;
+}
+
 AJ_Status AJ_BusReplyAcceptSession(AJ_Message* msg, uint32_t accept)
 {
     AJ_Message reply;
+
+    AJ_InfoPrintf(("AJ_BusReplyAcceptSession(msg=0x%p, accept=%d.)\n", msg, accept));
 
     AJ_MarshalReplyMsg(msg, &reply);
     AJ_MarshalArgs(&reply, "b", accept);
@@ -322,6 +378,9 @@ static AJ_Status HandleGetMachineId(AJ_Message* msg, AJ_Message* reply)
 {
     char guidStr[33];
     AJ_GUID localGuid;
+
+    AJ_InfoPrintf(("HandleGetMachineId(msg=0x%p, reply=0x%p)\n", msg, reply));
+
     AJ_MarshalReplyMsg(msg, reply);
     AJ_GetLocalGUID(&localGuid);
     AJ_GUID_ToString(&localGuid, guidStr, sizeof(guidStr));
@@ -336,6 +395,8 @@ AJ_Status AJ_BusHandleBusMessage(AJ_Message* msg)
     char* newOwner;
     AJ_Message reply;
 
+    AJ_InfoPrintf(("AJ_BusHandleBusMessage(msg=0x%p)\n", msg));
+
     /*
      * Check we actually have a message to handle
      */
@@ -345,56 +406,69 @@ AJ_Status AJ_BusHandleBusMessage(AJ_Message* msg)
 
     switch (msg->msgId) {
     case AJ_METHOD_PING:
+        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_METHOD_PING\n"));
         status = AJ_MarshalReplyMsg(msg, &reply);
         break;
 
     case AJ_METHOD_GET_MACHINE_ID:
+        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_METHOD_GET_MACHINE_ID\n"));
         status = HandleGetMachineId(msg, &reply);
         break;
 
     case AJ_METHOD_INTROSPECT:
+        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_METHOD_INTROSPECT\n"));
         status = AJ_HandleIntrospectRequest(msg, &reply);
         break;
 
     case AJ_METHOD_EXCHANGE_GUIDS:
+        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_METHOD_EXCHANGE_GUIDS\n"));
         status = AJ_PeerHandleExchangeGUIDs(msg, &reply);
         break;
 
     case AJ_METHOD_GEN_SESSION_KEY:
+        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_METHOD_GEN_SESSION_KEY\n"));
         status = AJ_PeerHandleGenSessionKey(msg, &reply);
         break;
 
     case AJ_METHOD_EXCHANGE_GROUP_KEYS:
+        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_METHOD_EXCHANGE_GROUP_KEYS\n"));
         status = AJ_PeerHandleExchangeGroupKeys(msg, &reply);
         break;
 
     case AJ_METHOD_AUTH_CHALLENGE:
+        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_METHOD_AUTH_CHALLENGE\n"));
         status = AJ_PeerHandleAuthChallenge(msg, &reply);
         break;
 
     case AJ_REPLY_ID(AJ_METHOD_EXCHANGE_GUIDS):
+        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_REPLY_ID(AJ_METHOD_EXCHANGE_GUIDS)\n"));
         status = AJ_PeerHandleExchangeGUIDsReply(msg);
         break;
 
     case AJ_REPLY_ID(AJ_METHOD_AUTH_CHALLENGE):
+        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_REPLY_ID(AJ_METHOD_AUTH_CHALLENGE)\n"));
         status = AJ_PeerHandleAuthChallengeReply(msg);
         break;
 
     case AJ_REPLY_ID(AJ_METHOD_GEN_SESSION_KEY):
+        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_REPLY_ID(AJ_METHOD_GEN_SESSION_KEY)\n"));
         status = AJ_PeerHandleGenSessionKeyReply(msg);
         break;
 
     case AJ_REPLY_ID(AJ_METHOD_EXCHANGE_GROUP_KEYS):
+        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_REPLY_ID(AJ_METHOD_EXCHANGE_GROUP_KEYS)\n"));
         status = AJ_PeerHandleExchangeGroupKeysReply(msg);
         break;
 
     case AJ_REPLY_ID(AJ_METHOD_CANCEL_SESSIONLESS):
+        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_REPLY_ID(AJ_METHOD_CANCEL_SESSIONLESS)\n"));
         // handle return code here
         status = AJ_OK;
         break;
 
     case AJ_SIGNAL_SESSION_JOINED:
     case AJ_SIGNAL_NAME_ACQUIRED:
+        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_SIGNAL_{SESSION_JOINED|NAME_ACQUIRED}\n"));
         // nothing to do here
         status = AJ_OK;
         break;
@@ -403,12 +477,14 @@ AJ_Status AJ_BusHandleBusMessage(AJ_Message* msg)
     case AJ_REPLY_ID(AJ_METHOD_REMOVE_MATCH):
     case AJ_REPLY_ID(AJ_METHOD_CANCEL_ADVERTISE):
     case AJ_REPLY_ID(AJ_METHOD_ADVERTISE_NAME):
+        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_REPLY_ID(AJ_METHOD_{ADD_MATCH|CANCEL_ADVERTISE|ADVERTISE_NAME})\n"));
         if (msg->hdr->msgType == AJ_MSG_ERROR) {
             status = AJ_ERR_FAILURE;
         }
         break;
 
     case AJ_SIGNAL_NAME_OWNER_CHANGED:
+        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_SIGNAL_NAME_OWNER_CHANGED)\n"));
         AJ_UnmarshalArgs(msg, "sss", &name, &oldOwner, &newOwner);
         if (newOwner && oldOwner && newOwner[0] == '\0') {
             AJ_GUID_DeleteNameMapping(oldOwner);
@@ -417,6 +493,7 @@ AJ_Status AJ_BusHandleBusMessage(AJ_Message* msg)
         break;
 
     default:
+        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): default\n"));
         if (msg->hdr->msgType == AJ_MSG_METHOD_CALL) {
             status = AJ_MarshalErrorMsg(msg, &reply, AJ_ErrRejected);
         }
@@ -430,11 +507,13 @@ AJ_Status AJ_BusHandleBusMessage(AJ_Message* msg)
 
 void AJ_BusSetPasswordCallback(AJ_BusAttachment* bus, AJ_AuthPwdFunc pwdCallback)
 {
+    AJ_InfoPrintf(("AJ_BusSetPasswordCallback(bus=0x%p, pwdCallback=0x%p)\n", bus, pwdCallback));
     bus->pwdCallback = pwdCallback;
 }
 
 AJ_Status AJ_BusAuthenticatePeer(AJ_BusAttachment* bus, const char* peerName, AJ_BusAuthPeerCallback callback, void* cbContext)
 {
+    AJ_InfoPrintf(("AJ_BusAuthenticatePeer(bus=0x%p, peerName=\"%s\", callback=0x%p, cbContext=0x%p)\n", bus, peerName, callback, cbContext));
     return AJ_PeerAuthenticate(bus, peerName, callback, cbContext);
 }
 
@@ -452,6 +531,9 @@ static AJ_Status PropAccess(AJ_Message* msg, PropCallback* cb, uint8_t op)
     AJ_Message reply;
     uint32_t propId;
     char sig[16];
+
+    AJ_InfoPrintf(("PropAccess(msg=0x%p, cb=0x%p, op=%d.)\n", msg, cb, op));
+
     /*
      * Find out which property is being accessed and whether the access is a GET or SET
      */
@@ -473,6 +555,7 @@ static AJ_Status PropAccess(AJ_Message* msg, PropCallback* cb, uint8_t op)
             if (strcmp(sig, variant) == 0) {
                 status = cb->Set(msg, propId, cb->context);
             } else {
+                AJ_InfoPrintf(("PropAccess(): AJ_ERR_SIGNATURE\n"));
                 status = AJ_ERR_SIGNATURE;
             }
         }
@@ -486,6 +569,9 @@ static AJ_Status PropAccess(AJ_Message* msg, PropCallback* cb, uint8_t op)
 AJ_Status AJ_BusPropGet(AJ_Message* msg, AJ_BusPropGetCallback callback, void* context)
 {
     PropCallback cb;
+
+    AJ_InfoPrintf(("AJ_BusPropGet(msg=0x%p, callback=0x%p, context=0x%p)\n", msg, callback, context));
+
     cb.context = context;
     cb.Get = callback;
     return PropAccess(msg, &cb, AJ_PROP_GET);
@@ -494,6 +580,9 @@ AJ_Status AJ_BusPropGet(AJ_Message* msg, AJ_BusPropGetCallback callback, void* c
 AJ_Status AJ_BusPropSet(AJ_Message* msg, AJ_BusPropSetCallback callback, void* context)
 {
     PropCallback cb;
+
+    AJ_InfoPrintf(("AJ_BusPropSet(msg=0x%p, callback=0x%p, context=0x%p)\n", msg, callback, context));
+
     cb.context = context;
     cb.Set = callback;
     return PropAccess(msg, &cb, AJ_PROP_SET);

@@ -127,3 +127,32 @@ uint8_t AJ_StopReadFromStdIn()
     }
     return FALSE;
 }
+
+#ifndef NDEBUG
+
+/*
+ * This is not intended, nor required to be particularly efficient.  If you want
+ * efficiency, turn of debugging.
+ */
+int _AJ_DbgEnabled(char* module)
+{
+    char buffer[128];
+    char* env;
+
+    strcpy(buffer, "ER_DEBUG_ALL");
+    env = getenv(buffer);
+    if (env && strcmp(env, "1") == 0) {
+        return TRUE;
+    }
+
+    strcpy(buffer, "ER_DEBUG_");
+    strcat(buffer, module);
+    env = getenv(buffer);
+    if (env && strcmp(env, "1") == 0) {
+        return TRUE;
+    }
+
+    return FALSE;
+}
+
+#endif

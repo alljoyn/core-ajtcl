@@ -52,6 +52,15 @@
 #endif
 
 #ifndef NDEBUG
+extern uint8_t dbgCONFIGUREME;
+extern uint8_t dbgINIT;
+extern uint8_t dbgNET;
+extern uint8_t dbgTARGET_CRYPTO;
+extern uint8_t dbgTARGET_NVRAM;
+extern uint8_t dbgTARGET_SERIAL;
+extern uint8_t dbgTARGET_TIMER;
+extern uint8_t dbgTARGET_UTIL;
+
     #define AJ_Printf(fmat, ...) \
     do { printf(fmat, ## __VA_ARGS__); } while (0)
 #else
@@ -64,5 +73,7 @@
  * AJ_Reboot() is a NOOP on this platform
  */
 #define AJ_Reboot()
+
+#define AJ_EXPORT
 
 #endif

@@ -17,6 +17,11 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
+/**
+ * Per-module definition of the current module for debug logging.  Must be defined
+ * prior to first inclusion of aj_debug.h
+ */
+#define AJ_MODULE CONNECT
 
 #include "aj_target.h"
 #include "aj_status.h"
@@ -26,11 +31,23 @@
 #include "aj_introspect.h"
 #include "aj_sasl.h"
 #include "aj_net.h"
-#include "aj_debug.h"
 #include "aj_bus.h"
 #include "aj_disco.h"
 #include "aj_std.h"
 #include "aj_auth.h"
+#include "aj_debug.h"
+
+#ifdef AJ_SERIAL_CONNECTION
+#include "aj_serial.h"
+#endif
+
+/**
+ * Turn on per-module debug printing by setting this variable to non-zero value
+ * (usually in debugger).
+ */
+#ifndef NDEBUG
+AJ_EXPORT uint8_t dbgCONNECT = 0;
+#endif
 
 /*
  * For testing on host  set this value to 1 to bypass the discovery and connect directly to port
@@ -43,6 +60,9 @@ static const char daemonService[] = "org.alljoyn.BusNode";
 static uint32_t DefaultBusAuthPwdFunc(uint8_t* buffer, uint32_t bufLen)
 {
     const char* defaultPwd = "1234";
+
+    AJ_InfoPrintf(("DefaultBusAuthPwdFunc(buffer=0x%p, bufLen=%d.)\n", buffer, bufLen));
+
     strcpy((char*)buffer, defaultPwd);
     return (uint32_t)strlen(defaultPwd);
 }
@@ -51,16 +71,19 @@ static BusAuthPwdFunc busAuthPwdFunc = DefaultBusAuthPwdFunc;
 
 void SetBusAuthPwdCallback(BusAuthPwdFunc callback)
 {
+    AJ_InfoPrintf(("SetBusAuthPwdCallback(callback=0x%p)\n", callback));
     busAuthPwdFunc = callback;
 }
 
 static AJ_AuthResult AnonMechAdvance(const char* inStr, char* outStr, uint32_t outLen)
 {
+    AJ_InfoPrintf(("AnonMechAdvance(instr=\"%s\", outStr=0x%p, outlen=%d.)\n", inStr, outStr, outLen));
     return AJ_AUTH_STATUS_SUCCESS;
 }
 
 static AJ_Status AnonMechInit(uint8_t role, AJ_AuthPwdFunc pwdFunc)
 {
+    AJ_InfoPrintf(("AnonMechInit(role=%d., pwdFunc=0x%p)\n", role, pwdFunc));
     return AJ_OK;
 }
 
@@ -82,6 +105,8 @@ static AJ_Status SendHello(AJ_BusAttachment* bus)
     AJ_Status status;
     AJ_Message msg;
 
+    AJ_InfoPrintf(("SendHello(bus=0x%p)\n", bus));
+
     status = AJ_MarshalMethodCall(bus, &msg, AJ_METHOD_HELLO, AJ_DBusDestination, 0, AJ_FLAG_ALLOW_REMOTE_MSG, 5000);
     if (status == AJ_OK) {
         status = AJ_DeliverMsg(&msg);
@@ -92,6 +117,8 @@ static AJ_Status SendHello(AJ_BusAttachment* bus)
 static AJ_Status AuthAdvance(AJ_SASL_Context* context, AJ_IOBuffer* rxBuf, AJ_IOBuffer* txBuf)
 {
     AJ_Status status = AJ_OK;
+
+    AJ_InfoPrintf(("AuthAdvance(context=0x%p, rxBuf=0x%p, txBuf=0x%p)\n", context, rxBuf, txBuf));
 
     if (context->state != AJ_SASL_SEND_AUTH_REQ) {
         /*
@@ -122,6 +149,14 @@ AJ_Status AJ_Connect(AJ_BusAttachment* bus, const char* serviceName, uint32_t ti
     AJ_Status status;
     AJ_SASL_Context sasl;
     AJ_Service service;
+
+#ifdef AJ_SERIAL_CONNECTION
+    AJ_Time start, now;
+    AJ_InitTimer(&start);
+#endif
+
+    AJ_InfoPrintf(("AJ_Connect(bus=0x%p, serviceName=\"%s\", timeout=%d.)\n", bus, serviceName, timeout));
+
     /*
      * Clear the bus struct
      */
@@ -136,6 +171,7 @@ AJ_Status AJ_Connect(AJ_BusAttachment* bus, const char* serviceName, uint32_t ti
      */
     status = AJ_Net_Up();
     if (status != AJ_OK) {
+        AJ_InfoPrintf(("AJ_Connect(): status=%s", AJ_StatusText(status)));
         return status;
     }
     /*
@@ -159,6 +195,7 @@ AJ_Status AJ_Connect(AJ_BusAttachment* bus, const char* serviceName, uint32_t ti
     service.addrTypes = AJ_ADDR_IPV4;
     status = AJ_Discover(serviceName, &service, timeout);
     if (status != AJ_OK) {
+        AJ_InfoPrintf(("AJ_Connect(): status=%s\n", AJ_StatusText(status)));
         goto ExitConnect;
     }
 #elif defined AJ_SERIAL_CONNECTION
@@ -166,13 +203,31 @@ AJ_Status AJ_Connect(AJ_BusAttachment* bus, const char* serviceName, uint32_t ti
 #else
     status = AJ_Discover(serviceName, &service, timeout);
     if (status != AJ_OK) {
+        AJ_InfoPrintf(("AJ_Connect(): status=%s\n", AJ_StatusText(status)));
         goto ExitConnect;
     }
 #endif
     status = AJ_Net_Connect(&bus->sock, service.ipv4port, service.addrTypes & AJ_ADDR_IPV4, &service.ipv4);
     if (status != AJ_OK) {
+        AJ_InfoPrintf(("AJ_Connect(): status=%s\n", AJ_StatusText(status)));
         goto ExitConnect;
     }
+
+#ifdef AJ_SERIAL_CONNECTION
+    // run the state machine for long enough to (hopefully) do the SLAP handshake
+    do {
+        AJ_StateMachine();
+        AJ_InitTimer(&now);
+    }
+    while (AJ_SerialLinkParams.linkState != AJ_LINK_ACTIVE && AJ_GetTimeDifference(&now, &start) < timeout);
+
+    if (AJ_SerialLinkParams.linkState != AJ_LINK_ACTIVE) {
+        AJ_InfoPrintf(("Failed to establish active SLAP connection in %u usec\n", timeout));
+        AJ_SerialShutdown();
+        return AJ_ERR_TIMEOUT;
+    }
+#endif
+
     /*
      * Send initial NUL byte
      */
@@ -180,6 +235,7 @@ AJ_Status AJ_Connect(AJ_BusAttachment* bus, const char* serviceName, uint32_t ti
     bus->sock.tx.writePtr += 1;
     status = bus->sock.tx.send(&bus->sock.tx);
     if (status != AJ_OK) {
+        AJ_InfoPrintf(("AJ_Connect(): status=%s\n", AJ_StatusText(status)));
         goto ExitConnect;
     }
     AJ_SASL_InitContext(&sasl, mechList, AJ_AUTH_RESPONDER, busAuthPwdFunc);
@@ -207,6 +263,7 @@ AJ_Status AJ_Connect(AJ_BusAttachment* bus, const char* serviceName, uint32_t ti
                 status = AJ_UnmarshalArg(&helloResponse, &arg);
                 if (status == AJ_OK) {
                     if (arg.len >= (sizeof(bus->uniqueName) - 1)) {
+                        AJ_ErrPrintf(("AJ_Connect(): AJ_ERR_RESOURCES\n"));
                         status = AJ_ERR_RESOURCES;
                     } else {
                         memcpy(bus->uniqueName, arg.val.v_string, arg.len);
@@ -249,7 +306,7 @@ AJ_Status AJ_Connect(AJ_BusAttachment* bus, const char* serviceName, uint32_t ti
 ExitConnect:
 
     if (status != AJ_OK) {
-        AJ_Printf("AllJoyn connect failed %d\n", status);
+        AJ_InfoPrintf(("AJ_Connect(): status=%s\n", AJ_StatusText(status)));
         AJ_Disconnect(bus);
     }
     return status;

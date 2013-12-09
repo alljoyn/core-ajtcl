@@ -49,7 +49,12 @@
 
 #define AJ_CRC_LEN 2
 #define AJ_BOUNDARY_BYTES 2
-#define SLIPPED_LEN(packetsize) ((AJ_SerialLinkParams.packetSize + AJ_SERIAL_HDR_LEN + AJ_CRC_LEN) * 2 + AJ_BOUNDARY_BYTES)
+#define SLIPPED_LEN(packetsize) (((packetsize) + AJ_SERIAL_HDR_LEN + AJ_CRC_LEN) * 2 + AJ_BOUNDARY_BYTES)
+
+/**
+ * This is big enough to hold the control payloads stored in unreliable packets
+ */
+#define AJ_LINK_PACKET_PAYLOAD      32
 
 /**
  * packets that carry transport control information
@@ -81,6 +86,9 @@ typedef struct _AJ_LinkParameters {
     uint8_t maxWindowSize;       /**< Window size configuration parameter */
     uint8_t windowSize;          /**< Negotiated window size */
     uint16_t packetSize;         /**< Packet size configuration parameter */
+    uint32_t bitRate;            /**< Bit rate of the underlying serial link */
+    uint32_t txResendTimeout;    /**< how long to wait for an acknowledgement before resending a packet */
+    uint32_t txAckTimeout;       /**< how long to wait after a packet has been received before sending a ACK packet */
 } AJ_LinkParameters;
 
 
@@ -151,10 +159,10 @@ typedef void (AJ_SerialInitialized)();
  * @param bitRate              configure the UART to this speed
  * @param windowSize           Window size for acks and packet retransmission
  * @param enableCRC            If TRUE enable CRC checks on data packets
- * @param packetSize           Packet size with which the H5 layer is initialized
+ * @param packetSize           Packet size with which the serial transport layer is initialized
  */
 AJ_Status AJ_SerialInit(const char* ttyName,
-                        uint16_t bitRate,
+                        uint32_t bitRate,
                         uint8_t windowSize,
                         uint16_t packetSize);
 

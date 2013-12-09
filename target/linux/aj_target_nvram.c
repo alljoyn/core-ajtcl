@@ -17,8 +17,23 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
+/**
+ * Per-module definition of the current module for debug logging.  Must be defined
+ * prior to first inclusion of aj_debug.h
+ */
+#define AJ_MODULE TARGET_NVRAM
+
 #include "aj_nvram.h"
 #include "aj_target_nvram.h"
+#include "aj_debug.h"
+
+/**
+ * Turn on per-module debug printing by setting this variable to non-zero value
+ * (usually in debugger).
+ */
+#ifndef NDEBUG
+uint8_t dbgTARGET_NVRAM = 0;
+#endif
 
 uint8_t AJ_EMULATED_NVRAM[AJ_NVRAM_SIZE];
 uint8_t* AJ_NVRAM_BASE_ADDRESS;
@@ -62,7 +77,7 @@ AJ_Status _AJ_LoadNVFromFile()
 {
     FILE* f = fopen("ajlite.nvram", "r");
     if (f == NULL) {
-        AJ_Printf("Error: LoadNVFromFile() failed\n");
+        AJ_ErrPrintf(("_AJ_LoadNVFromFile(): LoadNVFromFile() failed. status=AJ_ERR_FAILURE\n"));
         return AJ_ERR_FAILURE;
     }
 
@@ -76,7 +91,7 @@ AJ_Status _AJ_StoreNVToFile()
 {
     FILE* f = fopen("ajlite.nvram", "w");
     if (!f) {
-        AJ_Printf("Error: StoreNVToFile() failed\n");
+        AJ_ErrPrintf(("_AJ_StireNVToFile(): LoadNVFromFile() failed. status=AJ_ERR_FAILURE\n"));
         return AJ_ERR_FAILURE;
     }
 

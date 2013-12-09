@@ -16,7 +16,15 @@
  *    ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
+
 #ifdef AJ_SERIAL_CONNECTION
+
+/**
+ * Per-module definition of the current module for debug logging.  Must be defined
+ * prior to first inclusion of aj_debug.h
+ */
+#define AJ_MODULE SERIAL_RX
+
 #include "aj_target.h"
 #include "aj_status.h"
 #include "aj_serial.h"
@@ -24,8 +32,16 @@
 #include "aj_serial_tx.h"
 #include "aj_crc16.h"
 #include "aj_util.h"
-#include "aj_debug.h"
 #include "aj_serio.h"
+#include "aj_debug.h"
+
+/**
+ * Turn on per-module debug printing by setting this variable to non-zero value
+ * (usually in debugger).
+ */
+#ifndef NDEBUG
+uint8_t dbgSERIAL_RX = 0;
+#endif
 
 /**
  * maximum read size
@@ -213,6 +229,7 @@ AJ_Status AJ_SerialRX_Init(void)
     AJ_SetRxCB(&AJ_ReceiveCallback);
     pendingRecvBuffer = bufferRxFreeList;
     bufferRxFreeList = bufferRxFreeList->next;
+    pendingRecvBuffer->next = NULL;
     AJ_RX(pendingRecvBuffer->buffer, pendingRecvBuffer->allocatedLen);
     AJ_ResumeRX();
 
@@ -384,6 +401,9 @@ static void CompletePacket()
         return;
     }
 
+
+    //AJ_Printf("Rx %d, seq=%d, ack=%d\n", pktType, seq, ack);
+
     /*
      * Handle link control packets.
      */
@@ -391,18 +411,6 @@ static void CompletePacket()
         AJ_Serial_LinkPacket(pkt->buffer + AJ_SERIAL_HDR_LEN, expectedLen);
         return;
     }
-    /*
-     * If the link is not active non-link packets are discarded.
-     */
-    if (AJ_SerialLinkParams.linkState != AJ_LINK_ACTIVE) {
-        AJ_Printf("Link not up - discarding data packet\n");
-        return;
-    }
-
-    //AJ_Printf("Rx %d, seq=%d, ack=%d\n", pktType, seq, ack);
-
-    /*
-     */
     /*
      * If the link is not active non-link packets are discarded.
      */

@@ -17,6 +17,12 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
+/**
+ * Per-module definition of the current module for debug logging.  Must be defined
+ * prior to first inclusion of aj_debug.h
+ */
+#define AJ_MODULE AUTH
+
 #include "aj_target.h"
 #include "aj_status.h"
 #include "aj_sasl.h"
@@ -26,6 +32,14 @@
 #include "aj_util.h"
 #include "aj_crypto.h"
 #include "aj_debug.h"
+
+/**
+ * Turn on per-module debug printing by setting this variable to non-zero value
+ * (usually in debugger).
+ */
+#ifndef NDEBUG
+uint8_t dbgAUTH = 0;
+#endif
 
 static AJ_AuthResult AuthResponse(const char* inStr, char* outStr, uint32_t outLen);
 static AJ_AuthResult AuthChallenge(const char* inStr, char* outStr, uint32_t outLen);
@@ -87,6 +101,8 @@ static AJ_Status ComputeVerifier(const char* label, char* buffer, size_t bufLen)
     const uint8_t* data[2];
     uint8_t lens[2];
 
+    AJ_InfoPrintf(("ComputeVerifier(label=\"%s\", buffer=0x%p, bufLen=%zu.)\n", label, buffer, bufLen));
+
     data[0] = context.masterSecret;
     lens[0] = MASTER_SECRET_LEN;
     data[1] = (uint8_t*)label;
@@ -94,7 +110,7 @@ static AJ_Status ComputeVerifier(const char* label, char* buffer, size_t bufLen)
 
     status = AJ_Crypto_PRF(data, lens, ArraySize(data), (uint8_t*)buffer, VERIFIER_LEN);
 #ifdef AUTH_DEBUG
-    AJ_Printf("ComputeVerifier(%s): %s\n", label, Hex((uint8_t*)buffer, VERIFIER_LEN));
+    AJ_Printf(("ComputeVerifier(): \"%s\n", Hex((uint8_t*)buffer, VERIFIER_LEN)));
 #endif
     if (status == AJ_OK) {
         status = AJ_RawToHex((uint8_t*) buffer, VERIFIER_LEN, buffer, bufLen, FALSE);
@@ -113,7 +129,10 @@ static AJ_Status ComputeMS(const uint8_t* nonce)
     uint8_t lens[4];
     uint32_t pwdLen = context.pwdFunc(pwd, sizeof(pwd));
 
+    AJ_InfoPrintf(("ComputeMS(nonce=0x%p)\n", nonce));
+
     if (pwdLen == 0) {
+        AJ_ErrPrintf(("ComputeMS(): AJ_ERR_SECURITY\n"));
         return AJ_ERR_SECURITY;
     }
     data[0] = pwd;
@@ -129,7 +148,7 @@ static AJ_Status ComputeMS(const uint8_t* nonce)
      */
     status = AJ_Crypto_PRF(data, lens, ArraySize(data), context.masterSecret, MASTER_SECRET_LEN);
 #ifdef AUTH_DEBUG
-    AJ_Printf("MasterSecret: %s\n", Hex(context.masterSecret, MASTER_SECRET_LEN));
+    AJ_InfoPrintf(("ComputeMS(): MasterSecret: %s\n", Hex(context.masterSecret, MASTER_SECRET_LEN)));
 #endif
     return status;
 }
@@ -141,12 +160,15 @@ static AJ_AuthResult AuthResponse(const char* inStr, char* outStr, uint32_t outL
     uint8_t* nonce;
     int32_t pos;
 
+    AJ_InfoPrintf(("AuthReponse(inStr=\"%s\", outStr=0x%p, outLen=%d.)\n", inStr, outStr, outLen));
+
     /*
      * Responder begins by sending a nonce.
      */
     if (!inStr) {
         AJ_RandBytes(context.nonce, NONCE_LEN);
         AJ_RawToHex(context.nonce, NONCE_LEN, outStr, outLen, FALSE);
+        AJ_InfoPrintf(("AuthReponse(): AJ_AUTH_STATUS_CONTINUE\n"));
         return AJ_AUTH_STATUS_CONTINUE;
     }
     /*
@@ -157,6 +179,7 @@ static AJ_AuthResult AuthResponse(const char* inStr, char* outStr, uint32_t outL
         /*
          * String is incorrectly formatted - fail the authentication
          */
+        AJ_ErrPrintf(("AuthReponse(): AJ_AUTH_STATUS_FAILURE\n"));
         return AJ_AUTH_STATUS_FAILURE;
     }
     /*
@@ -187,9 +210,12 @@ static AJ_AuthResult AuthResponse(const char* inStr, char* outStr, uint32_t outL
             context.success = TRUE;
         } else {
             result = AJ_AUTH_STATUS_RETRY;
+            AJ_InfoPrintf(("AuthReponse(): AJ_AUTH_STATUS_RETRY\n"));
+
         }
     } else {
         result = AJ_AUTH_STATUS_FAILURE;
+        AJ_ErrPrintf(("AuthReponse(): AJ_AUTH_STATUS_FAILURE\n"));
     }
     return result;
 }
@@ -198,6 +224,8 @@ static AJ_AuthResult AuthChallenge(const char* inStr, char* outStr, uint32_t out
 {
     AJ_AuthResult result = AJ_AUTH_STATUS_FAILURE;
     AJ_Status status;
+
+    AJ_InfoPrintf(("AuthChallenge(inStr=\"%s\", outStr=0x%p, outLen=%d.)\n", inStr, outStr, outLen));
 
     if (context.state == 0) {
         /*
@@ -209,6 +237,7 @@ static AJ_AuthResult AuthChallenge(const char* inStr, char* outStr, uint32_t out
          */
         if (outLen < NONCE_LEN) {
             status = AJ_ERR_RESOURCES;
+            AJ_InfoPrintf(("AuthChallenge(): AJ_ERR_RESOURCES\n"));
         } else {
             AJ_RandBytes((uint8_t*)outStr, NONCE_LEN);
             /*
@@ -245,6 +274,7 @@ static AJ_AuthResult AuthChallenge(const char* inStr, char* outStr, uint32_t out
                 result = AJ_AUTH_STATUS_SUCCESS;
                 context.success = TRUE;
             } else {
+                AJ_InfoPrintf(("AuthChallenge(): AJ_AUTH_STATUS_RETRY\n"));
                 result = AJ_AUTH_STATUS_RETRY;
             }
         }
@@ -252,6 +282,7 @@ static AJ_AuthResult AuthChallenge(const char* inStr, char* outStr, uint32_t out
         context.state = 0;
     }
     if (status != AJ_OK) {
+        AJ_InfoPrintf(("AuthChallenge(): AJ_AUTH_STATUS_FAILURE\n"));
         result = AJ_AUTH_STATUS_FAILURE;
     }
     return result;
@@ -259,6 +290,8 @@ static AJ_AuthResult AuthChallenge(const char* inStr, char* outStr, uint32_t out
 
 AJ_Status AuthInit(uint8_t role, AJ_AuthPwdFunc pwdFunc)
 {
+    AJ_InfoPrintf(("AuthInit(role=%d., pwdFunc=0x%p)\n", role, pwdFunc));
+
     if (pwdFunc) {
         memset(&context, 0, sizeof(context));
         context.pwdFunc = pwdFunc;
@@ -267,6 +300,7 @@ AJ_Status AuthInit(uint8_t role, AJ_AuthPwdFunc pwdFunc)
         /*
          * Must have a password function
          */
+        AJ_InfoPrintf(("AuthInit(): AJ_ERR_SECURITY\n"));
         return AJ_ERR_SECURITY;
     }
 }
@@ -274,6 +308,8 @@ AJ_Status AuthInit(uint8_t role, AJ_AuthPwdFunc pwdFunc)
 static AJ_Status AuthFinal(const AJ_GUID* peerGuid)
 {
     AJ_Status status = AJ_OK;
+
+    AJ_InfoPrintf(("AuthFinal(peerGuid=0x%p)\n", peerGuid));
 
     if (peerGuid) {
         /*

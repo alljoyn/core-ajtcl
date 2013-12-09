@@ -17,8 +17,23 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
+/**
+ * Per-module definition of the current module for debug logging.  Must be defined
+ * prior to first inclusion of aj_debug.h
+ */
+#define AJ_MODULE NVRAM
+
 #include "aj_nvram.h"
 #include "aj_target_nvram.h"
+#include "aj_debug.h"
+
+/**
+ * Turn on per-module debug printing by setting this variable to non-zero value
+ * (usually in debugger).
+ */
+#ifndef NDEBUG
+uint8_t dbgNVRAM = 0;
+#endif
 
 extern uint8_t* AJ_NVRAM_BASE_ADDRESS;
 
@@ -51,9 +66,13 @@ void AJ_NVRAM_Layout_Print()
  * @return Pointer pointing to an entry in the NVRAM if an entry with the specified id is found
  *         NULL otherwise
  */
-uint8_t* AJ_FindNVEntry(uint16_t id) {
+uint8_t* AJ_FindNVEntry(uint16_t id)
+{
     uint16_t capacity = 0;
     uint16_t* data = (uint16_t*)(AJ_NVRAM_BASE_ADDRESS + SENTINEL_OFFSET);
+
+    AJ_InfoPrintf(("AJ_FindNVEntry(id=%d.)\n", id));
+
     while ((uint8_t*)data < (uint8_t*)AJ_NVRAM_END_ADDRESS) {
         if (*data != id) {
             capacity = *(data + 1);
@@ -62,9 +81,11 @@ uint8_t* AJ_FindNVEntry(uint16_t id) {
             }
             data += (ENTRY_HEADER_SIZE + capacity) >> 1;
         } else {
+            AJ_InfoPrintf(("AJ_FindNVEntry(): data=0x%p\n", data));
             return (uint8_t*)data;
         }
     }
+    AJ_InfoPrintf(("AJ_FindNVEntry(): data=NULL\n"));
     return NULL;
 }
 
@@ -74,19 +95,22 @@ AJ_Status AJ_NVRAM_Create(uint16_t id, uint16_t capacity)
 {
     uint8_t* ptr;
     NV_EntryHeader header;
+
+    AJ_InfoPrintf(("AJ_NVRAM_Create(id=%d., capacity=%d.)\n", id, capacity));
+
     if (!capacity || AJ_NVRAM_Exist(id)) {
-        AJ_Printf("AJ_NVRAM_Create: Data set (id = %d) already exits or invalid capacity (%d).\n", id, capacity);
+        AJ_ErrPrintf(("AJ_NVRAM_Create(): AJ_ERR_FAILURE\n"));
         return AJ_ERR_FAILURE;
     }
 
     capacity = WORD_ALIGN(capacity); // 4-byte alignment
     ptr = AJ_FindNVEntry(INVALID_DATA);
     if (!ptr || (ptr + ENTRY_HEADER_SIZE + capacity > AJ_NVRAM_END_ADDRESS)) {
-        AJ_Printf("Do NVRAM storage compaction.\n");
+        AJ_InfoPrintf(("AJ_NVRAM_Create(): _AJ_CompactNVStorage()\n"));
         _AJ_CompactNVStorage();
         ptr = AJ_FindNVEntry(INVALID_DATA);
         if (!ptr || ptr + ENTRY_HEADER_SIZE + capacity > AJ_NVRAM_END_ADDRESS) {
-            AJ_Printf("Error: Do not have enough NVRAM storage space.\n");
+            AJ_InfoPrintf(("AJ_NVRAM_Create(): AJ_ERR_FAILURE\n"));
             return AJ_ERR_FAILURE;
         }
     }
@@ -99,8 +123,14 @@ AJ_Status AJ_NVRAM_Create(uint16_t id, uint16_t capacity)
 AJ_Status AJ_NVRAM_Delete(uint16_t id)
 {
     NV_EntryHeader newHeader;
-    uint8_t* ptr = AJ_FindNVEntry(id);
+    uint8_t* ptr;
+
+    AJ_InfoPrintf(("AJ_NVRAM_Delete(id=%d.)\n", id));
+
+    ptr = AJ_FindNVEntry(id);
+
     if (!ptr) {
+        AJ_ErrPrintf(("AJ_NVRAM_Delete(): AJ_ERR_FAILURE\n"));
         return AJ_ERR_FAILURE;
     }
 
@@ -116,17 +146,19 @@ AJ_NV_DATASET* AJ_NVRAM_Open(uint16_t id, char* mode, uint16_t capacity)
     uint8_t* entry = NULL;
     AJ_NV_DATASET* handle = NULL;
 
+    AJ_InfoPrintf(("AJ_NVRAM_Open(id=%d., mode=\"%s\", capacity=%d.)\n", id, mode, capacity));
+
     if (!id) {
-        AJ_Printf("Error: A valid id must not be 0.\n");
+        AJ_ErrPrintf(("AJ_NVRAM_Open(): invalid id\n"));
         goto OPEN_ERR_EXIT;
     }
-    if (!mode || mode[1] || (*mode != 'r') && (*mode != 'w')) {
-        AJ_Printf("Error: Access mode must be \"r\" or \"w\"\n");
+    if (!mode || mode[1] || (*mode != 'r' && *mode != 'w')) {
+        AJ_ErrPrintf(("AJ_NVRAM_Open(): invalid access mode\n"));
         goto OPEN_ERR_EXIT;
     }
     if (*mode == AJ_NV_DATASET_MODE_WRITE) {
         if (capacity == 0) {
-            AJ_Printf("The capacity should not be 0.\n");
+            AJ_ErrPrintf(("AJ_NVRAM_Open(): invalid capacity\n"));
             goto OPEN_ERR_EXIT;
         }
 
@@ -134,28 +166,31 @@ AJ_NV_DATASET* AJ_NVRAM_Open(uint16_t id, char* mode, uint16_t capacity)
             status = AJ_NVRAM_Delete(id);
         }
         if (status != AJ_OK) {
+            AJ_ErrPrintf(("AJ_NVRAM_Open(): AJ_NVRAM_Delete() failure: status=%s\n", AJ_StatusText(status)));
             goto OPEN_ERR_EXIT;
         }
 
         status = AJ_NVRAM_Create(id, capacity);
         if (status != AJ_OK) {
+            AJ_ErrPrintf(("AJ_NVRAM_Open(): AJ_NVRAM_Create() failure: status=%s\n", AJ_StatusText(status)));
             goto OPEN_ERR_EXIT;
         }
         entry = AJ_FindNVEntry(id);
         if (!entry) {
+            AJ_ErrPrintf(("AJ_NVRAM_Open(): Data set %d. does not exist\n", id));
             goto OPEN_ERR_EXIT;
         }
     } else {
         entry = AJ_FindNVEntry(id);
         if (!entry) {
-            AJ_Printf("Error: the data set (id = %d) doesn't exist\n", id);
+            AJ_ErrPrintf(("AJ_NVRAM_Open(): Data set %d. does not exist\n", id));
             goto OPEN_ERR_EXIT;
         }
     }
 
     handle = (AJ_NV_DATASET*)AJ_Malloc(sizeof(AJ_NV_DATASET));
     if (!handle) {
-        AJ_Printf("AJ_NVRAM_Open() error: OutOfMemory. \n");
+        AJ_ErrPrintf(("AJ_NVRAM_Open(): AJ_Malloc() failure\n"));
         goto OPEN_ERR_EXIT;
     }
 
@@ -171,7 +206,7 @@ OPEN_ERR_EXIT:
         AJ_Free(handle);
         handle = NULL;
     }
-    AJ_Printf("AJ_NVRAM_Open() fails: status = %d. \n", status);
+    AJ_ErrPrintf(("AJ_NVRAM_Open(): failure: status=%s\n", AJ_StatusText(status)));
     return NULL;
 }
 
@@ -182,12 +217,14 @@ size_t AJ_NVRAM_Write(void* ptr, uint16_t size, AJ_NV_DATASET* handle)
     uint8_t* buf = (uint8_t*)ptr;
     NV_EntryHeader* header = (NV_EntryHeader*)handle->inode;
 
+    AJ_InfoPrintf(("AJ_NVRAM_Write(ptr=0x%p, size=%d., handle=0x%p)\n", ptr, size, handle));
+
     if (!handle || handle->mode == AJ_NV_DATASET_MODE_READ) {
-        AJ_Printf("AJ_NVRAM_Write() error: The access mode does not allow write.\n");
+        AJ_ErrPrintf(("AJ_NVRAM_Write(): AJ_ERR_ACCESS\n"));
         return -1;
     }
     if (header->capacity <= handle->curPos) {
-        AJ_Printf("AJ_NVRAM_Write() error: No more space for write.\n");
+        AJ_Printf("AJ_NVRAM_Write(): AJ_ERR_RESOURCES\n");
         return -1;
     }
 
@@ -216,13 +253,16 @@ size_t AJ_NVRAM_Read(void* ptr, uint16_t size, AJ_NV_DATASET* handle)
 {
     uint16_t bytesRead = 0;
     NV_EntryHeader* header = (NV_EntryHeader*)handle->inode;
+
+    AJ_InfoPrintf(("AJ_NVRAM_Read(ptr=0x%p, size=%d., handle=0x%p)\n", ptr, size, handle));
+
     if (!handle || handle->mode == AJ_NV_DATASET_MODE_WRITE) {
-        AJ_Printf("AJ_NVRAM_Read() error: The access mode does not allow read.\n");
+        AJ_ErrPrintf(("AJ_NVRAM_Read(): AJ_ERR_ACCESS\n"));
         return -1;
     }
 
     if (header->capacity <= handle->curPos) {
-        AJ_Printf("AJ_NVRAM_Read() error: No more space for read.\n");
+        AJ_ErrPrintf(("AJ_NVRAM_Read(): AJ_ERR_RESOURCES\n"));
         return -1;
     }
     bytesRead = header->capacity -  handle->curPos;
@@ -236,8 +276,10 @@ size_t AJ_NVRAM_Read(void* ptr, uint16_t size, AJ_NV_DATASET* handle)
 
 AJ_Status AJ_NVRAM_Close(AJ_NV_DATASET* handle)
 {
+    AJ_InfoPrintf(("AJ_NVRAM_Close(handle=0x%p)\n", handle));
+
     if (!handle) {
-        AJ_Printf("AJ_NVRAM_Close() error: Invalid handle. \n");
+        AJ_ErrPrintf(("AJ_NVRAM_Close(): AJ_ERR_INVALID\n"));
         return AJ_ERR_INVALID;
     }
 
@@ -248,7 +290,10 @@ AJ_Status AJ_NVRAM_Close(AJ_NV_DATASET* handle)
 
 uint8_t AJ_NVRAM_Exist(uint16_t id)
 {
+    AJ_InfoPrintf(("AJ_NVRAM_Exist(id=%d.)\n", id));
+
     if (!id) {
+        AJ_ErrPrintf(("AJ_NVRAM_Exist(): AJ_ERR_INVALID\n"));
         return FALSE; // the unique id is not allowed to be 0
     }
     return (NULL != AJ_FindNVEntry(id));

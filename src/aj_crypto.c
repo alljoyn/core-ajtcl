@@ -17,11 +17,24 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
+/**
+ * Per-module definition of the current module for debug logging.  Must be defined
+ * prior to first inclusion of aj_debug.h
+ */
+#define AJ_MODULE CRYPTO
 
 #include "aj_target.h"
 #include "aj_util.h"
 #include "aj_crypto.h"
 #include "aj_debug.h"
+
+/**
+ * Turn on per-module debug printing by setting this variable to non-zero value
+ * (usually in debugger).
+ */
+#ifndef NDEBUG
+uint8_t dbgCRYPTO = 0;
+#endif
 
 /*
  * Enables fine-grained tracing for debugging new implementations.
@@ -180,6 +193,7 @@ AJ_Status AJ_Encrypt_CCM(const uint8_t* key,
     CCM_Context* context;
 
     if (!(context = InitCCMContext(nonce, nLen, hdrLen, msgLen, tagLen))) {
+        AJ_ErrPrintf(("AJ_Encrypt_CCM(): AJ_ERR_RESOURCES\n"));
         return AJ_ERR_RESOURCES;
     }
     /*
@@ -227,6 +241,7 @@ AJ_Status AJ_Decrypt_CCM(const uint8_t* key,
     CCM_Context* context;
 
     if (!(context = InitCCMContext(nonce, nLen, hdrLen, msgLen, tagLen))) {
+        AJ_ErrPrintf(("AJ_Decrypt_CCM(): AJ_ERR_RESOURCES\n"));
         return AJ_ERR_RESOURCES;
     }
     /*
@@ -256,6 +271,7 @@ AJ_Status AJ_Decrypt_CCM(const uint8_t* key,
          * Authentication failed Clear the decrypted data
          */
         memset(msg, 0, msgLen + tagLen);
+        AJ_ErrPrintf(("AJ_Decrypt_CCM(): AJ_ERR_SECURITY\n"));
         status = AJ_ERR_SECURITY;
     }
     /*
@@ -283,6 +299,7 @@ AJ_Status AJ_Crypto_PRF(const uint8_t** inputs,
         inLen += lengths[i];
     }
     if (inLen <= 32) {
+        AJ_ErrPrintf(("AJ_Crypto_PRF(): AJ_ERR_INVALID\n"));
         return AJ_ERR_INVALID;
     }
     /*
@@ -290,6 +307,7 @@ AJ_Status AJ_Crypto_PRF(const uint8_t** inputs,
      */
     inBuf = (uint8_t*)AJ_Malloc(inLen + 16);
     if (!inBuf) {
+        AJ_ErrPrintf(("AJ_Crypto_PRF(): AJ_ERR_RESOURCES\n"));
         return AJ_ERR_RESOURCES;
     }
     /*

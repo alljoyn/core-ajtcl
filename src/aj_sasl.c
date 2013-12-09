@@ -17,11 +17,26 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
+/**
+ * Per-module definition of the current module for debug logging.  Must be defined
+ * prior to first inclusion of aj_debug.h
+ */
+#define AJ_MODULE SASL
+
 #include "aj_target.h"
 #include "aj_status.h"
 #include "aj_sasl.h"
 #include "aj_util.h"
 #include "aj_creds.h"
+#include "aj_debug.h"
+
+/**
+ * Turn on per-module debug printing by setting this variable to non-zero value
+ * (usually in debugger).
+ */
+#ifndef NDEBUG
+uint8_t dbgSASL = 0;
+#endif
 
 /*
  * Sanity check value to prevent broken implementations from looping the state machine.
@@ -48,7 +63,10 @@ static const char* const CmdList[] = {
 
 AJ_Status AJ_SASL_InitContext(AJ_SASL_Context* context, const AJ_AuthMechanism* const* mechList, uint8_t role, AJ_AuthPwdFunc pwdFunc)
 {
+    AJ_InfoPrintf(("AJ_SASL_InitContext(context=0x%p, mechList=0x%p, role=%d., pwdfunc=0x%p)\n", context, mechList, role, pwdFunc));
+
     if (!context || !mechList || !*mechList) {
+        AJ_ErrPrintf(("AJ_SASL_InitContext(): AJ_ERR_NULL\n"));
         return AJ_ERR_NULL;
     }
     context->role = role;
@@ -67,6 +85,9 @@ AJ_Status AJ_SASL_InitContext(AJ_SASL_Context* context, const AJ_AuthMechanism* 
 static const AJ_AuthMechanism* MatchMechanism(AJ_SASL_Context* context, char** str)
 {
     const AJ_AuthMechanism* const* mech = context->mechList;
+
+    AJ_InfoPrintf(("MatchMechanism(context=0x%p, str=0x%p)\n", context, str));
+
     while (*mech) {
         size_t len = strlen(*str);
         size_t sz = strlen((*mech)->name);
@@ -78,10 +99,13 @@ static const AJ_AuthMechanism* MatchMechanism(AJ_SASL_Context* context, char** s
             if ((*str)[0] == ' ') {
                 *str += 1;
             }
+            AJ_InfoPrintf(("MatchMechanism(): mech=0x%p\n", mech));
             return *mech;
         }
         ++mech;
     }
+
+    AJ_InfoPrintf(("MatchMechanism(): NULL\n"));
     return NULL;
 }
 
@@ -111,13 +135,17 @@ static const char* ParseCmd(char** str)
     char* cmdString = *str;
     size_t sz = strlen(cmdString);
 
+    AJ_InfoPrintf(("ParseCmd(str=0x%p)\n", str));
+
     if (sz < 4) {
+        AJ_InfoPrintf(("ParseCmd(): NULL\n"));
         return NULL;
     }
     /*
      * Check for trailing CRLF and remove it
      */
     if (cmdString[sz - 2] != '\r' && cmdString[sz - 1] != '\n') {
+        AJ_InfoPrintf(("ParseCmd(): NULL\n"));
         return NULL;
     }
     cmdString[sz - 1] = 0;
@@ -140,9 +168,11 @@ static const char* ParseCmd(char** str)
                 ++cmdLen;
             }
             *str += cmdLen;
+            AJ_InfoPrintf(("ParseCmd(): \"%s\"\n", cmd));
             return cmd;
         }
     }
+    AJ_InfoPrintf(("ParseCmd(): NULL\n"));
     return NULL;
 }
 
@@ -217,6 +247,8 @@ static AJ_Status Rejected(AJ_SASL_Context* context, char* outStr, uint32_t outLe
 {
     const AJ_AuthMechanism* const* mech = context->mechList;
 
+    AJ_InfoPrintf(("Rejected(context=0x%p, outStr=0x%p, outLen=%d.)\n", context, outStr, outLen));
+
     SetStr(CMD_REJECTED, outStr, outLen);
     outLen -= (uint32_t)sizeof(CMD_REJECTED);
     while (*mech) {
@@ -240,7 +272,11 @@ static AJ_Status Challenge(AJ_SASL_Context* context, char* inStr, char* outStr, 
     AJ_Status status = AJ_OK;
     AJ_AuthResult result;
     const char* rsp = outStr;
-    const char* cmd = ParseCmd(&inStr);
+    const char* cmd;
+
+    AJ_InfoPrintf(("Challenge(context=0x%p, inStr=\"%s\", outStr=0x%p, outLen=%d.)\n", context, inStr, outStr, outLen));
+
+    cmd = ParseCmd(&inStr);
 
     /*
      * The ERROR command is handled the same in all states.
@@ -256,6 +292,7 @@ static AJ_Status Challenge(AJ_SASL_Context* context, char* inStr, char* outStr, 
 
     switch (context->state) {
     case AJ_SASL_WAIT_FOR_AUTH:
+        AJ_InfoPrintf(("Challenge(): AJ_SASL_WAIT_FOR_AUTH\n"));
         if (cmd == CMD_AUTH) {
             context->mechanism = MatchMechanism(context, &inStr);
             if (!context->mechanism) {
@@ -283,6 +320,7 @@ static AJ_Status Challenge(AJ_SASL_Context* context, char* inStr, char* outStr, 
     /* Falling through */
 
     case AJ_SASL_WAIT_FOR_DATA:
+        AJ_InfoPrintf(("Challenge(): AJ_SASL_WAIT_FOR_DATA\n"));
         if (cmd == CMD_DATA) {
             if (strcmp(context->mechanism->name, "ANONYMOUS") != 0) {
                 status = HexDecode(inStr);
@@ -309,6 +347,7 @@ static AJ_Status Challenge(AJ_SASL_Context* context, char* inStr, char* outStr, 
                 }
             }
         } else if (cmd == CMD_BEGIN) {
+            AJ_ErrPrintf(("Challenge(): AJ_ERR_SECURITY\n"));
             status = AJ_ERR_SECURITY;
         } else {
             rsp = CMD_ERROR;
@@ -316,6 +355,7 @@ static AJ_Status Challenge(AJ_SASL_Context* context, char* inStr, char* outStr, 
         break;
 
     case AJ_SASL_WAIT_FOR_BEGIN:
+        AJ_InfoPrintf(("Challenge(): AJ_SASL_WAIT_FOR_BEGIN\n"));
         if (cmd == CMD_BEGIN) {
             context->state = AJ_SASL_AUTHENTICATED;
         } else {
@@ -324,6 +364,7 @@ static AJ_Status Challenge(AJ_SASL_Context* context, char* inStr, char* outStr, 
         break;
 
     default:
+        AJ_ErrPrintf(("Challenge(): AJ_ERR_UNEXPECTED\n"));
         status = AJ_ERR_UNEXPECTED;
     }
 
@@ -412,6 +453,7 @@ static AJ_Status Response(AJ_SASL_Context* context, char* inStr, char* outStr, u
 
     switch (context->state) {
     case AJ_SASL_WAIT_FOR_DATA:
+        AJ_InfoPrintf(("Response(): AJ_SASL_WAIT_FOR_DATA\n"));
         if (cmd == CMD_DATA) {
             status = HexDecode(inStr);
             if (status == AJ_OK) {
@@ -444,6 +486,7 @@ static AJ_Status Response(AJ_SASL_Context* context, char* inStr, char* outStr, u
     /* Fallthrough */
 
     case AJ_SASL_WAIT_FOR_OK:
+        AJ_InfoPrintf(("Response(): AJ_SASL_WAIT_FOR_OK\n"));
         if (cmd == CMD_OK) {
             AJ_GUID localGuid;
             AJ_GetLocalGUID(&localGuid);
@@ -464,10 +507,12 @@ static AJ_Status Response(AJ_SASL_Context* context, char* inStr, char* outStr, u
         break;
 
     case AJ_SASL_WAIT_FOR_REJECT:
+        AJ_ErrPrintf(("Response(): AJ_ERR_SECURITY\n"));
         status = AJ_ERR_SECURITY;
         break;
 
     default:
+        AJ_ErrPrintf(("Response(): AJ_ERR_UNEXPECTED\n"));
         status = AJ_ERR_UNEXPECTED;
     }
 
@@ -485,22 +530,29 @@ static AJ_Status Response(AJ_SASL_Context* context, char* inStr, char* outStr, u
 AJ_Status AJ_SASL_Advance(AJ_SASL_Context* context, char* inStr, char* outStr, uint32_t outLen)
 {
     AJ_Status status;
+
+    AJ_InfoPrintf(("AJ_SASL_Advance(context=0x%p, inStr=\"%s\", outStr=0x%p, outlen=%d.)\n",
+                   context, inStr, outStr, outLen));
+
     if (!outStr) {
+        AJ_ErrPrintf(("AJ_SASL_Advance(): AJ_ERR_RESOURCES\n"));
         return AJ_ERR_RESOURCES;
     }
     if ((context->state == AJ_SASL_AUTHENTICATED) || (context->state == AJ_SASL_FAILED)) {
+        AJ_ErrPrintf(("AJ_SASL_Advance(): AJ_ERR_UNEXPECTED\n"));
         return AJ_ERR_UNEXPECTED;
     }
     if (++context->authCount > MAX_AUTH_COUNT) {
+        AJ_ErrPrintf(("AJ_SASL_Advance(): AJ_ERR_SECURITY\n"));
         return AJ_ERR_SECURITY;
     }
-    AJ_Printf("SASL->%s\n", inStr);
+    AJ_InfoPrintf(("SASL->%s\n", inStr));
     *outStr = '\0';
     if (context->role == AJ_AUTH_CHALLENGER) {
         status = Challenge(context, inStr, outStr, outLen);
     } else {
         status = Response(context, inStr, outStr, outLen);
     }
-    AJ_Printf("SASL<-%s\n", outStr);
+    AJ_InfoPrintf(("AJ_SASL_Advance(): SASL<-%s\n", outStr));
     return status;
 }

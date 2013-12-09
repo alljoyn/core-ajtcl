@@ -16,7 +16,23 @@
  *    ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
+
+/**
+ * Per-module definition of the current module for debug logging.  Must be defined
+ * prior to first inclusion of aj_debug.h
+ */
+#define AJ_MODULE LINK_TIMEOUT
+
 #include <aj_link_timeout.h>
+#include "aj_debug.h"
+
+/**
+ * Turn on per-module debug printing by setting this variable to non-zero value
+ * (usually in debugger).
+ */
+#ifndef NDEBUG
+uint8_t dbgLINK_TIMEOUT = 0;
+#endif
 
 /*
  * Bus link timeout related
@@ -68,7 +84,7 @@ AJ_Status AJ_BusLinkStateProc(AJ_BusAttachment* bus)
                     busLinkWatcher.pingTimerInited = TRUE;
                     AJ_InitTimer(&(busLinkWatcher.pingTimer));
                     if (AJ_OK != AJ_SendLinkProbeReq(bus)) {
-                        AJ_Printf("Error: Fail to send probe reqeust!\n");
+                        AJ_ErrPrintf(("AJ_BusLinkStateProc(): AJ_SendLinkProbeReq() failure"));
                     }
                 } else {
                     eclipse = AJ_GetElapsedTime(&(busLinkWatcher.pingTimer), TRUE);
@@ -76,9 +92,10 @@ AJ_Status AJ_BusLinkStateProc(AJ_BusAttachment* bus)
                         if (++busLinkWatcher.numOfPingTimedOut < AJ_MAX_LINK_PING_PACKETS) {
                             AJ_InitTimer(&(busLinkWatcher.pingTimer));
                             if (AJ_OK != AJ_SendLinkProbeReq(bus)) {
-                                AJ_Printf("Error: Fail to send probe reqeust!\n");
+                                AJ_ErrPrintf(("AJ_BusLinkStateProc(): AJ_SendLinkProbeReq() failure"));
                             }
                         } else {
+                            AJ_ErrPrintf(("AJ_BusLinkStateProc(): AJ_ERR_LINK_TIMEOUT"));
                             status = AJ_ERR_LINK_TIMEOUT;
                             // stop sending probe messages until next link timeout event
                             memset(&busLinkWatcher, 0, sizeof(AJ_BusLinkWatcher));

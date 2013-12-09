@@ -17,14 +17,26 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
-#include "aj_target.h"
+/**
+ * Per-module definition of the current module for debug logging.  Must be defined
+ * prior to first inclusion of aj_debug.h
+ */
+#define AJ_MODULE TARGET_TIMER
+
 #include "aj_status.h"
 #include "aj_timer.h"
 #include "aj_util.h"
+#include "aj_debug.h"
 #include <signal.h>
 #include <time.h>
 
-
+/**
+ * Turn on per-module debug printing by setting this variable to non-zero value
+ * (usually in debugger).
+ */
+#ifndef NDEBUG
+uint8_t dbgTARGET_TIMER = 0;
+#endif
 
 static AJ_Time globalClock;
 static AJ_Timer* TimerList = NULL;
@@ -51,10 +63,10 @@ void _AJ_DumpTimerList(AJ_Timer* list)
     AJ_Timer* iter = list;
 
     while (iter) {
-        AJ_Printf("AJ_DumpTimerList id:%u NextRaised sec %u msec %u \n",
-                  iter->id,
-                  iter->timeNextRaised.seconds,
-                  iter->timeNextRaised.milliseconds);
+        AJ_InfoPrintf(("AJ_DumpTimerList(): id %u NextRaised sec %u msec %u \n",
+                       iter->id,
+                       iter->timeNextRaised.seconds,
+                       iter->timeNextRaised.milliseconds));
 
         assert(iter != iter->next);
         iter = iter->next;
@@ -64,11 +76,9 @@ void _AJ_DumpTimerList(AJ_Timer* list)
 
 #ifdef  AJ_DEBUG_TIMER_LISTS
 #define AJ_DumpTimerList(a) _AJ_DumpTimerList(a)
-#define AJ_DebugTimerPrintf AJ_Printf
 #define AJ_DebugCheckTimerList(a) _AJ_DebugCheckTimerList(a)
 #else
 #define AJ_DumpTimerList(a)
-#define AJ_DebugTimerPrintf(format, args ...) ((void)0)
 #define AJ_DebugCheckTimerList(a)
 #endif
 
@@ -99,14 +109,14 @@ static void AJ_GlobalTimerStart()
 
     //int settime =
     timer_settime(globalTimer, TIMER_ABSTIME, &ts, NULL);
-    AJ_DebugTimerPrintf("timer_settime next time raised will be %u\n", ts.it_value.tv_sec);
+    AJ_InfoPrintf(("AJ_GlobalTimerStart(): timer_settime next time raised will be %u\n", ts.it_value.tv_sec));
 }
 
 static void AJ_GlobalTimerHandler(sigval_t value)
 {
     if (!TimerList) {
         AJ_GlobalTimerStop();
-        AJ_Printf("turn off alarm, there is no timer\n");
+        AJ_InfoPrintf(("AJ_GlobalTimerHandler(): turn off alarm, there is no timer\n"));
     } else {
         AJ_Time now;
         AJ_InitTimer(&now);
@@ -121,7 +131,7 @@ static void AJ_GlobalTimerHandler(sigval_t value)
             InactiveTimerList = top;
             (top->callback)(top->id, top->context);
         } else {
-//            AJ_Printf("AJ_GlobalTimerHandler without something to do yet.\n");
+//            AJ_ErrPrintf(("AJ_GlobalTimerHandler(): without something to do yet.\n"));
         }
     }
 
@@ -134,7 +144,7 @@ static void AJ_GlobalTimerInit(void)
 
 //    int create;
     timer_create(CLOCK_MONOTONIC, &sigev, &globalTimer);
-//    AJ_DebugTimerPrintf("global timer create returned %d id is 0x%lX\n", create, (long)globalTimer);
+//    AJ_InfoPrintf(("AJ_GlobalTimerInit(): global timer create returned %d id is 0x%lX\n", create, (long)globalTimer));
 
     AJ_InitTimer(&globalClock);
 }
@@ -252,7 +262,7 @@ AJ_Status AJ_TimerRegister(uint32_t timeout,
 AJ_Status AJ_TimerRefresh(uint32_t timerId,
                           uint32_t timeout)
 {
-    AJ_DebugTimerPrintf("AJ_TimerRefresh id 0x%lx timeout %ld\n", timerId, timeout);
+    AJ_InfoPrintf(("AJ_TimerRefresh(): id 0x%lx timeout %ld\n", timerId, timeout));
     // BUGBUG take a lock
     AJ_Timer* iter = NULL;
 
@@ -273,7 +283,7 @@ AJ_Status AJ_TimerRefresh(uint32_t timerId,
 
     if (!iter) {
         // look on the inactive list and insert it into the active list
-        AJ_Printf("ERROR! refreshing a non existant timer %u!\n", timerId);
+        AJ_ErrPrintf(("AJ_TimerRefresh(): refreshing a non existant timer %u!\n", timerId));
     }
 
     if (TimerList) {
@@ -290,7 +300,7 @@ AJ_Status AJ_TimerRefresh(uint32_t timerId,
 
 void AJ_TimerCancel(uint32_t timerId, uint8_t keep)
 {
-    AJ_DebugTimerPrintf("AJ_TimerCancel id %d\n", timerId);
+    AJ_InfoPrintf(("AJ_TimerCancel(): id %d\n", timerId));
     // BUGBUG take a lock
 
     // move a timer from the active to the inactive list.

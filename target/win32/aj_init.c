@@ -17,11 +17,26 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
+/**
+ * Per-module definition of the current module for debug logging.  Must be defined
+ * prior to first inclusion of aj_debug.h
+ */
+#define AJ_MODULE INIT
+
 #include "aj_target.h"
 #include "aj_init.h"
 #include "aj_nvram.h"
 #include "aj_guid.h"
 #include "aj_creds.h"
+#include "aj_debug.h"
+
+/**
+ * Turn on per-module debug printing by setting this variable to non-zero value
+ * (usually in debugger).
+ */
+#ifndef NDEBUG
+uint8_t dbgINIT = 0;
+#endif
 
 static uint8_t initialized = FALSE;
 

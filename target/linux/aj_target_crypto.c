@@ -17,10 +17,25 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
+/**
+ * Per-module definition of the current module for debug logging.  Must be defined
+ * prior to first inclusion of aj_debug.h
+ */
+#define AJ_MODULE TARGET_CRYPTO
+
 #include "aj_target.h"
 #include "aj_crypto.h"
+#include "aj_debug.h"
 #include <openssl/aes.h>
 #include <openssl/bn.h>
+
+/**
+ * Turn on per-module debug printing by setting this variable to non-zero value
+ * (usually in debugger).
+ */
+#ifndef NDEBUG
+uint8_t dbgTARGET_CRYPTO = 0;
+#endif
 
 static AES_KEY keyState;
 

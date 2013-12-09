@@ -89,3 +89,19 @@ char* AJ_GetCmdLine(char* buf, size_t num)
         return NULL;
     }
 }
+
+#ifndef NDEBUG
+
+uint8_t dbgCONFIGUREME = 0;
+uint8_t dbgINIT = 0;
+uint8_t dbgNET = 0;
+uint8_t dbgTARGET_CRYPTO = 0;
+uint8_t dbgTARGET_NVRAM = 0;
+uint8_t dbgTARGET_UTIL = 0;
+
+int _AJ_DbgEnabled(char* module)
+{
+    return FALSE;
+}
+
+#endif

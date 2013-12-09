@@ -17,11 +17,26 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
+/**
+ * Per-module definition of the current module for debug logging.  Must be defined
+ * prior to first inclusion of aj_debug.h
+ */
+#define AJ_MODULE CREDS
+
 #include "aj_target.h"
 #include "aj_creds.h"
 #include "aj_status.h"
 #include "aj_crypto.h"
 #include "aj_nvram.h"
+#include "aj_debug.h"
+
+/**
+ * Turn on per-module debug printing by setting this variable to non-zero value
+ * (usually in debugger).
+ */
+#ifndef NDEBUG
+uint8_t dbgCREDS = 0;
+#endif
 
 #define AJ_LOCAL_GUID_NV_ID 1
 #define AJ_REMOTE_CREDS_NV_ID_BEGIN (AJ_LOCAL_GUID_NV_ID + 1)
@@ -42,15 +57,18 @@ uint16_t FindCredsByGUID(const AJ_GUID* peerGuid)
 {
     uint16_t id = AJ_REMOTE_CREDS_NV_ID_BEGIN;
     AJ_NV_DATASET* handle;
+
+    AJ_InfoPrintf(("FindCredsByGUID()\n"));
+
     for (; id < AJ_REMOTE_CREDS_NV_ID_END; id++) {
         if (AJ_NVRAM_Exist(id)) {
             handle = AJ_NVRAM_Open(id, "r", 0);
             if (!handle) {
-                AJ_Printf("Error: fail to open data set with id = %d\n", id);
+                AJ_ErrPrintf(("FindCredsByGUID(): fail to open data set with id = %d\n", id));
             } else {
                 AJ_GUID guid;
                 if (sizeof(AJ_GUID) != AJ_NVRAM_Read(&guid, sizeof(AJ_GUID), handle)) {
-                    AJ_Printf("Error: fail to read %zu bytes from data set with id = %d\n", sizeof(AJ_GUID), id);
+                    AJ_ErrPrintf(("FindCredsByGUID(): fail to %zu bytes from data set with id = %d\n", sizeof(AJ_GUID), id));
                     AJ_NVRAM_Close(handle);
                     continue;
                 }
@@ -68,14 +86,18 @@ uint16_t FindCredsByGUID(const AJ_GUID* peerGuid)
 AJ_Status UpdatePeerCreds(AJ_PeerCred* peerCred, uint16_t id)
 {
     AJ_Status status = AJ_OK;
-    AJ_NV_DATASET* handle = AJ_NVRAM_Open(id, "w", sizeof(AJ_PeerCred));
+    AJ_NV_DATASET* handle;
+
+    AJ_InfoPrintf(("UpdatePeerCreds(peerCred=0x%p, id=%d.)\n", peerCred, id));
+
+    handle = AJ_NVRAM_Open(id, "w", sizeof(AJ_PeerCred));
     if (!handle) {
-        AJ_Printf("Error: fail to open data set with id = %d\n", id);
+        AJ_ErrPrintf(("UpdatePeerCreds(): AJ_ERR_FAILURE\n"));
         status = AJ_ERR_FAILURE;
     } else {
         if (peerCred) {
             if (sizeof(AJ_PeerCred) != AJ_NVRAM_Write(peerCred, sizeof(AJ_PeerCred), handle)) {
-                AJ_Printf("Error: fail to read %zu bytes from data set with id = %d\n", sizeof(AJ_PeerCred), id);
+                AJ_ErrPrintf(("UpdatePeerCreds(): AJ_ERR_FAILURE\n"));
                 status = AJ_ERR_FAILURE;
             }
         }
@@ -90,7 +112,11 @@ AJ_Status UpdatePeerCreds(AJ_PeerCred* peerCred, uint16_t id)
 AJ_Status AJ_StoreCredential(AJ_PeerCred* peerCred)
 {
     AJ_Status status = AJ_OK;
-    uint16_t id = FindCredsByGUID(&peerCred->guid);
+    uint16_t id;
+
+    AJ_InfoPrintf(("UpdatePeerCreds(peerCred=0x%p)\n", peerCred));
+
+    id = FindCredsByGUID(&peerCred->guid);
     if (!id) {
         id = FindCredsEmptySlot();
         if (!id) {
@@ -103,7 +129,7 @@ AJ_Status AJ_StoreCredential(AJ_PeerCred* peerCred)
         status = UpdatePeerCreds(peerCred, id);
     } else {
         status = AJ_ERR_FAILURE;
-        AJ_Printf("AJ_StoreCredential() fails to write credential to NVRAM.\n");
+        AJ_ErrPrintf(("AJ_StoreCredential(): AJ_ERR_FAILURE\n"));
     }
     return status;
 }
@@ -112,6 +138,8 @@ AJ_Status AJ_DeleteCredential(const AJ_GUID* peerGuid)
 {
     AJ_Status status = AJ_ERR_FAILURE;
     uint16_t id = FindCredsByGUID(peerGuid);
+    AJ_InfoPrintf(("AJ_DeleteCredentional(peerCred=0x%p)\n", peerGuid));
+
     if (id > 0) {
         status = AJ_NVRAM_Delete(id);
     }
@@ -122,6 +150,9 @@ AJ_Status AJ_GetLocalGUID(AJ_GUID* localGuid)
 {
     AJ_Status status = AJ_ERR_FAILURE;
     AJ_NV_DATASET* handle;
+
+    AJ_InfoPrintf(("AJ_GetLocalGUID(localGuid=0x%p)\n", localGuid));
+
     if (AJ_NVRAM_Exist(AJ_LOCAL_GUID_NV_ID)) {
         handle = AJ_NVRAM_Open(AJ_LOCAL_GUID_NV_ID, "r", 0);
         if (handle) {
@@ -148,7 +179,11 @@ AJ_Status AJ_GetLocalGUID(AJ_GUID* localGuid)
 AJ_Status AJ_GetRemoteCredential(const AJ_GUID* peerGuid, AJ_PeerCred* peerCreds)
 {
     AJ_Status status = AJ_ERR_FAILURE;
-    uint16_t id = FindCredsByGUID(peerGuid);
+    uint16_t id;
+
+    AJ_InfoPrintf(("AJ_GetRemoteCredential(peerGuid=0x%p, peerCreds=0x%p)\n", peerGuid, peerCreds));
+
+    id = FindCredsByGUID(peerGuid);
     if (id > 0) {
         AJ_NV_DATASET* handle = AJ_NVRAM_Open(id, "r", 0);
         if (handle) {
@@ -166,11 +201,11 @@ AJ_Status AJ_ClearCredentials(void)
 {
     AJ_Status status = AJ_OK;
     uint16_t id = AJ_REMOTE_CREDS_NV_ID_BEGIN;
+
+    AJ_InfoPrintf(("AJ_ClearCredentials()\n"));
+
     for (; id < AJ_REMOTE_CREDS_NV_ID_END; ++id) {
-        AJ_Status st2 = AJ_NVRAM_Delete(id);
-        if (st2 != AJ_OK) {
-            status = st2;
-        }
+        AJ_NVRAM_Delete(id);
     }
 
     return status;

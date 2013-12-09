@@ -14,10 +14,24 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
+/**
+ * Per-module definition of the current module for debug logging.  Must be defined
+ * prior to first inclusion of aj_debug.h
+ */
+#define AJ_MODULE HELPER
+
 #include "aj_helper.h"
 #include "alljoyn.h"
-
 #include "aj_link_timeout.h"
+#include "aj_debug.h"
+
+/**
+ * Turn on per-module debug printing by setting this variable to non-zero value
+ * (usually in debugger).
+ */
+#ifndef NDEBUG
+uint8_t dbgHELPER = 0;
+#endif
 
 #define UNMARSHAL_TIMEOUT (100 * 1000)
 #define CONNECT_TIMEOUT   (60 * 1000)
@@ -84,6 +98,7 @@ uint32_t AJ_SetTimer(uint32_t relative_time, TimeoutHandler handler, void* conte
     }
 
     // available slot not found!
+    AJ_ErrPrintf(("AJ_SetTimer(): Slot not found\n"));
     return 0;
 }
 
@@ -99,6 +114,7 @@ AJ_Status AJ_RunAllJoynService(AJ_BusAttachment* bus, AllJoynConfiguration* conf
 {
     uint8_t connected = FALSE;
     AJ_Status status = AJ_OK;
+    AJ_InfoPrintf(("AJ_RunAllJoynService(bus=0x%p, config=0x%p)\n", bus, config));
 
     while (TRUE) {
         AJ_Time start = { 0, 0 };
@@ -116,10 +132,11 @@ AJ_Status AJ_RunAllJoynService(AJ_BusAttachment* bus, AllJoynConfiguration* conf
                 config->daemonName, config->connect_timeout, config->connected,
                 config->session_port, config->service_name, config->flags, config->opts);
             if (status != AJ_OK) {
+                AJ_ErrPrintf(("AJ_RunAllJoynService(): status=%s.\n", AJ_StatusText(status)));
                 continue;
             }
-            AJ_InfoPrintf(("StartService returned AJ_OK\n"));
-            AJ_InfoPrintf(("Connected to Daemon:%s\n", AJ_GetUniqueName(bus)));
+
+            AJ_InfoPrintf(("AJ_RunAllJoynService(): connected to daemon: \"%s\"\n", AJ_GetUniqueName(bus)));
 
             connected = TRUE;
 
@@ -145,6 +162,7 @@ AJ_Status AJ_RunAllJoynService(AJ_BusAttachment* bus, AllJoynConfiguration* conf
 
         status = AJ_UnmarshalMsg(bus, &msg, min(500, timeout));
         if (AJ_ERR_TIMEOUT == status && AJ_ERR_LINK_TIMEOUT == AJ_BusLinkStateProc(bus)) {
+            AJ_ErrPrintf(("AJ_RunAllJoynService(): AJ_ERR_READ\n"));
             status = AJ_ERR_READ;
         }
 
@@ -211,6 +229,7 @@ AJ_Status AJ_RunAllJoynService(AJ_BusAttachment* bus, AllJoynConfiguration* conf
                     uint8_t accepted = (config->acceptor)(&msg);
                     status = AJ_BusReplyAcceptSession(&msg, accepted);
                 } else {
+                    AJ_InfoPrintf(("AJ_RunAllJoynService(): AJ_BusHandleBusMessage()\n"));
                     status = AJ_BusHandleBusMessage(&msg);
                 }
             }
@@ -224,8 +243,7 @@ AJ_Status AJ_RunAllJoynService(AJ_BusAttachment* bus, AllJoynConfiguration* conf
         AJ_CloseMsg(&msg);
 
         if (status == AJ_ERR_READ) {
-            AJ_InfoPrintf(("AllJoyn disconnect\n"));
-            AJ_InfoPrintf(("Disconnected from Daemon:%s\n", AJ_GetUniqueName(bus)));
+            AJ_InfoPrintf(("AJ_RunAllJoynService(): AJ_Disconnect(): daemon \"%s\"\n", AJ_GetUniqueName(bus)));
             AJ_Disconnect(bus);
             connected = FALSE;
             if (config->connection_handler != NULL) {
@@ -234,6 +252,7 @@ AJ_Status AJ_RunAllJoynService(AJ_BusAttachment* bus, AllJoynConfiguration* conf
             /*
              * Sleep a little while before trying to reconnect
              */
+            AJ_InfoPrintf(("AJ_RunAllJoynService(): AJ_Sleep()\n"));
             AJ_Sleep(10 * 1000);
         }
     }
@@ -252,6 +271,8 @@ AJ_Status AJ_StartService(AJ_BusAttachment* bus,
                           const AJ_SessionOpts* opts
                           )
 {
+    AJ_InfoPrintf(("AJ_StartService(daemonName=\"%s\", timeout=%d., port=%d., name=\"%s\", flags=0x%x, opts=0x%p)\n",
+                   daemonName, timeout, port, name, flags, opts));
     return AJ_StartService2(bus, daemonName, timeout, FALSE, port, name, flags, opts);
 }
 
@@ -269,6 +290,10 @@ AJ_Status AJ_StartService2(AJ_BusAttachment* bus,
     AJ_Time timer;
     uint8_t serviceStarted = FALSE;
     uint8_t initial = TRUE;
+
+    AJ_InfoPrintf(("AJ_StartService2(bus=0x%p, daemonName=\"%s\", timeout=%d., connected=%d., port=%d., name=\"%s\", flags=0x%x, opts=0x%p)\n",
+                   bus, daemonName, timeout, connected, port, name, flags, opts));
+
     AJ_InitTimer(&timer);
 
     while (TRUE) {
@@ -277,23 +302,24 @@ AJ_Status AJ_StartService2(AJ_BusAttachment* bus,
         }
         if (!initial || !connected) {
             initial = FALSE;
-            AJ_InfoPrintf(("Attempting to connect to bus\n"));
+            AJ_InfoPrintf(("AJ_StartService2(): AJ_Connect()\n"));
             status = AJ_Connect(bus, daemonName, CONNECT_TIMEOUT);
             if (status != AJ_OK) {
-                AJ_WarnPrintf(("Failed to connect to bus sleeping for %d seconds\n", CONNECT_PAUSE / 1000));
+                AJ_WarnPrintf(("AJ_StartService2(): connect failed: sleeping for %d seconds\n", CONNECT_PAUSE / 1000));
                 AJ_Sleep(CONNECT_PAUSE);
                 continue;
             }
-            AJ_InfoPrintf(("AllJoyn service connected to bus\n"));
+            AJ_InfoPrintf(("AJ_StartService2(): connected to bus\n"));
         }
         /*
          * Kick things off by binding a session port
          */
+        AJ_InfoPrintf(("AJ_StartService2(): AJ_BindSessionPort()\n"));
         status = AJ_BusBindSessionPort(bus, port, opts);
         if (status == AJ_OK) {
             break;
         }
-        AJ_ErrPrintf(("Failed to send bind session port message\n"));
+        AJ_ErrPrintf(("AJ_StartService2(): AJ_Disconnect(): status=%s.\n", AJ_StatusText(status)));
         AJ_Disconnect(bus);
     }
 
@@ -309,35 +335,41 @@ AJ_Status AJ_StartService2(AJ_BusAttachment* bus,
          */
         if (status == AJ_ERR_TIMEOUT) {
             if (AJ_GetElapsedTime(&timer, TRUE) < UNMARSHAL_TIMEOUT) {
-                AJ_WarnPrintf(("Spurious timeout error - continuing\n"));
+                AJ_WarnPrintf(("AJ_StartService2(): Spurious timeout error - continuing\n"));
                 status = AJ_OK;
                 continue;
             }
         }
 
         if (status != AJ_OK) {
+            AJ_ErrPrintf(("AJ_StartService2(): status=%s.\n", AJ_StatusText(status)));
             break;
         }
 
         switch (msg.msgId) {
         case AJ_REPLY_ID(AJ_METHOD_BIND_SESSION_PORT):
             if (msg.hdr->msgType == AJ_MSG_ERROR) {
+                AJ_ErrPrintf(("AJ_StartService2(): AJ_METHOD_BIND_SESSION_PORT: AJ_ERR_FAILURE\n"));
                 status = AJ_ERR_FAILURE;
             } else {
+                AJ_InfoPrintf(("AJ_StartService2(): AJ_BusRequestName()\n"));
                 status = AJ_BusRequestName(bus, name, flags);
             }
             break;
 
         case AJ_REPLY_ID(AJ_METHOD_REQUEST_NAME):
             if (msg.hdr->msgType == AJ_MSG_ERROR) {
+                AJ_ErrPrintf(("AJ_StartService2(): AJ_METHOD_REQUEST_NAME: AJ_ERR_FAILURE\n"));
                 status = AJ_ERR_FAILURE;
             } else {
+                AJ_InfoPrintf(("AJ_StartService2(): AJ_BusAdvertiseName()\n"));
                 status = AJ_BusAdvertiseName(bus, name, AJ_TRANSPORT_ANY, AJ_BUS_START_ADVERTISING);
             }
             break;
 
         case AJ_REPLY_ID(AJ_METHOD_ADVERTISE_NAME):
             if (msg.hdr->msgType == AJ_MSG_ERROR) {
+                AJ_ErrPrintf(("AJ_StartService2(): AJ_METHOD_ADVERTISE_NAME: AJ_ERR_FAILURE\n"));
                 status = AJ_ERR_FAILURE;
             } else {
                 serviceStarted = TRUE;
@@ -348,6 +380,7 @@ AJ_Status AJ_StartService2(AJ_BusAttachment* bus,
             /*
              * Pass to the built-in bus message handlers
              */
+            AJ_InfoPrintf(("AJ_StartService2(): AJ_BusHandleBusMessage()\n"));
             status = AJ_BusHandleBusMessage(&msg);
             break;
         }
@@ -355,7 +388,7 @@ AJ_Status AJ_StartService2(AJ_BusAttachment* bus,
     }
 
     if (status != AJ_OK) {
-        AJ_WarnPrintf(("AllJoyn disconnect bus status=%s\n", AJ_StatusText(status)));
+        AJ_WarnPrintf(("AJ_StartService2(): AJ_Disconnect(): status=%s\n", AJ_StatusText(status)));
         AJ_Disconnect(bus);
     }
     return status;
@@ -370,6 +403,9 @@ AJ_Status AJ_StartClient(AJ_BusAttachment* bus,
                          const AJ_SessionOpts* opts
                          )
 {
+    AJ_InfoPrintf(("AJ_StartClient(daemonName=\"%s\", timeout=%d., name=\"%s\", port=%d., sessionId=0x%p, opts=0x%p)\n",
+                   daemonName, timeout, name, port, sessionId, opts));
+
     return AJ_StartClient2(bus, daemonName, timeout, FALSE, name, port, sessionId, opts);
 }
 
@@ -389,6 +425,10 @@ AJ_Status AJ_StartClient2(AJ_BusAttachment* bus,
     uint8_t foundName = FALSE;
     uint8_t clientStarted = FALSE;
     uint8_t initial = TRUE;
+
+    AJ_InfoPrintf(("AJ_StartClient(bus=0x%p, daemonName=\"%s\", timeout=%d., connected=%d., name=\"%s\", port=%d., sessionId=0x%p, opts=0x%p)\n",
+                   bus, daemonName, timeout, connected, name, port, sessionId, opts));
+
     AJ_InitTimer(&timer);
 
     while (TRUE) {
@@ -397,7 +437,7 @@ AJ_Status AJ_StartClient2(AJ_BusAttachment* bus,
         }
         if (!initial || !connected) {
             initial = FALSE;
-            AJ_InfoPrintf(("Attempting to connect to bus\n"));
+            AJ_InfoPrintf(("AJ_StartClient(): AJ_Connect()\n"));
             status = AJ_Connect(bus, daemonName, CONNECT_TIMEOUT);
             if (status != AJ_OK) {
                 AJ_WarnPrintf(("Failed to connect to bus sleeping for %d seconds\n", CONNECT_PAUSE / 1000));
@@ -409,11 +449,12 @@ AJ_Status AJ_StartClient2(AJ_BusAttachment* bus,
         /*
          * Kick things off by finding the service names
          */
+        AJ_InfoPrintf(("AJ_StartClient(): AJ_BusFindAdvertisedName()\n"));
         status = AJ_BusFindAdvertisedName(bus, name, AJ_BUS_START_FINDING);
         if (status == AJ_OK) {
             break;
         }
-        AJ_WarnPrintf(("FindAdvertisedName failed\n"));
+        AJ_WarnPrintf(("AjStartClient(): AJ_Disconnect(): status=%s.\n", AJ_StatusText(status)));
         AJ_Disconnect(bus);
     }
 
@@ -423,6 +464,7 @@ AJ_Status AJ_StartClient2(AJ_BusAttachment* bus,
         AJ_Message msg;
 
         if (AJ_GetElapsedTime(&timer, TRUE) > timeout) {
+            AJ_ErrPrintf(("AJ_StartClient(): AJ_ERR_TIMEOUT\n"));
             return AJ_ERR_TIMEOUT;
         }
         status = AJ_UnmarshalMsg(bus, &msg, UNMARSHAL_TIMEOUT);
@@ -439,6 +481,7 @@ AJ_Status AJ_StartClient2(AJ_BusAttachment* bus,
         }
 
         if (status != AJ_OK) {
+            AJ_ErrPrintf(("AJ_StartClient(): status=%s\n", AJ_StatusText(status)));
             break;
         }
         switch (msg.msgId) {
@@ -446,11 +489,13 @@ AJ_Status AJ_StartClient2(AJ_BusAttachment* bus,
         case AJ_REPLY_ID(AJ_METHOD_FIND_NAME):
         case AJ_REPLY_ID(AJ_METHOD_FIND_NAME_BY_TRANSPORT):
             if (msg.hdr->msgType == AJ_MSG_ERROR) {
+                AJ_ErrPrintf(("AJ_StartClient(): AJ_METHOD_FIND_NAME: AJ_ERR_FAILURE\n"));
                 status = AJ_ERR_FAILURE;
             } else {
                 uint32_t disposition;
                 AJ_UnmarshalArgs(&msg, "u", &disposition);
                 if ((disposition != AJ_FIND_NAME_STARTED) && (disposition != AJ_FIND_NAME_ALREADY)) {
+                    AJ_ErrPrintf(("AJ_StartClient(): AJ_ERR_FAILURE\n"));
                     status = AJ_ERR_FAILURE;
                 }
             }
@@ -472,12 +517,14 @@ AJ_Status AJ_StartClient2(AJ_BusAttachment* bus,
                 uint32_t replyCode;
 
                 if (msg.hdr->msgType == AJ_MSG_ERROR) {
+                    AJ_ErrPrintf(("AJ_StartClient(): AJ_METHOD_JOIN_SESSION: AJ_ERR_FAILURE\n"));
                     status = AJ_ERR_FAILURE;
                 } else {
                     status = AJ_UnmarshalArgs(&msg, "uu", &replyCode, sessionId);
                     if (replyCode == AJ_JOINSESSION_REPLY_SUCCESS) {
                         clientStarted = TRUE;
                     } else {
+                        AJ_ErrPrintf(("AJ_StartClient(): AJ_ERR_FAILURE\n"));
                         status = AJ_ERR_FAILURE;
                     }
                 }
@@ -488,6 +535,7 @@ AJ_Status AJ_StartClient2(AJ_BusAttachment* bus,
             /*
              * Force a disconnect
              */
+            AJ_ErrPrintf(("AJ_StartClient(): AJ_SIGNAL_SESSION_LOST: AJ_ERR_READ\n"));
             status = AJ_ERR_READ;
             break;
 
@@ -495,13 +543,14 @@ AJ_Status AJ_StartClient2(AJ_BusAttachment* bus,
             /*
              * Pass to the built-in bus message handlers
              */
+            AJ_InfoPrintf(("AJ_StartClient(): AJ_BusHandleBusMessage()\n"));
             status = AJ_BusHandleBusMessage(&msg);
             break;
         }
         AJ_CloseMsg(&msg);
     }
     if (status != AJ_OK) {
-        AJ_WarnPrintf(("AllJoyn disconnect bus status=%s\n", AJ_StatusText(status)));
+        AJ_WarnPrintf(("AJ_StartClient(): AJ_Disconnect(): status=%s\n", AJ_StatusText(status)));
         AJ_Disconnect(bus);
     }
     return status;

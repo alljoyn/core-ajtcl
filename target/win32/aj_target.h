@@ -57,6 +57,14 @@ typedef unsigned long long uint64_t;  /** 64-bit unsigned integer */
 #define HOST_IS_BIG_ENDIAN     FALSE
 
 #ifndef NDEBUG
+
+extern uint8_t dbgCONFIGUREME;
+extern uint8_t dbgINIT;
+extern uint8_t dbgNET;
+extern uint8_t dbgTARGET_CRYPTO;
+extern uint8_t dbgTARGET_NVRAM;
+extern uint8_t dbgTARGET_UTIL;
+
     #define AJ_Printf printf
 #else
     #define AJ_Printf(...)
@@ -68,5 +76,7 @@ typedef unsigned long long uint64_t;  /** 64-bit unsigned integer */
  * AJ_Reboot() is a NOOP on this platform
  */
 #define AJ_Reboot()
+
+#define AJ_EXPORT  __declspec(dllexport)
 
 #endif

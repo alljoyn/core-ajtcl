@@ -17,12 +17,26 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
+/**
+ * Per-module definition of the current module for debug logging.  Must be defined
+ * prior to first inclusion of aj_debug.h
+ */
+#define AJ_MODULE DISCO
+
 #include "aj_target.h"
 #include "aj_status.h"
 #include "aj_util.h"
 #include "aj_net.h"
 #include "aj_disco.h"
 #include "aj_debug.h"
+
+/**
+ * Turn on per-module debug printing by setting this variable to non-zero value
+ * (usually in debugger).
+ */
+#ifndef NDEBUG
+uint8_t dbgDISCO = 0;
+#endif
 
 typedef struct _NSHeader {
     uint8_t version;
@@ -61,7 +75,10 @@ static AJ_Status ComposeWhoHas(AJ_IOBuffer* txBuf, const char* prefix)
     uint8_t* p = txBuf->writePtr + 6;
     size_t outLen = (6 + preLen + 2);
 
+    AJ_InfoPrintf(("ComposeWhoHas(txbuf=0x%p, prefix=\"%s\")\n", txBuf, prefix));
+
     if (outLen > AJ_IO_BUF_SPACE(txBuf)) {
+        AJ_ErrPrintf(("ComposeWhoHas(): AJ_ERR_RESOURCES\n"));
         return AJ_ERR_RESOURCES;
     }
     hdr->version = MSG_V1 | NSV_V1;
@@ -89,6 +106,8 @@ static AJ_Status ParseIsAt(AJ_IOBuffer* rxBuf, const char* prefix, AJ_Service* s
     uint8_t* p = rxBuf->readPtr + 4;
     uint8_t* eod = (uint8_t*)hdr + len;
 
+    AJ_InfoPrintf(("ParseIsAt(rxbuf=0x%p, prefix=\"%s\", service=0x%p)\n", rxBuf, prefix, service));
+
     service->addrTypes = 0;
 
     /*
@@ -107,12 +126,14 @@ static AJ_Status ParseIsAt(AJ_IOBuffer* rxBuf, const char* prefix, AJ_Service* s
          * Questions must be WHO_HAS messages
          */
         if (MSG_TYPE(flags) != WHO_HAS_MSG) {
+            AJ_InfoPrintf(("ParseIsAt(): AJ_ERR_INVALID\n"));
             return AJ_ERR_INVALID;
         }
         while (nameCount--) {
             uint8_t sz = *p++;
             p += sz;
             if (p > eod) {
+                AJ_InfoPrintf(("ParseIsAt(): AJ_ERR_END_OF_DATA\n"));
                 status = AJ_ERR_END_OF_DATA;
                 goto Exit;
             }
@@ -128,6 +149,7 @@ static AJ_Status ParseIsAt(AJ_IOBuffer* rxBuf, const char* prefix, AJ_Service* s
          * Answers must be IS_AT messages
          */
         if (MSG_TYPE(flags) != IS_AT_MSG) {
+            AJ_InfoPrintf(("ParseIsAt(): AJ_ERR_INVALID\n"));
             return AJ_ERR_INVALID;
         }
         /*
@@ -173,6 +195,7 @@ static AJ_Status ParseIsAt(AJ_IOBuffer* rxBuf, const char* prefix, AJ_Service* s
             p += sz;
         }
         if (p >= eod) {
+            AJ_InfoPrintf(("ParseIsAt(): AJ_ERR_END_OF_DATA\n"));
             return AJ_ERR_END_OF_DATA;
         }
         /*
@@ -183,7 +206,7 @@ static AJ_Status ParseIsAt(AJ_IOBuffer* rxBuf, const char* prefix, AJ_Service* s
             {
                 char sav = p[sz];
                 p[sz] = 0;
-                AJ_Printf("Found %s IP %x\n", p, service->addrTypes);
+                AJ_InfoPrintf(("ParseIsAt(): Found \"%s\" IP 0x%x\n", p, service->addrTypes));
                 p[sz] = sav;
             }
             if ((preLen <= sz) && (memcmp(p, prefix, preLen) == 0)) {
@@ -193,6 +216,7 @@ static AJ_Status ParseIsAt(AJ_IOBuffer* rxBuf, const char* prefix, AJ_Service* s
             p += sz;
             if (p > eod) {
                 status = AJ_ERR_END_OF_DATA;
+                AJ_InfoPrintf(("ParseIsAt(): AJ_ERR_END_OF_DATA\n"));
                 goto Exit;
             }
         }
@@ -219,7 +243,8 @@ AJ_Status AJ_Discover(const char* prefix, AJ_Service* service, uint32_t timeout)
     AJ_Time recvStopWatch;
     AJ_NetSocket sock;
 
-    AJ_Printf("Starting discovery\n");
+    AJ_InfoPrintf(("AJ_Discover(prefix=\"%s\", service=0x%p, timeout=%d.)\n", prefix, service, timeout));
+
     /*
      * Initialize the timer
      */
@@ -229,13 +254,15 @@ AJ_Status AJ_Discover(const char* prefix, AJ_Service* service, uint32_t timeout)
      */
     status = AJ_Net_MCastUp(&sock);
     if (status != AJ_OK) {
+        AJ_InfoPrintf(("AJ_Discover(): status=%s\n", AJ_StatusText(status)));
         return status;
     }
     while ((int32_t)timeout > 0) {
         AJ_IO_BUF_RESET(&sock.tx);
+        AJ_InfoPrintf(("AJ_Discover(): WHO-HAS \"%s\"\n", prefix));
         ComposeWhoHas(&sock.tx, prefix);
         status = sock.tx.send(&sock.tx);
-        AJ_Printf("Sending who-has \"%s\". Result = %d\n", prefix, status);
+        AJ_InfoPrintf(("AJ_Discover(): status=%s\n", AJ_StatusText(status)));
         /*
          * Pause between sending each WHO-HAS
          */
@@ -246,8 +273,10 @@ AJ_Status AJ_Discover(const char* prefix, AJ_Service* service, uint32_t timeout)
             status = sock.rx.recv(&sock.rx, AJ_IO_BUF_SPACE(&sock.rx), RX_TIMEOUT);
             if (status == AJ_OK) {
                 memset(service, 0, sizeof(AJ_Service));
+                AJ_InfoPrintf(("AJ_Discover(): ParseIsAt()"));
                 status = ParseIsAt(&sock.rx, prefix, service);
                 if (status == AJ_OK) {
+                    AJ_InfoPrintf(("AJ_Discover(): IS-AT \"%s\"\n", prefix));
                     goto _Exit;
                 }
             }
@@ -264,6 +293,6 @@ _Exit:
      */
     AJ_Net_MCastDown(&sock);
 
-    AJ_Printf("Stopping discovery\n");
+    AJ_InfoPrintf(("AJ_Discover(): Stop discovery of \"%s\"\n", prefix));
     return status;
 }

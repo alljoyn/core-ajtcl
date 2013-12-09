@@ -17,10 +17,25 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
+/**
+ * Per-module definition of the current module for debug logging.  Must be defined
+ * prior to first inclusion of aj_debug.h
+ */
+#define AJ_MODULE GUID
+
 #include "aj_target.h"
 #include "aj_guid.h"
 #include "aj_util.h"
 #include "aj_crypto.h"
+#include "aj_debug.h"
+
+/**
+ * Turn on per-module debug printing by setting this variable to non-zero value
+ * (usually in debugger).
+ */
+#ifndef NDEBUG
+uint8_t dbgGUID = 0;
+#endif
 
 #define NAME_MAP_GUID_SIZE   2
 #define MAX_NAME_SIZE       14
@@ -51,6 +66,8 @@ AJ_Status AJ_GUID_FromString(AJ_GUID* guid, const char* str)
 static NameToGUID* LookupName(const char* name)
 {
     uint32_t i;
+    AJ_InfoPrintf(("LookupName(name=\"%s\")\n", name));
+
     for (i = 0; i < NAME_MAP_GUID_SIZE; ++i) {
         if (strcmp(nameMap[i].uniqueName, name) == 0) {
             return &nameMap[i];
@@ -59,14 +76,18 @@ static NameToGUID* LookupName(const char* name)
             return &nameMap[i];
         }
     }
+    AJ_ErrPrintf(("LookupName(): NULL\n"));
     return NULL;
 }
 
 AJ_Status AJ_GUID_AddNameMapping(const AJ_GUID* guid, const char* uniqueName, const char* serviceName)
 {
     size_t len = strlen(uniqueName);
+    NameToGUID* mapping;
 
-    NameToGUID* mapping = LookupName(uniqueName);
+    AJ_InfoPrintf(("AJ_GUID_AddNameMapping(guid=0x%p, uniqueName=\"%s\", serviceName=\"%s\")\n", guid, uniqueName, serviceName));
+
+    mapping = LookupName(uniqueName);
     if (!mapping) {
         mapping = LookupName("");
     }
@@ -76,13 +97,18 @@ AJ_Status AJ_GUID_AddNameMapping(const AJ_GUID* guid, const char* uniqueName, co
         mapping->serviceName = serviceName;
         return AJ_OK;
     } else {
+        AJ_ErrPrintf(("AJ_GUID_AddNameMapping(): AJ_ERR_RESOURCES\n"));
         return AJ_ERR_RESOURCES;
     }
 }
 
 void AJ_GUID_DeleteNameMapping(const char* uniqueName)
 {
-    NameToGUID* mapping = LookupName(uniqueName);
+    NameToGUID* mapping;
+
+    AJ_InfoPrintf(("AJ_GUID_AddNameMapping(uniqueName=\"%s\")\n", uniqueName));
+
+    mapping = LookupName(uniqueName);
     if (mapping) {
         memset(mapping, 0, sizeof(NameToGUID));
     }
@@ -91,55 +117,75 @@ void AJ_GUID_DeleteNameMapping(const char* uniqueName)
 const AJ_GUID* AJ_GUID_Find(const char* name)
 {
     NameToGUID* mapping = LookupName(name);
+    AJ_InfoPrintf(("AJ_GUID_Find(name=\"%s\")\n", name));
+
     return mapping ? &mapping->guid : NULL;
 }
 
 
 void AJ_GUID_ClearNameMap(void)
 {
+    AJ_InfoPrintf(("AJ_GUID_ClearNameMap()\n"));
     memset(nameMap, 0, sizeof(nameMap));
 }
 
 AJ_Status AJ_SetGroupKey(const char* uniqueName, const uint8_t* key)
 {
-    NameToGUID* mapping = LookupName(uniqueName);
+    NameToGUID* mapping;
+
+    AJ_InfoPrintf(("AJ_SetGroupKey(uniqueName=\"%s\", key=0x%p)\n", uniqueName, key));
+
+    mapping = LookupName(uniqueName);
     if (mapping) {
         memcpy(mapping->groupKey, key, 16);
         return AJ_OK;
     } else {
+        AJ_ErrPrintf(("AJ_SetGroupKey(): AJ_ERR_NO_MATCH\n"));
         return AJ_ERR_NO_MATCH;
     }
 }
 
 AJ_Status AJ_SetSessionKey(const char* uniqueName, const uint8_t* key, uint8_t role)
 {
-    NameToGUID* mapping = LookupName(uniqueName);
+    NameToGUID* mapping;
+
+    AJ_InfoPrintf(("AJ_SetGroupKey(uniqueName=\"%s\", key=0x%p)\n", uniqueName, key));
+
+    mapping = LookupName(uniqueName);
     if (mapping) {
         mapping->keyRole = role;
         memcpy(mapping->sessionKey, key, 16);
         return AJ_OK;
     } else {
+        AJ_ErrPrintf(("AJ_SetSessionKey(): AJ_ERR_NO_MATCH\n"));
         return AJ_ERR_NO_MATCH;
     }
 }
 
 AJ_Status AJ_GetSessionKey(const char* name, uint8_t* key, uint8_t* role)
 {
-    NameToGUID* mapping = LookupName(name);
+    NameToGUID* mapping;
+
+    AJ_InfoPrintf(("AJ_GetSessionKey(name=\"%s\", key=0x%p, role=0x%p)\n", name, key, role));
+
+    mapping = LookupName(name);
     if (mapping) {
         *role = mapping->keyRole;
         memcpy(key, mapping->sessionKey, 16);
         return AJ_OK;
     } else {
+        AJ_ErrPrintf(("AJ_GetSessionKey(): AJ_ERR_NO_MATCH\n"));
         return AJ_ERR_NO_MATCH;
     }
 }
 
 AJ_Status AJ_GetGroupKey(const char* name, uint8_t* key)
 {
+    AJ_InfoPrintf(("AJ_GetGroupKey(name=\"%s\", key=0x%p)\n", name, key));
     if (name) {
         NameToGUID* mapping = LookupName(name);
         if (!mapping) {
+            AJ_ErrPrintf(("AJ_GetGroupKey(): AJ_ERR_NO_MATCH\n"));
             return AJ_ERR_NO_MATCH;
         }
         memcpy(key, mapping->groupKey, 16);

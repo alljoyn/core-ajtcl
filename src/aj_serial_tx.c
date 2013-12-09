@@ -16,7 +16,15 @@
  *    ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
+
 #ifdef AJ_SERIAL_CONNECTION
+
+/**
+ * Per-module definition of the current module for debug logging.  Must be defined
+ * prior to first inclusion of aj_debug.h
+ */
+#define AJ_MODULE SERIAL_TX
+
 #include "aj_target.h"
 #include "aj_status.h"
 #include "aj_serial.h"
@@ -25,26 +33,20 @@
 #include "aj_crc16.h"
 #include "aj_util.h"
 #include "aj_timer.h"
+#include "aj_debug.h"
 
 /**
- * how long to wait for an acknowledgement before resending a packet
+ * Turn on per-module debug printing by setting this variable to non-zero value
+ * (usually in debugger).
  */
-#define TX_RESEND_TIMEOUT    200
+#ifndef NDEBUG
+uint8_t dbgSERIAL_TX = 0;
+#endif
 
 /**
  * Throughput may be improved by always ack'ing received packets immediately.
  */
 //#define ALWAYS_ACK   1
-
-/**
- * how long to wait after a packet has been received before sending a ACK packet
- */
-#define TX_ACK_TIMEOUT       100
-
-/**
- * This is big enough to hold the control payloads stored in unreliable packets
- */
-#define AJ_LINK_PACKET_PAYLOAD      32
 
 /*
  * transmit packet
@@ -352,7 +354,7 @@ static void QueueUnreliable(void)
      * the unreliable packet to get queued twice.
      */
     if (txQueue == txUnreliable) {
-        AJ_Printf("QueueUnreliable: unreliable packet already queued! %p\n", txUnreliable);
+        AJ_Printf("QueueUnreliable: type %i unreliable packet already queued! %p\n", txUnreliable->type, txUnreliable);
 //        assert(FALSE);
     } else {
         txUnreliable->next = txQueue;
@@ -590,7 +592,7 @@ void AJ_SerialTx_ReceivedAck(uint8_t ack)
      */
     if (ackedPkt != NULL) {
         AJ_InitTimer(&resendTime);
-        AJ_TimeAddOffset(&resendTime, TX_RESEND_TIMEOUT);
+        AJ_TimeAddOffset(&resendTime, AJ_SerialLinkParams.txResendTimeout);
         resendPrimed = TRUE;
     }
 }
@@ -640,7 +642,7 @@ void AJ_SerialTx_ReceivedSeq(uint8_t seq)
      */
     if (pendingAcks == 1) {
         AJ_InitTimer(&ackTime);
-        AJ_TimeAddOffset(&ackTime, TX_ACK_TIMEOUT);
+        AJ_TimeAddOffset(&ackTime, AJ_SerialLinkParams.txAckTimeout);
         return;
     }
 
@@ -709,7 +711,7 @@ void AJ_FillTxBufferList()
 
             if (!resendPrimed) {
                 AJ_InitTimer(&resendTime);
-                AJ_TimeAddOffset(&resendTime, TX_RESEND_TIMEOUT);
+                AJ_TimeAddOffset(&resendTime, AJ_SerialLinkParams.txResendTimeout);
                 resendPrimed = FALSE;
             }
         }

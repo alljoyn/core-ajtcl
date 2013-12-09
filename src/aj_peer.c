@@ -17,6 +17,12 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
+/**
+ * Per-module definition of the current module for debug logging.  Must be defined
+ * prior to first inclusion of aj_debug.h
+ */
+#define AJ_MODULE PEER
+
 #include "aj_target.h"
 #include "aj_peer.h"
 #include "aj_bus.h"
@@ -28,6 +34,15 @@
 #include "aj_auth.h"
 #include "aj_crypto.h"
 #include "aj_sasl.h"
+#include "aj_debug.h"
+
+/**
+ * Turn on per-module debug printing by setting this variable to non-zero value
+ * (usually in debugger).
+ */
+#ifndef NDEBUG
+uint8_t dbgPEER = 0;
+#endif
 
 /*
  * Version number of the key generation algorithm.
@@ -87,6 +102,7 @@ static AJ_Status CheckAuthPeer(AJ_Message* msg)
 {
     const AJ_GUID* peerGuid = AJ_GUID_Find(msg->sender);
     if (!peerGuid || (authContext.peerGuid != peerGuid)) {
+        AJ_ErrPrintf(("AJ_PeerHandleExchangeGuids(): AJ_ERR_UNEXPECTED\n"));
         return AJ_ERR_UNEXPECTED;
     } else {
         return AJ_OK;
@@ -100,6 +116,8 @@ AJ_Status AJ_PeerHandleExchangeGUIDs(AJ_Message* msg, AJ_Message* reply)
     char* str;
     AJ_GUID remoteGuid;
     AJ_GUID localGuid;
+
+    AJ_InfoPrintf(("AJ_PeerHandleExchangeGuids(msg=0x%p, reply=0x%p)\n", msg, reply));
 
     AJ_UnmarshalArgs(msg, "su", &str, &version);
     AJ_GUID_FromString(&remoteGuid, str);
@@ -122,6 +140,8 @@ AJ_Status AJ_PeerHandleAuthChallenge(AJ_Message* msg, AJ_Message* reply)
     AJ_Arg arg;
     char* buf = NULL;
     const AJ_GUID* peerGuid = AJ_GUID_Find(msg->sender);
+
+    AJ_InfoPrintf(("AJ_PeerHandleAuthChallenge(msg=0x%p, reply=0x%p)\n", msg, reply));
 
     /*
      * We expect to know the GUID of the sender
@@ -160,6 +180,7 @@ AJ_Status AJ_PeerHandleAuthChallenge(AJ_Message* msg, AJ_Message* reply)
      */
     buf = (char*)AJ_Malloc(AUTH_BUF_LEN);
     if (!buf) {
+        AJ_ErrPrintf(("AJ_PeerHandleAuthChallenge(): AJ_ERR_RESOURCES\n"));
         status = AJ_ERR_RESOURCES;
         goto FailAuth;
     }
@@ -178,6 +199,7 @@ AJ_Status AJ_PeerHandleAuthChallenge(AJ_Message* msg, AJ_Message* reply)
 
 FailAuth:
 
+    AJ_ErrPrintf(("AJ_PeerHandleAuthChallenge(): FailAuth: status=%d.\n", status));
     AJ_Free(buf);
     /*
      * Clear current authentication context then return an error response
@@ -196,11 +218,18 @@ static AJ_Status KeyGen(const char* peerName, uint8_t role, const char* nonce1, 
     uint8_t lens[4];
     AJ_PeerCred cred;
     const AJ_GUID* peerGuid = AJ_GUID_Find(peerName);
+
+    AJ_InfoPrintf(("KeyGen(peerName=\"%s\", role=%d., nonce1=\"%s\", nonce2=\"%s\", outbuf=0x%p, len=%d.)\n",
+                   peerName, role, nonce1, nonce2, outBuf, len));
+
     if (NULL == peerGuid) {
-        return AJ_ERR_NULL;
+        AJ_ErrPrintf(("KeyGen(): AJ_ERR_UNEXPECTED\n"));
+        return AJ_ERR_UNEXPECTED;
     }
+
     status = AJ_GetRemoteCredential(peerGuid, &cred);
     if (AJ_OK != status) {
+        AJ_ErrPrintf(("KeyGen(): AJ_ERR_NO_MATCH\n"));
         return AJ_ERR_NO_MATCH;
     }
     data[0] = cred.secret;
@@ -217,6 +246,7 @@ static AJ_Status KeyGen(const char* peerName, uint8_t role, const char* nonce1, 
      * Check that there is enough space to do so.
      */
     if (len < (AES_KEY_LEN + VERIFIER_LEN)) {
+        AJ_ErrPrintf(("KeyGen(): AJ_ERR_RESOURCES\n"));
         return AJ_ERR_RESOURCES;
     }
 
@@ -251,6 +281,8 @@ AJ_Status AJ_PeerHandleGenSessionKey(AJ_Message* msg, AJ_Message* reply)
      */
     char verifier[AES_KEY_LEN + VERIFIER_LEN];
 
+    AJ_InfoPrintf(("AJ_PeerHandleGenSessionKey(msg=0x%p, reply=0x%p)\n", msg, reply));
+
     /*
      * Remote peer GUID, Local peer GUID and Remote peer's nonce
      */
@@ -281,11 +313,14 @@ AJ_Status AJ_PeerHandleExchangeGroupKeys(AJ_Message* msg, AJ_Message* reply)
     AJ_Status status;
     AJ_Arg key;
 
+    AJ_InfoPrintf(("AJ_PeerHandleExchangeGroupKeys(msg=0x%p, reply=0x%p)\n", msg, reply));
+
     AJ_UnmarshalArg(msg, &key);
     /*
      * We expect the key to be 16 bytes
      */
     if (key.len != AES_KEY_LEN) {
+        AJ_ErrPrintf(("AJ_PeerHandleExchangeGroupKeys(): AJ_ERR_INVALID\n"));
         status = AJ_ERR_INVALID;
     } else {
         status = AJ_SetGroupKey(msg->sender, key.val.v_byte);
@@ -303,6 +338,8 @@ AJ_Status AJ_PeerHandleExchangeGroupKeys(AJ_Message* msg, AJ_Message* reply)
 
 static void PeerAuthComplete(AJ_Status status)
 {
+    AJ_InfoPrintf(("PeerAuthComplete(status=%d.)\n", status));
+
     if (authContext.callback) {
         /*
          * Report the authentication
@@ -319,6 +356,9 @@ AJ_Status AJ_PeerAuthenticate(AJ_BusAttachment* bus, const char* peerName, AJ_Pe
     AJ_GUID localGuid;
     uint32_t version = REQUIRED_AUTH_VERSION;
 
+    AJ_InfoPrintf(("PeerAuthenticate(bus=0x%p, peerName=\"%s\", callback=0x%p, cbContext=0x%p)\n",
+                   bus, peerName, callback, cbContext));
+
     /*
      * Check there isn't an authentication in progress
      */
@@ -327,11 +367,13 @@ AJ_Status AJ_PeerAuthenticate(AJ_BusAttachment* bus, const char* peerName, AJ_Pe
          * The existing authentication may have timed-out
          */
         if (AJ_GetElapsedTime(&authContext.timer, TRUE) < MAX_AUTH_TIME) {
+            AJ_ErrPrintf(("AJ_PeerAuthenticate(): AJ_ERR_RESOURCES\n"));
             return AJ_ERR_RESOURCES;
         }
         /*
          * Report the failed authentication
          */
+        AJ_ErrPrintf(("AJ_PeerAuthenticate(): AJ_ERR_TIMEOUT\n"));
         PeerAuthComplete(AJ_ERR_TIMEOUT);
     }
     authContext.callback = callback;
@@ -351,6 +393,8 @@ AJ_Status AJ_PeerAuthenticate(AJ_BusAttachment* bus, const char* peerName, AJ_Pe
 static AJ_Status GenSessionKey(AJ_Message* msg)
 {
     AJ_Message call;
+
+    AJ_InfoPrintf(("GenSessionKey(msg=0x%p)\n", msg));
 
     if (authContext.sasl.mechanism) {
         authContext.sasl.mechanism->Final(authContext.peerGuid);
@@ -378,6 +422,8 @@ static AJ_Status AuthResponse(AJ_Message* msg, char* inStr)
     AJ_Status status;
     char* buf;
 
+    AJ_InfoPrintf(("AuthResponse(msg=0x%p, inStr=\"%s\")\n", msg, inStr));
+
     if (authContext.sasl.state == AJ_SASL_AUTHENTICATED) {
         return GenSessionKey(msg);
     }
@@ -386,6 +432,7 @@ static AJ_Status AuthResponse(AJ_Message* msg, char* inStr)
      */
     buf = (char*)AJ_Malloc(AUTH_BUF_LEN);
     if (!buf) {
+        AJ_ErrPrintf(("AuthResponse(): AJ_ERR_RESOURCES\n"));
         status = AJ_ERR_RESOURCES;
     } else {
         status = AJ_SASL_Advance(&authContext.sasl, inStr, buf, AUTH_BUF_LEN);
@@ -419,6 +466,8 @@ AJ_Status AJ_PeerHandleAuthChallengeReply(AJ_Message* msg)
     AJ_Status status;
     AJ_Arg arg;
 
+    AJ_InfoPrintf(("AJ_PeerHandleAuthChallengeReply(msg=0x%p)\n", msg));
+
     /*
      * Check we are in an auth conversation with the sender
      */
@@ -441,11 +490,14 @@ AJ_Status AJ_PeerHandleExchangeGUIDsReply(AJ_Message* msg)
     uint32_t version;
     char nul = '\0';
 
+    AJ_InfoPrintf(("AJ_PeerHandleExchangeGUIDsReply(msg=0x%p)\n", msg));
+
     status = AJ_UnmarshalArgs(msg, "su", &guidStr, &version);
     if (status != AJ_OK) {
         return status;
     }
     if (version != REQUIRED_AUTH_VERSION) {
+        AJ_ErrPrintf(("AJ_PeerHandleExchangeGUIDsReply(): AJ_ERR_SECURITY\n"));
         PeerAuthComplete(AJ_ERR_SECURITY);
         return AJ_OK;
     }
@@ -486,14 +538,18 @@ AJ_Status AJ_PeerHandleGenSessionKeyReply(AJ_Message* msg)
     char* nonce;
     char* remVerifier;
 
+    AJ_InfoPrintf(("AJ_PeerHandleGetSessionKeyReply(msg=0x%p)\n", msg));
+
     /*
      * Check we are in an auth conversation with the sender
      */
     status = CheckAuthPeer(msg);
     if (status != AJ_OK) {
+        AJ_ErrPrintf(("AJ_PeerHandleGetSessionKeyreply(): status=%d.\n", status));
         return status;
     }
     if (msg->hdr->msgType == AJ_MSG_ERROR) {
+        AJ_ErrPrintf(("AJ_PeerHandleGetSessionKeyReply(): AJ_ERR_SECURITY\n"));
         status = AJ_ERR_SECURITY;
     } else {
         AJ_UnmarshalArgs(msg, "ss", &nonce, &remVerifier);
@@ -503,6 +559,7 @@ AJ_Status AJ_PeerHandleGenSessionKeyReply(AJ_Message* msg)
              * Check verifier strings match as expected
              */
             if (strcmp(remVerifier, verifier) != 0) {
+                AJ_ErrPrintf(("AJ_PeerHandleGetSessionKeyReply(): AJ_ERR_SECURITY\n"));
                 status = AJ_ERR_SECURITY;
             }
         }
@@ -530,11 +587,14 @@ AJ_Status AJ_PeerHandleExchangeGroupKeysReply(AJ_Message* msg)
     AJ_Status status;
     AJ_Arg arg;
 
+    AJ_InfoPrintf(("AJ_PeerHandleExchangeGroupKeysReply(msg=0x%p)\n", msg));
+
     /*
      * Check we are in an auth conversation with the sender
      */
     status = CheckAuthPeer(msg);
     if (status != AJ_OK) {
+        AJ_ErrPrintf(("AJ_PeerHandleExchangeGroupKeysReply(): status=%d.\n", status));
         return status;
     }
     AJ_UnmarshalArg(msg, &arg);
@@ -542,6 +602,7 @@ AJ_Status AJ_PeerHandleExchangeGroupKeysReply(AJ_Message* msg)
      * We expect the key to be 16 bytes
      */
     if (arg.len != AES_KEY_LEN) {
+        AJ_ErrPrintf(("AJ_PeerHandleExchangeGroupKeysReply(): AJ_ERR_INVALID\n"));
         status = AJ_ERR_INVALID;
     } else {
         status = AJ_SetGroupKey(msg->sender, arg.val.v_byte);

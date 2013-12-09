@@ -17,20 +17,36 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
+/**
+ * Per-module definition of the current module for debug logging.  Must be defined
+ * prior to first inclusion of aj_debug.h
+ */
+#define AJ_MODULE MSG
+
 #include <stdarg.h>
 
 #include "aj_target.h"
 #include "aj_status.h"
 #include "aj_msg.h"
+#include "aj_msg_priv.h"
 #include "aj_bufio.h"
 #include "aj_connect.h"
 #include "aj_guid.h"
+#include "aj_peer.h"
 #include "aj_util.h"
 #include "aj_crypto.h"
 #include "aj_introspect.h"
 #include "aj_std.h"
-#include "aj_debug.h"
 #include "aj_bus.h"
+#include "aj_debug.h"
+
+/**
+ * Turn on per-module debug printing by setting this variable to non-zero value
+ * (usually in debugger).
+ */
+#ifndef NDEBUG
+uint8_t dbgMSG = 0;
+#endif
 
 #if HOST_IS_LITTLE_ENDIAN
 #define HOST_ENDIANESS AJ_LITTLE_ENDIAN
@@ -47,6 +63,13 @@
  * The size of the MAC for encrypted messages
  */
 #define MAC_LENGTH 8
+
+/*
+ * gcc defines __va_copy() other compilers allow direct assignent of a va_list
+ */
+#ifndef __va_copy
+#define __va_copy(a, b) (a) = (b)
+#endif
 
 /*
  * The types for each of the header fields.
@@ -84,6 +107,7 @@ static const uint8_t TypeForHdr[] = {
  */
 static const uint8_t TypeFlags[] = {
     0x08 | AJ_CONTAINER,  /* AJ_ARG_STRUCT            '('  */
+    0,                    /*                          ')'  */
     0x04 | AJ_CONTAINER,  /* AJ_ARG_ARRAY             'a'  */
     0x04 | AJ_SCALAR,     /* AJ_ARG_BOOLEAN           'b'  */
     0,
@@ -111,12 +135,14 @@ static const uint8_t TypeFlags[] = {
     0x01 | AJ_SCALAR,     /* AJ_ARG_BYTE              'y'  */
     0,
     0x08 | AJ_CONTAINER,  /* AJ_ARG_DICT_ENTRY        '{'  */
+    0,
+    0                     /*                          '}'  */
 };
 
 /**
  * Macros for indexing into TypeFlags
  */
-#define TYPE_FLAG(t) TypeFlags[((t) == AJ_ARG_STRUCT) ? 0 : (t) - 96]
+#define TYPE_FLAG(t) TypeFlags[((t) < 'a') ? (t) - '(' : (t) + 2 - 'a']
 
 /**
  * Extract the alignment from the TypeFlags
@@ -137,6 +163,33 @@ static const uint8_t TypeFlags[] = {
  * A basic type is a scalar or one of the string types
  */
 #define IsBasicType(typeId) (TYPE_FLAG(typeId) & (AJ_STRING | AJ_SCALAR))
+
+
+int AJ_IsContainerType(char typeId)
+{
+    return (TYPE_FLAG(typeId) & AJ_CONTAINER) != 0;
+}
+
+int AJ_IsScalarType(char typeId)
+{
+    return IsScalarType(typeId) != 0;
+}
+
+int AJ_IsStringType(char typeId)
+{
+    return (TYPE_FLAG(typeId) & AJ_STRING) != 0;
+}
+
+int AJ_IsBasicType(char typeId)
+{
+    return IsBasicType(typeId) != 0;
+}
+
+size_t AJ_GetTypeSize(char typeId)
+{
+    return SizeOfType(typeId);
+}
+
 
 /*
  * Checks that the current message is closed
@@ -251,6 +304,7 @@ static AJ_Status DecryptMessage(AJ_Message* msg)
         role ^= 3;
     }
     if (status != AJ_OK) {
+        AJ_ErrPrintf(("DecryptMessage(): AJ_ERR_SECURITY\n"));
         status = AJ_ERR_SECURITY;
     } else {
         InitNonce(msg, role, nonce);
@@ -275,6 +329,7 @@ static AJ_Status EncryptMessage(AJ_Message* msg)
      * Check there is room to append the MAC
      */
     if (AJ_IO_BUF_SPACE(ioBuf) < MAC_LENGTH) {
+        AJ_ErrPrintf(("EncryptMessage(): AJ_ERR_RESOURCES\n"));
         return AJ_ERR_RESOURCES;
     }
     msg->hdr->bodyLen += MAC_LENGTH;
@@ -288,7 +343,8 @@ static AJ_Status EncryptMessage(AJ_Message* msg)
         status = AJ_GetSessionKey(msg->destination, key, &role);
     }
     if (status != AJ_OK) {
-        AJ_ErrPrintf(("Encryption required but peer %s is not authenticated", msg->destination));
+        AJ_ErrPrintf(("EncryptMesssage(): peer %s not authenticated", msg->destination));
+        AJ_ErrPrintf(("EncryptMessage(): AJ_ERR_SECURITY\n"));
         status = AJ_ERR_SECURITY;
     } else {
         InitNonce(msg, role, nonce);
@@ -319,6 +375,7 @@ AJ_Status AJ_DeliverMsg(AJ_Message* msg)
          * Check that the entire body was written
          */
         if (msg->bodyBytes) {
+            AJ_ErrPrintf(("AJ_DeliverMsg(): AJ_ERR_MARSHAL\n"));
             status = AJ_ERR_MARSHAL;
         }
     }
@@ -347,6 +404,7 @@ static AJ_Status LoadBytes(AJ_IOBuffer* ioBuf, uint16_t numBytes, uint8_t pad)
      * Needs to be enough headroom in the buffer to satisfy the read
      */
     if (numBytes > (ioBuf->bufSize - AJ_IO_BUF_CONSUMED(ioBuf))) {
+        AJ_ErrPrintf(("LoadBytes(): AJ_ERR_RESOURCES\n"));
         return AJ_ERR_RESOURCES;
     }
     while (AJ_IO_BUF_AVAIL(ioBuf) < numBytes) {
@@ -357,6 +415,7 @@ static AJ_Status LoadBytes(AJ_IOBuffer* ioBuf, uint16_t numBytes, uint8_t pad)
              * Timeouts after we have started to unmarshal a message are a bad sign.
              */
             if (status == AJ_ERR_TIMEOUT) {
+                AJ_ErrPrintf(("LoadBytes(): AJ_ERR_READ\n"));
                 status = AJ_ERR_READ;
             }
             break;
@@ -377,6 +436,7 @@ static AJ_Status WriteBytes(AJ_Message* msg, const void* data, size_t numBytes, 
     AJ_Status status = AJ_OK;
     AJ_IOBuffer* ioBuf = &msg->bus->sock.tx;
     if (numBytes && !data) {
+        AJ_ErrPrintf(("WriteBytes(): AJ_ERR_NULL\n"));
         return AJ_ERR_NULL;
     }
     while (numBytes + pad) {
@@ -386,6 +446,7 @@ static AJ_Status WriteBytes(AJ_Message* msg, const void* data, size_t numBytes, 
              * If we have already marshaled the header we can write what we have in the buffer
              */
             if (msg->hdr) {
+                AJ_ErrPrintf(("WriteBytes(): AJ_ERR_RESOURCES\n"));
                 status = AJ_ERR_RESOURCES;
             } else {
                 //#pragma calls = AJ_Net_Send
@@ -581,6 +642,7 @@ static AJ_Status Unmarshal(AJ_Message* msg, const char** sig, AJ_Arg* arg)
     memset(arg, 0, sizeof(AJ_Arg));
 
     if (!*sig || !**sig) {
+        AJ_ErrPrintf(("Unmarshal(): AJ_ERR_END_OF_DATA\n"));
         return AJ_ERR_END_OF_DATA;
     }
 
@@ -642,6 +704,7 @@ static AJ_Status Unmarshal(AJ_Message* msg, const char** sig, AJ_Arg* arg)
         arg->typeId = typeId;
         status = UnmarshalStruct(msg, sig, arg, pad);
     } else {
+        AJ_ErrPrintf(("Unmarshal(): AJ_ERR_UNMARSHAL\n"));
         status = AJ_ERR_UNMARSHAL;
     }
     return status;
@@ -744,6 +807,7 @@ AJ_Status AJ_UnmarshalMsg(AJ_BusAttachment* bus, AJ_Message* msg, uint32_t timeo
      * Quick sanity check on the header - unrecoverable error if this check fails
      */
     if ((msg->hdr->endianess != AJ_LITTLE_ENDIAN) && (msg->hdr->endianess != AJ_BIG_ENDIAN)) {
+        AJ_ErrPrintf(("AJ_UnmarshalMsg(): AJ_ERR_READ\n"));
         return AJ_ERR_READ;
     }
     /*
@@ -813,6 +877,7 @@ AJ_Status AJ_UnmarshalMsg(AJ_BusAttachment* bus, AJ_Message* msg, uint32_t timeo
          * Check the field has the type we expect - we ignore fields we don't know
          */
         if ((fieldId <= AJ_HDR_SESSION_ID) && (TypeForHdr[fieldId] != hdrVal.typeId)) {
+            AJ_ErrPrintf(("AJ_UnmarshalMsg(): AJ_ERR_UNMARSHAL\n"));
             status = AJ_ERR_UNMARSHAL;
             break;
         }
@@ -989,6 +1054,31 @@ AJ_Status AJ_SkipArg(AJ_Message* msg)
     return status;
 }
 
+const char* AJ_NextArgSig(AJ_Message* msg)
+{
+    AJ_IOBuffer* ioBuf = &msg->bus->sock.rx;
+    AJ_Arg* container = msg->outer;
+    const char* sig;
+
+    if (msg->varOffset) {
+        /*
+         * Variant - get the signature from the I/O buffer
+         */
+        sig = (const char*)(ioBuf->readPtr - msg->varOffset);
+    } else if (container) {
+        /*
+         * Component of a container - use the container's signature
+         */
+        sig = container->sigPtr;
+    } else {
+        /*
+         * Everything else - use the message signature
+         */
+        sig = msg->signature + msg->sigOffset;
+    }
+    return sig;
+}
+
 AJ_Status AJ_UnmarshalArg(AJ_Message* msg, AJ_Arg* arg)
 {
     AJ_Status status;
@@ -996,18 +1086,12 @@ AJ_Status AJ_UnmarshalArg(AJ_Message* msg, AJ_Arg* arg)
     AJ_Arg* container = msg->outer;
     uint8_t* argStart = ioBuf->readPtr;
     size_t consumed;
+    const char* sig = AJ_NextArgSig(msg);
 
     if (msg->varOffset) {
-        /*
-         * Unmarshaling a variant - get the signature from the I/O buffer
-         */
-        const char* sig = (const char*)(ioBuf->readPtr - msg->varOffset);
         msg->varOffset = 0;
         status = Unmarshal(msg, &sig, arg);
     } else if (container) {
-        /*
-         * Unmarshaling a component of a container use the container's signature
-         */
         if (container->typeId == AJ_ARG_ARRAY) {
             size_t len = (uint16_t)(ioBuf->readPtr - (uint8_t*)container->val.v_data);
             /*
@@ -1015,19 +1099,16 @@ AJ_Status AJ_UnmarshalArg(AJ_Message* msg, AJ_Arg* arg)
              */
             if (len == container->len) {
                 memset(arg, 0, sizeof(AJ_Arg));
+                AJ_ErrPrintf(("AJ_UnmarshalMsg(): AJ_ERR_NO_MORE\n"));
                 status = AJ_ERR_NO_MORE;
             } else {
-                const char* sig = container->sigPtr;
                 status = Unmarshal(msg, &sig, arg);
             }
         } else {
-            status = Unmarshal(msg, &container->sigPtr, arg);
+            status = Unmarshal(msg, &sig, arg);
+            container->sigPtr = sig;
         }
     } else {
-        const char* sig = msg->signature + msg->sigOffset;
-        /*
-         * Unmarshalling anything else use the message signature
-         */
         status = Unmarshal(msg, &sig, arg);
         msg->sigOffset = (uint8_t)(sig - msg->signature);
     }
@@ -1036,6 +1117,7 @@ AJ_Status AJ_UnmarshalArg(AJ_Message* msg, AJ_Arg* arg)
         /*
          * Unrecoverable
          */
+        AJ_ErrPrintf(("AJ_UnmarshalArg(): AJ_ERR_READ\n"));
         status = AJ_ERR_READ;
     } else {
         msg->bodyBytes -= (uint16_t)consumed;
@@ -1043,18 +1125,66 @@ AJ_Status AJ_UnmarshalArg(AJ_Message* msg, AJ_Arg* arg)
     return status;
 }
 
-AJ_Status AJ_UnmarshalArgs(AJ_Message* msg, const char* sig, ...)
+static AJ_Status VUnmarshalArgs(AJ_Message* msg, const char* sig, va_list* argpp)
 {
     AJ_Status status = AJ_OK;
     AJ_Arg arg;
+    AJ_Arg container;
     va_list argp;
 
-    va_start(argp, sig);
+    __va_copy(argp, *argpp);
+
+    container.typeId = AJ_ARG_INVALID;
+
     while (*sig) {
         uint8_t typeId = (uint8_t)*sig++;
-        void* val = va_arg(argp, void*);
+        void* val;
 
         if (!IsBasicType(typeId)) {
+            if ((typeId == AJ_ARG_STRUCT) || (typeId == AJ_ARG_DICT_ENTRY)) {
+                /*
+                 * This API does not support unmarshalling nested structs
+                 */
+                if (container.typeId != AJ_ARG_INVALID) {
+                    status = AJ_ERR_MARSHAL;
+                    break;
+                }
+                AJ_UnmarshalContainer(msg, &container, typeId);
+                continue;
+            }
+            if ((typeId == AJ_ARG_ARRAY) && IsBasicType(*sig)) {
+                const void** ptr = va_arg(argp, const void**);
+                size_t* len = va_arg(argp, size_t*);
+                sig++;
+                status = AJ_UnmarshalArg(msg, &arg);
+                if (status != AJ_OK) {
+                    break;
+                }
+                *ptr = arg.val.v_data;
+                *len = arg.len;
+                continue;
+            }
+            if ((typeId == AJ_STRUCT_CLOSE) || (typeId == AJ_DICT_ENTRY_CLOSE)) {
+                status = AJ_UnmarshalCloseContainer(msg, &container);
+                container.typeId = AJ_ARG_INVALID;
+                break;
+            }
+            if (typeId == AJ_ARG_VARIANT) {
+                const char* vsigExpect = va_arg(argp, const char*);
+                const char* vsig;
+                status = AJ_UnmarshalVariant(msg, &vsig);
+                if (status == AJ_OK) {
+                    if (strcmp(vsig, vsigExpect) != 0) {
+                        status = AJ_ERR_SIGNATURE;
+                        break;
+                    }
+                    status = VUnmarshalArgs(msg, vsig, &argp);
+                }
+                if (status == AJ_OK) {
+                    continue;
+                }
+            }
+            AJ_ErrPrintf(("AJ_UnmarshalArgs(): AJ_ERR_UNEXPECTED\n"));
             status = AJ_ERR_UNEXPECTED;
             break;
         }
@@ -1063,9 +1193,11 @@ AJ_Status AJ_UnmarshalArgs(AJ_Message* msg, const char* sig, ...)
             break;
         }
         if (arg.typeId != typeId) {
+            AJ_ErrPrintf(("AJ_UnmarshalArgs(): AJ_ERR_UNMARSHAL\n"));
             status = AJ_ERR_UNMARSHAL;
             break;
         }
+        val = va_arg(argp, void*);
         if (IsScalarType(typeId)) {
             switch (SizeOfType(typeId)) {
             case 1:
@@ -1088,7 +1220,19 @@ AJ_Status AJ_UnmarshalArgs(AJ_Message* msg, const char* sig, ...)
             *((const char**)val) = arg.val.v_string;
         }
     }
+    __va_copy(*argpp, argp);
+    return status;
+}
+
+AJ_Status AJ_UnmarshalArgs(AJ_Message* msg, const char* sig, ...)
+{
+    AJ_Status status;
+    va_list argp;
+
+    va_start(argp, sig);
+    status = VUnmarshalArgs(msg, sig, &argp);
     va_end(argp);
+
     return status;
 }
 
@@ -1108,6 +1252,7 @@ AJ_Status AJ_UnmarshalRaw(AJ_Message* msg, const void** data, size_t len, size_t
          * There must be arguments to unmarshal
          */
         if (!typeId) {
+            AJ_ErrPrintf(("AJ_UnmarshalRaw(): AJ_ERR_SIGNATURE\n"));
             return AJ_ERR_SIGNATURE;
         }
         /*
@@ -1115,6 +1260,7 @@ AJ_Status AJ_UnmarshalRaw(AJ_Message* msg, const void** data, size_t len, size_t
          */
         pad = PadForType(typeId, ioBuf);
         if (pad > msg->bodyBytes) {
+            AJ_ErrPrintf(("AJ_UnmarshalRaw(): AJ_ERR_UNMARSHAL\n"));
             return AJ_ERR_UNMARSHAL;
         }
         LoadBytes(ioBuf, 0, pad);
@@ -1130,6 +1276,7 @@ AJ_Status AJ_UnmarshalRaw(AJ_Message* msg, const void** data, size_t len, size_t
      * Return an error if caller is attempting read off the end of the body
      */
     if (len > msg->bodyBytes) {
+        AJ_ErrPrintf(("AJ_UnmarshalRaw(): AJ_ERR_UNMARSHAL\n"));
         return AJ_ERR_UNMARSHAL;
     }
     /*
@@ -1167,6 +1314,7 @@ AJ_Status AJ_UnmarshalContainer(AJ_Message* msg, AJ_Arg* arg, uint8_t typeId)
                 arg->container = msg->outer;
                 msg->outer = arg;
             } else {
+                AJ_ErrPrintf(("AJ_UnmarshalContainer(): AJ_ERR_UNMARSHAL\n"));
                 status =  AJ_ERR_UNMARSHAL;
             }
         }
@@ -1188,6 +1336,7 @@ AJ_Status AJ_UnmarshalCloseContainer(AJ_Message* msg, AJ_Arg* arg)
          */
         size_t len = (uint16_t)(ioBuf->readPtr - (uint8_t*)arg->val.v_data);
         if (len != arg->len) {
+            AJ_ErrPrintf(("AJ_UnmarshalCloseContainer(): AJ_ERR_UNMARSHAL\n"));
             return AJ_ERR_UNMARSHAL;
         }
     } else {
@@ -1195,9 +1344,11 @@ AJ_Status AJ_UnmarshalCloseContainer(AJ_Message* msg, AJ_Arg* arg)
          * Check that all of the struct elements have been unmarshaled
          */
         if ((arg->typeId == AJ_ARG_STRUCT) && (*arg->sigPtr != AJ_STRUCT_CLOSE)) {
+            AJ_ErrPrintf(("AJ_UnmarshalCloseContainer(): AJ_ERR_SIGNATURE\n"));
             return AJ_ERR_SIGNATURE;
         }
         if ((arg->typeId == AJ_ARG_DICT_ENTRY) && (*arg->sigPtr != AJ_DICT_ENTRY_CLOSE)) {
+            AJ_ErrPrintf(("AJ_UnmarshalCloseContainer(): AJ_ERR_SIGNATURE\n"));
             return AJ_ERR_SIGNATURE;
         }
     }
@@ -1259,12 +1410,14 @@ static AJ_Status Marshal(AJ_Message* msg, const char** sig, AJ_Arg* arg)
     size_t sz;
 
     if (!arg) {
+        AJ_ErrPrintf(("Marshal(): AJ_ERR_NULL\n"));
         return AJ_ERR_NULL;
     }
     *sig += 1;
     if (IsScalarType(arg->typeId)) {
         if (arg->flags & AJ_ARRAY_FLAG) {
             if ((typeId != AJ_ARG_ARRAY) || (**sig != arg->typeId)) {
+                AJ_ErrPrintf(("Marshal(): AJ_ERR_MARSHAL\n"));
                 return AJ_ERR_MARSHAL;
             }
             *sig += 1;
@@ -1278,6 +1431,7 @@ static AJ_Status Marshal(AJ_Message* msg, const char** sig, AJ_Arg* arg)
             }
         } else {
             if (typeId != arg->typeId) {
+                AJ_ErrPrintf(("Marshal(): AJ_ERR_MARSHAL\n"));
                 return AJ_ERR_MARSHAL;
             }
             sz = SizeOfType(typeId);
@@ -1287,6 +1441,7 @@ static AJ_Status Marshal(AJ_Message* msg, const char** sig, AJ_Arg* arg)
         }
     } else if (TYPE_FLAG(typeId) & (AJ_STRING | AJ_VARIANT)) {
         if (typeId != arg->typeId) {
+            AJ_ErrPrintf(("Marshal(): AJ_ERR_MARSHAL\n"));
             return AJ_ERR_MARSHAL;
         }
         sz = arg->len ? arg->len : strlen(arg->val.v_string);
@@ -1319,10 +1474,12 @@ static AJ_Status Marshal(AJ_Message* msg, const char** sig, AJ_Arg* arg)
         }
     } else if (TYPE_FLAG(typeId) & AJ_CONTAINER) {
         if (typeId != arg->typeId) {
+            AJ_ErrPrintf(("Marshal(): AJ_ERR_MARSHAL\n"));
             return AJ_ERR_MARSHAL;
         }
         status = MarshalContainer(msg, sig, arg, pad);
     } else {
+        AJ_ErrPrintf(("Marshal(): AJ_ERR_MARSHAL\n"));
         return AJ_ERR_MARSHAL;
     }
     return status;
@@ -1341,6 +1498,7 @@ static AJ_Status MarshalMsg(AJ_Message* msg, uint8_t msgType, uint32_t msgId, ui
      */
     status = AJ_InitMessageFromMsgId(msg, msgId, msgType, &secure);
     if (status != AJ_OK) {
+        AJ_ErrPrintf(("MarshalMsg(): status=%s\n", AJ_StatusText(status)));
         return status;
     }
 
@@ -1502,6 +1660,7 @@ AJ_Status AJ_MarshalArg(AJ_Message* msg, AJ_Arg* arg)
          */
         const char* sig = msg->outer->sigPtr;
         if (!*sig) {
+            AJ_ErrPrintf(("AJ_MarshalArg(): AJ_ERR_END_OF_DATA\n"));
             return AJ_ERR_END_OF_DATA;
         }
         status = Marshal(msg, &sig, arg);
@@ -1517,6 +1676,7 @@ AJ_Status AJ_MarshalArg(AJ_Message* msg, AJ_Arg* arg)
          * Marshalling anything else use the message signature
          */
         if (!*sig) {
+            AJ_ErrPrintf(("AJ_MarshalArg(): AJ_ERR_END_OF_DATA\n"));
             return AJ_ERR_END_OF_DATA;
         }
         status = Marshal(msg, &sig, arg);
@@ -1546,13 +1706,17 @@ AJ_Arg* AJ_InitArg(AJ_Arg* arg, uint8_t typeId, uint8_t flags, const void* val, 
     }
 }
 
-AJ_Status AJ_MarshalArgs(AJ_Message* msg, const char* sig, ...)
+static AJ_Status VMarshalArgs(AJ_Message* msg, const char* sig, va_list* argpp)
 {
     AJ_Status status = AJ_OK;
     AJ_Arg arg;
+    AJ_Arg container;
     va_list argp;
 
-    va_start(argp, sig);
+    __va_copy(argp, *argpp);
+
+    container.typeId = AJ_ARG_INVALID;
+
     while (*sig) {
         uint8_t u8;
         uint16_t u16;
@@ -1560,7 +1724,43 @@ AJ_Status AJ_MarshalArgs(AJ_Message* msg, const char* sig, ...)
         uint64_t u64;
         uint8_t typeId = (uint8_t)*sig++;
         void* val;
+
         if (!IsBasicType(typeId)) {
+            if ((typeId == AJ_ARG_STRUCT) || (typeId == AJ_ARG_DICT_ENTRY)) {
+                /*
+                 * This API does not support marshalling nested structs
+                 */
+                if (container.typeId != AJ_ARG_INVALID) {
+                    status = AJ_ERR_MARSHAL;
+                    break;
+                }
+                AJ_MarshalContainer(msg, &container, typeId);
+                continue;
+            }
+            if ((typeId == AJ_ARG_ARRAY) && IsBasicType(*sig)) {
+                const void* aval = va_arg(argp, const void*);
+                size_t len = va_arg(argp, size_t);
+
+                AJ_InitArg(&arg, *sig++, AJ_ARRAY_FLAG, aval, len);
+                status = AJ_MarshalArg(msg, &arg);
+                continue;
+            }
+            if ((typeId == AJ_STRUCT_CLOSE) || (typeId == AJ_DICT_ENTRY_CLOSE)) {
+                status = AJ_MarshalCloseContainer(msg, &container);
+                container.typeId = AJ_ARG_INVALID;
+                break;
+            }
+            if (typeId == AJ_ARG_VARIANT) {
+                const char* vsig = va_arg(argp, const char*);
+                status = AJ_MarshalVariant(msg, vsig);
+                if (status == AJ_OK) {
+                    status = VMarshalArgs(msg, vsig, &argp);
+                }
+                if (status == AJ_OK) {
+                    continue;
+                }
+            }
+            AJ_ErrPrintf(("AJ_MarshalArgs(): AJ_ERR_UNEXPECTED\n"));
             status = AJ_ERR_UNEXPECTED;
             break;
         }
@@ -1584,10 +1784,23 @@ AJ_Status AJ_MarshalArgs(AJ_Message* msg, const char* sig, ...)
         InitArg(&arg, typeId, val);
         status = AJ_MarshalArg(msg, &arg);
         if (status != AJ_OK) {
+            AJ_ErrPrintf(("AJ_MarshalArgs(): status=%s\n", AJ_StatusText(status)));
             break;
         }
     }
+    __va_copy(*argpp, argp);
+    return status;
+}
+
+AJ_Status AJ_MarshalArgs(AJ_Message* msg, const char* sig, ...)
+{
+    AJ_Status status;
+    va_list argp;
+
+    va_start(argp, sig);
+    status = VMarshalArgs(msg, sig, &argp);
     va_end(argp);
+
     return status;
 }
 
@@ -1600,18 +1813,21 @@ AJ_Status AJ_DeliverMsgPartial(AJ_Message* msg, uint32_t bytesRemaining)
     AJ_ASSERT(!msg->outer);
 
     if (!msg->hdr || !bytesRemaining) {
+        AJ_ErrPrintf(("AJ_DeliverMsgPartial(): AJ_ERR_UNEXPECTED\n"));
         return AJ_ERR_UNEXPECTED;
     }
     /*
      * Partial delivery not currently supported for messages that must be encrypted.
      */
     if (msg->hdr->flags & AJ_FLAG_ENCRYPTED) {
+        AJ_ErrPrintf(("AJ_DeliverMsgPartial(): AJ_ERR_SECURITY\n"));
         return AJ_ERR_SECURITY;
     }
     /*
      * There must be arguments to marshal
      */
     if (!typeId) {
+        AJ_ErrPrintf(("AJ_DeliverMsgPartial(): AJ_ERR_SIGNATURE\n"));
         return AJ_ERR_SIGNATURE;
     }
     /*
@@ -1621,6 +1837,7 @@ AJ_Status AJ_DeliverMsgPartial(AJ_Message* msg, uint32_t bytesRemaining)
     if (pad) {
         AJ_Status status = WritePad(msg, pad);
         if (status != AJ_OK) {
+            AJ_ErrPrintf(("AJ_DeliverMsgPartial(): status=%s\n", AJ_StatusText(status)));
             return status;
         }
     }
@@ -1650,12 +1867,14 @@ AJ_Status AJ_DeliverMsgPartial(AJ_Message* msg, uint32_t bytesRemaining)
 AJ_Status AJ_MarshalRaw(AJ_Message* msg, const void* data, size_t len)
 {
     if (msg->hdr) {
+        AJ_ErrPrintf(("AJ_MarshalRaw(): AJ_ERR_SECURITY\n"));
         return AJ_ERR_UNEXPECTED;
     }
     /*
      * It is a fatal error to write too many bytes
      */
     if (len > msg->bodyBytes) {
+        AJ_ErrPrintf(("AJ_MarshalRaw(): AJ_ERR_WRITE\n"));
         return AJ_ERR_WRITE;
     }
     msg->bodyBytes -= (uint32_t)len;
@@ -1709,9 +1928,11 @@ AJ_Status AJ_MarshalCloseContainer(AJ_Message* msg, AJ_Arg* arg)
          * Check the signature is correctly closed.
          */
         if ((arg->typeId == AJ_ARG_STRUCT) && (*arg->sigPtr != AJ_STRUCT_CLOSE)) {
+            AJ_ErrPrintf(("AJ_MarshalCloseContainer(): AJ_ERR_SIGNATURE\n"));
             return AJ_ERR_SIGNATURE;
         }
         if ((arg->typeId == AJ_ARG_DICT_ENTRY) && (*arg->sigPtr != AJ_DICT_ENTRY_CLOSE)) {
+            AJ_ErrPrintf(("AJ_MarshalCloseContainer(): AJ_ERR_SIGNATURE\n"));
             return AJ_ERR_SIGNATURE;
         }
     }
@@ -1726,6 +1947,7 @@ AJ_Status AJ_MarshalVariant(AJ_Message* msg, const char* sig)
      * A variant type must be a single complete type
      */
     if (CompleteTypeSigLen(sig) != strlen(sig)) {
+        AJ_ErrPrintf(("AJ_MarshalVariant(): AJ_ERR_UNEXPECTED\n"));
         return AJ_ERR_UNEXPECTED;
     }
     InitArg(&arg, AJ_ARG_VARIANT, sig);

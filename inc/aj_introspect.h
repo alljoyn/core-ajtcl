@@ -153,6 +153,7 @@ typedef struct _AJ_Object {
  * @param localObjects  A NULL terminated array of object info structs.
  * @param proxyObjects  A NULL terminated array of object info structs.
  */
+AJ_EXPORT
 void AJ_RegisterObjects(const AJ_Object* localObjects, const AJ_Object* proxyObjects);
 
 /**
@@ -191,6 +192,7 @@ AJ_Status AJ_IdentifyMessage(AJ_Message* msg);
  *         - AJ_ERR_NO_MATCH if there is no matching property
  *         - AJ_ERR_DISALLOWED if the property exists but has access rights do not permit the requested GET or SET operation.
  */
+AJ_EXPORT
 AJ_Status AJ_UnmarshalPropertyArgs(AJ_Message* msg, uint32_t* propId, char* sig, size_t len);
 
 /**
@@ -201,6 +203,7 @@ AJ_Status AJ_UnmarshalPropertyArgs(AJ_Message* msg, uint32_t* propId, char* sig,
  *
  * @return        Return AJ_Status
  */
+AJ_EXPORT
 AJ_Status AJ_MarshalPropertyArgs(AJ_Message* msg, uint32_t propId);
 
 /**
@@ -238,6 +241,7 @@ AJ_Status AJ_InitMessageFromMsgId(AJ_Message* msg, uint32_t msgId, uint8_t msgTy
  *          - AJ_ERR_OBJECT_PATH if the object path is NULL or invalid.
  *          - AJ_ERR_NO_MATCH if the message id does not identify a proxy object method call.
  */
+AJ_EXPORT
 AJ_Status AJ_SetProxyObjectPath(AJ_Object* proxyObjects, uint32_t msgId, const char* objPath);
 
 /**
@@ -300,6 +304,7 @@ void AJ_ReleaseReplyContext(AJ_Message* msg);
  *         - ER_OK if the flags were set
  *         - AJ_ERR_NO_MATCH if there are no matching objects
  */
+AJ_EXPORT
 AJ_Status AJ_SetObjectFlags(const char* objPath, uint8_t setFlags, uint8_t clearFlags);
 
 /**
@@ -308,6 +313,7 @@ AJ_Status AJ_SetObjectFlags(const char* objPath, uint8_t setFlags, uint8_t clear
 #ifdef NDEBUG
 #define AJ_PrintXML(obj)
 #else
+AJ_EXPORT
 void AJ_PrintXML(const AJ_Object* obj);
 #endif
 

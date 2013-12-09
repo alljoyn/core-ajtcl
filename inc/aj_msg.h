@@ -26,10 +26,6 @@
 #include "aj_bus.h"
 #include "aj_util.h"
 
-#ifndef AJ_EXPORT
-#define AJ_EXPORT
-#endif
-
 /*
  * Message argument types
  */
@@ -200,6 +196,7 @@ struct _AJ_Message {
  *          - AJ_ERR_TIMEOUT if there was no message to unmarshal within the timeout period
  *          - AJ_ERR_READ if there was a read failure
  */
+AJ_EXPORT
 AJ_Status AJ_UnmarshalMsg(AJ_BusAttachment* bus, AJ_Message* msg, uint32_t timeout);
 
 /**
@@ -213,8 +210,9 @@ AJ_Status AJ_UnmarshalMsg(AJ_BusAttachment* bus, AJ_Message* msg, uint32_t timeo
  *          - AJ_OK if the argument was succesfully unmarshaled.
  *          - AJ_ERR_UNMARSHAL if the arg was badly formed
  *          - AJ_ERR_READ if there was a read failure
- *          - AJ_ERR_NO_MORE when there are no more array elements
+ *          - AJ_ERR_NO_MORE when there is no more to unmarshal (typically for array and container elements)
  */
+AJ_EXPORT
 AJ_Status AJ_UnmarshalArg(AJ_Message* msg, AJ_Arg* arg);
 
 /**
@@ -245,6 +243,7 @@ AJ_Status AJ_SkipArg(AJ_Message* msg);
  *          - AJ_ERR_READ if there was a read failure
  *          - AJ_ERR_UNEXPECTED if any of the argument types in the signature is not a basic type
  */
+AJ_EXPORT
 AJ_Status AJ_UnmarshalArgs(AJ_Message* msg, const char* signature, ...);
 
 /**
@@ -260,11 +259,12 @@ AJ_Status AJ_UnmarshalArgs(AJ_Message* msg, const char* signature, ...);
  * @param actual Returns the actual number of bytes unmarshaled
  *
  * @return
- *          - AJ_OK if the data was succesfully marshaled.
+ *          - AJ_OK if the data was succesfully unmarshaled.
  *          - AJ_ERR_READ if there was a read failure
  *          - AJ_ERR_UNMARSHAL if there is no more data to unmarshal
  *          - AJ_ERR_SIGNATURE of an invalid type was found in the message
  */
+AJ_EXPORT
 AJ_Status AJ_UnmarshalRaw(AJ_Message* msg, const void** data, size_t len, size_t* actual);
 
 /**
@@ -275,9 +275,12 @@ AJ_Status AJ_UnmarshalRaw(AJ_Message* msg, const void** data, size_t len, size_t
  * @param typeId  The expected type of the container (for checking purposes)
  *
  * @return   Return AJ_Status
- *          - AJ_OK if the container was succesfully marshaled.
- *          - AJ_ERR_UNMARSHAL if there is no more data to unmarshal
+ *          - AJ_OK if the container was succesfully unmarshaled.
+ *          - AJ_ERR_UNMARSHAL if the arg was badly formed
+ *          - AJ_ERR_READ if there was a read failure
+ *          - AJ_ERR_NO_MORE when there is no more to unmarshal (typically for array and container elements)
  */
+AJ_EXPORT
 AJ_Status AJ_UnmarshalContainer(AJ_Message* msg, AJ_Arg* arg, uint8_t typeId);
 
 /**
@@ -288,6 +291,7 @@ AJ_Status AJ_UnmarshalContainer(AJ_Message* msg, AJ_Arg* arg, uint8_t typeId);
  *
  * @return   Return AJ_Status
  */
+AJ_EXPORT
 AJ_Status AJ_UnmarshalCloseContainer(AJ_Message* msg, AJ_Arg* arg);
 
 /**
@@ -298,6 +302,7 @@ AJ_Status AJ_UnmarshalCloseContainer(AJ_Message* msg, AJ_Arg* arg);
  *
  * @return   Return AJ_Status
  */
+AJ_EXPORT
 AJ_Status AJ_UnmarshalVariant(AJ_Message* msg, const char** sig);
 
 /**
@@ -310,6 +315,7 @@ AJ_Status AJ_UnmarshalVariant(AJ_Message* msg, const char** sig);
  *
  * @return   Return AJ_Status
  */
+AJ_EXPORT
 AJ_Status AJ_CloseMsg(AJ_Message* msg);
 
 /**
@@ -334,6 +340,7 @@ typedef uint32_t AJ_SessionId;
  *          - AJ_ERR_RESOURCES if the message is too big to marshal into the message buffer
  *          - AJ_ERR_WRITE if there was a write failure
  */
+AJ_EXPORT
 AJ_Status AJ_MarshalMethodCall(AJ_BusAttachment* bus, AJ_Message* msg, uint32_t msgId, const char* destination, AJ_SessionId sessionId, uint8_t flags, uint32_t timeout);
 
 /**
@@ -343,8 +350,7 @@ AJ_Status AJ_MarshalMethodCall(AJ_BusAttachment* bus, AJ_Message* msg, uint32_t 
  * @param msg          Pointer to a message structure
  * @param msgId        The message identifier for this message
  * @param destination  Bus address of the destination for this message
- * @param sessionId    The session this message is for. For the signal to transmit outside of the
- *                     current process this must be 0.
+ * @param sessionId    The session this message is for.
  * @param flags        A logical OR of the applicable message flags
  * @param ttl          Time to live for this signal in milliseconds. This parameter should be set to 0
  *                     for a signal with no ttl.
@@ -354,6 +360,7 @@ AJ_Status AJ_MarshalMethodCall(AJ_BusAttachment* bus, AJ_Message* msg, uint32_t 
  *          - AJ_ERR_RESOURCES if the message is too big to marshal into the message buffer
  *          - AJ_ERR_WRITE if there was a write failure
  */
+AJ_EXPORT
 AJ_Status AJ_MarshalSignal(AJ_BusAttachment* bus, AJ_Message* msg, uint32_t msgId, const char* destination, AJ_SessionId sessionId, uint8_t flags, uint32_t ttl);
 
 /**
@@ -364,6 +371,7 @@ AJ_Status AJ_MarshalSignal(AJ_BusAttachment* bus, AJ_Message* msg, uint32_t msgI
  *
  * @return   Return AJ_Status
  */
+AJ_EXPORT
 AJ_Status AJ_MarshalReplyMsg(const AJ_Message* methodCall, AJ_Message* reply);
 
 /**
@@ -375,6 +383,7 @@ AJ_Status AJ_MarshalReplyMsg(const AJ_Message* methodCall, AJ_Message* reply);
  *
  * @return   Return AJ_Status
  */
+AJ_EXPORT
 AJ_Status AJ_MarshalErrorMsg(const AJ_Message* methodCall, AJ_Message* reply, const char* error);
 
 /**
@@ -388,6 +397,7 @@ AJ_Status AJ_MarshalErrorMsg(const AJ_Message* methodCall, AJ_Message* reply, co
  *
  * @return   Return AJ_Status
  */
+AJ_EXPORT
 AJ_Status AJ_MarshalStatusMsg(const AJ_Message* methodCall, AJ_Message* reply, AJ_Status status);
 
 /**
@@ -399,6 +409,7 @@ AJ_Status AJ_MarshalStatusMsg(const AJ_Message* methodCall, AJ_Message* reply, A
  *          - AJ_OK if the message was succesfully delivered
  *          - AJ_ERR_MARSHAL if the message arguments were incompletely marshaled
  */
+AJ_EXPORT
 AJ_Status AJ_DeliverMsg(AJ_Message* msg);
 
 /**
@@ -417,6 +428,7 @@ AJ_Status AJ_DeliverMsg(AJ_Message* msg);
  *          - AJ_ERR_SIGNATURE if there are no arguments left to marshal
  *
  */
+AJ_EXPORT
 AJ_Status AJ_DeliverMsgPartial(AJ_Message* msg, uint32_t bytesRemaining);
 
 /**
@@ -433,6 +445,7 @@ AJ_Status AJ_DeliverMsgPartial(AJ_Message* msg, uint32_t bytesRemaining);
  *          - AJ_ERR_WRITE if there was a write failure
  *          - AJ_ERR_UNEXPECTED if any of the argument types in the signature is not a basic type
  */
+AJ_EXPORT
 AJ_Status AJ_MarshalArgs(AJ_Message* msg, const char* signature, ...);
 
 /**
@@ -450,6 +463,7 @@ AJ_Status AJ_MarshalArgs(AJ_Message* msg, const char* signature, ...);
  *
  * @return  Returns the address of the initialized arg.
  */
+AJ_EXPORT
 AJ_Arg* AJ_InitArg(AJ_Arg* arg, uint8_t typeId, uint8_t flags, const void* val, size_t len);
 
 /**
@@ -463,6 +477,7 @@ AJ_Arg* AJ_InitArg(AJ_Arg* arg, uint8_t typeId, uint8_t flags, const void* val, 
  *          - AJ_ERR_RESOURCES if the arg is too big to marshal into the message buffer
  *          - AJ_ERR_WRITE if there was a write failure
  */
+AJ_EXPORT
 AJ_Status AJ_MarshalArg(AJ_Message* msg, AJ_Arg* arg);
 
 /**
@@ -487,6 +502,7 @@ AJ_Status AJ_MarshalArg(AJ_Message* msg, AJ_Arg* arg);
  *          - AJ_OK if the data was succesfully marshaled.
  *          - AJ_ERR_WRITE if there was a write failure
  */
+AJ_EXPORT
 AJ_Status AJ_MarshalRaw(AJ_Message* msg, const void* data, size_t len);
 
 /**
@@ -501,6 +517,7 @@ AJ_Status AJ_MarshalRaw(AJ_Message* msg, const void* data, size_t len);
  *          - AJ_ERR_RESOURCES if the arg is too big to marshal into the message buffer
  *          - AJ_ERR_WRITE if there was a write failure
  */
+AJ_EXPORT
 AJ_Status AJ_MarshalContainer(AJ_Message* msg, AJ_Arg* arg, uint8_t typeId);
 
 /**
@@ -513,6 +530,7 @@ AJ_Status AJ_MarshalContainer(AJ_Message* msg, AJ_Arg* arg, uint8_t typeId);
  *          - AJ_OK if the signature is correct
  *          - AJ_ERR_SIGNATURE if the signature is not correctly closed
  */
+AJ_EXPORT
 AJ_Status AJ_MarshalCloseContainer(AJ_Message* msg, AJ_Arg* arg);
 
 /**
@@ -526,6 +544,7 @@ AJ_Status AJ_MarshalCloseContainer(AJ_Message* msg, AJ_Arg* arg);
  *          - AJ_ERR_RESOURCES if the arg is too big to marshal into the message buffer
  *          - AJ_ERR_WRITE if there was a write failure
  */
+AJ_EXPORT
 AJ_Status AJ_MarshalVariant(AJ_Message* msg, const char* sig);
 
 /**

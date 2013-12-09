@@ -1,8 +1,6 @@
-AllSeen Alliance version number 3.4.5 is the same Release described in this file.
 
------------------------------------------------
 AllJoyn Thin Client Version 3.4.1 Release Notes
------------------------------------------------
+-----------------------------------
 
 Platform Support
 ----------------

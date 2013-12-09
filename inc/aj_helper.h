@@ -156,6 +156,7 @@ void AJ_CancelTimer(uint32_t id);
  *
  * @return AJ_OK if service was successfully started.
  */
+AJ_EXPORT
 AJ_Status AJ_StartService(AJ_BusAttachment* bus,
                           const char* daemonName,
                           uint32_t timeout,
@@ -179,6 +180,7 @@ AJ_Status AJ_StartService(AJ_BusAttachment* bus,
  *
  * @return AJ_OK if service was successfully started.
  */
+AJ_EXPORT
 AJ_Status AJ_StartService2(AJ_BusAttachment* bus,
                            const char* daemonName,
                            uint32_t timeout,
@@ -201,6 +203,7 @@ AJ_Status AJ_StartService2(AJ_BusAttachment* bus,
  *
  * @return AJ_OK if connection was successfully established
  */
+AJ_EXPORT
 AJ_Status AJ_StartClient(AJ_BusAttachment* bus,
                          const char* daemonName,
                          uint32_t timeout,
@@ -223,6 +226,7 @@ AJ_Status AJ_StartClient(AJ_BusAttachment* bus,
  *
  * @return AJ_OK if connection was successfully established
  */
+AJ_EXPORT
 AJ_Status AJ_StartClient2(AJ_BusAttachment* bus,
                           const char* daemonName,
                           uint32_t timeout,

@@ -17,6 +17,12 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
+/**
+ * Per-module definition of the current module for debug logging.  Must be defined
+ * prior to first inclusion of aj_debug.h
+ */
+#define AJ_MODULE NET
+
 #include <Winsock2.h>
 #include <Mswsock.h>
 
@@ -34,6 +40,15 @@
 #include "aj_bufio.h"
 #include "aj_net.h"
 #include "aj_util.h"
+#include "aj_debug.h"
+
+/**
+ * Turn on per-module debug printing by setting this variable to non-zero value
+ * (usually in debugger).
+ */
+#ifndef NDEBUG
+uint8_t dbgNET = 0;
+#endif
 
 /*
  * IANA assigned IPv4 multicast group for AllJoyn.
@@ -55,14 +70,14 @@ static AJ_Status AJ_Net_Send(AJ_IOBuffer* buf)
     DWORD ret;
     DWORD tx = AJ_IO_BUF_AVAIL(buf);
 
+    AJ_InfoPrintf(("AJ_Net_Send(buf=0x%p)\n", buf));
+
     assert(buf->direction == AJ_IO_BUF_TX);
 
     if (tx > 0) {
         ret = send((SOCKET)buf->context, buf->readPtr, tx, 0);
         if (ret == SOCKET_ERROR) {
-#ifndef NDEBUG
-            fprintf(stderr, "send() failed: 0x%x\n", WSAGetLastError());
-#endif
+            AJ_ErrPrintf(("AJ_Net_Send(): send() failed. WSAGetLastError()=0x%x, status=AJ_ERR_WRITE\n", WSAGetLastError()));
             return AJ_ERR_WRITE;
         }
         buf->readPtr += ret;
@@ -70,6 +85,7 @@ static AJ_Status AJ_Net_Send(AJ_IOBuffer* buf)
     if (AJ_IO_BUF_AVAIL(buf) == 0) {
         AJ_IO_BUF_RESET(buf);
     }
+    AJ_InfoPrintf(("AJ_Net_Send(): status=AJ_OK\n"));
     return AJ_OK;
 }
 
@@ -80,6 +96,8 @@ static AJ_Status AJ_Net_Recv(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)
     fd_set fds;
     int rc = 0;
     const struct timeval tv = { timeout / 1000, 1000 * (timeout % 1000) };
+
+    AJ_InfoPrintf(("AJ_Net_Recv(buf=0x%p, len=%d., timeout=%d.)\n", buf, len, timeout));
 
     assert(buf->direction == AJ_IO_BUF_RX);
 
@@ -94,11 +112,13 @@ static AJ_Status AJ_Net_Recv(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)
     if (rx) {
         DWORD ret = recv((SOCKET)buf->context, buf->writePtr, rx, 0);
         if ((ret == SOCKET_ERROR) || (ret == 0)) {
+            AJ_ErrPrintf(("AJ_Net_Recv(): recv() failed. WSAGetLastError()=0x%x, status=AJ_ERR_READ\n", WSAGetLastError()));
             status = AJ_ERR_READ;
         } else {
             buf->writePtr += ret;
         }
     }
+    AJ_InfoPrintf(("AJ_Net_Recv(): status=%s\n", AJ_StatusText(status)));
     return status;
 }
 
@@ -115,10 +135,13 @@ AJ_Status AJ_Net_Connect(AJ_NetSocket* netSock, uint16_t port, uint8_t addrType,
     socklen_t addrSize;
     SOCKET sock;
 
+    AJ_InfoPrintf(("AJ_Net_Connect(nexSock=0x%p, port=%d., addrType=%d., addr=0x%p)\n", netSock, port, addrType, addr));
+
     memset(&addrBuf, 0, sizeof(addrBuf));
 
     sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock == INVALID_SOCKET) {
+        AJ_ErrPrintf(("AJ_Net_Connect(): invalid socket.  status=AJ_ERR_CONNECT\n"));
         return AJ_ERR_CONNECT;
     }
     if (addrType == AJ_ADDR_IPV4) {
@@ -127,7 +150,7 @@ AJ_Status AJ_Net_Connect(AJ_NetSocket* netSock, uint16_t port, uint8_t addrType,
         sa->sin_port = htons(port);
         sa->sin_addr.s_addr = *addr;
         addrSize = sizeof(*sa);
-        printf("CONNECT: %s:%u\n", inet_ntoa(sa->sin_addr), port);
+        AJ_InfoPrintf(("AJ_Net_Connect(): Connect to \"%s:%u\"\n", inet_ntoa(sa->sin_addr), port));;
     } else {
         struct sockaddr_in6* sa = (struct sockaddr_in6*)&addrBuf;
         sa->sin6_family = AF_INET6;
@@ -137,9 +160,7 @@ AJ_Status AJ_Net_Connect(AJ_NetSocket* netSock, uint16_t port, uint8_t addrType,
     }
     ret = connect(sock, (struct sockaddr*)&addrBuf, addrSize);
     if (ret == SOCKET_ERROR) {
-#ifndef NDEBUG
-        fprintf(stderr, "connect() failed: 0x%x\n", WSAGetLastError());
-#endif
+        AJ_ErrPrintf(("AJ_Net_Connect(): connect() failed. WSAGetLastError()=0x%x, status=AJ_ERR_CONNECT\n", WSAGetLastError()));
         closesocket(sock);
         return AJ_ERR_CONNECT;
     } else {
@@ -147,6 +168,7 @@ AJ_Status AJ_Net_Connect(AJ_NetSocket* netSock, uint16_t port, uint8_t addrType,
         netSock->rx.recv = AJ_Net_Recv;
         AJ_IOBufInit(&netSock->tx, txData, sizeof(txData), AJ_IO_BUF_TX, (void*)sock);
         netSock->tx.send = AJ_Net_Send;
+        AJ_InfoPrintf(("AJ_Net_Connect(): status=AJ_OK\n"));
         return AJ_OK;
     }
 }
@@ -154,6 +176,9 @@ AJ_Status AJ_Net_Connect(AJ_NetSocket* netSock, uint16_t port, uint8_t addrType,
 void AJ_Net_Disconnect(AJ_NetSocket* netSock)
 {
     SOCKET sock = (SOCKET)netSock->rx.context;
+
+    AJ_InfoPrintf(("AJ_Net_Disconnect(nexSock=0x%p)\n", netSock));
+
     if (sock) {
         shutdown(sock, 0);
         closesocket(sock);
@@ -170,11 +195,13 @@ static AJ_Status AJ_Net_SendTo(AJ_IOBuffer* buf)
     DWORD tx = AJ_IO_BUF_AVAIL(buf);
     int numWrites = 0;
 
+    AJ_InfoPrintf(("AJ_Net_SendTo(buf=0x%p)\n", buf));
+
     assert(buf->direction == AJ_IO_BUF_TX);
     assert(NumMcastSocks > 0);
 
     if (tx > 0) {
-        int i;
+        size_t i;
         /*
          * Only multicasting over IPv4 for now
          */
@@ -189,23 +216,20 @@ static AJ_Status AJ_Net_SendTo(AJ_IOBuffer* buf)
             SOCKET sock = McastSocks[i];
             ret = sendto(sock, buf->readPtr, tx, 0, (struct sockaddr*) &sin, sizeof(sin));
             if (ret == SOCKET_ERROR) {
-#ifndef NDEBUG
-                fprintf(stderr, "sendto() failed: 0x%x\n", WSAGetLastError());
-#endif
+                AJ_ErrPrintf(("AJ_Net_SendTo(): sendto() failed. WSAGetLastError()=0x%x, status=AJ_ERR_CONNECT\n", WSAGetLastError()));
             } else {
                 ++numWrites;
             }
         }
 
         if (numWrites == 0) {
-#ifndef NDEBUG
-            fprintf(stderr, "Did not sendto at least one socket\n");
-#endif
+            AJ_ErrPrintf(("AJ_Net_SendTo(): Did not sendto() at least one socket.  status=AJ_ERR_WRITE\n"));
             return AJ_ERR_WRITE;
         }
         buf->readPtr += ret;
     }
     AJ_IO_BUF_RESET(buf);
+    AJ_InfoPrintf(("AJ_Net_SendTo(): status=AJ_OK\n"));
     return AJ_OK;
 }
 
@@ -216,9 +240,11 @@ static AJ_Status AJ_Net_RecvFrom(AJ_IOBuffer* buf, uint32_t len, uint32_t timeou
     DWORD rx = AJ_IO_BUF_SPACE(buf);
     fd_set fds;
     size_t rc = 0;
-    int i;
+    size_t i;
     const struct timeval tv = { timeout / 1000, 1000 * (timeout % 1000) };
     SOCKET sock;
+
+    AJ_InfoPrintf(("AJ_Net_RecvFrom(buf=0x%p, len=%d., timeout=%d.)\n", buf, len, timeout));
 
     assert(buf->direction == AJ_IO_BUF_RX);
     assert(NumMcastSocks > 0);
@@ -230,12 +256,12 @@ static AJ_Status AJ_Net_RecvFrom(AJ_IOBuffer* buf, uint32_t len, uint32_t timeou
         FD_SET(sock, &fds);
     }
 
-
     rc = select(NumMcastSocks, &fds, NULL, NULL, &tv);
     if (rc == 0) {
+        AJ_InfoPrintf(("AJ_Net_RecvFrom(): select() timed out. status=AJ_ERR_TIMEOUT\n"));
         return AJ_ERR_TIMEOUT;
     } else if (rc < 0) {
-        // error occured
+        AJ_ErrPrintf(("AJ_Net_RecvFrom(): select() failed. WSAGetLastError()=0x%x, status=AJ_ERR_READ\n", WSAGetLastError()));
         return AJ_ERR_READ;
     }
 
@@ -253,14 +279,18 @@ static AJ_Status AJ_Net_RecvFrom(AJ_IOBuffer* buf, uint32_t len, uint32_t timeou
     if (sock != INVALID_SOCKET) {
         ret = recvfrom(sock, buf->writePtr, rx, 0, NULL, 0);
         if (ret == SOCKET_ERROR) {
+            AJ_ErrPrintf(("AJ_Net_RecvFrom(): recvfrom() failed. WSAGetLastError()=0x%x, status=AJ_ERR_READ\n", WSAGetLastError()));
             status = AJ_ERR_READ;
         } else {
             buf->writePtr += ret;
             status = AJ_OK;
         }
     } else {
+        AJ_ErrPrintf(("AJ_Net_RecvFrom(): invalid socket.  status=AJ_ERR_READ\n"));
         status = AJ_ERR_READ;
     }
+
+    AJ_InfoPrintf(("AJ_Net_RecvFrom(): status=%s\n", AJ_StatusText(status)));
     return status;
 }
 
@@ -291,6 +321,7 @@ AJ_Status AJ_Net_MCastUp(AJ_NetSocket* netSock)
     IP_ADAPTER_ADDRESSES info, * parray = NULL, * pinfo = NULL;
     ULONG infoLen = sizeof(info);
 
+    AJ_InfoPrintf(("AJ_Net_MCastUp(nexSock=0x%p)\n", netSock));
 
     // find out how many Adapter addresses we have and get the list
     GetAdaptersAddresses(
@@ -332,7 +363,7 @@ AJ_Status AJ_Net_MCastUp(AJ_NetSocket* netSock)
             // create a socket
             sock = socket(AF_INET, SOCK_DGRAM, 0);
             if (sock == INVALID_SOCKET) {
-                printf("socket: 0x%x\n", WSAGetLastError());
+                AJ_ErrPrintf(("AJ_Net_MCastUp(): socket() failed. WSAGetLastError()=0x%x\n", WSAGetLastError()));
                 continue;
             }
 
@@ -344,7 +375,7 @@ AJ_Status AJ_Net_MCastUp(AJ_NetSocket* netSock)
 
             ret = bind(sock, (struct sockaddr*) &sin, sizeof(sin));
             if (ret == SOCKET_ERROR) {
-                printf("Bind: 0x%x\n", WSAGetLastError());
+                AJ_ErrPrintf(("AJ_Net_MCastUp(): bind() failed. WSAGetLastError()=0x%x\n", WSAGetLastError()));
                 closesocket(sock);
                 continue;
             }
@@ -356,7 +387,7 @@ AJ_Status AJ_Net_MCastUp(AJ_NetSocket* netSock)
             mreq.imr_interface.s_addr = inet_addr(buffer);
             ret = setsockopt(sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char*) &mreq, sizeof(mreq));
             if (ret == SOCKET_ERROR) {
-                printf("setsockopt: 0x%x\n", WSAGetLastError());
+                AJ_ErrPrintf(("AJ_Net_MCastUp(): setsockopt(IP_ADD_MEMBERSHIP) failed. WSAGetLastError()=0x%x\n", WSAGetLastError()));
                 continue;
             }
 
@@ -369,8 +400,8 @@ AJ_Status AJ_Net_MCastUp(AJ_NetSocket* netSock)
 
     // if we don't have at least one good socket for multicast, error
     if (NumMcastSocks == 0) {
+        AJ_ErrPrintf(("AJ_Net_MCastUp(): No sockets found.  status=AJ_ERR_READ\n"));
         status = AJ_ERR_READ;
-        printf("No Sockets Found\n");
         goto ErrorExit;
     }
 
@@ -380,12 +411,13 @@ AJ_Status AJ_Net_MCastUp(AJ_NetSocket* netSock)
     netSock->rx.recv = AJ_Net_RecvFrom;
     AJ_IOBufInit(&netSock->tx, txDataMCast, sizeof(txDataMCast), AJ_IO_BUF_TX, (void*) McastSocks);
     netSock->tx.send = AJ_Net_SendTo;
+    AJ_ErrPrintf(("AJ_Net_MCastUp(): status=AJ_OK\n"));
     return AJ_OK;
 
 ErrorExit:
     free(parray);
     if (status != AJ_OK && McastSocks) {
-        int i;
+        size_t i;
         for (i = 0; i < NumMcastSocks; ++i) {
             closesocket(McastSocks[i]);
         }
@@ -395,13 +427,16 @@ ErrorExit:
         McastSocks = NULL;
     }
 
+    AJ_InfoPrintf(("AJ_Net_MCastUp(): status=%s\n", AJ_StatusText(status)));
     return status;
 }
 
 void AJ_Net_MCastDown(AJ_NetSocket* netSock)
 {
-    int i;
+    size_t i;
     struct ip_mreq mreq;
+
+    AJ_InfoPrintf(("AJ_Net_MCastDown(nexSock=0x%p)\n", netSock));
 
     /*
      * Leave our multicast group
@@ -426,11 +461,13 @@ AJ_Status AJ_Net_Up(void)
 {
     WSADATA wsaData;
     WORD version = MAKEWORD(2, 0);
+    AJ_InfoPrintf(("AJ_Net_Up()\n"));
     WSAStartup(version, &wsaData);
     return AJ_OK;
 }
 
 void AJ_Net_Down(void)
 {
+    AJ_InfoPrintf(("AJ_Net_Up()\n"));
     WSACleanup();
 }

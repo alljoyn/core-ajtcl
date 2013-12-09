@@ -17,12 +17,27 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
+/**
+ * Per-module definition of the current module for debug logging.  Must be defined
+ * prior to first inclusion of aj_debug.h
+ */
+#define AJ_MODULE INTROSPECT
+
 #include "aj_target.h"
+#include "aj_debug.h"
 #include "aj_introspect.h"
 #include "aj_std.h"
 #include "aj_msg.h"
-#include "aj_debug.h"
 #include "aj_util.h"
+#include "aj_debug.h"
+
+/**
+ * Turn on per-module debug printing by setting this variable to non-zero value
+ * (usually in debugger).
+ */
+#ifndef NDEBUG
+uint8_t dbgINTROSPECT = 0;
+#endif
 
 /*
  * The various object lists
@@ -123,6 +138,7 @@ static char ExpandAttribute(XMLWriterFunc XMLWriter, void* context, const char**
     XMLWriter(context, *str, len);
     XMLWriter(context, post, 0);
     *str = s;
+
     return next;
 }
 
@@ -170,6 +186,7 @@ static AJ_Status ExpandInterfaces(XMLWriterFunc XMLWriter, void* context, const 
             uint8_t memberType = MEMBER_TYPE(*member++);
             uint8_t attr;
             if (memberType > 2) {
+                AJ_ErrPrintf(("ExpandInterfaces(): AJ_ERR_UNEXPECTED"));
                 return AJ_ERR_UNEXPECTED;
             }
             XMLWriter(context, MemberOpen[memberType], 0);
@@ -177,6 +194,7 @@ static AJ_Status ExpandInterfaces(XMLWriterFunc XMLWriter, void* context, const 
             if (memberType == PROPERTY) {
                 uint8_t acc = attr - WRITE_ONLY;
                 if (acc > 2) {
+                    AJ_ErrPrintf(("ExpandInterfaces(): AJ_ERR_UNEXPECTED"));
                     return AJ_ERR_UNEXPECTED;
                 }
                 ExpandAttribute(XMLWriter, context, &member, typeAttr, Access[acc]);
@@ -191,6 +209,7 @@ static AJ_Status ExpandInterfaces(XMLWriterFunc XMLWriter, void* context, const 
                         dir = ExpandAttribute(XMLWriter, context, &member, nameAttr, "\"") - IN_ARG;
                     }
                     if ((dir != 0) && (dir != 2)) {
+                        AJ_ErrPrintf(("ExpandInterfaces(): AJ_ERR_UNEXPECTED"));
                         return AJ_ERR_UNEXPECTED;
                     }
                     if (memberType == SIGNAL) {
@@ -320,7 +339,14 @@ static AJ_Status GenXML(XMLWriterFunc XMLWriter, void* context, const AJ_Object*
     return status;
 }
 
+/*
+ * Historically, Thin Client programs print the XML for their app objects as a
+ * banner indicating they are alive.  For that reason we don't force users to
+ * explicity turn on XML printing.  We just default it to on as long as we are
+ * in a debug build.
+ */
 #ifndef NDEBUG
+
 void PrintXML(void* context, const char* str, uint32_t len)
 {
     if (len) {
@@ -380,7 +406,7 @@ void WriteXML(void* context, const char* str, uint32_t len)
 AJ_Status AJ_HandleIntrospectRequest(const AJ_Message* msg, AJ_Message* reply)
 {
     AJ_Status status = AJ_OK;
-    const AJ_Object* obj = objectLists[1];
+    const AJ_Object* obj = objectLists[AJ_APP_ID_FLAG];
     uint32_t children = 0;
     AJ_Object parent;
     WriteContext context;
@@ -411,6 +437,7 @@ AJ_Status AJ_HandleIntrospectRequest(const AJ_Message* msg, AJ_Message* reply)
      * a temporary AJ_Object for the parent and introspect that object.
      */
     if ((obj->path == NULL) && children) {
+        parent.flags = 0;
         parent.path = msg->objPath;
         parent.interfaces = NULL;
         obj = &parent;
@@ -425,7 +452,7 @@ AJ_Status AJ_HandleIntrospectRequest(const AJ_Message* msg, AJ_Message* reply)
         context.len = 0;
         status = GenXML(SizeXML, &context.len, obj, objectLists[1]);
         if (status != AJ_OK) {
-            AJ_ErrPrintf(("Failed to generate XML - check interface descriptions for errors\n"));
+            AJ_ErrPrintf(("AJ_HandleIntrospectRequest(): Failed to generate XML. status=%s", AJ_StatusText(status)));
             return status;
         }
         /*
@@ -487,6 +514,7 @@ static AJ_Status CheckSignature(const char* encoding, const AJ_Message* msg)
             ++encoding;
         }
         if (*encoding && (*encoding != ' ')) {
+            AJ_ErrPrintf(("CheckSignature(): AJ_ERR_SIGNATURE\n"));
             return AJ_ERR_SIGNATURE;
         }
     }
@@ -512,6 +540,7 @@ static AJ_Status ComposeSignature(const char* encoding, char direction, char* si
          */
         while (*encoding && (*encoding != ' ')) {
             if (--len == 0) {
+                AJ_ErrPrintf(("ComposeSignature(): AJ_ERR_RESOURCES\n"));
                 return AJ_ERR_RESOURCES;
             }
             *sig++ = *encoding++;
@@ -526,17 +555,21 @@ static AJ_Status MatchProp(const char* member, const char* prop, uint8_t op, cha
     const char* encoding = member;
 
     if (*encoding++ != '@') {
+        AJ_ErrPrintf(("MatchProp(): AJ_ERR_NO_MATCH\n"));
         return AJ_ERR_NO_MATCH;
     }
     while (*prop) {
         if (*encoding++ != *prop++) {
+            AJ_ErrPrintf(("MatchProp(): AJ_ERR_NO_MATCH\n"));
             return AJ_ERR_NO_MATCH;
         }
     }
     if ((op == AJ_PROP_GET) && (*encoding == WRITE_ONLY)) {
+        AJ_ErrPrintf(("MatchProp(): AJ_ERR_DISALLOWED\n"));
         return AJ_ERR_DISALLOWED;
     }
     if ((op == AJ_PROP_SET) && (*encoding == READ_ONLY)) {
+        AJ_ErrPrintf(("MatchProp(): AJ_ERR_DISALLOWED\n"));
         return AJ_ERR_DISALLOWED;
     }
     /*
@@ -620,6 +653,7 @@ static AJ_Status LookupMessageId(const AJ_Object* list, AJ_Message* msg, uint8_t
             ++obj;
         }
     }
+    AJ_ErrPrintf(("LookupMessageId(): AJ_ERR_NO_MATCH\n"));
     return AJ_ERR_NO_MATCH;
 }
 
@@ -654,14 +688,17 @@ static AJ_Status UnpackMsgId(uint32_t msgId, const char** objPath, const char** 
 
 #ifndef NDEBUG
     if ((oIndex > ArraySize(objectLists)) || !CheckIndex(objectLists[oIndex], pIndex, sizeof(AJ_Object))) {
+        AJ_ErrPrintf(("UnpackMsgId(): AJ_ERR_INVALID\n"));
         return AJ_ERR_INVALID;
     }
     obj = &objectLists[oIndex][pIndex];
     if (!CheckIndex(obj->interfaces, iIndex, sizeof(AJ_InterfaceDescription))) {
+        AJ_ErrPrintf(("UnpackMsgId(): AJ_ERR_INVALID\n"));
         return AJ_ERR_INVALID;
     }
     ifc = obj->interfaces[iIndex];
     if (!CheckIndex(ifc, mIndex, sizeof(AJ_InterfaceDescription))) {
+        AJ_ErrPrintf(("UnpackMsgId(): AJ_ERR_INVALID\n"));
         return AJ_ERR_INVALID;
     }
 #else
@@ -702,6 +739,7 @@ AJ_Status AJ_MarshalPropertyArgs(AJ_Message* msg, uint32_t propId)
 
     status = UnpackMsgId(propId, NULL, &iface, &prop, &secure);
     if (status != AJ_OK) {
+        AJ_ErrPrintf(("AJ_MarhsalPropertyArgs(): status=%s\n", AJ_StatusText(status)));
         return status;
     }
     if (secure) {
@@ -817,6 +855,7 @@ static AJ_Status CheckReturnSignature(AJ_Message* msg, uint32_t msgId)
 
     status = UnpackMsgId(msgId, NULL, NULL, &member, &secure);
     if (status != AJ_OK) {
+        AJ_ErrPrintf(("CheckReturnSignature(): status=%s\n", AJ_StatusText(status)));
         return status;
     }
     /*
@@ -859,6 +898,7 @@ AJ_Status AJ_UnmarshalPropertyArgs(AJ_Message* msg, uint32_t* propId, char* sig,
 
 #ifndef NDEBUG
     if ((oIndex > ArraySize(objectLists)) || !CheckIndex(objectLists[oIndex], pIndex, sizeof(AJ_Object))) {
+        AJ_ErrPrintf(("AJ_UnmarshalPropertyArgs(): AJ_ERR_INVALID\n"));
         return AJ_ERR_INVALID;
     }
 #endif
@@ -896,6 +936,7 @@ AJ_Status AJ_UnmarshalPropertyArgs(AJ_Message* msg, uint32_t* propId, char* sig,
      * If the interface is secure check the message must be encrypted
      */
     if ((status == AJ_OK) && secure && !(msg->hdr->flags & AJ_FLAG_ENCRYPTED)) {
+        AJ_ErrPrintf(("AJ_UnmarshalPropertyArgs(): AJ_ERR_SECURITY\n"));
         status = AJ_ERR_SECURITY;
         AJ_WarnPrintf(("Security violation accessing property\n"));
     }
@@ -922,11 +963,12 @@ AJ_Status AJ_IdentifyMessage(AJ_Message* msg)
             status = LookupMessageId(objectLists[oIndex], msg, &secure);
             if (status == AJ_OK) {
                 msg->msgId |= (oIndex << 24);
-                AJ_InfoPrintf(("Identified message %x\n", msg->msgId));
+                AJ_InfoPrintf(("AJ_IdentifyMessage(): Identified message %x\n", msg->msgId));
                 break;
             }
         }
         if ((status == AJ_OK) && secure && !(msg->hdr->flags & AJ_FLAG_ENCRYPTED)) {
+            AJ_ErrPrintf(("AJ_IdentifyMessage(): AJ_ERR_SECURITY\n"));
             status = AJ_ERR_SECURITY;
         }
         /*
@@ -968,10 +1010,12 @@ AJ_Status AJ_SetProxyObjectPath(AJ_Object* proxyObjects, uint32_t msgId, const c
     uint8_t pIndex = (msgId >> 16);
 
     if ((oIndex != AJ_PRX_ID_FLAG) || (proxyObjects != objectLists[oIndex])) {
+        AJ_ErrPrintf(("AJ_SetProxyObjectPath(): AJ_ERR_UNKNOWN\n"));
         return AJ_ERR_UNKNOWN;
     }
     for (i = 0; i < pIndex; ++i) {
         if (!proxyObjects[i].interfaces) {
+            AJ_ErrPrintf(("AJ_SetProxyObjectPath(): AJ_ERR_UNKNOWN\n"));
             return AJ_ERR_UNKNOWN;
         }
     }
@@ -998,7 +1042,7 @@ AJ_Status AJ_AllocReplyContext(AJ_Message* msg, uint32_t timeout)
             AJ_InitTimer(&repCtx->callTime);
             return AJ_OK;
         } else {
-            AJ_ErrPrintf(("Failed to allocate a reply context\n"));
+            AJ_ErrPrintf(("AJ_AllocReplyContext(): Failed to allocate reply context.  status=AJ_ERR_RESOURCES\n"));
             return AJ_ERR_RESOURCES;
         }
     }

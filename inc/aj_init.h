@@ -28,7 +28,7 @@
  * Initialization for AllJoyn. This function should be called before calling any
  * other AllJoyn APIs.
  */
-void AJ_Initialize(void);
+AJ_EXPORT void AJ_Initialize(void);
 
 /**
  * @}
