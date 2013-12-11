@@ -175,7 +175,6 @@ int AJ_Main(void)
     AJ_BusAttachment bus;
     uint8_t connected = FALSE;
     uint32_t sessionId = 0;
-
     /*
      * One time initialization before calling any other AllJoyn APIs
      */
@@ -215,6 +214,7 @@ int AJ_Main(void)
                 continue;
             }
         }
+
         if (status == AJ_OK) {
             switch (msg.msgId) {
 
@@ -232,7 +232,6 @@ int AJ_Main(void)
                     uint16_t port;
                     char* joiner;
                     AJ_UnmarshalArgs(&msg, "qus", &port, &sessionId, &joiner);
-
                     if (port == ServicePort) {
                         status = AJ_BusReplyAcceptSession(&msg, TRUE);
                         AJ_InfoPrintf(("Accepted session session_id=%u joiner=%s\n", sessionId, joiner));
@@ -260,9 +259,14 @@ int AJ_Main(void)
                 }
                 break;
 
-            case AJ_SIGNAL_SESSION_LOST:
-                if (CancelAdvertiseName) {
-                    status = AJ_BusAdvertiseName(&bus, ServiceName, AJ_TRANSPORT_ANY, AJ_BUS_START_ADVERTISING);
+            case AJ_SIGNAL_SESSION_LOST_WITH_REASON:
+                {
+                    uint32_t id, reason;
+                    AJ_UnmarshalArgs(&msg, "uu", &id, &reason);
+                    AJ_InfoPrintf(("Session lost. ID = %u, reason = %u", id, reason));
+                    if (CancelAdvertiseName) {
+                        status = AJ_BusAdvertiseName(&bus, ServiceName, AJ_TRANSPORT_ANY, AJ_BUS_START_ADVERTISING);
+                    }
                 }
                 break;
 
@@ -271,7 +275,6 @@ int AJ_Main(void)
                     status = AJ_BusAdvertiseName(&bus, ServiceName, AJ_TRANSPORT_ANY, AJ_BUS_STOP_ADVERTISING);
                 }
                 break;
-
 
             case AJ_REPLY_ID(AJ_METHOD_CANCEL_ADVERTISE):
             case AJ_REPLY_ID(AJ_METHOD_ADVERTISE_NAME):

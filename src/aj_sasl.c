@@ -29,7 +29,9 @@
 #include "aj_util.h"
 #include "aj_creds.h"
 #include "aj_debug.h"
-
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
  * (usually in debugger).
@@ -42,6 +44,11 @@ uint8_t dbgSASL = 0;
  * Sanity check value to prevent broken implementations from looping the state machine.
  */
 #define MAX_AUTH_COUNT 8
+#define PROTO_VERSION 8
+
+#define STRING_FROM_VALUE(x) # x
+#define VERSION_CMD(x) "INFORM_PROTO_VERSION " STRING_FROM_VALUE(x)
+static const char CMD_PROTO_VER[] = VERSION_CMD(PROTO_VERSION);
 
 static const char CMD_AUTH[]     = "AUTH";
 static const char CMD_CANCEL[]   = "CANCEL";
@@ -50,6 +57,7 @@ static const char CMD_DATA[]     = "DATA";
 static const char CMD_ERROR[]    = "ERROR";
 static const char CMD_REJECTED[] = "REJECTED";
 static const char CMD_OK[]       = "OK";
+static const char CMD_PROTO[]    = "INFORM_PROTO_VERSION";
 
 static const char* const CmdList[] = {
     CMD_AUTH,
@@ -58,7 +66,8 @@ static const char* const CmdList[] = {
     CMD_DATA,
     CMD_ERROR,
     CMD_REJECTED,
-    CMD_OK
+    CMD_OK,
+    CMD_PROTO
 };
 
 AJ_Status AJ_SASL_InitContext(AJ_SASL_Context* context, const AJ_AuthMechanism* const* mechList, uint8_t role, AJ_AuthPwdFunc pwdFunc)
@@ -289,7 +298,6 @@ static AJ_Status Challenge(AJ_SASL_Context* context, char* inStr, char* outStr, 
         context->state = AJ_SASL_WAIT_FOR_AUTH;
         return status;
     }
-
     switch (context->state) {
     case AJ_SASL_WAIT_FOR_AUTH:
         AJ_InfoPrintf(("Challenge(): AJ_SASL_WAIT_FOR_AUTH\n"));
@@ -450,8 +458,43 @@ static AJ_Status Response(AJ_SASL_Context* context, char* inStr, char* outStr, u
         }
         return status;
     }
-
     switch (context->state) {
+    /*
+     * Wait to receive the daemons protocol version
+     */
+    case AJ_SASL_WAIT_FOR_VERSION:
+        AJ_InfoPrintf(("Response(): AJ_SASL_WAIT_FOR_VERSION\n"));
+        if (cmd == CMD_PROTO) {
+            /* What's left in inStr should be the daemon's version number */
+            unsigned int version = 0;
+            version = atoi(inStr);
+            AJ_InfoPrintf(("Response(): Version number = %u\n", version));
+            /* If the daemons version is valid... */
+            if (version != 0) {
+                /* Our version is higher so reject the connection */
+                if (version < PROTO_VERSION) {
+                    rsp = CMD_CANCEL;
+                    context->state = AJ_SASL_WAIT_FOR_REJECT;
+                    break;
+                    /* Our version is either the same or lower so send BEGIN */
+                } else {
+                    AJ_GUID localGuid;
+                    AJ_GetLocalGUID(&localGuid);
+                    status = AJ_GUID_ToString(&localGuid, outStr, outLen);
+                    if (status == AJ_OK) {
+                        status = PrependStr(CMD_BEGIN, outStr, outLen, FALSE);
+                    }
+                    context->state = AJ_SASL_AUTHENTICATED;
+                }
+                /* Daemons version was 0 (it was either never sent or the value it sent was invalid) */
+            } else {
+                rsp = CMD_CANCEL;
+                context->state = AJ_SASL_WAIT_FOR_REJECT;
+                break;
+            }
+        }
+        break;
+
     case AJ_SASL_WAIT_FOR_DATA:
         AJ_InfoPrintf(("Response(): AJ_SASL_WAIT_FOR_DATA\n"));
         if (cmd == CMD_DATA) {
@@ -483,18 +526,16 @@ static AJ_Status Response(AJ_SASL_Context* context, char* inStr, char* outStr, u
             }
             break;
         }
-    /* Fallthrough */
 
+    /* Fallthrough */
     case AJ_SASL_WAIT_FOR_OK:
         AJ_InfoPrintf(("Response(): AJ_SASL_WAIT_FOR_OK\n"));
+        /* Received 'OK' so we can send our protocol version */
         if (cmd == CMD_OK) {
-            AJ_GUID localGuid;
-            AJ_GetLocalGUID(&localGuid);
-            status = AJ_GUID_ToString(&localGuid, outStr, outLen);
-            if (status == AJ_OK) {
-                status = PrependStr(CMD_BEGIN, outStr, outLen, FALSE);
-            }
-            context->state = AJ_SASL_AUTHENTICATED;
+            AJ_InfoPrintf(("Response(): AJ_SASL_INFORM_VERSION\n"));
+            status = PrependStr(CMD_PROTO_VER, outStr, outLen, FALSE);
+            context->state = AJ_SASL_WAIT_FOR_VERSION;
+            break;
         } else if (cmd == CMD_DATA) {
             rsp = CMD_CANCEL;
             context->state = AJ_SASL_WAIT_FOR_REJECT;

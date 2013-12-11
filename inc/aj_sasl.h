@@ -101,7 +101,9 @@ typedef enum {
     AJ_SASL_WAIT_FOR_REJECT,   /**< Wait for a reject */
     AJ_SASL_WAIT_EXT_RESPONSE, /**< Wait for a response */
     AJ_SASL_AUTHENTICATED,     /**< Authentication was successful - conversation it over */
-    AJ_SASL_FAILED             /**< Authentication failed - conversation it over */
+    AJ_SASL_FAILED,            /**< Authentication failed - conversation it over */
+    AJ_SASL_INFORM_VERSION,    /**< Tell daemon our protocol version */
+    AJ_SASL_WAIT_FOR_VERSION   /**< Wait for daemon to tell us its protocol version */
 } AJ_SASL_State;
 
 #define AJ_AUTH_CHALLENGER  0  /**< Challenger role */

@@ -202,8 +202,12 @@ int AJ_Main(void)
                 }
                 break;
 
-            case AJ_SIGNAL_SESSION_LOST:
-                printf("Lost session %u.\n", msg.sessionId);
+            case AJ_SIGNAL_SESSION_LOST_WITH_REASON:
+                {
+                    uint32_t id, reason;
+                    AJ_UnmarshalArgs(&msg, "uu", &id, &reason);
+                    printf("Session lost. ID = %u, reason = %u", id, reason);
+                }
                 break;
 
             default:

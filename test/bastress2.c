@@ -162,10 +162,15 @@ int AJ_Main()
                 status = AppHandleCat(&msg);
                 break;
 
-            case AJ_SIGNAL_SESSION_LOST:
+            case AJ_SIGNAL_SESSION_LOST_WITH_REASON:
                 /*
                  * don't force a disconnect, be ready to accept another session
                  */
+                {
+                    uint32_t id, reason;
+                    AJ_UnmarshalArgs(&msg, "uu", &id, &reason);
+                    AJ_Printf("Session lost. ID = %u, reason = %d", id, reason);
+                }
                 break;
 
             default:

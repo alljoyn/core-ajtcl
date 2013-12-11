@@ -455,7 +455,7 @@ int AJ_Main()
                 status = AppHandleChatSignal(&msg);
                 break;
 
-            case AJ_SIGNAL_SESSION_LOST:
+            case AJ_SIGNAL_SESSION_LOST_WITH_REASON:
                 /*
                  * don't force a disconnect, be ready to accept another session
                  */

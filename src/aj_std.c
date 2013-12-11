@@ -106,6 +106,8 @@ static const char* const BusIface[] = {
     "?FindAdvertisedNameByTransport <s <q >u",
     "?CancelFindAdvertisedNameByTransport <s <q >u",
     "?SetLinkTimeout <u <u >u >u",
+    "?RemoveSessionMember <us >u",
+    "!SessionLostWithReason >u >u",
     NULL
 };
 
