@@ -170,7 +170,7 @@ int _AJ_DbgHeader(AJ_DebugLevel level, const char* file, int line);
 #define CONCAT(x, y) x ## y
 #define MKVAR(x, y) CONCAT(x, y)
 
-#if AJ_DEBUG_RESTRICT > AJ_DEBUG_ERROR
+#if AJ_DEBUG_RESTRICT >= AJ_DEBUG_ERROR
 /**
  * Print an error message.  Error messages may be supressed by AJ_DEBUG_RESTRICT
  *
@@ -184,7 +184,7 @@ int _AJ_DbgHeader(AJ_DebugLevel level, const char* file, int line);
 #define AJ_ErrPrintf(_msg)
 #endif
 
-#if AJ_DEBUG_RESTRICT > AJ_DEBUG_WARN
+#if AJ_DEBUG_RESTRICT >= AJ_DEBUG_WARN
 /**
  * Print a warning message. Warnings may be suppressed by AJ_DEBUG_RESTRICT
  *
@@ -198,7 +198,7 @@ int _AJ_DbgHeader(AJ_DebugLevel level, const char* file, int line);
 #define AJ_WarnPrintf(_msg)
 #endif
 
-#if AJ_DEBUG_RESTRICT > AJ_DEBUG_INFO
+#if AJ_DEBUG_RESTRICT >= AJ_DEBUG_INFO
 /**
  * Print an informational message.  Informational messages may be suppressed by
  * AJ_DEBUG_RESTRICT or by the module selection (global memory value or shell
@@ -216,7 +216,7 @@ int _AJ_DbgHeader(AJ_DebugLevel level, const char* file, int line);
 #define AJ_InfoPrintf(_msg)
 #endif
 
-#if AJ_DEBUG_RESTRICT > AJ_DEBUG_DUMP
+#if AJ_DEBUG_RESTRICT >= AJ_DEBUG_DUMP
 /**
  * Dump the bytes in a buffer in a human readable way.  Byte dumps messages may
  * be suppressed by AJ_DEBUG_RESTRICT or by the module selection (global memory
@@ -233,7 +233,7 @@ int _AJ_DbgHeader(AJ_DebugLevel level, const char* file, int line);
 #define AJ_DumpBytes(tag, data, len)
 #endif
 
-#if AJ_DEBUG_RESTRICT > AJ_DEBUG_DUMP
+#if AJ_DEBUG_RESTRICT >= AJ_DEBUG_DUMP
 /**
  * Print a human readable summary of a message.  Message dumps messages may be
  * suppressed by AJ_DEBUG_RESTRICT or by the module selection (global memory
