@@ -156,8 +156,13 @@ int AJ_Main(void)
                 }
                 break;
 
-            case AJ_SIGNAL_SESSION_LOST:
-                /* Force a disconnect. */
+            case AJ_SIGNAL_SESSION_LOST_WITH_REASON:
+                /* A session was lost so return error to force a disconnect. */
+                {
+                    uint32_t id, reason;
+                    AJ_UnmarshalArgs(&msg, "uu", &id, &reason);
+                    printf("Session lost. ID = %u, reason = %u", id, reason);
+                }
                 status = AJ_ERR_READ;
                 break;
 

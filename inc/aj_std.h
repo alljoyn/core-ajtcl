@@ -68,6 +68,7 @@
 #define AJ_METHOD_CANCEL_FIND_NAME_BY_TRANSPORT AJ_BUS_MESSAGE_ID(1, 0, 14)   /**< method for cancel find name by specific transports */
 #define AJ_METHOD_SET_LINK_TIMEOUT              AJ_BUS_MESSAGE_ID(1, 0, 15)   /**< method for setting the link timeout for a session */
 #define AJ_METHOD_REMOVE_SESSION_MEMBER         AJ_BUS_MESSAGE_ID(1, 0, 16)   /**< method for removing a member in a session */
+#define AJ_SIGNAL_SESSION_LOST_WITH_REASON      AJ_BUS_MESSAGE_ID(1, 0, 17)   /**< signal for session lost with a reason */
 
 /*
  * Members of /org/alljoyn/Bus/Peer interface org.alljoyn.Bus.Peer.Session

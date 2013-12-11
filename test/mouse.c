@@ -230,10 +230,15 @@ int AJ_Main(void)
             status = AJ_BusReplyAcceptSession(&msg, TRUE);
             break;
 
-        case AJ_SIGNAL_SESSION_LOST:
+        case AJ_SIGNAL_SESSION_LOST_WITH_REASON:
             /*
              * Force a disconnect
              */
+            {
+                uint32_t id, reason;
+                AJ_UnmarshalArgs(&msg, "uu", &id, &reason);
+                AJ_InfoPrintf(("Session lost. ID = %u, reason = %u", id, reason));
+            }
             status = AJ_ERR_READ;
             break;
 

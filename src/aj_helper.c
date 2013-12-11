@@ -531,11 +531,16 @@ AJ_Status AJ_StartClient2(AJ_BusAttachment* bus,
             }
             break;
 
-        case AJ_SIGNAL_SESSION_LOST:
+        case AJ_SIGNAL_SESSION_LOST_WITH_REASON:
             /*
              * Force a disconnect
              */
-            AJ_ErrPrintf(("AJ_StartClient(): AJ_SIGNAL_SESSION_LOST: AJ_ERR_READ\n"));
+            {
+                uint32_t id, reason;
+                AJ_UnmarshalArgs(&msg, "uu", &id, &reason);
+                AJ_InfoPrintf(("Session lost. ID = %u, reason = %u", id, reason));
+            }
+            AJ_ErrPrintf(("AJ_StartClient(): AJ_SIGNAL_SESSION_LOST_WITH_REASON: AJ_ERR_READ\n"));
             status = AJ_ERR_READ;
             break;
 

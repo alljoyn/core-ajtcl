@@ -174,7 +174,7 @@ int AJ_Main(void)
                 AppHandleOnOff(&msg, FALSE);
                 break;
 
-            case AJ_SIGNAL_SESSION_LOST:
+            case AJ_SIGNAL_SESSION_LOST_WITH_REASON:
                 /*
                  * Force a disconnect
                  */
