@@ -50,6 +50,13 @@
 #define MAC_LENGTH 8
 
 /*
+ * gcc defines __va_copy() other compilers allow direct assignent of a va_list
+ */
+#ifndef __va_copy
+#define __va_copy(a, b) (a) = (b)
+#endif
+
+/*
  * The types for each of the header fields.
  */
 static const uint8_t TypeForHdr[] = {
@@ -1052,7 +1059,9 @@ static AJ_Status VUnmarshalArgs(AJ_Message* msg, const char* sig, va_list* argpp
     AJ_Status status = AJ_OK;
     AJ_Arg arg;
     AJ_Arg container;
-    va_list argp = *argpp;
+    va_list argp;
+
+    __va_copy(argp, *argpp);
 
     container.typeId = AJ_ARG_INVALID;
 
@@ -1138,7 +1147,7 @@ static AJ_Status VUnmarshalArgs(AJ_Message* msg, const char* sig, va_list* argpp
             *((const char**)val) = arg.val.v_string;
         }
     }
-    *argpp = argp;
+    __va_copy(*argpp, argp);
     return status;
 }
 
@@ -1608,13 +1617,14 @@ AJ_Arg* AJ_InitArg(AJ_Arg* arg, uint8_t typeId, uint8_t flags, const void* val, 
     }
 }
 
-
 static AJ_Status VMarshalArgs(AJ_Message* msg, const char* sig, va_list* argpp)
 {
     AJ_Status status = AJ_OK;
     AJ_Arg arg;
     AJ_Arg container;
-    va_list argp = *argpp;
+    va_list argp;
+
+    __va_copy(argp, *argpp);
 
     container.typeId = AJ_ARG_INVALID;
 
@@ -1687,7 +1697,7 @@ static AJ_Status VMarshalArgs(AJ_Message* msg, const char* sig, va_list* argpp)
             break;
         }
     }
-    *argpp = argp;
+    __va_copy(*argpp, argp);
     return status;
 }
 
