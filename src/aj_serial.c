@@ -89,7 +89,7 @@ static void AdjustTimeoutValues(uint32_t packetSize)
     // one start bit, eight data bits, one parity, and one stop bit equals eleven bits sent per byte
     // acknowledgement packets should be sent within twice the time to send one packet
     // resends should be sent shortly after three times the packet delivery time
-    AJ_SerialLinkParams.txAckTimeout = (packetSize * 11 * 1000 * 2 ) / AJ_SerialLinkParams.bitRate;
+    AJ_SerialLinkParams.txAckTimeout = (packetSize * 11 * 1000 * 2) / AJ_SerialLinkParams.bitRate;
     AJ_SerialLinkParams.txResendTimeout = (packetSize * 11 * 1000 * 3) / AJ_SerialLinkParams.bitRate;
     AJ_InfoPrintf(("new ack timeout %i, new resend timeout %i\n", AJ_SerialLinkParams.txAckTimeout,  AJ_SerialLinkParams.txResendTimeout));
 }
