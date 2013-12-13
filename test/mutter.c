@@ -202,9 +202,13 @@ int AJ_Main()
             CHECK(AJ_MarshalArgs(&txMsg, "u", 11111));
             CHECK(AJ_MarshalContainer(&txMsg, &struct1, AJ_ARG_STRUCT));
             CHECK(AJ_MarshalArgs(&txMsg, "usu", 22222, "hello", 33333));
+#ifdef EXPANDED_FORM
             CHECK(AJ_MarshalContainer(&txMsg, &struct2, AJ_ARG_STRUCT));
             CHECK(AJ_MarshalArgs(&txMsg, "ii", -100, -200));
             CHECK(AJ_MarshalCloseContainer(&txMsg, &struct2));
+#else
+            CHECK(AJ_MarshalArgs(&txMsg, "(ii)", -100, -200));
+#endif
             CHECK(AJ_MarshalArgs(&txMsg, "qsq", 4444, "goodbye", 5555));
             CHECK(AJ_MarshalCloseContainer(&txMsg, &struct1));
             CHECK(AJ_MarshalArgs(&txMsg, "yyy", 1, 2, 3));
@@ -213,10 +217,14 @@ int AJ_Main()
         case 2:
             CHECK(AJ_MarshalContainer(&txMsg, &array1, AJ_ARG_ARRAY));
             for (u = 0; u < ArraySize(Fruits); ++u) {
+#ifdef EXPANDED_FORM
                 CHECK(AJ_MarshalContainer(&txMsg, &struct1, AJ_ARG_STRUCT));
                 CHECK(AJ_MarshalArgs(&txMsg, "us", u, Fruits[u]));
                 CHECK(AJ_MarshalArg(&txMsg, AJ_InitArg(&arg, AJ_ARG_BYTE, AJ_ARRAY_FLAG, Data8, u)));
                 CHECK(AJ_MarshalCloseContainer(&txMsg, &struct1));
+#else
+                CHECK(AJ_MarshalArgs(&txMsg, "(usay)", u, Fruits[u], Data8, u));
+#endif
             }
             if (status == AJ_OK) {
                 CHECK(AJ_MarshalCloseContainer(&txMsg, &array1));
@@ -242,9 +250,14 @@ int AJ_Main()
             CHECK(AJ_MarshalVariant(&txMsg, "a(ii)"));
             CHECK(AJ_MarshalContainer(&txMsg, &array1, AJ_ARG_ARRAY));
             for (j = 0; j < 16; ++j) {
+#ifdef EXPANDED_FORM
                 CHECK(AJ_MarshalContainer(&txMsg, &struct1, AJ_ARG_STRUCT));
                 CHECK(AJ_MarshalArgs(&txMsg, "ii", j + 1, (j + 1) * 100));
                 CHECK(AJ_MarshalCloseContainer(&txMsg, &struct1));
+
+#else
+                CHECK(AJ_MarshalArgs(&txMsg, "(ii)", j + 1, (j + 1) * 100));
+#endif
             }
             if (status == AJ_OK) {
                 CHECK(AJ_MarshalCloseContainer(&txMsg, &array1));
@@ -253,6 +266,7 @@ int AJ_Main()
             break;
 
         case 5:
+#ifdef EXPANDED_FORM
             CHECK(AJ_MarshalVariant(&txMsg, "(ivi)"));
             CHECK(AJ_MarshalContainer(&txMsg, &struct1, AJ_ARG_STRUCT));
             CHECK(AJ_MarshalArgs(&txMsg, "i", 1212121));
@@ -260,6 +274,9 @@ int AJ_Main()
             CHECK(AJ_MarshalArgs(&txMsg, "s", "inner variant"));
             CHECK(AJ_MarshalArgs(&txMsg, "i", 3434343));
             CHECK(AJ_MarshalCloseContainer(&txMsg, &struct1));
+#else
+            CHECK(AJ_MarshalArgs(&txMsg, "v", "(ivi)", 121212121, "s", "inner variant", 3434343));
+#endif
             break;
 
         case 6:
@@ -272,6 +289,7 @@ int AJ_Main()
             break;
 
         case 7:
+#ifdef EXPANDED_FORM
             CHECK(AJ_MarshalContainer(&txMsg, &struct1, AJ_ARG_STRUCT));
             CHECK(AJ_MarshalVariant(&txMsg, "i"));
             CHECK(AJ_MarshalArgs(&txMsg, "i", 1212121));
@@ -286,6 +304,15 @@ int AJ_Main()
             CHECK(AJ_MarshalVariant(&txMsg, "s"));
             CHECK(AJ_MarshalArgs(&txMsg, "s", "variant2"));
             CHECK(AJ_MarshalCloseContainer(&txMsg, &struct1));
+#else
+            CHECK(AJ_MarshalArgs(&txMsg, "(vvvvvv)",
+                                 "i", 121212121,
+                                 "s", "variant",
+                                 "ay",  Data8, sizeof(Data8),
+                                 "ay",  Data8, sizeof(Data8),
+                                 "aq",  Data16, sizeof(Data16),
+                                 "s",  "variant2"));
+#endif
             break;
 
         case 8:
@@ -368,6 +395,7 @@ int AJ_Main()
             CHECK(AJ_MarshalContainer(&txMsg, &array1, AJ_ARG_ARRAY));
 
             for (j = 0; j < 8; ++j) {
+#ifdef EXPANDED_FORM
                 AJ_Arg dict;
                 CHECK(AJ_MarshalContainer(&txMsg, &dict, AJ_ARG_DICT_ENTRY));
                 CHECK(AJ_MarshalArgs(&txMsg, "i", j));
@@ -379,6 +407,13 @@ int AJ_Main()
                     CHECK(AJ_MarshalArgs(&txMsg, "i", j + 200));
                 }
                 CHECK(AJ_MarshalCloseContainer(&txMsg, &dict));
+#else
+                if (j == 4) {
+                    CHECK(AJ_MarshalArgs(&txMsg, "{iv}", j, "s", "This is a variant string"));
+                } else {
+                    CHECK(AJ_MarshalArgs(&txMsg, "{iv}", j, "i", j + 200));
+                }
+#endif
             }
 
             CHECK(AJ_MarshalCloseContainer(&txMsg, &array1));
@@ -446,10 +481,17 @@ int AJ_Main()
         case 2:
             CHECK(AJ_UnmarshalContainer(&rxMsg, &array1, AJ_ARG_ARRAY));
             while (status == AJ_OK) {
+#ifdef EXPANDED_FORM
                 CHECK(AJ_UnmarshalContainer(&rxMsg, &struct1, AJ_ARG_STRUCT));
                 CHECK(AJ_UnmarshalArgs(&rxMsg, "us", &u, &str));
                 CHECK(AJ_UnmarshalArg(&rxMsg, &arg));
                 CHECK(AJ_UnmarshalCloseContainer(&rxMsg, &struct1));
+#else
+                size_t len;
+                uint8_t* data;
+                CHECK(AJ_UnmarshalArgs(&rxMsg, "(usay)", &u, &str, &data, &len));
+#endif
+                AJ_Printf("Unmarshal %d %s\n", u, str);
             }
             /*
              * We expect AJ_ERR_NO_MORE
@@ -506,6 +548,7 @@ int AJ_Main()
             break;
 
         case 5:
+#ifdef EXPANDED_FORM
             CHECK(AJ_UnmarshalVariant(&rxMsg, (const char**)&sig));
             AJ_Printf("Unmarshal variant %s\n", sig);
             CHECK(AJ_UnmarshalContainer(&rxMsg, &struct1, AJ_ARG_STRUCT));
@@ -518,6 +561,9 @@ int AJ_Main()
             CHECK(AJ_UnmarshalArgs(&rxMsg, "i", &j));
             AJ_Printf("Unmarshal %d\n", j);
             CHECK(AJ_UnmarshalCloseContainer(&rxMsg, &struct1));
+#else
+            CHECK(AJ_UnmarshalArgs(&rxMsg, "v", "(ivi)", &j, "s", &str, &j));
+#endif
             break;
 
         case 6:
@@ -633,10 +679,15 @@ int AJ_Main()
             while (TRUE) {
                 AJ_Arg dict;
                 char* color;
+#ifdef EXPANDED_FORM
                 CHECK(AJ_UnmarshalContainer(&rxMsg, &dict, AJ_ARG_DICT_ENTRY));
                 CHECK(AJ_UnmarshalArgs(&rxMsg, "ys", &y, &color));
                 AJ_Printf("Unmarshal[%d] = %s\n", y, color);
                 CHECK(AJ_UnmarshalCloseContainer(&rxMsg, &dict));
+#else
+                CHECK(AJ_UnmarshalArgs(&rxMsg, "{ys}", &y, &color));
+                AJ_Printf("Unmarshal[%d] = %s\n", y, color);
+#endif
             }
             /*
              * We expect AJ_ERR_NO_MORE

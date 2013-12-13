@@ -116,27 +116,16 @@ AJ_Status AJ_BusFindAdvertisedNameByTransport(AJ_BusAttachment* bus, const char*
     return status;
 }
 
-static void MarshalDictEntry(AJ_Message* msg, AJ_Arg* dictionary, const char* key, const char* valSig, uint32_t val)
-{
-    AJ_Arg entry;
-
-    AJ_MarshalContainer(msg, &entry, AJ_ARG_DICT_ENTRY);
-    AJ_MarshalArgs(msg, "s", key);
-    AJ_MarshalVariant(msg, valSig);
-    AJ_MarshalArgs(msg, valSig, val);
-    AJ_MarshalCloseContainer(msg, &entry);
-}
-
 static AJ_Status MarshalSessionOpts(AJ_Message* msg, const AJ_SessionOpts* opts)
 {
     AJ_Arg dictionary;
 
     AJ_MarshalContainer(msg, &dictionary, AJ_ARG_ARRAY);
 
-    MarshalDictEntry(msg, &dictionary, "traf",  "y", opts->traffic);
-    MarshalDictEntry(msg, &dictionary, "multi", "b", opts->isMultipoint);
-    MarshalDictEntry(msg, &dictionary, "prox",  "y", opts->proximity);
-    MarshalDictEntry(msg, &dictionary, "trans", "q", opts->transports);
+    AJ_MarshalArgs(msg, "{sv}", "traf",  "y", opts->traffic);
+    AJ_MarshalArgs(msg, "{sv}", "multi", "b", opts->isMultipoint);
+    AJ_MarshalArgs(msg, "{sv}", "prox",  "y", opts->proximity);
+    AJ_MarshalArgs(msg, "{sv}", "trans", "q", opts->transports);
 
     AJ_MarshalCloseContainer(msg, &dictionary);
 

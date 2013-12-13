@@ -25,6 +25,7 @@
 #include "aj_bufio.h"
 #include "aj_connect.h"
 #include "aj_guid.h"
+#include "aj_peer.h"
 #include "aj_util.h"
 #include "aj_crypto.h"
 #include "aj_introspect.h"
@@ -84,6 +85,7 @@ static const uint8_t TypeForHdr[] = {
  */
 static const uint8_t TypeFlags[] = {
     0x08 | AJ_CONTAINER,  /* AJ_ARG_STRUCT            '('  */
+    0,                    /*                          ')'  */
     0x04 | AJ_CONTAINER,  /* AJ_ARG_ARRAY             'a'  */
     0x04 | AJ_SCALAR,     /* AJ_ARG_BOOLEAN           'b'  */
     0,
@@ -111,12 +113,14 @@ static const uint8_t TypeFlags[] = {
     0x01 | AJ_SCALAR,     /* AJ_ARG_BYTE              'y'  */
     0,
     0x08 | AJ_CONTAINER,  /* AJ_ARG_DICT_ENTRY        '{'  */
+    0,
+    0                     /*                          '}'  */
 };
 
 /**
  * Macros for indexing into TypeFlags
  */
-#define TYPE_FLAG(t) TypeFlags[((t) == AJ_ARG_STRUCT) ? 0 : (t) - 96]
+#define TYPE_FLAG(t) TypeFlags[((t) < 'a') ? (t) - '(' : (t) + 2 - 'a']
 
 /**
  * Extract the alignment from the TypeFlags
@@ -1043,18 +1047,63 @@ AJ_Status AJ_UnmarshalArg(AJ_Message* msg, AJ_Arg* arg)
     return status;
 }
 
-AJ_Status AJ_UnmarshalArgs(AJ_Message* msg, const char* sig, ...)
+static AJ_Status VUnmarshalArgs(AJ_Message* msg, const char* sig, va_list* argpp)
 {
     AJ_Status status = AJ_OK;
     AJ_Arg arg;
-    va_list argp;
+    AJ_Arg container;
+    va_list argp = *argpp;
 
-    va_start(argp, sig);
+    container.typeId = AJ_ARG_INVALID;
+
     while (*sig) {
         uint8_t typeId = (uint8_t)*sig++;
-        void* val = va_arg(argp, void*);
+        void* val;
 
         if (!IsBasicType(typeId)) {
+            if ((typeId == AJ_ARG_STRUCT) || (typeId == AJ_ARG_DICT_ENTRY)) {
+                /*
+                 * This API does not support unmarshalling nested structs
+                 */
+                if (container.typeId != AJ_ARG_INVALID) {
+                    status = AJ_ERR_MARSHAL;
+                    break;
+                }
+                AJ_UnmarshalContainer(msg, &container, typeId);
+                continue;
+            }
+            if ((typeId == AJ_ARG_ARRAY) && IsBasicType(*sig)) {
+                const void** ptr = va_arg(argp, const void**);
+                size_t* len = va_arg(argp, size_t*);
+                sig++;
+                status = AJ_UnmarshalArg(msg, &arg);
+                if (status != AJ_OK) {
+                    break;
+                }
+                *ptr = arg.val.v_data;
+                *len = arg.len;
+                continue;
+            }
+            if ((typeId == AJ_STRUCT_CLOSE) || (typeId == AJ_DICT_ENTRY_CLOSE)) {
+                status = AJ_UnmarshalCloseContainer(msg, &container);
+                container.typeId = AJ_ARG_INVALID;
+                break;
+            }
+            if (typeId == AJ_ARG_VARIANT) {
+                const char* vsigExpect = va_arg(argp, const char*);
+                const char* vsig;
+                status = AJ_UnmarshalVariant(msg, &vsig);
+                if (status == AJ_OK) {
+                    if (strcmp(vsig, vsigExpect) != 0) {
+                        status = AJ_ERR_SIGNATURE;
+                        break;
+                    }
+                    status = VUnmarshalArgs(msg, vsig, &argp);
+                }
+                if (status == AJ_OK) {
+                    continue;
+                }
+            }
             status = AJ_ERR_UNEXPECTED;
             break;
         }
@@ -1066,6 +1115,7 @@ AJ_Status AJ_UnmarshalArgs(AJ_Message* msg, const char* sig, ...)
             status = AJ_ERR_UNMARSHAL;
             break;
         }
+        val = va_arg(argp, void*);
         if (IsScalarType(typeId)) {
             switch (SizeOfType(typeId)) {
             case 1:
@@ -1088,7 +1138,19 @@ AJ_Status AJ_UnmarshalArgs(AJ_Message* msg, const char* sig, ...)
             *((const char**)val) = arg.val.v_string;
         }
     }
+    *argpp = argp;
+    return status;
+}
+
+AJ_Status AJ_UnmarshalArgs(AJ_Message* msg, const char* sig, ...)
+{
+    AJ_Status status;
+    va_list argp;
+
+    va_start(argp, sig);
+    status = VUnmarshalArgs(msg, sig, &argp);
     va_end(argp);
+
     return status;
 }
 
@@ -1546,13 +1608,16 @@ AJ_Arg* AJ_InitArg(AJ_Arg* arg, uint8_t typeId, uint8_t flags, const void* val, 
     }
 }
 
-AJ_Status AJ_MarshalArgs(AJ_Message* msg, const char* sig, ...)
+
+static AJ_Status VMarshalArgs(AJ_Message* msg, const char* sig, va_list* argpp)
 {
     AJ_Status status = AJ_OK;
     AJ_Arg arg;
-    va_list argp;
+    AJ_Arg container;
+    va_list argp = *argpp;
 
-    va_start(argp, sig);
+    container.typeId = AJ_ARG_INVALID;
+
     while (*sig) {
         uint8_t u8;
         uint16_t u16;
@@ -1560,7 +1625,42 @@ AJ_Status AJ_MarshalArgs(AJ_Message* msg, const char* sig, ...)
         uint64_t u64;
         uint8_t typeId = (uint8_t)*sig++;
         void* val;
+
         if (!IsBasicType(typeId)) {
+            if ((typeId == AJ_ARG_STRUCT) || (typeId == AJ_ARG_DICT_ENTRY)) {
+                /*
+                 * This API does not support marshalling nested structs
+                 */
+                if (container.typeId != AJ_ARG_INVALID) {
+                    status = AJ_ERR_MARSHAL;
+                    break;
+                }
+                AJ_MarshalContainer(msg, &container, typeId);
+                continue;
+            }
+            if ((typeId == AJ_ARG_ARRAY) && IsBasicType(*sig)) {
+                const void* aval = va_arg(argp, const void*);
+                size_t len = va_arg(argp, size_t);
+
+                AJ_InitArg(&arg, *sig++, AJ_ARRAY_FLAG, aval, len);
+                status = AJ_MarshalArg(msg, &arg);
+                continue;
+            }
+            if ((typeId == AJ_STRUCT_CLOSE) || (typeId == AJ_DICT_ENTRY_CLOSE)) {
+                status = AJ_MarshalCloseContainer(msg, &container);
+                container.typeId = AJ_ARG_INVALID;
+                break;
+            }
+            if (typeId == AJ_ARG_VARIANT) {
+                const char* vsig = va_arg(argp, const char*);
+                status = AJ_MarshalVariant(msg, vsig);
+                if (status == AJ_OK) {
+                    status = VMarshalArgs(msg, vsig, &argp);
+                }
+                if (status == AJ_OK) {
+                    continue;
+                }
+            }
             status = AJ_ERR_UNEXPECTED;
             break;
         }
@@ -1587,7 +1687,19 @@ AJ_Status AJ_MarshalArgs(AJ_Message* msg, const char* sig, ...)
             break;
         }
     }
+    *argpp = argp;
+    return status;
+}
+
+AJ_Status AJ_MarshalArgs(AJ_Message* msg, const char* sig, ...)
+{
+    AJ_Status status;
+    va_list argp;
+
+    va_start(argp, sig);
+    status = VMarshalArgs(msg, sig, &argp);
     va_end(argp);
+
     return status;
 }
 
