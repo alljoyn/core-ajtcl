@@ -19,6 +19,7 @@
 #ifdef AJ_SERIAL_CONNECTION
 #include "aj_target.h"
 #include "aj_status.h"
+#include "aj_debug.h"
 #include "aj_serial.h"
 #include "aj_serial_rx.h"
 #include "aj_serial_tx.h"
@@ -76,15 +77,22 @@ static AJ_Time sendLinkPacketTime;
  */
 static uint8_t NegotiationPacket[LINK_PACKET_SIZE + NEGO_PACKET_SIZE];
 
-/**
- * global function pointer for serial transmit funciton
- */
-AJ_SerialTxFunc g_AJ_TX;
 /************ forward declarations *****************/
 
 static void ScheduleLinkControlPacket(uint32_t timeout);
 
 /********* end of forward declarations *************/
+
+// calculate the timeout values in milliseconds based on transmission paramters
+static void AdjustTimeoutValues(uint32_t packetSize)
+{
+    // one start bit, eight data bits, one parity, and one stop bit equals eleven bits sent per byte
+    // acknowledgement packets should be sent within twice the time to send one packet
+    // resends should be sent shortly after three times the packet delivery time
+    AJ_SerialLinkParams.txAckTimeout = (packetSize * 11 * 1000 * 2 ) / AJ_SerialLinkParams.bitRate;
+    AJ_SerialLinkParams.txResendTimeout = (packetSize * 11 * 1000 * 3) / AJ_SerialLinkParams.bitRate;
+    AJ_InfoPrintf(("new ack timeout %i, new resend timeout %i\n", AJ_SerialLinkParams.txAckTimeout,  AJ_SerialLinkParams.txResendTimeout));
+}
 
 // Converge the remote endpoint's values with my own
 static void ProcessNegoPacket(const uint8_t* buffer)
@@ -283,6 +291,9 @@ void AJ_Serial_LinkPacket(uint8_t* buffer, uint16_t len)
         } else if (pktType == NRSP_PKT) {
             AJ_Printf("Received nego response - Moving to LINK_ACTIVE\n");
             AJ_SerialLinkParams.linkState = AJ_LINK_ACTIVE;
+
+            // update the timeout values now that the link is active
+            AdjustTimeoutValues(AJ_SerialLinkParams.packetSize);
         }
         break;
 
@@ -304,7 +315,7 @@ void AJ_Serial_LinkPacket(uint8_t* buffer, uint16_t len)
 }
 
 AJ_Status AJ_SerialInit(const char* ttyName,
-                        uint16_t bitRate,
+                        uint32_t bitRate,
                         uint8_t windowSize,
                         uint16_t packetSize)
 {
@@ -321,6 +332,8 @@ AJ_Status AJ_SerialInit(const char* ttyName,
     AJ_SerialLinkParams.windowSize = windowSize;
     AJ_SerialLinkParams.packetSize = packetSize;
     AJ_SerialLinkParams.linkState = AJ_LINK_UNINITIALIZED;
+    AJ_SerialLinkParams.bitRate = bitRate;
+    AdjustTimeoutValues(AJ_LINK_PACKET_PAYLOAD);
 
     /** Initialize serial ports */
     status = AJ_SerialTargetInit(ttyName, bitRate);

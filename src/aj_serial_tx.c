@@ -27,24 +27,9 @@
 #include "aj_timer.h"
 
 /**
- * how long to wait for an acknowledgement before resending a packet
- */
-#define TX_RESEND_TIMEOUT    200
-
-/**
  * Throughput may be improved by always ack'ing received packets immediately.
  */
 //#define ALWAYS_ACK   1
-
-/**
- * how long to wait after a packet has been received before sending a ACK packet
- */
-#define TX_ACK_TIMEOUT       100
-
-/**
- * This is big enough to hold the control payloads stored in unreliable packets
- */
-#define AJ_LINK_PACKET_PAYLOAD      32
 
 /*
  * transmit packet
@@ -352,7 +337,7 @@ static void QueueUnreliable(void)
      * the unreliable packet to get queued twice.
      */
     if (txQueue == txUnreliable) {
-        AJ_Printf("QueueUnreliable: unreliable packet already queued! %p\n", txUnreliable);
+        AJ_Printf("QueueUnreliable: type %i unreliable packet already queued! %p\n", txUnreliable->type, txUnreliable);
 //        assert(FALSE);
     } else {
         txUnreliable->next = txQueue;
@@ -590,7 +575,7 @@ void AJ_SerialTx_ReceivedAck(uint8_t ack)
      */
     if (ackedPkt != NULL) {
         AJ_InitTimer(&resendTime);
-        AJ_TimeAddOffset(&resendTime, TX_RESEND_TIMEOUT);
+        AJ_TimeAddOffset(&resendTime, AJ_SerialLinkParams.txResendTimeout);
         resendPrimed = TRUE;
     }
 }
@@ -640,7 +625,7 @@ void AJ_SerialTx_ReceivedSeq(uint8_t seq)
      */
     if (pendingAcks == 1) {
         AJ_InitTimer(&ackTime);
-        AJ_TimeAddOffset(&ackTime, TX_ACK_TIMEOUT);
+        AJ_TimeAddOffset(&ackTime, AJ_SerialLinkParams.txAckTimeout);
         return;
     }
 
@@ -709,7 +694,7 @@ void AJ_FillTxBufferList()
 
             if (!resendPrimed) {
                 AJ_InitTimer(&resendTime);
-                AJ_TimeAddOffset(&resendTime, TX_RESEND_TIMEOUT);
+                AJ_TimeAddOffset(&resendTime, AJ_SerialLinkParams.txResendTimeout);
                 resendPrimed = FALSE;
             }
         }
