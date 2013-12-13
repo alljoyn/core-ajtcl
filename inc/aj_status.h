@@ -50,7 +50,8 @@ typedef enum {
     AJ_ERR_LINK_TIMEOUT = 21, /**< The bus link is inactive too long */
     AJ_ERR_DRIVER       = 22, /**< An error communicating with a lower-layer driver */
     AJ_ERR_OBJECT_PATH  = 23, /**< Object path was not specified */
-    AJ_ERR_BUSY         = 24  /**< An operation failed and should be retried later */
+    AJ_ERR_BUSY         = 24, /**< An operation failed and should be retried later */
+    AJ_ERR_DHCP         = 25  /**< A DHCP operation has failed */
 
 } AJ_Status;
 
