@@ -218,8 +218,7 @@ AJ_Status AJ_Connect(AJ_BusAttachment* bus, const char* serviceName, uint32_t ti
     do {
         AJ_StateMachine();
         AJ_InitTimer(&now);
-    }
-    while (AJ_SerialLinkParams.linkState != AJ_LINK_ACTIVE && AJ_GetTimeDifference(&now, &start) < timeout);
+    } while (AJ_SerialLinkParams.linkState != AJ_LINK_ACTIVE && AJ_GetTimeDifference(&now, &start) < timeout);
 
     if (AJ_SerialLinkParams.linkState != AJ_LINK_ACTIVE) {
         AJ_InfoPrintf(("Failed to establish active SLAP connection in %u usec\n", timeout));

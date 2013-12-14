@@ -33,6 +33,15 @@ typedef struct _AJ_Time {
 } AJ_Time;
 
 /**
+ * Get the current alljoyn version found in aj_version.h.
+ * Format is:
+ * "<Major>.<Minor>.<Release> Tag <tag>"
+ *
+ * @return  A string containing the alljoyn version
+ */
+const char* AJ_GetVersion();
+
+/**
  * Get the time elapsed in milliseconds since this function was called with the same timer.
  * Call AJ_InitTimer() to initialize the timer before calling this function.
  *
