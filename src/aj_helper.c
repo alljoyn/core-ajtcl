@@ -289,7 +289,6 @@ AJ_Status AJ_StartService2(AJ_BusAttachment* bus,
     AJ_Status status;
     AJ_Time timer;
     uint8_t serviceStarted = FALSE;
-    uint8_t initial = TRUE;
 
     AJ_InfoPrintf(("AJ_StartService2(bus=0x%p, daemonName=\"%s\", timeout=%d., connected=%d., port=%d., name=\"%s\", flags=0x%x, opts=0x%p)\n",
                    bus, daemonName, timeout, connected, port, name, flags, opts));
@@ -300,8 +299,7 @@ AJ_Status AJ_StartService2(AJ_BusAttachment* bus,
         if (AJ_GetElapsedTime(&timer, TRUE) > timeout) {
             return AJ_ERR_TIMEOUT;
         }
-        if (!initial || !connected) {
-            initial = FALSE;
+        if (!connected) {
             AJ_InfoPrintf(("AJ_StartService2(): AJ_Connect()\n"));
             status = AJ_Connect(bus, daemonName, CONNECT_TIMEOUT);
             if (status != AJ_OK) {
@@ -424,7 +422,6 @@ AJ_Status AJ_StartClient2(AJ_BusAttachment* bus,
     AJ_Time unmarshalTimer;
     uint8_t foundName = FALSE;
     uint8_t clientStarted = FALSE;
-    uint8_t initial = TRUE;
 
     AJ_InfoPrintf(("AJ_StartClient(bus=0x%p, daemonName=\"%s\", timeout=%d., connected=%d., name=\"%s\", port=%d., sessionId=0x%p, opts=0x%p)\n",
                    bus, daemonName, timeout, connected, name, port, sessionId, opts));
@@ -435,8 +432,7 @@ AJ_Status AJ_StartClient2(AJ_BusAttachment* bus,
         if (AJ_GetElapsedTime(&timer, TRUE) > timeout) {
             return AJ_ERR_TIMEOUT;
         }
-        if (!initial || !connected) {
-            initial = FALSE;
+        if (!connected) {
             AJ_InfoPrintf(("AJ_StartClient(): AJ_Connect()\n"));
             status = AJ_Connect(bus, daemonName, CONNECT_TIMEOUT);
             if (status != AJ_OK) {
