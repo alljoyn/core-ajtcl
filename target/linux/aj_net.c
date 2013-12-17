@@ -293,6 +293,7 @@ AJ_Status AJ_Net_MCastUp(AJ_NetSocket* netSock)
     ret = bind(mcastSock, (struct sockaddr*)&sin, sizeof(sin));
     if (ret < 0) {
         AJ_ErrPrintf(("AJ_Net_MCastUp(): bind() failed. errno=\"%s\", status=AJ_ERR_READ\n", strerror(errno)));
+        close(mcastSock);
         return AJ_ERR_READ;
     }
 
