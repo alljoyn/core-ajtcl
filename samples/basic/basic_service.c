@@ -16,9 +16,10 @@
  *    ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
+#define AJ_MODULE BASIC_SERVICE
 
 #include <stdio.h>
-
+#include <aj_debug.h>
 #include "alljoyn.h"
 
 #define CONNECT_ATTEMPTS   10
@@ -26,6 +27,7 @@ static const char ServiceName[] = "org.alljoyn.Bus.sample";
 static const char ServicePath[] = "/sample";
 static const uint16_t ServicePort = 25;
 
+uint8_t dbgBASIC_SERVICE = 0;
 /**
  * The interface name followed by the method signatures.
  *
@@ -131,7 +133,7 @@ int AJ_Main(void)
                 continue;
             }
 
-            printf("StartService returned %d, session_id=%u\n", status, sessionId);
+            AJ_InfoPrintf(("StartService returned %d, session_id=%u\n", status, sessionId));
             connected = TRUE;
         }
 
@@ -149,7 +151,7 @@ int AJ_Main(void)
                     char* joiner;
                     AJ_UnmarshalArgs(&msg, "qus", &port, &sessionId, &joiner);
                     status = AJ_BusReplyAcceptSession(&msg, TRUE);
-                    printf("Accepted session session_id=%u joiner=%s\n", sessionId, joiner);
+                    AJ_InfoPrintf(("Accepted session session_id=%u joiner=%s\n", sessionId, joiner));
                 }
                 break;
 
@@ -178,7 +180,7 @@ int AJ_Main(void)
         AJ_CloseMsg(&msg);
 
         if (status == AJ_ERR_READ) {
-            printf("AllJoyn disconnect.\n");
+            AJ_Printf("AllJoyn disconnect.\n");
             AJ_Disconnect(&bus);
             connected = FALSE;
 
@@ -187,7 +189,7 @@ int AJ_Main(void)
         }
     }
 
-    printf("Basic service exiting with status %d.\n", status);
+    AJ_Printf("Basic service exiting with status %d.\n", status);
 
     return status;
 }

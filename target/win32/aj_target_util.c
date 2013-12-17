@@ -16,15 +16,18 @@
  *    ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
+#define AJ_MODULE TARGET_UTIL
 
 #include <windows.h>
 #include <process.h>
 #include <sys/timeb.h>
 #include <stdio.h>
 #include <assert.h>
-
+#include <aj_debug.h>
 #include "aj_target.h"
 #include "aj_util.h"
+
+uint8_t dbgTARGET_UTIL = 0;
 
 AJ_Status AJ_SuspendWifi(uint32_t msec)
 {
@@ -99,7 +102,7 @@ uint8_t AJ_StartReadFromStdIn()
     if (!ioThreadRunning) {
         handle = _beginthreadex(NULL, stacksize, &RunFunc, NULL, 0, &threadId);
         if (handle <= 0) {
-            printf("Fail to spin a thread for reading from stdin\n");
+            AJ_ErrPrintf(("Fail to spin a thread for reading from stdin\n"));
             return FALSE;
         }
         ioThreadRunning = TRUE;

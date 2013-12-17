@@ -16,13 +16,15 @@
  *    ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
+#define AJ_MODULE DUE_LED
 
 #include <stdint.h>
 #include <stddef.h>
-
 #include "due_led.h"
-
+#include <aj_debug.h>
 #include <alljoyn.h>
+
+uint8_t dbgDUE_LED = 0;
 
 void DUE_led_timed(uint32_t msec);
 void DUE_led(uint8_t on);
@@ -67,7 +69,7 @@ static void AppDoWork()
     /*
      * This function is called if there are no messages to unmarshal
      */
-    printf("do work\n");
+    AJ_Printf("do work\n");
 }
 
 static const char PWD[] = "ABCDEFGH";
@@ -83,7 +85,7 @@ static AJ_Status AppHandleFlash(AJ_Message* msg)
     AJ_Message reply;
     uint32_t timeout;
     AJ_UnmarshalArgs(msg, "u", &timeout);
-    printf("AppHandleFlash(%u)\n", timeout);
+    AJ_Printf("AppHandleFlash(%u)\n", timeout);
 
     DUE_led_timed(timeout);
 
@@ -96,7 +98,7 @@ static AJ_Status AppHandleOnOff(AJ_Message* msg, uint8_t on)
 {
     AJ_Message reply;
 
-    printf("AppHandleOnOff(%u)\n", on);
+    AJ_Printf("AppHandleOnOff(%u)\n", on);
     DUE_led(on);
 
     AJ_MarshalReplyMsg(msg, &reply);
@@ -131,7 +133,7 @@ int AJ_Main(void)
             if (status != AJ_OK) {
                 continue;
             }
-            printf("StartService returned AJ_OK; running %s:%u\n", ServiceName, ServicePort);
+            AJ_InfoPrintf(("StartService returned AJ_OK; running %s:%u\n", ServiceName, ServicePort));
             connected = TRUE;
             AJ_BusSetPasswordCallback(&bus, PasswordCallback);
         }
@@ -148,16 +150,16 @@ int AJ_Main(void)
 
             case AJ_METHOD_ACCEPT_SESSION:
                 {
-                    printf("Accepting...\n");
+                    AJ_InfoPrintf(("Accepting...\n"));
                     uint16_t port;
                     char* joiner;
                     AJ_UnmarshalArgs(&msg, "qus", &port, &sessionId, &joiner);
                     status = AJ_BusReplyAcceptSession(&msg, TRUE);
 
                     if (status == AJ_OK) {
-                        printf("Accepted session session_id=%u joiner=%s\n", sessionId, joiner);
+                        AJ_InfoPrintf(("Accepted session session_id=%u joiner=%s\n", sessionId, joiner));
                     } else {
-                        printf("AJ_BusReplyAcceptSession: error %d\n", status);
+                        AJ_InfoPrintf(("AJ_BusReplyAcceptSession: error %d\n", status));
                     }
                 }
                 break;
@@ -195,7 +197,7 @@ int AJ_Main(void)
         AJ_CloseMsg(&msg);
 
         if (status == AJ_ERR_READ) {
-            printf("AllJoyn disconnect\n");
+            AJ_Printf("AllJoyn disconnect\n");
             AJ_Disconnect(&bus);
             connected = FALSE;
             /*
@@ -204,7 +206,7 @@ int AJ_Main(void)
             AJ_Sleep(10 * 1000);
         }
     }
-    printf("svclite EXIT %d\n", status);
+    AJ_Printf("svclite EXIT %d\n", status);
 
     return status;
 }

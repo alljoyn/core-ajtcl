@@ -61,10 +61,10 @@ void AJ_Free(void* mem)
 
 void ram_diag()
 {
-    printf("SRAM usage (stack, heap, static): %d, %d, %d\n",
-           stack_used(),
-           heap_used(),
-           static_used());
+    AJ_Printf("SRAM usage (stack, heap, static): %d, %d, %d\n",
+              stack_used(),
+              heap_used(),
+              static_used());
 }
 
 uint8_t AJ_StartReadFromStdIn()

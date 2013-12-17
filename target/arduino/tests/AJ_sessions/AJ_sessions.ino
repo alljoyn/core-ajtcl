@@ -49,19 +49,19 @@ void setup() {
         ; // wait for serial port to connect. Needed for Leonardo only
     }
 
-    printf("hello, world.\n");
+    AJ_Printf("hello, world.\n");
 
 #ifdef WIFI_UDP_WORKING
     // check for the presence of the shield:
     if (WiFi.status() == WL_NO_SHIELD) {
-        printf("WiFi shield not present\n");
+        AJ_Printf("WiFi shield not present\n");
         // don't continue:
         while (true) ;
     }
 
     // attempt to connect to Wifi network:
     while (wifiStatus != WL_CONNECTED) {
-        printf("Attempting to connect to WPA SSID: %s\n", ssid);
+        AJ_Printf("Attempting to connect to WPA SSID: %s\n", ssid);
 
         // Connect to WEP private network
         wifiStatus = WiFi.begin(ssid, 0, pass);
@@ -78,7 +78,7 @@ void setup() {
     byte mac[] = { 0x00, 0xAA, 0xBB, 0xCC, 0xDE, 0x02 };
     // start the Ethernet connection:
     if (Ethernet.begin(mac) == 0) {
-        printf("Failed to configure Ethernet using DHCP\n");
+        AJ_Printf("Failed to configure Ethernet using DHCP\n");
         // no point in carrying on, so do nothing forevermore:
         for (;;)
             ;

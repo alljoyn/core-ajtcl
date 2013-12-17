@@ -16,13 +16,14 @@
  *    ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
+#define AJ_MODULE TARGET_UTIL
 
 #include <time.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
-
+#include <aj_debug.h>
 #include "aj_target.h"
 #include "aj_util.h"
 
@@ -161,7 +162,7 @@ uint8_t AJ_StartReadFromStdIn()
     if (!ioThreadRunning) {
         ret = pthread_create(&threadId, NULL, RunFunc, NULL);
         if (ret != 0) {
-            printf("Error: fail to spin a thread for reading from stdin\n");
+            AJ_ErrPrintf(("Error: fail to spin a thread for reading from stdin\n"));
         }
         ioThreadRunning = TRUE;
         return TRUE;

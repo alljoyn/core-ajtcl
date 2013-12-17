@@ -16,12 +16,14 @@
  *    ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
+#define AJ_MODULE SIGNAL_SERVICE
 
 #include <stdio.h>
-
+#include <aj_debug.h>
 #include "alljoyn.h"
 #include "aj_msg.h"
 
+uint8_t dbgSIGNAL_SERVICE = 0;
 /**
  * Statics.
  */
@@ -92,7 +94,7 @@ static AJ_Status SendSignal()
 {
     AJ_Message msg;
 
-    printf("Emitting Name Changed Signal. New value for property 'name' is '%s'.\n", propertyName);
+    AJ_Printf("Emitting Name Changed Signal. New value for property 'name' is '%s'.\n", propertyName);
 
     /* For the signal to transmit outside of the current process the session ID must be 0. */
     AJ_MarshalSignal(&busAttachment, &msg, BASIC_SIGNAL_SERVICE_SIGNAL, NULL, 0, AJ_FLAG_GLOBAL_BROADCAST, 0);
@@ -121,7 +123,7 @@ static AJ_Status SetName(AJ_Message* replyMsg, uint32_t propId, void* context)
         AJ_UnmarshalArgs(replyMsg, "s", &string);
         strncpy(propertyName, string, propertyNameSize);
         propertyName[propertyNameSize - 1] = '\0';
-        printf("Set 'name' property was called changing name to '%s'.\n", propertyName);
+        AJ_Printf("Set 'name' property was called changing name to '%s'.\n", propertyName);
         status = AJ_OK;
     }
 
@@ -164,7 +166,7 @@ int AJ_Main(void)
                 continue;
             }
 
-            printf("StartService returned %d\n", status);
+            AJ_InfoPrintf(("StartService returned %d\n", status));
             connected = TRUE;
         }
 
@@ -184,8 +186,8 @@ int AJ_Main(void)
 
                     AJ_UnmarshalArgs(&msg, "qus", &port, &sessionId, &joiner);
                     status = AJ_BusReplyAcceptSession(&msg, TRUE);
-                    printf("Accepted session. Port=%u, session_id=%u joiner='%s'.\n",
-                           port, sessionId, joiner);
+                    AJ_InfoPrintf(("Accepted session. Port=%u, session_id=%u joiner='%s'.\n",
+                                   port, sessionId, joiner));
                 }
                 break;
 
@@ -198,7 +200,7 @@ int AJ_Main(void)
 
                 if (AJ_OK == status) {
                     status = SendSignal();
-                    printf("SendSignal reports status 0x%04x.\n", status);
+                    AJ_InfoPrintf(("SendSignal reports status 0x%04x.\n", status));
                 }
                 break;
 
@@ -221,7 +223,7 @@ int AJ_Main(void)
         AJ_CloseMsg(&msg);
 
         if (status == AJ_ERR_READ) {
-            printf("AllJoyn disconnect.\n");
+            AJ_Printf("AllJoyn disconnect.\n");
             AJ_Disconnect(&busAttachment);
             connected = FALSE;
 
@@ -230,7 +232,7 @@ int AJ_Main(void)
         }
     }
 
-    printf("Basic service exiting with status 0x%04x.\n", status);
+    AJ_Printf("Basic service exiting with status 0x%04x.\n", status);
 
     return status;
 }

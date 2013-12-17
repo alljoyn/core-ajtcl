@@ -38,7 +38,7 @@ void setup() {
         ; // wait for serial port to connect. Needed for Leonardo only
     }
 
-    printf("setup");
+    AJ_Printf("setup");
 
 #ifdef WIFI_UDP_WORKING
     char ssid[] = "eric-wifi";
@@ -62,7 +62,7 @@ void setup() {
     byte mac[] = { 0x90, 0xA2, 0xDA, 0x0D, 0xA7, 0xCA };
     // start the Ethernet connection:
     if (Ethernet.begin(mac) == 0) {
-        printf("Failed to configure Ethernet using DHCP\n");
+        AJ_Printf("Failed to configure Ethernet using DHCP\n");
         // no point in carrying on, so do nothing forevermore:
         for (;;)
             ;

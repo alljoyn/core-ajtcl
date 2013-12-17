@@ -17,12 +17,14 @@
  *    ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
+#define AJ_MODULE NAME_CHANGE
 
 #include <stdio.h>
 #include <stdlib.h>
-
+#include <aj_debug.h>
 #include "alljoyn.h"
 
+uint8_t dbgNAME_CHANGE = 0;
 /**
  * Static constants.
  */
@@ -131,11 +133,11 @@ int main(int argc, char*argv[])
                                         NULL);
 
                 if (status == AJ_OK) {
-                    printf("StartClient returned %d, sessionId=%u.\n", status, sessionId);
+                    AJ_InfoPrintf(("StartClient returned %d, sessionId=%u.\n", status, sessionId));
                     connected = TRUE;
                     SendNewName(&bus, sessionId, newName);
                 } else {
-                    printf("StartClient returned 0x%04x.\n", status);
+                    AJ_InfoPrintf(("StartClient returned 0x%04x.\n", status));
                     break;
                 }
             }
@@ -150,10 +152,10 @@ int main(int argc, char*argv[])
                 switch (msg.msgId) {
                 case AJ_REPLY_ID(PRX_SET_PROP):
                     done = TRUE;
-                    printf("Name on the interface '%s' at service '%s' was set to '%s'.\n",
-                           InterfaceName,
-                           ServiceName,
-                           newName);
+                    AJ_Printf("Name on the interface '%s' at service '%s' was set to '%s'.\n",
+                              InterfaceName,
+                              ServiceName,
+                              newName);
                     break;
 
                 case AJ_SIGNAL_SESSION_LOST_WITH_REASON:
@@ -177,16 +179,16 @@ int main(int argc, char*argv[])
             AJ_CloseMsg(&msg);
 
             if (status == AJ_ERR_READ) {
-                printf("AllJoyn disconnect.\n");
+                AJ_Printf("AllJoyn disconnect.\n");
                 AJ_Disconnect(&bus);
                 exit(0);
             }
         }
     } else {
-        printf("Error. New name not given: nameChange_client [new name].\n");
+        AJ_ErrPrintf(("Error. New name not given: nameChange_client [new name].\n"));
     }
 
-    printf("nameChange_Client exiting with status 0x%04x.\n", status);
+    AJ_Printf("nameChange_Client exiting with status 0x%04x.\n", status);
 
     return status;
 }

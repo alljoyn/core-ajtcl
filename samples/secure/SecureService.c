@@ -16,12 +16,15 @@
  *    ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
+#define AJ_MODULE SECURE_SERVICE
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-
+#include <aj_debug.h>
 #include "alljoyn.h"
+
+uint8_t dbgSECURE_SERVICE = 0;
 
 #define CONNECT_ATTEMPTS   10
 static const char ServiceName[] = "org.alljoyn.bus.samples.secure";
@@ -80,9 +83,9 @@ static AJ_Status AppHandlePing(AJ_Message* msg)
     if (AJ_OK == status) {
 
         if (arg.typeId == AJ_ARG_STRING) {
-            printf("Received ping request '%s'.\n", arg.val.v_string);
+            AJ_Printf("Received ping request '%s'.\n", arg.val.v_string);
         } else {
-            printf("Unexpected arg type '%d' in ping request.\n", arg.typeId);
+            AJ_Printf("Unexpected arg type '%d' in ping request.\n", arg.typeId);
         }
 
         status = AJ_MarshalReplyMsg(msg, &reply);
@@ -113,13 +116,13 @@ static uint32_t PasswordCallback(uint8_t* buffer, uint32_t bufLen)
     pin = 1000 * (rand() % 1000) + (rand() % 1000);
 
     sprintf(pinStr, "%06d", pin);
-    printf("One Time Password : '%s'.\n", pinStr);
+    AJ_Printf("One Time Password : '%s'.\n", pinStr);
     fflush(stdout);
 
     pinLength = strlen(pinStr);
     memcpy(buffer, pinStr, pinLength + 1);
 
-    printf("Need password of '%s' length %zu.\n", buffer, pinLength);
+    AJ_Printf("Need password of '%s' length %zu.\n", buffer, pinLength);
 
     return (uint32_t)pinLength;
 }
@@ -159,7 +162,7 @@ int AJ_Main(void)
                 continue;
             }
 
-            printf("StartService returned %d, session_id=%u\n", status, sessionId);
+            AJ_InfoPrintf(("StartService returned %d, session_id=%u\n", status, sessionId));
             connected = TRUE;
 
             AJ_BusSetPasswordCallback(&bus, PasswordCallback);
@@ -179,7 +182,7 @@ int AJ_Main(void)
                     char* joiner;
                     AJ_UnmarshalArgs(&msg, "qus", &port, &sessionId, &joiner);
                     status = AJ_BusReplyAcceptSession(&msg, TRUE);
-                    printf("Accepted session session_id=%u joiner=%s\n", sessionId, joiner);
+                    AJ_InfoPrintf(("Accepted session session_id=%u joiner=%s\n", sessionId, joiner));
                 }
                 break;
 
@@ -208,7 +211,7 @@ int AJ_Main(void)
         AJ_CloseMsg(&msg);
 
         if (status == AJ_ERR_READ) {
-            printf("AllJoyn disconnect.\n");
+            AJ_Printf("AllJoyn disconnect.\n");
             AJ_Disconnect(&bus);
             connected = FALSE;
 
@@ -217,7 +220,7 @@ int AJ_Main(void)
         }
     }
 
-    printf("Secure service exiting with status 0x%04x.\n", status);
+    AJ_Printf("Secure service exiting with status 0x%04x.\n", status);
 
     return status;
 }
