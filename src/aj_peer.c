@@ -35,7 +35,7 @@
 #include "aj_crypto.h"
 #include "aj_sasl.h"
 #include "aj_debug.h"
-
+#include "aj_config.h"
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
  * (usually in debugger).
@@ -58,30 +58,12 @@ uint8_t dbgPEER = 0;
 
 #define REQUIRED_AUTH_VERSION  (((uint32_t)MAX_AUTH_VERSION << 16) | MIN_KEYGEN_VERSION)
 
-/*
- * Maximum time to allow an incomplete authentication conversation to proceed
- */
-#define MAX_AUTH_TIME  (5 * 60 * 1000ul)
-
-/*
- * Long timeout for an authentication method calls to allow time for user interaction.
- */
-#define AUTH_CALL_TIMEOUT   (2 * 60 * 1000ul)
-
-/*
- * Timeout for all other method calls
- */
-#define CALL_TIMEOUT        (1000ul * 5)
-
-
-#define VERIFIER_LEN  12
-#define NONCE_LEN     28
 #define AES_KEY_LEN   16
 
 typedef struct _AuthContext {
     AJ_BusAuthPeerCallback callback; /* Callback function to report completion */
     void* cbContext;                 /* Context to pass to the callback function */
-    char nonce[2 * NONCE_LEN + 1];   /* Nonce as ascii hex */
+    char nonce[2 * AJ_NONCE_LEN + 1];   /* Nonce as ascii hex */
     AJ_SASL_Context sasl;            /* The SASL state machine context */
     const AJ_GUID* peerGuid;         /* GUID pointer for the currently authenticating peer */
     const char* peerName;            /* Name of the peer being authenticated */
@@ -156,7 +138,7 @@ AJ_Status AJ_PeerHandleAuthChallenge(AJ_Message* msg, AJ_Message* reply)
         /*
          * Reject the request if the existing conversation has not expired
          */
-        if (AJ_GetElapsedTime(&authContext.timer, TRUE) < MAX_AUTH_TIME) {
+        if (AJ_GetElapsedTime(&authContext.timer, TRUE) < AJ_MAX_AUTH_TIME) {
             return AJ_MarshalErrorMsg(msg, reply, AJ_ErrRejected);
         }
         memset(&authContext, 0, sizeof(AuthContext));
@@ -245,12 +227,12 @@ static AJ_Status KeyGen(const char* peerName, uint8_t role, const char* nonce1, 
      * We use the outBuf to store both the key and verifier string.
      * Check that there is enough space to do so.
      */
-    if (len < (AES_KEY_LEN + VERIFIER_LEN)) {
+    if (len < (AES_KEY_LEN + AJ_VERIFIER_LEN)) {
         AJ_ErrPrintf(("KeyGen(): AJ_ERR_RESOURCES\n"));
         return AJ_ERR_RESOURCES;
     }
 
-    status = AJ_Crypto_PRF(data, lens, ArraySize(data), outBuf, AES_KEY_LEN + VERIFIER_LEN);
+    status = AJ_Crypto_PRF(data, lens, ArraySize(data), outBuf, AES_KEY_LEN + AJ_VERIFIER_LEN);
     /*
      * Store the session key and compose the verifier string.
      */
@@ -258,8 +240,8 @@ static AJ_Status KeyGen(const char* peerName, uint8_t role, const char* nonce1, 
         status = AJ_SetSessionKey(peerName, outBuf, role);
     }
     if (status == AJ_OK) {
-        memmove(outBuf, outBuf + AES_KEY_LEN, VERIFIER_LEN);
-        status = AJ_RawToHex(outBuf, VERIFIER_LEN, (char*) outBuf, len, FALSE);
+        memmove(outBuf, outBuf + AES_KEY_LEN, AJ_VERIFIER_LEN);
+        status = AJ_RawToHex(outBuf, AJ_VERIFIER_LEN, (char*) outBuf, len, FALSE);
     }
     return status;
 }
@@ -279,7 +261,7 @@ AJ_Status AJ_PeerHandleGenSessionKey(AJ_Message* msg, AJ_Message* reply)
      * (to store 16 bytes key in addition to the 12 bytes verifier).
      * Hence we allocate, the maximum of (12 * 2 + 1) and (16 + 12).
      */
-    char verifier[AES_KEY_LEN + VERIFIER_LEN];
+    char verifier[AES_KEY_LEN + AJ_VERIFIER_LEN];
 
     AJ_InfoPrintf(("AJ_PeerHandleGenSessionKey(msg=0x%p, reply=0x%p)\n", msg, reply));
 
@@ -297,7 +279,7 @@ AJ_Status AJ_PeerHandleGenSessionKey(AJ_Message* msg, AJ_Message* reply)
     if ((status != AJ_OK) || (memcmp(&guid, &localGuid, sizeof(AJ_GUID)) != 0)) {
         return AJ_MarshalErrorMsg(msg, reply, AJ_ErrRejected);
     }
-    AJ_RandHex(authContext.nonce, sizeof(authContext.nonce), NONCE_LEN);
+    AJ_RandHex(authContext.nonce, sizeof(authContext.nonce), AJ_NONCE_LEN);
     status = KeyGen(msg->sender, AJ_ROLE_KEY_RESPONDER, nonce, authContext.nonce, (uint8_t*)verifier, sizeof(verifier));
     if (status == AJ_OK) {
         AJ_MarshalReplyMsg(msg, reply);
@@ -366,7 +348,7 @@ AJ_Status AJ_PeerAuthenticate(AJ_BusAttachment* bus, const char* peerName, AJ_Pe
         /*
          * The existing authentication may have timed-out
          */
-        if (AJ_GetElapsedTime(&authContext.timer, TRUE) < MAX_AUTH_TIME) {
+        if (AJ_GetElapsedTime(&authContext.timer, TRUE) < AJ_MAX_AUTH_TIME) {
             AJ_ErrPrintf(("AJ_PeerAuthenticate(): AJ_ERR_RESOURCES\n"));
             return AJ_ERR_RESOURCES;
         }
@@ -383,7 +365,7 @@ AJ_Status AJ_PeerAuthenticate(AJ_BusAttachment* bus, const char* peerName, AJ_Pe
     /*
      * Kick off autnetication with an ExchangeGUIDS method call
      */
-    AJ_MarshalMethodCall(bus, &msg, AJ_METHOD_EXCHANGE_GUIDS, peerName, 0, AJ_NO_FLAGS, CALL_TIMEOUT);
+    AJ_MarshalMethodCall(bus, &msg, AJ_METHOD_EXCHANGE_GUIDS, peerName, 0, AJ_NO_FLAGS, AJ_CALL_TIMEOUT);
     AJ_GetLocalGUID(&localGuid);
     AJ_GUID_ToString(&localGuid, guidStr, sizeof(guidStr));
     AJ_MarshalArgs(&msg, "su", guidStr, version);
@@ -400,7 +382,7 @@ static AJ_Status GenSessionKey(AJ_Message* msg)
         authContext.sasl.mechanism->Final(authContext.peerGuid);
     }
     authContext.sasl.state = AJ_SASL_IDLE;
-    AJ_MarshalMethodCall(msg->bus, &call, AJ_METHOD_GEN_SESSION_KEY, msg->sender, 0, AJ_NO_FLAGS, CALL_TIMEOUT);
+    AJ_MarshalMethodCall(msg->bus, &call, AJ_METHOD_GEN_SESSION_KEY, msg->sender, 0, AJ_NO_FLAGS, AJ_CALL_TIMEOUT);
     /*
      * Marshal local peer GUID, remote peer GUID, and local peer's GUID
      */
@@ -411,7 +393,7 @@ static AJ_Status GenSessionKey(AJ_Message* msg)
         AJ_GUID_ToString(&localGuid, guidStr, sizeof(guidStr));
         AJ_MarshalArgs(&call, "s", guidStr);
         AJ_GUID_ToString(authContext.peerGuid, guidStr, sizeof(guidStr));
-        AJ_RandHex(authContext.nonce, sizeof(authContext.nonce), NONCE_LEN);
+        AJ_RandHex(authContext.nonce, sizeof(authContext.nonce), AJ_NONCE_LEN);
         AJ_MarshalArgs(&call, "ss", guidStr, authContext.nonce);
     }
     return AJ_DeliverMsg(&call);
@@ -438,7 +420,7 @@ static AJ_Status AuthResponse(AJ_Message* msg, char* inStr)
         status = AJ_SASL_Advance(&authContext.sasl, inStr, buf, AUTH_BUF_LEN);
         if (status == AJ_OK) {
             AJ_Message call;
-            AJ_MarshalMethodCall(msg->bus, &call, AJ_METHOD_AUTH_CHALLENGE, msg->sender, 0, AJ_NO_FLAGS, AUTH_CALL_TIMEOUT);
+            AJ_MarshalMethodCall(msg->bus, &call, AJ_METHOD_AUTH_CHALLENGE, msg->sender, 0, AJ_NO_FLAGS, AJ_AUTH_CALL_TIMEOUT);
             AJ_MarshalArgs(&call, "s", buf);
             status = AJ_DeliverMsg(&call);
         }
@@ -534,7 +516,7 @@ AJ_Status AJ_PeerHandleGenSessionKeyReply(AJ_Message* msg)
      * (to store 16 bytes key in addition to the 12 bytes verifier).
      * Hence we allocate, the maximum of (12 * 2 + 1) and (16 + 12).
      */
-    char verifier[VERIFIER_LEN + AES_KEY_LEN];
+    char verifier[AJ_VERIFIER_LEN + AES_KEY_LEN];
     char* nonce;
     char* remVerifier;
 
@@ -570,7 +552,7 @@ AJ_Status AJ_PeerHandleGenSessionKeyReply(AJ_Message* msg)
             /*
              * Group keys are exchanged via an encrypted message
              */
-            AJ_MarshalMethodCall(msg->bus, &call, AJ_METHOD_EXCHANGE_GROUP_KEYS, msg->sender, 0, AJ_FLAG_ENCRYPTED, CALL_TIMEOUT);
+            AJ_MarshalMethodCall(msg->bus, &call, AJ_METHOD_EXCHANGE_GROUP_KEYS, msg->sender, 0, AJ_FLAG_ENCRYPTED, AJ_CALL_TIMEOUT);
             AJ_GetGroupKey(NULL, groupKey);
             AJ_MarshalArg(&call, AJ_InitArg(&key, AJ_ARG_BYTE, AJ_ARRAY_FLAG, groupKey, sizeof(groupKey)));
             status = AJ_DeliverMsg(&call);

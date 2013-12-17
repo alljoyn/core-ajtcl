@@ -25,7 +25,7 @@
 
 #include <aj_link_timeout.h>
 #include "aj_debug.h"
-
+#include "aj_config.h"
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
  * (usually in debugger).
@@ -33,13 +33,6 @@
 #ifndef NDEBUG
 uint8_t dbgLINK_TIMEOUT = 0;
 #endif
-
-/*
- * Bus link timeout related
- */
-#define AJ_MIN_BUS_LINK_TIMEOUT  40      /** The minimum link timeout value for the bus link. No probe packets are sent during this period even if no activities on the link. The unit is second */
-#define AJ_BUS_LINK_PING_TIMEOUT 5       /** The time period in which the probe request packet should be acked. The unit is second */
-#define AJ_MAX_LINK_PING_PACKETS 3       /** The maximum number of allowed outstanding probe request packets unacked. */
 
 typedef struct _AJ_BusLinkWatcher {
     uint8_t numOfPingTimedOut;           /**< Number of probe request packets already sent but unacked */

@@ -28,7 +28,7 @@
 #include "aj_util.h"
 #include "aj_crypto.h"
 #include "aj_debug.h"
-
+#include "aj_config.h"
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
  * (usually in debugger).
@@ -37,12 +37,9 @@
 uint8_t dbgGUID = 0;
 #endif
 
-#define NAME_MAP_GUID_SIZE   2
-#define MAX_NAME_SIZE       14
-
 typedef struct _NameToGUID {
     uint8_t keyRole;
-    char uniqueName[MAX_NAME_SIZE + 1];
+    char uniqueName[AJ_MAX_NAME_SIZE + 1];
     const char* serviceName;
     AJ_GUID guid;
     uint8_t sessionKey[16];
@@ -51,7 +48,7 @@ typedef struct _NameToGUID {
 
 static uint8_t localGroupKey[16];
 
-static NameToGUID nameMap[NAME_MAP_GUID_SIZE];
+static NameToGUID nameMap[AJ_NAME_MAP_GUID_SIZE];
 
 AJ_Status AJ_GUID_ToString(const AJ_GUID* guid, char* buffer, uint32_t bufLen)
 {
@@ -68,7 +65,7 @@ static NameToGUID* LookupName(const char* name)
     uint32_t i;
     AJ_InfoPrintf(("LookupName(name=\"%s\")\n", name));
 
-    for (i = 0; i < NAME_MAP_GUID_SIZE; ++i) {
+    for (i = 0; i < AJ_NAME_MAP_GUID_SIZE; ++i) {
         if (strcmp(nameMap[i].uniqueName, name) == 0) {
             return &nameMap[i];
         }
@@ -91,7 +88,7 @@ AJ_Status AJ_GUID_AddNameMapping(const AJ_GUID* guid, const char* uniqueName, co
     if (!mapping) {
         mapping = LookupName("");
     }
-    if (mapping && (len <= MAX_NAME_SIZE)) {
+    if (mapping && (len <= AJ_MAX_NAME_SIZE)) {
         memcpy(&mapping->guid, guid, sizeof(AJ_GUID));
         memcpy(&mapping->uniqueName, uniqueName, len + 1);
         mapping->serviceName = serviceName;

@@ -29,6 +29,7 @@
 #include "aj_crypto.h"
 #include "aj_nvram.h"
 #include "aj_debug.h"
+#include "aj_config.h"
 
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
@@ -37,10 +38,6 @@
 #ifndef NDEBUG
 uint8_t dbgCREDS = 0;
 #endif
-
-#define AJ_LOCAL_GUID_NV_ID 1
-#define AJ_REMOTE_CREDS_NV_ID_BEGIN (AJ_LOCAL_GUID_NV_ID + 1)
-#define AJ_REMOTE_CREDS_NV_ID_END  (AJ_REMOTE_CREDS_NV_ID_BEGIN + 12)
 
 uint16_t FindCredsEmptySlot()
 {

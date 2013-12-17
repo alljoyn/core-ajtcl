@@ -32,6 +32,7 @@
 #include "aj_util.h"
 #include "aj_crypto.h"
 #include "aj_debug.h"
+#include "aj_config.h"
 
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
@@ -53,20 +54,6 @@ const AJ_AuthMechanism AJ_AuthPin = {
     AuthFinal,
     "ALLJOYN_PIN_KEYX"
 };
-/*
- * Length of the nonce.
- */
-#define NONCE_LEN     28
-
-/*
- * Length of the verifier string
- */
-#define VERIFIER_LEN  12
-
-/*
- * Length of the master secret
- */
-#define MASTER_SECRET_LEN 24
 
 typedef struct _PinAuthContext {
     AJ_AuthPwdFunc pwdFunc;
@@ -76,8 +63,8 @@ typedef struct _PinAuthContext {
      * The lifetimes of the nonce and secret don't overlap so they can use the same memory.
      */
     union {
-        uint8_t masterSecret[MASTER_SECRET_LEN];
-        uint8_t nonce[NONCE_LEN];
+        uint8_t masterSecret[AJ_MASTER_SECRET_LEN];
+        uint8_t nonce[AJ_NONCE_LEN];
     };
 } PinAuthContext;
 
@@ -104,16 +91,16 @@ static AJ_Status ComputeVerifier(const char* label, char* buffer, size_t bufLen)
     AJ_InfoPrintf(("ComputeVerifier(label=\"%s\", buffer=0x%p, bufLen=%zu.)\n", label, buffer, bufLen));
 
     data[0] = context.masterSecret;
-    lens[0] = MASTER_SECRET_LEN;
+    lens[0] = AJ_MASTER_SECRET_LEN;
     data[1] = (uint8_t*)label;
     lens[1] = (uint8_t)strlen(label);
 
-    status = AJ_Crypto_PRF(data, lens, ArraySize(data), (uint8_t*)buffer, VERIFIER_LEN);
+    status = AJ_Crypto_PRF(data, lens, ArraySize(data), (uint8_t*)buffer, AJ_VERIFIER_LEN);
 #ifdef AUTH_DEBUG
-    AJ_Printf(("ComputeVerifier(): \"%s\n", Hex((uint8_t*)buffer, VERIFIER_LEN)));
+    AJ_Printf(("ComputeVerifier(): \"%s\n", Hex((uint8_t*)buffer, AJ_VERIFIER_LEN)));
 #endif
     if (status == AJ_OK) {
-        status = AJ_RawToHex((uint8_t*) buffer, VERIFIER_LEN, buffer, bufLen, FALSE);
+        status = AJ_RawToHex((uint8_t*) buffer, AJ_VERIFIER_LEN, buffer, bufLen, FALSE);
     }
     return status;
 }
@@ -124,7 +111,7 @@ static AJ_Status ComputeVerifier(const char* label, char* buffer, size_t bufLen)
 static AJ_Status ComputeMS(const uint8_t* nonce)
 {
     AJ_Status status;
-    uint8_t pwd[ADHOC_LEN];
+    uint8_t pwd[AJ_ADHOC_LEN];
     const uint8_t* data[4];
     uint8_t lens[4];
     uint32_t pwdLen = context.pwdFunc(pwd, sizeof(pwd));
@@ -138,17 +125,17 @@ static AJ_Status ComputeMS(const uint8_t* nonce)
     data[0] = pwd;
     lens[0] = pwdLen;
     data[1] = context.nonce;
-    lens[1] = NONCE_LEN;
+    lens[1] = AJ_NONCE_LEN;
     data[2] = nonce;
-    lens[2] = NONCE_LEN;
+    lens[2] = AJ_NONCE_LEN;
     data[3] = (uint8_t*)"master secret";
     lens[3] = 13;
     /*
      * Use the PRF function to compute the master secret
      */
-    status = AJ_Crypto_PRF(data, lens, ArraySize(data), context.masterSecret, MASTER_SECRET_LEN);
+    status = AJ_Crypto_PRF(data, lens, ArraySize(data), context.masterSecret, AJ_MASTER_SECRET_LEN);
 #ifdef AUTH_DEBUG
-    AJ_InfoPrintf(("ComputeMS(): MasterSecret: %s\n", Hex(context.masterSecret, MASTER_SECRET_LEN)));
+    AJ_InfoPrintf(("ComputeMS(): MasterSecret: %s\n", Hex(context.masterSecret, AJ_MASTER_SECRET_LEN)));
 #endif
     return status;
 }
@@ -166,8 +153,8 @@ static AJ_AuthResult AuthResponse(const char* inStr, char* outStr, uint32_t outL
      * Responder begins by sending a nonce.
      */
     if (!inStr) {
-        AJ_RandBytes(context.nonce, NONCE_LEN);
-        AJ_RawToHex(context.nonce, NONCE_LEN, outStr, outLen, FALSE);
+        AJ_RandBytes(context.nonce, AJ_NONCE_LEN);
+        AJ_RawToHex(context.nonce, AJ_NONCE_LEN, outStr, outLen, FALSE);
         AJ_InfoPrintf(("AuthReponse(): AJ_AUTH_STATUS_CONTINUE\n"));
         return AJ_AUTH_STATUS_CONTINUE;
     }
@@ -185,11 +172,11 @@ static AJ_AuthResult AuthResponse(const char* inStr, char* outStr, uint32_t outL
     /*
      * We should be able to use outStr to convert the nonce
      */
-    if (outLen < NONCE_LEN) {
+    if (outLen < AJ_NONCE_LEN) {
         status = AJ_ERR_RESOURCES;
     } else {
         nonce = (uint8_t*)outStr;
-        status = AJ_HexToRaw(inStr, pos, nonce, NONCE_LEN);
+        status = AJ_HexToRaw(inStr, pos, nonce, AJ_NONCE_LEN);
     }
     /*
      * Compute the master secret
@@ -231,15 +218,15 @@ static AJ_AuthResult AuthChallenge(const char* inStr, char* outStr, uint32_t out
         /*
          * Client sent a nonce
          */
-        status = AJ_HexToRaw(inStr, 0, context.nonce, NONCE_LEN);
+        status = AJ_HexToRaw(inStr, 0, context.nonce, AJ_NONCE_LEN);
         /*
          * Get server's nonce
          */
-        if (outLen < NONCE_LEN) {
+        if (outLen < AJ_NONCE_LEN) {
             status = AJ_ERR_RESOURCES;
             AJ_InfoPrintf(("AuthChallenge(): AJ_ERR_RESOURCES\n"));
         } else {
-            AJ_RandBytes((uint8_t*)outStr, NONCE_LEN);
+            AJ_RandBytes((uint8_t*)outStr, AJ_NONCE_LEN);
             /*
              * Compute the master secret
              */
@@ -250,7 +237,7 @@ static AJ_AuthResult AuthChallenge(const char* inStr, char* outStr, uint32_t out
              * Write nonce to the output string
              */
             if (status == AJ_OK) {
-                status = AJ_RawToHex((uint8_t*) outStr, NONCE_LEN, outStr, outLen - (1 + VERIFIER_LEN), FALSE);
+                status = AJ_RawToHex((uint8_t*) outStr, AJ_NONCE_LEN, outStr, outLen - (1 + AJ_VERIFIER_LEN), FALSE);
             }
             /*
              * Append verifier to the nonce
@@ -318,9 +305,9 @@ static AJ_Status AuthFinal(const AJ_GUID* peerGuid)
          */
         if (context.success) {
             AJ_PeerCred cred;
-            AJ_ASSERT(sizeof(cred.secret) == MASTER_SECRET_LEN);
+            AJ_ASSERT(sizeof(cred.secret) == AJ_MASTER_SECRET_LEN);
             memcpy(&cred.guid, peerGuid, sizeof(AJ_GUID));
-            memcpy(&cred.secret, context.masterSecret, MASTER_SECRET_LEN);
+            memcpy(&cred.secret, context.masterSecret, AJ_MASTER_SECRET_LEN);
             status = AJ_StoreCredential(&cred);
         } else {
             status = AJ_DeleteCredential(peerGuid);

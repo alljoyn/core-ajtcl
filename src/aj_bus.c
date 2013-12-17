@@ -33,6 +33,7 @@
 #include "aj_std.h"
 #include "aj_introspect.h"
 #include "aj_peer.h"
+#include "aj_config.h"
 
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
@@ -41,11 +42,6 @@
 #ifndef NDEBUG
 uint8_t dbgBUS = 0;
 #endif
-
-/**
- * Timeout for the method calls in this module
- */
-#define TIMEOUT  (1000* 3)
 
 const char* AJ_GetUniqueName(AJ_BusAttachment* bus)
 {
@@ -60,7 +56,7 @@ AJ_Status AJ_BusRequestName(AJ_BusAttachment* bus, const char* name, uint32_t fl
     AJ_InfoPrintf(("AJ_BusRequestName(bus=0x%p, name=\"%s\", flags=0x%x)\n", bus, name, flags));
 
 
-    status = AJ_MarshalMethodCall(bus, &msg, AJ_METHOD_REQUEST_NAME, AJ_BusDestination, 0, 0, TIMEOUT);
+    status = AJ_MarshalMethodCall(bus, &msg, AJ_METHOD_REQUEST_NAME, AJ_BusDestination, 0, 0, AJ_METHOD_TIMEOUT);
     if (status == AJ_OK) {
         status = AJ_MarshalArgs(&msg, "su", name, flags);
     }
@@ -77,7 +73,7 @@ AJ_Status AJ_BusReleaseName(AJ_BusAttachment* bus, const char* name)
 
     AJ_InfoPrintf(("AJ_BusReleaseName(bus=0x%p, name=\"%s\")\n", bus, name));
 
-    status = AJ_MarshalMethodCall(bus, &msg, AJ_METHOD_RELEASE_NAME, AJ_BusDestination, 0, 0, TIMEOUT);
+    status = AJ_MarshalMethodCall(bus, &msg, AJ_METHOD_RELEASE_NAME, AJ_BusDestination, 0, 0, AJ_METHOD_TIMEOUT);
     if (status == AJ_OK) {
         status = AJ_MarshalArgs(&msg, "s", name);
     }
@@ -95,7 +91,7 @@ AJ_Status AJ_BusAdvertiseName(AJ_BusAttachment* bus, const char* name, uint16_t 
 
     AJ_InfoPrintf(("AJ_BusAdvertiseName(bus=0x%p, name=\"%s\", transportMask=0x%x, op=%d.)\n", bus, name, transportMask, op));
 
-    status = AJ_MarshalMethodCall(bus, &msg, msgId, AJ_BusDestination, 0, 0, TIMEOUT);
+    status = AJ_MarshalMethodCall(bus, &msg, msgId, AJ_BusDestination, 0, 0, AJ_METHOD_TIMEOUT);
     if (status == AJ_OK) {
         status = AJ_MarshalArgs(&msg, "sq", name, transportMask);
     }
@@ -113,7 +109,7 @@ AJ_Status AJ_BusFindAdvertisedName(AJ_BusAttachment* bus, const char* namePrefix
 
     AJ_InfoPrintf(("AJ_BusFindAdvertiseName(bus=0x%p, namePrefix=\"%s\", op=%d.)\n", bus, namePrefix, op));
 
-    status = AJ_MarshalMethodCall(bus, &msg, msgId, AJ_BusDestination, 0, 0, TIMEOUT);
+    status = AJ_MarshalMethodCall(bus, &msg, msgId, AJ_BusDestination, 0, 0, AJ_METHOD_TIMEOUT);
     if (status == AJ_OK) {
         status = AJ_MarshalArgs(&msg, "s", namePrefix);
     }
@@ -131,7 +127,7 @@ AJ_Status AJ_BusFindAdvertisedNameByTransport(AJ_BusAttachment* bus, const char*
 
     AJ_InfoPrintf(("AJ_BusFindAdvertiseNameByTransport(bus=0x%p, namePrefix=\"%s\", transport=%d., op=%d.)\n", bus, namePrefix, transport, op));
 
-    status = AJ_MarshalMethodCall(bus, &msg, msgId, AJ_BusDestination, 0, 0, TIMEOUT);
+    status = AJ_MarshalMethodCall(bus, &msg, msgId, AJ_BusDestination, 0, 0, AJ_METHOD_TIMEOUT);
     if (status == AJ_OK) {
         status = AJ_MarshalArgs(&msg, "sq", namePrefix, transport);
     }
@@ -177,7 +173,7 @@ AJ_Status AJ_BusBindSessionPort(AJ_BusAttachment* bus, uint16_t port, const AJ_S
     if (!opts) {
         opts = &defaultSessionOpts;
     }
-    status = AJ_MarshalMethodCall(bus, &msg, AJ_METHOD_BIND_SESSION_PORT, AJ_BusDestination, 0, 0, TIMEOUT);
+    status = AJ_MarshalMethodCall(bus, &msg, AJ_METHOD_BIND_SESSION_PORT, AJ_BusDestination, 0, 0, AJ_METHOD_TIMEOUT);
     if (status == AJ_OK) {
         AJ_MarshalArgs(&msg, "q", port);
         status = MarshalSessionOpts(&msg, opts);
@@ -195,7 +191,7 @@ AJ_Status AJ_BusUnbindSession(AJ_BusAttachment* bus, uint16_t port)
 
     AJ_InfoPrintf(("AJ_BusUnbindSession(bus=0x%p, port=%d.)\n", bus, port));
 
-    status = AJ_MarshalMethodCall(bus, &msg, AJ_METHOD_UNBIND_SESSION, AJ_BusDestination, 0, 0, TIMEOUT);
+    status = AJ_MarshalMethodCall(bus, &msg, AJ_METHOD_UNBIND_SESSION, AJ_BusDestination, 0, 0, AJ_METHOD_TIMEOUT);
     if (status == AJ_OK) {
         AJ_MarshalArgs(&msg, "q", port);
     }
@@ -212,7 +208,7 @@ AJ_Status AJ_BusCancelSessionless(AJ_BusAttachment* bus, uint32_t serialNum)
 
     AJ_InfoPrintf(("AJ_BusCancelSessionless(bus=0x%p, serialNum=%d.)\n", bus, serialNum));
 
-    status = AJ_MarshalMethodCall(bus, &msg, AJ_METHOD_CANCEL_SESSIONLESS, AJ_BusDestination, 0, 0, TIMEOUT);
+    status = AJ_MarshalMethodCall(bus, &msg, AJ_METHOD_CANCEL_SESSIONLESS, AJ_BusDestination, 0, 0, AJ_METHOD_TIMEOUT);
     if (status == AJ_OK) {
         AJ_MarshalArgs(&msg, "u", serialNum);
     }
@@ -232,7 +228,7 @@ AJ_Status AJ_BusJoinSession(AJ_BusAttachment* bus, const char* sessionHost, uint
     if (!opts) {
         opts = &defaultSessionOpts;
     }
-    status = AJ_MarshalMethodCall(bus, &msg, AJ_METHOD_JOIN_SESSION, AJ_BusDestination, 0, 0, TIMEOUT);
+    status = AJ_MarshalMethodCall(bus, &msg, AJ_METHOD_JOIN_SESSION, AJ_BusDestination, 0, 0, AJ_METHOD_TIMEOUT);
     if (status == AJ_OK) {
         status = AJ_MarshalArgs(&msg, "sq", sessionHost, port);
 
@@ -253,7 +249,7 @@ AJ_Status AJ_BusLeaveSession(AJ_BusAttachment* bus, uint32_t sessionId)
 
     AJ_InfoPrintf(("AJ_BusLeaveSession(bus=0x%p, sessionId=%d.)\n", bus, sessionId));
 
-    status = AJ_MarshalMethodCall(bus, &msg, AJ_METHOD_LEAVE_SESSION, AJ_BusDestination, 0, 0, TIMEOUT);
+    status = AJ_MarshalMethodCall(bus, &msg, AJ_METHOD_LEAVE_SESSION, AJ_BusDestination, 0, 0, AJ_METHOD_TIMEOUT);
     if (status == AJ_OK) {
         status = AJ_MarshalArgs(&msg, "u", sessionId);
     }
@@ -270,7 +266,7 @@ AJ_Status AJ_BusSetLinkTimeout(AJ_BusAttachment* bus, uint32_t sessionId, uint32
 
     AJ_InfoPrintf(("AJ_BusSetLinkTimeout(bus=0x%p, sessionId=%d., linkTimeout=%d.)\n", bus, sessionId, linkTimeout));
 
-    status = AJ_MarshalMethodCall(bus, &msg, AJ_METHOD_SET_LINK_TIMEOUT, AJ_BusDestination, 0, 0, TIMEOUT);
+    status = AJ_MarshalMethodCall(bus, &msg, AJ_METHOD_SET_LINK_TIMEOUT, AJ_BusDestination, 0, 0, AJ_METHOD_TIMEOUT);
     if (status == AJ_OK) {
         (void)AJ_MarshalArgs(&msg, "u", sessionId);
         (void)AJ_MarshalArgs(&msg, "u", linkTimeout);
@@ -287,7 +283,7 @@ AJ_Status AJ_BusSetSignalRule(AJ_BusAttachment* bus, const char* ruleString, uin
 
     AJ_InfoPrintf(("AJ_BusSetSignalRule(bus=0x%p, ruleString=\"%s\", rule=%d.)\n", bus, ruleString, rule));
 
-    status = AJ_MarshalMethodCall(bus, &msg, msgId, AJ_DBusDestination, 0, 0, TIMEOUT);
+    status = AJ_MarshalMethodCall(bus, &msg, msgId, AJ_DBusDestination, 0, 0, AJ_METHOD_TIMEOUT);
     if (status == AJ_OK) {
         uint32_t sz = 0;
         uint8_t nul = 0;
@@ -318,7 +314,7 @@ AJ_Status AJ_BusSetSignalRule2(AJ_BusAttachment* bus, const char* signalName, co
     str[3] = interfaceName;
     str[4] = "'";
 
-    status = AJ_MarshalMethodCall(bus, &msg, msgId, AJ_DBusDestination, 0, 0, TIMEOUT);
+    status = AJ_MarshalMethodCall(bus, &msg, msgId, AJ_DBusDestination, 0, 0, AJ_METHOD_TIMEOUT);
     if (status == AJ_OK) {
         size_t i;
         uint32_t sz = 0;
@@ -347,7 +343,7 @@ AJ_Status AJ_BusSetSignalRuleFlags(AJ_BusAttachment* bus, const char* ruleString
 
     AJ_InfoPrintf(("AJ_BusSetSignalRule(bus=0x%p, ruleString=\"%s\", rule=%d.)\n", bus, ruleString, rule));
 
-    status = AJ_MarshalMethodCall(bus, &msg, msgId, AJ_DBusDestination, 0, flags, TIMEOUT);
+    status = AJ_MarshalMethodCall(bus, &msg, msgId, AJ_DBusDestination, 0, flags, AJ_METHOD_TIMEOUT);
     if (status == AJ_OK) {
         uint32_t sz = 0;
         uint8_t nul = 0;
@@ -393,7 +389,7 @@ AJ_Status AJ_BusRemoveSessionMember(AJ_BusAttachment* bus, uint32_t sessionId, c
     AJ_Message msg;
 
     AJ_InfoPrintf(("AJ_BusRemoveSessionMember(bus=0x%p, sessionId=%d, member=%s.)\n", bus, sessionId, member));
-    status = AJ_MarshalMethodCall(bus, &msg, AJ_METHOD_REMOVE_SESSION_MEMBER, AJ_BusDestination, 0, 0, TIMEOUT);
+    status = AJ_MarshalMethodCall(bus, &msg, AJ_METHOD_REMOVE_SESSION_MEMBER, AJ_BusDestination, 0, 0, AJ_METHOD_TIMEOUT);
     if (status == AJ_OK) {
         AJ_MarshalArgs(&msg, "us", sessionId, member);
     }

@@ -28,10 +28,7 @@
  * Pincode authentication mechanism
  */
 extern const AJ_AuthMechanism AJ_AuthPin;
-/*
- * Ad-hoc maximal passcode length
- */
-#define ADHOC_LEN   16
+
 /**
  * @}
  */

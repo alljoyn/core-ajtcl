@@ -29,7 +29,7 @@
 #include "aj_net.h"
 #include "aj_disco.h"
 #include "aj_debug.h"
-
+#include "aj_config.h"
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
  * (usually in debugger).
@@ -226,16 +226,6 @@ Exit:
     return status;
 }
 
-/*
- * How many times we sent WHO-HAS
- */
-#define WHO_HAS_REPEAT         4
-
-/*
- * How long to wait for a response to our WHO-HAS
- */
-#define RX_TIMEOUT          1000
-
 AJ_Status AJ_Discover(const char* prefix, AJ_Service* service, uint32_t timeout)
 {
     AJ_Status status;
@@ -270,7 +260,7 @@ AJ_Status AJ_Discover(const char* prefix, AJ_Service* service, uint32_t timeout)
         AJ_InitTimer(&recvStopWatch);
         while (TRUE) {
             AJ_IO_BUF_RESET(&sock.rx);
-            status = sock.rx.recv(&sock.rx, AJ_IO_BUF_SPACE(&sock.rx), RX_TIMEOUT);
+            status = sock.rx.recv(&sock.rx, AJ_IO_BUF_SPACE(&sock.rx), AJ_WHO_HAS_TIMEOUT);
             if (status == AJ_OK) {
                 memset(service, 0, sizeof(AJ_Service));
                 AJ_InfoPrintf(("AJ_Discover(): ParseIsAt()"));
@@ -280,7 +270,7 @@ AJ_Status AJ_Discover(const char* prefix, AJ_Service* service, uint32_t timeout)
                     goto _Exit;
                 }
             }
-            if (AJ_GetElapsedTime(&recvStopWatch, TRUE) > RX_TIMEOUT) {
+            if (AJ_GetElapsedTime(&recvStopWatch, TRUE) > AJ_WHO_HAS_TIMEOUT) {
                 break;
             }
         }
