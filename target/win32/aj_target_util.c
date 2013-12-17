@@ -128,6 +128,16 @@ uint8_t AJ_StopReadFromStdIn()
     return FALSE;
 }
 
+void* AJ_Malloc(size_t sz)
+{
+    return malloc(sz);
+}
+
+void AJ_Free(void* p)
+{
+    return free(p);
+}
+
 #ifndef NDEBUG
 
 /*

@@ -30,6 +30,7 @@ vars.Add(EnumVariable('TARG', 'Target platform variant', default_target, allowed
 vars.Add(EnumVariable('VARIANT', 'Build variant', 'debug', allowed_values=('debug', 'release')))
 vars.Add(PathVariable('GTEST_DIR', 'The path to googletest sources', os.environ.get('GTEST_DIR'), PathVariable.PathIsDir))
 vars.Add(EnumVariable('WS', 'Whitespace Policy Checker', 'check', allowed_values=('check', 'detail', 'fix', 'off')))
+vars.Add(EnumVariable('FORCE32', 'Force building 32 bit on 64 bit architecture', 'false', allowed_values=('false', 'true')))
 
 if default_msvc_version:
     vars.Add(EnumVariable('MSVC_VERSION', 'MSVC compiler version - Windows', default_msvc_version, allowed_values=('8.0', '9.0', '10.0', '11.0', '11.0Exp')))
@@ -88,6 +89,10 @@ elif env['TARG'] in [ 'linux' ]:
         env.Append(CFLAGS='-Os')
         env.Append(LINKFLAGS='-s')
 
+    if env['FORCE32'] == 'true':
+        env.Append(CFLAGS='-m32')
+        env.Append(LINKFLAGS='-m32')
+        
 # Include paths
 env['includes'] = [ os.getcwd() + '/inc', os.getcwd() + '/target/${TARG}']
 
