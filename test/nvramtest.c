@@ -181,6 +181,7 @@ AJ_Status TestNVRAM()
     }
 
 _TEST_NVRAM_EXIT:
+    AJ_NVRAM_Close(handle);
     return status;
 }
 
