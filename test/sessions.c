@@ -152,6 +152,9 @@ int AJ_Main()
             char*command;
             AJ_Printf(">~~~%s\n", buf);
             command = strtok(buf, " \r\n");
+            if (!command) {
+                goto UNKNOWN_COMMAND;
+            }
             if (0 == strcmp("startservice", command)) {
                 uint16_t port = 0;
                 const char* name;
@@ -317,7 +320,9 @@ int AJ_Main()
 
                 status = AJ_BusJoinSession(&bus, name, port, &opts);
             } else if (0 == strcmp("leave", command)) {
-                uint32_t sessionId = (uint32_t)atoi(strtok(NULL, "\r\n"));
+                char* sessionIdStr = strtok(NULL, "\r\n");
+                uint32_t sessionId = 0;
+                if (sessionIdStr) sessionId = (uint32_t)atoi(sessionIdStr);
                 if (sessionId == 0) {
                     AJ_Printf("Usage: leave <sessionId>\n");
                     continue;
@@ -365,7 +370,7 @@ int AJ_Main()
                 }
 
                 chatMsg = strtok(NULL, "\r\n");
-                status = AppSendChatSignal(&bus, session, chatMsg, 0, sendTTL);
+                if (chatMsg) status = AppSendChatSignal(&bus, session, chatMsg, 0, sendTTL);
             } else if (0 == strcmp("cancelsessionless", command)) {
                 uint32_t serialId = 0;
                 char* token = strtok(NULL, " \r\n");
@@ -403,6 +408,7 @@ int AJ_Main()
                 AJ_Printf("\n");
                 continue;
             } else {
+            UNKNOWN_COMMAND:
                 AJ_Printf("Unknown command: %s\n", command);
                 continue;
             }
