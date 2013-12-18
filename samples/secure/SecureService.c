@@ -117,7 +117,7 @@ static uint32_t PasswordCallback(uint8_t* buffer, uint32_t bufLen)
     fflush(stdout);
 
     pinLength = strlen(pinStr);
-    memcpy(buffer, pinStr, pinLength);
+    memcpy(buffer, pinStr, pinLength + 1);
 
     printf("Need password of '%s' length %zu.\n", buffer, pinLength);
 
