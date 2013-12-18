@@ -160,6 +160,7 @@ AJ_Status AJ_Net_Connect(AJ_NetSocket* netSock, uint16_t port, uint8_t addrType,
     if (ret < 0) {
         AJ_ErrPrintf(("AJ_Net_Connect(): connect() failed. errno=\"%s\", status=AJ_ERR_CONNECT\n", strerror(errno)));
         return AJ_ERR_CONNECT;
+        close(tcpSock);
     } else {
         AJ_IOBufInit(&netSock->rx, rxData, sizeof(rxData), AJ_IO_BUF_RX, (void*)tcpSock);
         netSock->rx.recv = AJ_Net_Recv;
@@ -293,6 +294,7 @@ AJ_Status AJ_Net_MCastUp(AJ_NetSocket* netSock)
     ret = bind(mcastSock, (struct sockaddr*)&sin, sizeof(sin));
     if (ret < 0) {
         AJ_ErrPrintf(("AJ_Net_MCastUp(): bind() failed. errno=\"%s\", status=AJ_ERR_READ\n", strerror(errno)));
+        close(mcastSock);
         return AJ_ERR_READ;
     }
 

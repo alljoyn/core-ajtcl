@@ -41,7 +41,7 @@ AJ_Status TestPersistence()
         AJ_ASSERT(handle != NULL);
         sz = AJ_NVRAM_Read(readBuf, sizeof(readBuf), handle);
         AJ_ASSERT(sz == sizeof(readBuf));
-
+        AJ_NVRAM_Close(handle);
 
         if (0 == strcmp(readBuf, writeBuf)) {
             return AJ_OK;
@@ -56,6 +56,7 @@ AJ_Status TestPersistence()
 
         // write a flag so we know we've done the first half of the test
         handle = AJ_NVRAM_Open(id, "w", sizeof(int));
+        AJ_ASSERT(handle != NULL);
         sz = AJ_NVRAM_Write(&val, sizeof(int), handle);
         AJ_ASSERT(sz == sizeof(int));
         AJ_NVRAM_Close(handle);
