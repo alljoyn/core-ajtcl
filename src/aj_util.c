@@ -21,6 +21,15 @@
 
 #include "aj_target.h"
 #include "aj_util.h"
+#include "aj_version.h"
+
+#define AJ_TO_STRING(x) # x
+#define AJ_VERSION_STRING(a, b, c, d) AJ_TO_STRING(a) "." AJ_TO_STRING(b) "." AJ_TO_STRING(c) " Tag " AJ_TO_STRING(d) "\0"
+const char* AJ_GetVersion()
+{
+    static const char VERSION[] = AJ_VERSION_STRING(AJ_MAJOR_VERSION, AJ_MINOR_VERSION, AJ_RELEASE_VERSION, AJ_RELEASE_TAG);
+    return &VERSION;
+}
 
 static uint8_t A2H(char hex, AJ_Status* status)
 {
