@@ -28,7 +28,7 @@
 const char* AJ_GetVersion()
 {
     static const char VERSION[] = AJ_VERSION_STRING(AJ_MAJOR_VERSION, AJ_MINOR_VERSION, AJ_RELEASE_VERSION, AJ_RELEASE_TAG);
-    return &VERSION;
+    return &VERSION[0];
 }
 
 static uint8_t A2H(char hex, AJ_Status* status)
