@@ -32,7 +32,7 @@
 #include "aj_debug.h"
 #include "aj_util.h"
 #include "aj_debug.h"
-
+#include "aj_config.h"
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
  * (usually in debugger).
@@ -46,10 +46,6 @@ uint8_t dbgINTROSPECT = 0;
  */
 const AJ_Object* objectLists[3] = { AJ_StandardObjects, NULL, NULL };
 
-#define NUM_REPLY_CONTEXTS   2
-
-#define DEFAULT_REPLY_TIMEOUT   1000 * 20
-
 /**
  * Struct for a reply context for a method call
  */
@@ -60,7 +56,7 @@ typedef struct _ReplyContext {
     uint32_t messageId;  /**< The unique message id for the call */
 } ReplyContext;
 
-static ReplyContext replyContexts[NUM_REPLY_CONTEXTS];
+static ReplyContext replyContexts[AJ_NUM_REPLY_CONTEXTS];
 
 /**
  * Function used by XML generator to push generated XML
@@ -1049,7 +1045,7 @@ AJ_Status AJ_AllocReplyContext(AJ_Message* msg, uint32_t timeout)
         if (repCtx) {
             repCtx->serial = msg->hdr->serialNum;
             repCtx->messageId = msg->msgId;
-            repCtx->timeout = timeout ? timeout : DEFAULT_REPLY_TIMEOUT;
+            repCtx->timeout = timeout ? timeout : AJ_DEFAULT_REPLY_TIMEOUT;
             AJ_InitTimer(&repCtx->callTime);
             return AJ_OK;
         } else {

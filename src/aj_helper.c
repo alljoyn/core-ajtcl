@@ -24,6 +24,7 @@
 #include "alljoyn.h"
 #include "aj_link_timeout.h"
 #include "aj_debug.h"
+#include "aj_config.h"
 
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
@@ -32,12 +33,6 @@
 #ifndef NDEBUG
 uint8_t dbgHELPER = 0;
 #endif
-
-#define UNMARSHAL_TIMEOUT (100 * 1000)
-#define CONNECT_TIMEOUT   (60 * 1000)
-#define CONNECT_PAUSE     (10 * 1000)
-
-#define MAX_TIMERS 4
 
 /**
  *  Type to describe pending timers
@@ -49,7 +44,7 @@ typedef struct {
     uint32_t repeat;        /**< The amount of time between timer events */
 } Timer;
 
-static Timer Timers[MAX_TIMERS] = {
+static Timer Timers[AJ_MAX_TIMERS] = {
     { NULL }
 };
 
@@ -58,7 +53,7 @@ static uint32_t RunExpiredTimers(uint32_t now)
     uint32_t i = 0;
     uint32_t next = (uint32_t) -1;
 
-    for (; i < MAX_TIMERS; ++i) {
+    for (; i < AJ_MAX_TIMERS; ++i) {
         Timer* timer = Timers + i;
         if (timer->handler != NULL && timer->abs_time <= now) {
             (timer->handler)(timer->context);
@@ -83,7 +78,7 @@ static uint32_t RunExpiredTimers(uint32_t now)
 uint32_t AJ_SetTimer(uint32_t relative_time, TimeoutHandler handler, void* context, uint32_t repeat)
 {
     uint32_t i;
-    for (i = 0; i < MAX_TIMERS; ++i) {
+    for (i = 0; i < AJ_MAX_TIMERS; ++i) {
         Timer* timer = Timers + i;
         // need to find an available timer slot
         if (timer->handler == NULL) {
@@ -105,7 +100,7 @@ uint32_t AJ_SetTimer(uint32_t relative_time, TimeoutHandler handler, void* conte
 void AJ_CancelTimer(uint32_t id)
 {
     Timer* timer = Timers + (id - 1);
-    AJ_ASSERT(id > 0 && id <= MAX_TIMERS);
+    AJ_ASSERT(id > 0 && id <= AJ_MAX_TIMERS);
     memset(timer, 0, sizeof(Timer));
 }
 
@@ -301,10 +296,10 @@ AJ_Status AJ_StartService2(AJ_BusAttachment* bus,
         }
         if (!connected) {
             AJ_InfoPrintf(("AJ_StartService2(): AJ_Connect()\n"));
-            status = AJ_Connect(bus, daemonName, CONNECT_TIMEOUT);
+            status = AJ_Connect(bus, daemonName, AJ_CONNECT_TIMEOUT);
             if (status != AJ_OK) {
-                AJ_WarnPrintf(("AJ_StartService2(): connect failed: sleeping for %d seconds\n", CONNECT_PAUSE / 1000));
-                AJ_Sleep(CONNECT_PAUSE);
+                AJ_WarnPrintf(("AJ_StartService2(): connect failed: sleeping for %d seconds\n", AJ_CONNECT_PAUSE / 1000));
+                AJ_Sleep(AJ_CONNECT_PAUSE);
                 continue;
             }
             AJ_InfoPrintf(("AJ_StartService2(): connected to bus\n"));
@@ -326,13 +321,13 @@ AJ_Status AJ_StartService2(AJ_BusAttachment* bus,
 
         AJ_GetElapsedTime(&timer, TRUE);
 
-        status = AJ_UnmarshalMsg(bus, &msg, UNMARSHAL_TIMEOUT);
+        status = AJ_UnmarshalMsg(bus, &msg, AJ_UNMARSHAL_TIMEOUT);
 
         /*
          * TODO This is a temporary hack to work around buggy select imlpementations
          */
         if (status == AJ_ERR_TIMEOUT) {
-            if (AJ_GetElapsedTime(&timer, TRUE) < UNMARSHAL_TIMEOUT) {
+            if (AJ_GetElapsedTime(&timer, TRUE) < AJ_UNMARSHAL_TIMEOUT) {
                 AJ_WarnPrintf(("AJ_StartService2(): Spurious timeout error - continuing\n"));
                 status = AJ_OK;
                 continue;
@@ -434,10 +429,10 @@ AJ_Status AJ_StartClient2(AJ_BusAttachment* bus,
         }
         if (!connected) {
             AJ_InfoPrintf(("AJ_StartClient(): AJ_Connect()\n"));
-            status = AJ_Connect(bus, daemonName, CONNECT_TIMEOUT);
+            status = AJ_Connect(bus, daemonName, AJ_CONNECT_TIMEOUT);
             if (status != AJ_OK) {
-                AJ_WarnPrintf(("Failed to connect to bus sleeping for %d seconds\n", CONNECT_PAUSE / 1000));
-                AJ_Sleep(CONNECT_PAUSE);
+                AJ_WarnPrintf(("Failed to connect to bus sleeping for %d seconds\n", AJ_CONNECT_PAUSE / 1000));
+                AJ_Sleep(AJ_CONNECT_PAUSE);
                 continue;
             }
             AJ_InfoPrintf(("AllJoyn client connected to bus\n"));
@@ -463,12 +458,12 @@ AJ_Status AJ_StartClient2(AJ_BusAttachment* bus,
             AJ_ErrPrintf(("AJ_StartClient(): AJ_ERR_TIMEOUT\n"));
             return AJ_ERR_TIMEOUT;
         }
-        status = AJ_UnmarshalMsg(bus, &msg, UNMARSHAL_TIMEOUT);
+        status = AJ_UnmarshalMsg(bus, &msg, AJ_UNMARSHAL_TIMEOUT);
         /*
          * TODO This is a temporary hack to work around buggy select imlpementations
          */
         AJ_InitTimer(&unmarshalTimer);
-        if (status == AJ_ERR_TIMEOUT && (AJ_GetElapsedTime(&unmarshalTimer, TRUE) < UNMARSHAL_TIMEOUT || !foundName)) {
+        if (status == AJ_ERR_TIMEOUT && (AJ_GetElapsedTime(&unmarshalTimer, TRUE) < AJ_UNMARSHAL_TIMEOUT || !foundName)) {
             /*
              * Timeouts are expected until we find a name
              */

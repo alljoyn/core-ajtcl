@@ -27,7 +27,7 @@
 #include "aj_util.h"
 #include "aj_crypto.h"
 #include "aj_debug.h"
-
+#include "aj_config.h"
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
  * (usually in debugger).
@@ -35,31 +35,25 @@
 #ifndef NDEBUG
 uint8_t dbgCRYPTO = 0;
 #endif
-
 /*
- * Enables fine-grained tracing for debugging new implementations.
+ * AES-128 processes data 16 bytes at a time
  */
-#define CCM_TRACE 0
+#define AJ_BLOCKSZ 16
 
-#if CCM_TRACE
+#if AJ_CCM_TRACE
 #define Trace(tag, data, len) AJ_DumpBytes(tag, data, len)
 #else
 #define Trace(tag, data, len)
 #endif
 
 /*
- * AES-128 processes data 16 bytes at a time
- */
-#define BLOCKSZ  16
-
-/*
  * Struct for a single AES data block
  */
 typedef struct _AES_Block {
-    uint8_t data[BLOCKSZ];
+    uint8_t data[AJ_BLOCKSZ];
 } AES_Block;
 
-#define ZERO(b)  memset((b).data, 0, BLOCKSZ);
+#define ZERO(b)  memset((b).data, 0, AJ_BLOCKSZ);
 
 /*
  * Struct holding CCM state information
@@ -79,17 +73,17 @@ typedef struct _CCM_Context {
  */
 static void CBC_MAC(const uint8_t* key, const uint8_t* in, uint32_t len, CCM_Context* context)
 {
-    while (len >= BLOCKSZ) {
-        AJ_AES_CBC_128_ENCRYPT(key, in, context->T.data, BLOCKSZ, context->ivec0.data);
-        Trace("After AES", context->T.data, BLOCKSZ);
-        in += BLOCKSZ;
-        len -= BLOCKSZ;
+    while (len >= AJ_BLOCKSZ) {
+        AJ_AES_CBC_128_ENCRYPT(key, in, context->T.data, AJ_BLOCKSZ, context->ivec0.data);
+        Trace("After AES", context->T.data, AJ_BLOCKSZ);
+        in += AJ_BLOCKSZ;
+        len -= AJ_BLOCKSZ;
     }
     if (len) {
         ZERO(context->A);
         memcpy(context->A.data, in, len);
-        AJ_AES_CBC_128_ENCRYPT(key, context->A.data, context->T.data, BLOCKSZ, context->ivec0.data);
-        Trace("After AES", context->T.data, BLOCKSZ);
+        AJ_AES_CBC_128_ENCRYPT(key, context->A.data, context->T.data, AJ_BLOCKSZ, context->ivec0.data);
+        Trace("After AES", context->T.data, AJ_BLOCKSZ);
     }
 }
 
@@ -105,9 +99,9 @@ static void Compute_CCM_AuthTag(const uint8_t* key,
     /*
      * Initialize CBC-MAC with B_0 initialization vector is 0.
      */
-    Trace("CBC IV in", context->B_0.data, BLOCKSZ);
-    AJ_AES_CBC_128_ENCRYPT(key, context->B_0.data, context->T.data, BLOCKSZ, context->ivec0.data);
-    Trace("CBC IV out", context->T.data, BLOCKSZ);
+    Trace("CBC IV in", context->B_0.data, AJ_BLOCKSZ);
+    AJ_AES_CBC_128_ENCRYPT(key, context->B_0.data, context->T.data, AJ_BLOCKSZ, context->ivec0.data);
+    Trace("CBC IV out", context->T.data, AJ_BLOCKSZ);
     /*
      * Compute CBC-MAC for the add data.
      */
@@ -129,9 +123,9 @@ static void Compute_CCM_AuthTag(const uint8_t* key,
         /*
          * Continue the MAC by encrypting the length block
          */
-        Trace("Before AES", context->A.data, BLOCKSZ);
-        AJ_AES_CBC_128_ENCRYPT(key, context->A.data, context->T.data, BLOCKSZ, context->ivec0.data);
-        Trace("After AES", context->T.data, BLOCKSZ);
+        Trace("Before AES", context->A.data, AJ_BLOCKSZ);
+        AJ_AES_CBC_128_ENCRYPT(key, context->A.data, context->T.data, AJ_BLOCKSZ, context->ivec0.data);
+        Trace("After AES", context->T.data, AJ_BLOCKSZ);
         /*
          * Continue computing the CBC-MAC
          */
@@ -208,7 +202,7 @@ AJ_Status AJ_Encrypt_CCM(const uint8_t* key,
      * Encrypt the authentication tag
      */
     AJ_AES_CTR_128(key, context->T.data, msg + msgLen, tagLen, context->ivec.data);
-    Trace("CTR Start", context->ivec.data, BLOCKSZ);
+    Trace("CTR Start", context->ivec.data, AJ_BLOCKSZ);
     /*
      * Encrypt the message
      */

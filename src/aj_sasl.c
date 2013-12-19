@@ -29,9 +29,13 @@
 #include "aj_util.h"
 #include "aj_creds.h"
 #include "aj_debug.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include "aj_config.h"
+
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
  * (usually in debugger).
@@ -39,6 +43,7 @@
 #ifndef NDEBUG
 uint8_t dbgSASL = 0;
 #endif
+
 
 /*
  * Sanity check value to prevent broken implementations from looping the state machine.
@@ -583,7 +588,7 @@ AJ_Status AJ_SASL_Advance(AJ_SASL_Context* context, char* inStr, char* outStr, u
         AJ_ErrPrintf(("AJ_SASL_Advance(): AJ_ERR_UNEXPECTED\n"));
         return AJ_ERR_UNEXPECTED;
     }
-    if (++context->authCount > MAX_AUTH_COUNT) {
+    if (++context->authCount > AJ_MAX_AUTH_COUNT) {
         AJ_ErrPrintf(("AJ_SASL_Advance(): AJ_ERR_SECURITY\n"));
         return AJ_ERR_SECURITY;
     }

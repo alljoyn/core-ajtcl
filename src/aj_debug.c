@@ -23,28 +23,22 @@
 
 #include "aj_target.h"
 #include "aj_util.h"
-
-/*
- * Set to see the raw message bytes
- */
-#define DUMP_MSG_RAW  0
+#include "aj_config.h"
 
 #define Printable(c) (((c) >= ' ') && ((c) <= '~')) ? (c) : '.'
-
-#define CHUNKING 16
 
 void _AJ_DumpBytes(const char* tag, const uint8_t* data, uint32_t len)
 {
     uint32_t i;
-    char ascii[CHUNKING + 1];
+    char ascii[AJ_DUMP_BYTE_SIZE + 1];
 
     if (tag) {
         AJ_Printf("%s:\n", tag);
     }
-    ascii[CHUNKING] = '\0';
-    for (i = 0; i < len; i += CHUNKING) {
+    ascii[AJ_DUMP_BYTE_SIZE] = '\0';
+    for (i = 0; i < len; i += AJ_DUMP_BYTE_SIZE) {
         uint32_t j;
-        for (j = 0; j < CHUNKING; ++j, ++data) {
+        for (j = 0; j < AJ_DUMP_BYTE_SIZE; ++j, ++data) {
             if ((i + j) < len) {
                 uint8_t n = *data;
                 ascii[j] = Printable(n);
@@ -68,7 +62,7 @@ static const char* const msgType[] = { "INVALID", "CALL", "REPLY", "ERROR", "SIG
 void _AJ_DumpMsg(const char* tag, AJ_Message* msg, uint8_t body)
 {
     if (msg->hdr && _AJ_DbgHeader(AJ_DEBUG_ERROR, NULL, 0)) {
-#if DUMP_MSG_RAW
+#if AJ_DUMP_MSG_RAW
         uint8_t* p = (uint8_t*)msg->hdr + sizeof(AJ_MsgHeader);
         uint32_t hdrBytes = ((msg->hdr->headerLen + 7) & ~7);
 #endif
@@ -87,7 +81,7 @@ void _AJ_DumpMsg(const char* tag, AJ_Message* msg, uint8_t body)
             break;
         }
         AJ_Printf("        hdr len=%d\n", msg->hdr->headerLen);
-#if DUMP_MSG_RAW
+#if AJ_DUMP_MSG_RAW
         AJ_DumpBytes(NULL, p,  hdrBytes);
         AJ_Printf("body len=%d\n", msg->hdr->bodyLen);
         if (body) {

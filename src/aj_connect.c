@@ -36,6 +36,7 @@
 #include "aj_std.h"
 #include "aj_auth.h"
 #include "aj_debug.h"
+#include "aj_config.h"
 
 #ifdef AJ_SERIAL_CONNECTION
 #include "aj_serial.h"
@@ -48,12 +49,6 @@
 #ifndef NDEBUG
 AJ_EXPORT uint8_t dbgCONNECT = 0;
 #endif
-
-/*
- * For testing on host  set this value to 1 to bypass the discovery and connect directly to port
- * 9955 on daemon on local host.
- */
-#define AJ_CONNECT_LOCALHOST  0
 
 static const char daemonService[] = "org.alljoyn.BusNode";
 

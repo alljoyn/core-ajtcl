@@ -39,21 +39,13 @@
 #include "aj_std.h"
 #include "aj_bus.h"
 #include "aj_debug.h"
-
+#include "aj_config.h"
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
  * (usually in debugger).
  */
 #ifndef NDEBUG
 uint8_t dbgMSG = 0;
-#endif
-
-#if HOST_IS_LITTLE_ENDIAN
-#define HOST_ENDIANESS AJ_LITTLE_ENDIAN
-#endif
-
-#if HOST_IS_BIG_ENDIAN
-#define HOST_ENDIANESS AJ_BIG_ENDIAN
 #endif
 
 #define AJ_STRUCT_CLOSE          ')'
