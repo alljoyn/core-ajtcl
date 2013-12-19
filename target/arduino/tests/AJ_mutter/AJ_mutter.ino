@@ -38,7 +38,7 @@ void setup() {
         ; // wait for serial port to connect. Needed for Leonardo only
     }
 
-    printf("hello, world.\n");
+    AJ_Printf("hello, world.\n");
 
 }
 

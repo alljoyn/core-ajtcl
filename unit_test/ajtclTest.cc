@@ -17,7 +17,7 @@
  ******************************************************************************/
 
 #include <gtest/gtest.h>
-
+#include <aj_target.h>
 /** Main entry point */
 int main(int argc, char**argv, char**envArg)
 {
@@ -25,11 +25,11 @@ int main(int argc, char**argv, char**envArg)
     setvbuf(stdout, NULL, _IONBF, 0);
     setvbuf(stderr, NULL, _IONBF, 0);
 
-    printf("\n Running ajtcl unit test\n");
+    AJ_Printf("\n Running ajtcl unit test\n");
     testing::InitGoogleTest(&argc, argv);
     status = RUN_ALL_TESTS();
 
-    printf("%s exiting with status %d \n", argv[0], status);
+    AJ_Printf("%s exiting with status %d \n", argv[0], status);
 
     return (int) status;
 }

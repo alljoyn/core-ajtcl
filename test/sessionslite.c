@@ -16,9 +16,13 @@
  *    ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
+#define AJ_MODULE SESSIONS_LITE
 
 #include "aj_target.h"
 #include <alljoyn.h>
+#include <aj_debug.h>
+
+uint8_t dbgSESSIONS_LITE = 0;
 
 #define CONNECT_TIMEOUT    (1000ul * 60)
 #define CONNECT_PAUSE      (1000ul * 10)
@@ -126,16 +130,16 @@ void Do_Connect()
 {
     while (!connected) {
         AJ_Status status;
-        AJ_Printf("Attempting to connect to bus\n");
+        AJ_InfoPrintf(("Attempting to connect to bus\n"));
         status = AJ_Connect(&bus, NULL, CONNECT_TIMEOUT);
         if (status != AJ_OK) {
-            AJ_Printf("Failed to connect to bus sleeping for %lu seconds\n", CONNECT_PAUSE / 1000);
+            AJ_InfoPrintf(("Failed to connect to bus sleeping for %lu seconds\n", CONNECT_PAUSE / 1000));
             AJ_Sleep(CONNECT_PAUSE);
             continue;
         }
         connected = TRUE;
-        AJ_Printf("AllJoyn service connected to bus\n");
-        AJ_Printf("Connected to Daemon:%s\n", AJ_GetUniqueName(&bus));
+        AJ_InfoPrintf(("AllJoyn service connected to bus\n"));
+        AJ_InfoPrintf(("Connected to Daemon:%s\n", AJ_GetUniqueName(&bus)));
         AJ_BusSetSignalRule2(&bus, "NameOwnerChanged", "org.freedesktop.DBus", AJ_BUS_SIGNAL_ALLOW);
     }
 }
@@ -263,14 +267,12 @@ int AJ_Main()
         char buf[1024];
         AJ_Message msg;
         // read a line
-        AJ_Printf("Do Work\n");
         if (commands[i] != NULL) {
             char*command;
             strcpy(buf, commands[i]);
             AJ_Printf(">~~~%s\n", buf);
             command = aj_strtok(buf, " \r\n");
             i++;
-            AJ_Printf("%s\n", command);
 
             if (0 == strcmp("startservice", command)) {
                 uint16_t port = 0;
@@ -353,7 +355,6 @@ int AJ_Main()
                 uint16_t transport = 0xFFFF;
                 char* token = NULL;
                 char* name = aj_strtok(NULL, " \r\n");
-                printf("%s\n", name);
                 if (!name) {
                     AJ_Printf("Usage: advertise <name> [transports]\n");
                     continue;
@@ -526,9 +527,9 @@ int AJ_Main()
             } else if (0 == strcmp("wait", command)) {
                 char* token = aj_strtok(NULL, " \n\r");
                 if (token) {
-                    printf("Sleeping...\n");
+                    AJ_Printf("Sleeping...\n");
                     AJ_Sleep((uint16_t)atoi(token));
-                    printf("Done\n");
+                    AJ_Printf("Done\n");
                 }
             } else {
                 AJ_Printf("Unknown command: %s\n", command);
@@ -555,9 +556,9 @@ int AJ_Main()
                     AJ_UnmarshalArgs(&msg, "qus", &port, &g_sessionId, &joiner);
                     status = AJ_BusReplyAcceptSession(&msg, TRUE);
                     if (status == AJ_OK) {
-                        AJ_Printf("Accepted session session_id=%u joiner=%s\n", g_sessionId, joiner);
+                        AJ_InfoPrintf(("Accepted session session_id=%u joiner=%s\n", g_sessionId, joiner));
                     } else {
-                        AJ_Printf("AJ_BusReplyAcceptSession: error %d\n", status);
+                        AJ_InfoPrintf(("AJ_BusReplyAcceptSession: error %d\n", status));
                     }
                 }
                 break;
@@ -571,9 +572,9 @@ int AJ_Main()
                     } else {
                         status = AJ_UnmarshalArgs(&msg, "uu", &replyCode, &g_sessionId);
                         if (replyCode == AJ_JOINSESSION_REPLY_SUCCESS) {
-                            AJ_Printf("Joined session session_id=%u\n", g_sessionId);
+                            AJ_InfoPrintf(("Joined session session_id=%u\n", g_sessionId));
                         } else {
-                            AJ_Printf("Joined session failed\n");
+                            AJ_InfoPrintf(("Joined session failed\n"));
                         }
                     }
                 }

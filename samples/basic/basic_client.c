@@ -17,16 +17,18 @@
  *    ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
+#define AJ_MODULE BASIC_CLIENT
 
 #include <stdio.h>
 #include <stdlib.h>
-
-#include "alljoyn.h"
+#include <aj_debug.h>
+#include <alljoyn.h>
 
 static const char ServiceName[] = "org.alljoyn.Bus.sample";
 static const char ServicePath[] = "/sample";
 static const uint16_t ServicePort = 25;
 
+uint8_t dbgBASIC_CLIENT = 0;
 /**
  * The interface name followed by the method signatures.
  *
@@ -89,7 +91,7 @@ void MakeMethodCall(AJ_BusAttachment* bus, uint32_t sessionId)
         status = AJ_DeliverMsg(&msg);
     }
 
-    printf("MakeMethodCall() resulted in a status of 0x%04x.\n", status);
+    AJ_InfoPrintf(("MakeMethodCall() resulted in a status of 0x%04x.\n", status));
 }
 
 int AJ_Main(void)
@@ -120,12 +122,12 @@ int AJ_Main(void)
                                     NULL);
 
             if (status == AJ_OK) {
-                printf("StartClient returned %d, sessionId=%u.\n", status, sessionId);
+                AJ_InfoPrintf(("StartClient returned %d, sessionId=%u.\n", status, sessionId));
                 connected = TRUE;
 
                 MakeMethodCall(&bus, sessionId);
             } else {
-                printf("StartClient returned 0x%04x.\n", status);
+                AJ_InfoPrintf(("StartClient returned 0x%04x.\n", status));
                 break;
             }
         }
@@ -145,11 +147,11 @@ int AJ_Main(void)
                     status = AJ_UnmarshalArg(&msg, &arg);
 
                     if (AJ_OK == status) {
-                        printf("'%s.%s' (path='%s') returned '%s'.\n", ServiceName, "cat",
-                               ServicePath, arg.val.v_string);
+                        AJ_Printf("'%s.%s' (path='%s') returned '%s'.\n", ServiceName, "cat",
+                                  ServicePath, arg.val.v_string);
                         done = TRUE;
                     } else {
-                        printf("AJ_UnmarshalArg() returned status %d.\n", status);
+                        AJ_InfoPrintf(("AJ_UnmarshalArg() returned status %d.\n", status));
                         /* Try again because of the failure. */
                         MakeMethodCall(&bus, sessionId);
                     }
@@ -177,13 +179,13 @@ int AJ_Main(void)
         AJ_CloseMsg(&msg);
 
         if (status == AJ_ERR_READ) {
-            printf("AllJoyn disconnect.\n");
+            AJ_Printf("AllJoyn disconnect.\n");
             AJ_Disconnect(&bus);
             exit(0);
         }
     }
 
-    printf("Basic client exiting with status %d.\n", status);
+    AJ_Printf("Basic client exiting with status %d.\n", status);
 
     return status;
 }

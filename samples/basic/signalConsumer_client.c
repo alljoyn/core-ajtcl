@@ -17,12 +17,14 @@
  *    ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
+#define AJ_MODULE SIGNAL_CONSUMER
 
 #include <stdio.h>
 #include <stdlib.h>
-
+#include <aj_debug.h>
 #include "alljoyn.h"
 
+uint8_t dbgSIGNAL_CONSUMER = 0;
 /**
  * Static constants.
  */
@@ -81,8 +83,8 @@ AJ_Status ReceiveNewName(AJ_Message*msg)
     AJ_Status status = AJ_UnmarshalArg(msg, &arg);
 
     if (status == AJ_OK) {
-        printf("--==## signalConsumer: Name Changed signal Received ##==--\n");
-        printf("\tNew name: '%s'.\n", arg.val.v_string);
+        AJ_Printf("--==## signalConsumer: Name Changed signal Received ##==--\n");
+        AJ_Printf("\tNew name: '%s'.\n", arg.val.v_string);
     }
 
     return status;
@@ -116,10 +118,10 @@ int AJ_Main(void)
                                     NULL);
 
             if (status == AJ_OK) {
-                printf("StartClient returned %d, sessionId=%u.\n", status, sessionId);
+                AJ_InfoPrintf(("StartClient returned %d, sessionId=%u.\n", status, sessionId));
                 connected = TRUE;
             } else {
-                printf("StartClient returned 0x%04x.\n", status);
+                AJ_InfoPrintf(("StartClient returned 0x%04x.\n", status));
                 break;
             }
         }
@@ -142,7 +144,7 @@ int AJ_Main(void)
                 break;
 
             case AJ_REPLY_ID(AJ_METHOD_JOIN_SESSION):
-                printf("JoinSession SUCCESS (Session id=%d).\n", sessionId);
+                AJ_InfoPrintf(("JoinSession SUCCESS (Session id=%d).\n", sessionId));
                 break;
 
             case AJ_SIGNAL_SESSION_LOST_WITH_REASON:
@@ -163,91 +165,91 @@ int AJ_Main(void)
             break;
 
         case AJ_ERR_NULL:
-            printf("AJ_UnmarshalMsg() returned 'Unexpected NULL pointer'.\n");
+            AJ_ErrPrintf(("AJ_UnmarshalMsg() returned 'Unexpected NULL pointer'.\n"));
             break;
 
         case AJ_ERR_UNEXPECTED:
-            printf("AJ_UnmarshalMsg() returned 'An operation was unexpected at this time'.\n");
+            AJ_ErrPrintf(("AJ_UnmarshalMsg() returned 'An operation was unexpected at this time'.\n"));
             break;
 
         case AJ_ERR_INVALID:
-            printf("AJ_UnmarshalMsg() returned 'A value was invalid'.\n");
+            AJ_ErrPrintf(("AJ_UnmarshalMsg() returned 'A value was invalid'.\n"));
             break;
 
         case AJ_ERR_IO_BUFFER:
-            printf("AJ_UnmarshalMsg() returned 'An I/O buffer was invalid or in the wrong state'.\n");
+            AJ_ErrPrintf(("AJ_UnmarshalMsg() returned 'An I/O buffer was invalid or in the wrong state'.\n"));
             break;
 
         case AJ_ERR_READ:
-            printf("AJ_UnmarshalMsg() returned 'An error while reading data from the network'.\n");
+            AJ_ErrPrintf(("AJ_UnmarshalMsg() returned 'An error while reading data from the network'.\n"));
             break;
 
         case AJ_ERR_WRITE:
-            printf("AJ_UnmarshalMsg() returned 'An error while writing data to the network'.\n");
+            AJ_ErrPrintf(("AJ_UnmarshalMsg() returned 'An error while writing data to the network'.\n"));
             break;
 
         case AJ_ERR_TIMEOUT:
-            printf("AJ_UnmarshalMsg() returned 'A timeout occurred'.\n");
+            AJ_ErrPrintf(("AJ_UnmarshalMsg() returned 'A timeout occurred'.\n"));
             break;
 
         case AJ_ERR_MARSHAL:
-            printf("AJ_UnmarshalMsg() returned 'Marshaling failed due to badly constructed message argument'.\n");
+            AJ_ErrPrintf(("AJ_UnmarshalMsg() returned 'Marshaling failed due to badly constructed message argument'.\n"));
             break;
 
         case AJ_ERR_UNMARSHAL:
-            printf("AJ_UnmarshalMsg() returned 'Unmarshaling failed due to a corrupt or invalid message'.\n");
+            AJ_ErrPrintf(("AJ_UnmarshalMsg() returned 'Unmarshaling failed due to a corrupt or invalid message'.\n"));
             break;
 
         case AJ_ERR_END_OF_DATA:
-            printf("AJ_UnmarshalMsg() returned 'No enough data'.\n");
+            AJ_ErrPrintf(("AJ_UnmarshalMsg() returned 'No enough data'.\n"));
             break;
 
         case AJ_ERR_RESOURCES:
-            printf("AJ_UnmarshalMsg() returned 'Insufficient memory to perform the operation'.\n");
+            AJ_ErrPrintf(("AJ_UnmarshalMsg() returned 'Insufficient memory to perform the operation'.\n"));
             break;
 
         case AJ_ERR_NO_MORE:
-            printf("AJ_UnmarshalMsg() returned 'Attempt to unmarshal off the end of an array'.\n");
+            AJ_ErrPrintf(("AJ_UnmarshalMsg() returned 'Attempt to unmarshal off the end of an array'.\n"));
             break;
 
         case AJ_ERR_SECURITY:
-            printf("AJ_UnmarshalMsg() returned 'Authentication or decryption failed'.\n");
+            AJ_ErrPrintf(("AJ_UnmarshalMsg() returned 'Authentication or decryption failed'.\n"));
             break;
 
         case AJ_ERR_CONNECT:
-            printf("AJ_UnmarshalMsg() returned 'Network connect failed'.\n");
+            AJ_ErrPrintf(("AJ_UnmarshalMsg() returned 'Network connect failed'.\n"));
             break;
 
         case AJ_ERR_UNKNOWN:
-            printf("AJ_UnmarshalMsg() returned 'A unknown value'.\n");
+            AJ_ErrPrintf(("AJ_UnmarshalMsg() returned 'A unknown value'.\n"));
             break;
 
         case AJ_ERR_NO_MATCH:
-            printf("AJ_UnmarshalMsg() returned 'Something didn't match'.\n");
+            AJ_ErrPrintf(("AJ_UnmarshalMsg() returned 'Something didn't match'.\n"));
             break;
 
         case AJ_ERR_SIGNATURE:
-            printf("AJ_UnmarshalMsg() returned 'Signature is not what was expected'.\n");
+            AJ_ErrPrintf(("AJ_UnmarshalMsg() returned 'Signature is not what was expected'.\n"));
             break;
 
         case AJ_ERR_DISALLOWED:
-            printf("AJ_UnmarshalMsg() returned 'An operations was not allowed'.\n");
+            AJ_ErrPrintf(("AJ_UnmarshalMsg() returned 'An operations was not allowed'.\n"));
             break;
 
         case AJ_ERR_FAILURE:
-            printf("AJ_UnmarshalMsg() returned 'A failure has occured'.\n");
+            AJ_ErrPrintf(("AJ_UnmarshalMsg() returned 'A failure has occured'.\n"));
             break;
 
         case AJ_ERR_RESTART:
-            printf("AJ_UnmarshalMsg() returned 'The OEM event loop must restart'.\n");
+            AJ_ErrPrintf(("AJ_UnmarshalMsg() returned 'The OEM event loop must restart'.\n"));
             break;
 
         case AJ_ERR_LINK_TIMEOUT:
-            printf("AJ_UnmarshalMsg() returned 'The bus link is inactive too long'.\n");
+            AJ_ErrPrintf(("AJ_UnmarshalMsg() returned 'The bus link is inactive too long'.\n"));
             break;
 
         case AJ_ERR_DRIVER:
-            printf("AJ_UnmarshalMsg() returned 'An error communicating with a lower-layer driver'.\n");
+            AJ_ErrPrintf(("AJ_UnmarshalMsg() returned 'An error communicating with a lower-layer driver'.\n"));
             break;
         }
 
@@ -255,13 +257,13 @@ int AJ_Main(void)
         AJ_CloseMsg(&msg);
 
         if (status == AJ_ERR_READ) {
-            printf("AllJoyn disconnect.\n");
+            AJ_Printf("AllJoyn disconnect.\n");
             AJ_Disconnect(&bus);
             exit(0);
         }
     }
 
-    printf("signalConsumer_Client exiting with status 0x%04x.\n", status);
+    AJ_Printf("signalConsumer_Client exiting with status 0x%04x.\n", status);
 
     return status;
 }

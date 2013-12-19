@@ -209,7 +209,7 @@ TEST_F(MutterTest, ArrayofDict) {
                 EXPECT_EQ(AJ_OK, status) << "  Actual Status: " << AJ_StatusText(status);
                 status = AJ_UnmarshalArgs(&rxMsg, "us", &key, &fruit);
                 EXPECT_EQ(AJ_OK, status) << "  Actual Status: " << AJ_StatusText(status);
-                printf("Unmarshal[%d] = %s\n", key, fruit);
+                AJ_Printf("Unmarshal[%d] = %s\n", key, fruit);
                 status = AJ_UnmarshalCloseContainer(&rxMsg, &dict);
                 EXPECT_EQ(AJ_OK, status) << "  Actual Status: " << AJ_StatusText(status);
             }

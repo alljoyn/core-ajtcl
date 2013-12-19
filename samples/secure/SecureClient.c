@@ -17,6 +17,7 @@
  *    ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
+#define AJ_MODULE SECURE_CLIENT
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -25,6 +26,8 @@
 #include "alljoyn.h"
 #include "aj_debug.h"
 #include "aj_crypto.h"
+
+uint8_t dbgSECURE_CLIENT = 0;
 
 static const char ServiceName[] = "org.alljoyn.bus.samples.secure";
 static const char InterfaceName[] = "org.alljoyn.bus.samples.secure.SecureInterface";
@@ -94,7 +97,7 @@ static uint32_t PasswordCallback(uint8_t* buffer, uint32_t bufLen)
     uint32_t maxCopyLength;
 
     /* Take input from stdin and send it. */
-    printf("Please enter one time password : ");
+    AJ_Printf("Please enter one time password : ");
     maxCopyLength = get_line(inputBuffer, bufSize, stdin);
 
     if (maxCopyLength > bufLen) {
@@ -102,7 +105,7 @@ static uint32_t PasswordCallback(uint8_t* buffer, uint32_t bufLen)
     }
 
     memcpy(buffer, inputBuffer, maxCopyLength);
-    printf("Responding with password of '%s' length %d.\n", buffer, maxCopyLength);
+    AJ_Printf("Responding with password of '%s' length %d.\n", buffer, maxCopyLength);
 
     return maxCopyLength;
 }
@@ -118,7 +121,7 @@ AJ_Status SendPing(AJ_BusAttachment* bus, uint32_t sessionId)
     AJ_Status status;
     AJ_Message msg;
 
-    printf("Sending ping request '%s'.\n", pingString);
+    AJ_Printf("Sending ping request '%s'.\n", pingString);
 
     status = AJ_MarshalMethodCall(bus,
                                   &msg,
@@ -130,17 +133,17 @@ AJ_Status SendPing(AJ_BusAttachment* bus, uint32_t sessionId)
     if (AJ_OK == status) {
         status = AJ_MarshalArgs(&msg, "s", pingString);
     } else {
-        printf("In SendPing() AJ_MarshalMethodCall() status = %d.\n", status);
+        AJ_InfoPrintf(("In SendPing() AJ_MarshalMethodCall() status = %d.\n", status));
     }
 
     if (AJ_OK == status) {
         status = AJ_DeliverMsg(&msg);
     } else {
-        printf("In SendPing() AJ_MarshalArgs() status = %d.\n", status);
+        AJ_InfoPrintf(("In SendPing() AJ_MarshalArgs() status = %d.\n", status));
     }
 
     if (AJ_OK != status) {
-        printf("In SendPing() AJ_DeliverMsg() status = %d.\n", status);
+        AJ_InfoPrintf(("In SendPing() AJ_DeliverMsg() status = %d.\n", status));
     }
 
     return status;
@@ -176,7 +179,7 @@ int AJ_Main(void)
         if (!connected) {
             status = AJ_StartClient(&bus, NULL, CONNECT_TIMEOUT, ServiceName, ServicePort, &sessionId, NULL);
             if (status == AJ_OK) {
-                printf("StartClient returned %d, sessionId=%u\n", status, sessionId);
+                AJ_InfoPrintf(("StartClient returned %d, sessionId=%u\n", status, sessionId));
                 connected = TRUE;
                 if (authenticate) {
                     AJ_BusSetPasswordCallback(&bus, PasswordCallback);
@@ -185,7 +188,7 @@ int AJ_Main(void)
                     authStatus = AJ_OK;
                 }
             } else {
-                printf("StartClient returned %d\n", status);
+                AJ_InfoPrintf(("StartClient returned %d\n", status));
                 break;
             }
         }
@@ -213,16 +216,16 @@ int AJ_Main(void)
                     AJ_Arg arg;
 
                     if (AJ_OK == AJ_UnmarshalArg(&msg, &arg)) {
-                        printf("%s.Ping (path=%s) returned \"%s\".\n", InterfaceName,
-                               ServicePath, arg.val.v_string);
+                        AJ_Printf("%s.Ping (path=%s) returned \"%s\".\n", InterfaceName,
+                                  ServicePath, arg.val.v_string);
 
                         if (strcmp(arg.val.v_string, pingString) == 0) {
-                            printf("Ping was successful.\n");
+                            AJ_InfoPrintf(("Ping was successful.\n"));
                         } else {
-                            printf("Ping returned different string.\n");
+                            AJ_InfoPrintf(("Ping returned different string.\n"));
                         }
                     } else {
-                        printf("Bad ping response.\n");
+                        AJ_ErrPrintf(("Bad ping response.\n"));
                     }
 
                     done = TRUE;
@@ -256,13 +259,13 @@ int AJ_Main(void)
         AJ_CloseMsg(&msg);
 
         if (status == AJ_ERR_READ) {
-            printf("AllJoyn disconnect.\n");
+            AJ_Printf("AllJoyn disconnect.\n");
             AJ_Disconnect(&bus);
             exit(0);
         }
     }
 
-    printf("SecureClient EXIT %d.\n", status);
+    AJ_Printf("SecureClient EXIT %d.\n", status);
 
     return status;
 }
