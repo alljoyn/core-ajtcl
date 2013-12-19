@@ -52,8 +52,8 @@ typedef enum {
     AJ_ERR_OBJECT_PATH  = 23, /**< Object path was not specified */
     AJ_ERR_BUSY         = 24, /**< An operation failed and should be retried later */
     AJ_ERR_DHCP         = 25, /**< A DHCP operation has failed */
-    AJ_ERR_ACCESS       = 26  /**< The operation specified is not allowed */
-
+    AJ_ERR_ACCESS       = 26, /**< The operation specified is not allowed */
+    AJ_ERR_SESSION_LOST = 27  /**< The session was lost */
 } AJ_Status;
 
 /**

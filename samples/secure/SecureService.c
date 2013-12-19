@@ -195,9 +195,9 @@ int AJ_Main(void)
                 {
                     uint32_t id, reason;
                     AJ_UnmarshalArgs(&msg, "uu", &id, &reason);
-                    printf("Session lost. ID = %u, reason = %u", id, reason);
+                    AJ_Printf(("Session lost. ID = %u, reason = %u", id, reason));
                 }
-                status = AJ_ERR_READ;
+                status = AJ_ERR_SESSION_LOST;
                 break;
 
             default:
