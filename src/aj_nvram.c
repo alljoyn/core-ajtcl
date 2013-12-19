@@ -215,14 +215,16 @@ size_t AJ_NVRAM_Write(void* ptr, uint16_t size, AJ_NV_DATASET* handle)
     uint16_t bytesWrite = 0;
     uint8_t patchBytes = 0;
     uint8_t* buf = (uint8_t*)ptr;
-    NV_EntryHeader* header = (NV_EntryHeader*)handle->inode;
-
-    AJ_InfoPrintf(("AJ_NVRAM_Write(ptr=0x%p, size=%d., handle=0x%p)\n", ptr, size, handle));
 
     if (!handle || handle->mode == AJ_NV_DATASET_MODE_READ) {
         AJ_ErrPrintf(("AJ_NVRAM_Write(): AJ_ERR_ACCESS\n"));
         return -1;
     }
+
+    NV_EntryHeader* header = (NV_EntryHeader*)handle->inode;
+
+    AJ_InfoPrintf(("AJ_NVRAM_Write(ptr=0x%p, size=%d., handle=0x%p)\n", ptr, size, handle));
+
     if (header->capacity <= handle->curPos) {
         AJ_Printf("AJ_NVRAM_Write(): AJ_ERR_RESOURCES\n");
         return -1;
@@ -252,14 +254,15 @@ size_t AJ_NVRAM_Write(void* ptr, uint16_t size, AJ_NV_DATASET* handle)
 size_t AJ_NVRAM_Read(void* ptr, uint16_t size, AJ_NV_DATASET* handle)
 {
     uint16_t bytesRead = 0;
-    NV_EntryHeader* header = (NV_EntryHeader*)handle->inode;
-
-    AJ_InfoPrintf(("AJ_NVRAM_Read(ptr=0x%p, size=%d., handle=0x%p)\n", ptr, size, handle));
 
     if (!handle || handle->mode == AJ_NV_DATASET_MODE_WRITE) {
         AJ_ErrPrintf(("AJ_NVRAM_Read(): AJ_ERR_ACCESS\n"));
         return -1;
     }
+
+    NV_EntryHeader* header = (NV_EntryHeader*)handle->inode;
+
+    AJ_InfoPrintf(("AJ_NVRAM_Read(ptr=0x%p, size=%d., handle=0x%p)\n", ptr, size, handle));
 
     if (header->capacity <= handle->curPos) {
         AJ_ErrPrintf(("AJ_NVRAM_Read(): AJ_ERR_RESOURCES\n"));
