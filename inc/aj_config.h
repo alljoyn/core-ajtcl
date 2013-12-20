@@ -1,10 +1,12 @@
+#ifndef _AJ_CONFIG_H
+#define _AJ_CONFIG_H
 /**
  * @file aj_config.h
  * @defgroup aj_config Configuration
  * @{
  */
 /******************************************************************************
- * Copyright (c) 2012, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2013-2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -22,8 +24,9 @@
 
 /* Debug options */
 #define _AJ_AUTH_DEBUG              0           //Enable for authentication debugging
-#define _NDEBUG                     0           //Enable more debugging info
-#define AJ_DEBUG_RESTRICT AJ_DEBUG_INFO         //Debug output level                    (aj_debug.h)
+#ifndef AJ_DEBUG_RESTRICT
+#define AJ_DEBUG_RESTRICT AJ_DEBUG_WARN         //Debug output level                    (aj_debug.h)
+#endif
 #define AJ_DUMP_MSG_RAW             0           //set to see raw msg bytes
 #define AJ_DUMP_BYTE_SIZE           16          //aj_debug.c
 
@@ -64,20 +67,12 @@
 /* Crypto */
 #define AJ_CCM_TRACE                0           //Enables fine-grained tracing for debugging new implementations.
 
-#define _DEFINE_ENDIAN              0           //Enable if endianness is specified manually
-#define _HOST_IS_LITTLE_ENDIAN      0           //Only used if _DEFINE_ENDIAN is enabled
-#define _HOST_IS_BIG_ENDIAN         0           //Only used if _DEFINE_ENDIAN is enabled
-
-
 #define _SO_REUSEPORT               0       //Linux target
 #define _AJ_DEBUG_TIMER_LISTS       0       //Linux target
 
 /* Below sets the actual #define's based on values above */
 #if _AJ_AUTH_DEBUG
 #define AUTH_DEBUG
-#endif
-#if _NDEBUG
-#define NDEBUG
 #endif
 #if _AJ_CONNECT_LOCALHOST
 #define AJ_CONNECT_LOCALHOST
@@ -89,18 +84,9 @@
 #define AJ_DEBUG_TIMER_LISTS
 #endif
 
-#if _DEFINE_ENDIAN
-#if _HOST_IS_LITTLE_ENDIAN
-#define HOST_IS_LITTLE_ENDIAN
-#else
-#define HOST_IS_BIG_ENDIAN
-#endif
-#else
-#if BYTE_ORDER == LITTLE_ENDIAN
-#define HOST_IS_LITTLE_ENDIAN
+#if HOST_IS_LITTLE_ENDIAN
 #define HOST_ENDIANESS AJ_LITTLE_ENDIAN
-#else
-#define HOST_IS_BIG_ENDIAN
+#elif HOST_IS_BIG_ENDIAN
 #define HOST_ENDIANESS AJ_BIG_ENDIAN
 #endif
-#endif
+#endif //AJ_CONFIG_H
