@@ -60,6 +60,14 @@
 #define AJ_BIG_ENDIAN    'B'           /**< Indicates the bus is big-endian */
 
 /*
+ * Set the native endianness
+ */
+#if HOST_IS_BIG_ENDIAN
+#define AJ_NATIVE_ENDIAN AJ_BIG_ENDIAN
+#else
+#define AJ_NATIVE_ENDIAN AJ_LITTLE_ENDIAN
+#endif
+/*
  * Message flags are or'd together
  */
 #define AJ_NO_FLAGS                0x00    /**< No message flags */
@@ -231,6 +239,22 @@ AJ_Status AJ_UnmarshalArg(AJ_Message* msg, AJ_Arg* arg);
  */
 AJ_EXPORT
 AJ_Status AJ_SkipArg(AJ_Message* msg);
+
+/**
+ * Attempts to reset the state of message so the arguments can be unmarshaled again. All of the
+ * arguments must have been unmarshaled, a restriction to ensure that endianness conversions
+ * are correct. This function allows a message handler to inspect the message arguments and
+ * decide whether to handle it or not. For example a service handler might need to check if it
+ * is supposed to accept a session joiner by inspecting the session port.
+ *
+ * @param msg     A pointer to a message that was unmarshaled by an earlier call to AJ_UnmarshalMsg
+ *
+ * @return
+ *          - AJ_OK if the message arguments were succesfully reset
+ *          - AJ_ERR_UNMARSHAL if the arguments could not be reset
+ */
+AJ_EXPORT
+AJ_Status AJ_ResetArgs(AJ_Message* msg);
 
 /**
  * Unmamarshals one or arguments of basic types such as integers, strings.

@@ -750,6 +750,43 @@ static AJ_Status ValidateHeader(const AJ_Message* msg)
     return status;
 }
 
+AJ_Status AJ_ResetArgs(AJ_Message* msg)
+{
+    if (!msg->hdr) {
+        return AJ_ERR_NULL;
+    }
+    /*
+     * Nothing to do if there are no arguments
+     */
+    if (!msg->signature || *msg->signature) {
+        return AJ_OK;
+    }
+    /*
+     * The arguments must have already been fully unmarshaled.
+     */
+    if (msg->sigOffset != strlen(msg->signature)) {
+        return AJ_ERR_UNMARSHAL;
+    } else {
+        AJ_IOBuffer* ioBuf = &msg->bus->sock.rx;
+        size_t hdrSize = 8 + msg->hdr->headerLen + ((8 - msg->hdr->headerLen) & 7);
+        /*
+         * Args have already been converted to native endianess in place in the input buffer, this
+         * prevents the unmarshaler from incorrectly undoing the conversion.
+         */
+        msg->hdr->endianess = AJ_NATIVE_ENDIAN;
+        /*
+         * Reset the read pointer
+         */
+        AJ_IO_BUF_RESET(ioBuf);
+        ioBuf->readPtr += hdrSize;
+        /*
+         * Signature is reset to start
+         */
+        msg->sigOffset = 0;
+        return AJ_OK;
+    }
+}
+
 AJ_Status AJ_UnmarshalMsg(AJ_BusAttachment* bus, AJ_Message* msg, uint32_t timeout)
 {
     AJ_Status status;
