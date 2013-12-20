@@ -766,7 +766,7 @@ AJ_Status AJ_UnmarshalMsg(AJ_BusAttachment* bus, AJ_Message* msg, uint32_t timeo
     /*
      * Move any unconsumed data to the start of the I/O buffer
      */
-    AJ_IOBufRebase(ioBuf);
+    AJ_IOBufRebase(ioBuf, 0);
     /*
      * Load the message header
      */
@@ -1233,11 +1233,12 @@ AJ_Status AJ_UnmarshalRaw(AJ_Message* msg, const void** data, size_t len, size_t
     AJ_Status status;
     size_t sz;
     AJ_IOBuffer* ioBuf = &msg->bus->sock.rx;
+    size_t hdrSize = 8 + msg->hdr->headerLen + ((8 - msg->hdr->headerLen) & 7);
 
     /*
-     * A soon as we start marshaling raw the header will become invalid so NULL it out
+     * A sig offset of 0xFF indicates we are already doing raw unnmarshaling
      */
-    if (msg->hdr) {
+    if (msg->sigOffset != 0xFF) {
         uint8_t typeId = msg->signature[msg->sigOffset];
         uint8_t pad;
         /*
@@ -1261,8 +1262,10 @@ AJ_Status AJ_UnmarshalRaw(AJ_Message* msg, const void** data, size_t len, size_t
          * Standard signature matching is now meaningless
          */
         msg->signature = "";
-        msg->sigOffset = 0;
-        msg->hdr = NULL;
+        /*
+         * Flag we are in raw-unmarshal mode
+         */
+        msg->sigOffset = 0xFF;
     }
     /*
      * Return an error if caller is attempting read off the end of the body
@@ -1276,12 +1279,13 @@ AJ_Status AJ_UnmarshalRaw(AJ_Message* msg, const void** data, size_t len, size_t
      */
     sz = AJ_IO_BUF_AVAIL(ioBuf);
     if (sz < len) {
-        AJ_IOBufRebase(ioBuf);
+        AJ_IOBufRebase(ioBuf, hdrSize);
     }
     /*
-     * If we try to load more than the buffer size we will get an error
+     * If we try to load more than the available space we will get an error
      */
-    status = LoadBytes(ioBuf, (uint16_t)min(len, ioBuf->bufSize), 0);
+    len = min(len, AJ_IO_BUF_SPACE(ioBuf));
+    status = LoadBytes(ioBuf, (uint16_t)len, 0);
     if (status == AJ_OK) {
         sz = AJ_IO_BUF_AVAIL(ioBuf);
         if (sz < len) {

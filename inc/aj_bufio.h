@@ -113,8 +113,9 @@ void AJ_IOBufInit(AJ_IOBuffer* ioBuf, uint8_t* buffer, uint32_t bufLen, uint8_t 
 /**
  * Move any unconsumed data to the start of the buffer.
  *
- * @param ioBuf  An RX I/O buf that may contain unconsumed data
+ * @param ioBuf    An RX I/O buf that may contain unconsumed data
+ * @param preserve Data (if any) at front of buffer that must be preserved
  */
-void AJ_IOBufRebase(AJ_IOBuffer* ioBuf);
+void AJ_IOBufRebase(AJ_IOBuffer* ioBuf, size_t preserve);
 
 #endif

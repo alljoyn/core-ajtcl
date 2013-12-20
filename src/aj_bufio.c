@@ -46,16 +46,16 @@ void AJ_IOBufInit(AJ_IOBuffer* ioBuf, uint8_t* buffer, uint32_t bufLen, uint8_t 
     ioBuf->context = context;
 }
 
-void AJ_IOBufRebase(AJ_IOBuffer* ioBuf)
+void AJ_IOBufRebase(AJ_IOBuffer* ioBuf, size_t preserve)
 {
     int32_t unconsumed = AJ_IO_BUF_AVAIL(ioBuf);
     /*
      * Move any unconsumed data to the start of the I/O buffer
      */
     if (unconsumed) {
-        memmove(ioBuf->bufStart, ioBuf->readPtr, unconsumed);
+        memmove(ioBuf->bufStart + preserve, ioBuf->readPtr, unconsumed);
     }
 
-    ioBuf->readPtr = ioBuf->bufStart;
-    ioBuf->writePtr = ioBuf->bufStart + unconsumed;
+    ioBuf->readPtr = ioBuf->bufStart + preserve;
+    ioBuf->writePtr = ioBuf->bufStart + preserve + unconsumed;
 }
