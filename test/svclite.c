@@ -267,6 +267,7 @@ int AJ_Main(void)
                     if (CancelAdvertiseName) {
                         status = AJ_BusAdvertiseName(&bus, ServiceName, AJ_TRANSPORT_ANY, AJ_BUS_START_ADVERTISING);
                     }
+                    status = AJ_ERR_SESSION_LOST;
                 }
                 break;
 
@@ -312,7 +313,7 @@ int AJ_Main(void)
          */
         AJ_CloseMsg(&msg);
 
-        if (status == AJ_ERR_READ) {
+        if (status == AJ_ERR_SESSION_LOST) {
             AJ_InfoPrintf(("AllJoyn disconnect\n"));
             AJ_InfoPrintf(("Disconnected from Daemon:%s\n", AJ_GetUniqueName(&bus)));
             AJ_Disconnect(&bus);

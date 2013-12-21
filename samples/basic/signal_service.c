@@ -208,8 +208,9 @@ int AJ_Main(void)
                 {
                     uint32_t id, reason;
                     AJ_UnmarshalArgs(&msg, "uu", &id, &reason);
-                    printf("Session lost. ID = %u, reason = %u", id, reason);
+                    AJ_Printf(("Session lost. ID = %u, reason = %u", id, reason));
                 }
+                status = AJ_ERR_SESSION_LOST;
                 break;
 
             default:
@@ -222,7 +223,7 @@ int AJ_Main(void)
         /* Messages MUST be discarded to free resources. */
         AJ_CloseMsg(&msg);
 
-        if (status == AJ_ERR_READ) {
+        if (status == AJ_ERR_SESSION_LOST) {
             AJ_Printf("AllJoyn disconnect.\n");
             AJ_Disconnect(&busAttachment);
             connected = FALSE;
