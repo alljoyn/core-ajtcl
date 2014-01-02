@@ -502,7 +502,10 @@ AJ_Status AJ_BusHandleBusMessage(AJ_Message* msg)
         if (newOwner && oldOwner && newOwner[0] == '\0') {
             AJ_GUID_DeleteNameMapping(oldOwner);
         }
-        status = AJ_OK;
+        /*
+         * Reset so the application can handle this too
+         */
+        status = AJ_ResetArgs(msg);
         break;
 
     default:
