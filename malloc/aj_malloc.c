@@ -75,12 +75,17 @@ AJ_Status AJ_PoolInit(void* heap, size_t heapSz, const AJ_HeapConfig* poolConfig
     uint8_t i;
     uint16_t n;
     uint8_t* heapEnd = (uint8_t*)heap + sizeof(Pool) * num;
-    Pool* p = (Pool*)heap;;
+    Pool* p = (Pool*)heap;
 
     heapPools = p;
     heapStart = heapEnd;
     heapConfig = poolConfig;
     numPools = num;
+
+    /*
+     * Clear the heap pool info  block
+     */
+    memset(heapPools, 0, heapStart - (uint8_t*)heap);
 
     for (i = 0; i < numPools; ++i, ++p) {
         size_t sz = poolConfig[i].size;
