@@ -142,30 +142,6 @@ uint32_t AJ_SetTimer(uint32_t relative_time, TimeoutHandler handler, void* conte
  */
 void AJ_CancelTimer(uint32_t id);
 
-
-/**
- * Helper function that connects to a bus initializes an AllJoyn service.
- *
- * @param bus          The bus attachment
- * @param daemonName   Name of a specific daemon service to connect to, NULL for the default name.
- * @param timeout      How long to spend attempting to connect to the bus
- * @param port         The port to bind
- * @param name         The name being requested
- * @param flags        An OR of the name request flags
- * @param opts         The session option setting.
- *
- * @return AJ_OK if service was successfully started.
- */
-AJ_EXPORT
-AJ_Status AJ_StartService(AJ_BusAttachment* bus,
-                          const char* daemonName,
-                          uint32_t timeout,
-                          uint16_t port,
-                          const char* name,
-                          uint32_t flags,
-                          const AJ_SessionOpts* opts);
-
-
 /**
  * Helper function that connects to a bus initializes an AllJoyn service.
  *
@@ -181,36 +157,14 @@ AJ_Status AJ_StartService(AJ_BusAttachment* bus,
  * @return AJ_OK if service was successfully started.
  */
 AJ_EXPORT
-AJ_Status AJ_StartService2(AJ_BusAttachment* bus,
-                           const char* daemonName,
-                           uint32_t timeout,
-                           uint8_t connected,
-                           uint16_t port,
-                           const char* name,
-                           uint32_t flags,
-                           const AJ_SessionOpts* opts);
-
-/**
- * Initializes an AllJoyn client and connect to a service
- *
- * @param bus            The bus attachment
- * @param daemonName     Name of a specific daemon service to connect to, NULL for the default name.
- * @param timeout        How long to spend attempting to find a remote service to connect to.
- * @param name           The name of the service to connect to.
- * @param port           The service port to connect to.
- * @param[out] sessionId The session id returned if the service connection was succesfully
- * @param opts           The session option setting.
- *
- * @return AJ_OK if connection was successfully established
- */
-AJ_EXPORT
-AJ_Status AJ_StartClient(AJ_BusAttachment* bus,
-                         const char* daemonName,
-                         uint32_t timeout,
-                         const char* name,
-                         uint16_t port,
-                         uint32_t* sessionId,
-                         const AJ_SessionOpts* opts);
+AJ_Status AJ_StartService(AJ_BusAttachment* bus,
+                          const char* daemonName,
+                          uint32_t timeout,
+                          uint8_t connected,
+                          uint16_t port,
+                          const char* name,
+                          uint32_t flags,
+                          const AJ_SessionOpts* opts);
 
 /**
  * Initializes an AllJoyn client and connect to a service
@@ -227,14 +181,14 @@ AJ_Status AJ_StartClient(AJ_BusAttachment* bus,
  * @return AJ_OK if connection was successfully established
  */
 AJ_EXPORT
-AJ_Status AJ_StartClient2(AJ_BusAttachment* bus,
-                          const char* daemonName,
-                          uint32_t timeout,
-                          uint8_t connected,
-                          const char* name,
-                          uint16_t port,
-                          uint32_t* sessionId,
-                          const AJ_SessionOpts* opts);
+AJ_Status AJ_StartClient(AJ_BusAttachment* bus,
+                         const char* daemonName,
+                         uint32_t timeout,
+                         uint8_t connected,
+                         const char* name,
+                         uint16_t port,
+                         uint32_t* sessionId,
+                         const AJ_SessionOpts* opts);
 
 /**
  * @}

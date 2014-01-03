@@ -299,14 +299,14 @@ AJ_Status AJ_BusSetSignalRule(AJ_BusAttachment* bus, const char* ruleString, uin
     return status;
 }
 
-AJ_Status AJ_BusSetSignalRule2(AJ_BusAttachment* bus, const char* signalName, const char* interfaceName, uint8_t rule)
+AJ_Status AJ_BusAddSignalRule(AJ_BusAttachment* bus, const char* signalName, const char* interfaceName, uint8_t rule)
 {
     AJ_Status status;
     AJ_Message msg;
     const char* str[5];
     uint32_t msgId = (rule == AJ_BUS_SIGNAL_ALLOW) ? AJ_METHOD_ADD_MATCH : AJ_METHOD_REMOVE_MATCH;
 
-    AJ_InfoPrintf(("AJ_BusSetSignalRule2(bus=0x%p, signalName=\"%s\", interfaceName=\"%s\", rule=%d.)\n", bus, signalName, interfaceName, rule));
+    AJ_InfoPrintf(("AJ_BusAddSignalRule(bus=0x%p, signalName=\"%s\", interfaceName=\"%s\", rule=%d.)\n", bus, signalName, interfaceName, rule));
 
     str[0] = "type='signal',member='";
     str[1] = signalName;

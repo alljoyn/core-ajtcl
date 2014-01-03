@@ -127,6 +127,7 @@ int main(int argc, char*argv[])
                 status = AJ_StartClient(&bus,
                                         NULL,
                                         CONNECT_TIMEOUT,
+                                        FALSE,
                                         ServiceName,
                                         ServicePort,
                                         &sessionId,

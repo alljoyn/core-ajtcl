@@ -188,7 +188,7 @@ int AJ_Main(void)
         AJ_Message msg;
 
         if (!connected) {
-            status = AJ_StartService(&bus, NULL, CONNECT_TIMEOUT, ServicePort, ServiceName, AJ_NAME_REQ_DO_NOT_QUEUE, NULL);
+            status = AJ_StartService(&bus, NULL, CONNECT_TIMEOUT, FALSE, ServicePort, ServiceName, AJ_NAME_REQ_DO_NOT_QUEUE, NULL);
             if (status != AJ_OK) {
                 continue;
             }
@@ -206,7 +206,7 @@ int AJ_Main(void)
 
         status = AJ_UnmarshalMsg(&bus, &msg, UNMARSHAL_TIMEOUT);
         if (AJ_ERR_TIMEOUT == status && AJ_ERR_LINK_TIMEOUT == AJ_BusLinkStateProc(&bus)) {
-            status = AJ_ERR_READ;
+            status = AJ_ERR_SESSION_LOST;
         }
         if (status != AJ_OK) {
             if (status == AJ_ERR_TIMEOUT) {

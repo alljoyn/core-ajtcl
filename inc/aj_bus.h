@@ -300,7 +300,7 @@ AJ_Status AJ_BusSetSignalRule(AJ_BusAttachment* bus, const char* ruleString, uin
  *         - An error status otherwise
  */
 AJ_EXPORT
-AJ_Status AJ_BusSetSignalRule2(AJ_BusAttachment* bus, const char* signalName, const char* interfaceName, uint8_t rule);
+AJ_Status AJ_BusAddSignalRule(AJ_BusAttachment* bus, const char* signalName, const char* interfaceName, uint8_t rule);
 
 /**
  * Add a SIGNAL match rule. A rule must be added for every non-session signal that the application

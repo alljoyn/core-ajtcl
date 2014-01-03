@@ -124,7 +124,7 @@ void Do_Connect()
         connected = TRUE;
         AJ_Printf("AllJoyn service connected to bus\n");
         AJ_Printf("Connected to Daemon:%s\n", AJ_GetUniqueName(&bus));
-        AJ_BusSetSignalRule2(&bus, "NameOwnerChanged", "org.freedesktop.DBus", AJ_BUS_SIGNAL_ALLOW);
+        AJ_BusSetSignalRule(&bus, "type='signal',member='NameOwnerChanged',interface='org.freedesktop.DBus'", AJ_BUS_SIGNAL_ALLOW);
     }
 }
 
@@ -183,7 +183,7 @@ int AJ_Main()
                 if (token) opts.transports = atoi(token);
                 else opts.transports = 0xFFFF;
 
-                status = AJ_StartService2(&bus, NULL, CONNECT_TIMEOUT, TRUE, port, name, AJ_NAME_REQ_DO_NOT_QUEUE, &opts);
+                status = AJ_StartService(&bus, NULL, CONNECT_TIMEOUT, TRUE, port, name, AJ_NAME_REQ_DO_NOT_QUEUE, &opts);
             } else if (0 == strcmp("find", command)) {
                 char* namePrefix = strtok(NULL, " \r\n");
                 if (!namePrefix) {

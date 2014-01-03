@@ -268,7 +268,7 @@ AJ_Status AJ_Connect(AJ_BusAttachment* bus, const char* serviceName, uint32_t ti
             AJ_CloseMsg(&helloResponse);
 
             // subscribe to the signal NameOwnerChanged and wait for the response
-            status = AJ_BusSetSignalRule2(bus, "NameOwnerChanged", "org.freedesktop.DBus", AJ_BUS_SIGNAL_ALLOW);
+            status = AJ_BusSetSignalRule(bus, "type='signal',member='NameOwnerChanged',interface='org.freedesktop.DBus'", AJ_BUS_SIGNAL_ALLOW);
 
             if (status == AJ_OK) {
                 uint8_t found_reply = FALSE;

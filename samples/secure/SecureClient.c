@@ -177,7 +177,7 @@ int AJ_Main(void)
         AJ_Message msg;
 
         if (!connected) {
-            status = AJ_StartClient(&bus, NULL, CONNECT_TIMEOUT, ServiceName, ServicePort, &sessionId, NULL);
+            status = AJ_StartClient(&bus, NULL, CONNECT_TIMEOUT, FALSE, ServiceName, ServicePort, &sessionId, NULL);
             if (status == AJ_OK) {
                 AJ_InfoPrintf(("StartClient returned %d, sessionId=%u\n", status, sessionId));
                 connected = TRUE;
