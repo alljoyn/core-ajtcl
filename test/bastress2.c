@@ -120,7 +120,7 @@ int AJ_Main()
         AJ_Message msg;
 
         if (!connected) {
-            status = AJ_StartService(&bus, NULL, CONNECT_TIMEOUT, ServicePort, ServiceName, AJ_NAME_REQ_DO_NOT_QUEUE, NULL);
+            status = AJ_StartService(&bus, NULL, CONNECT_TIMEOUT, FALSE, ServicePort, ServiceName, AJ_NAME_REQ_DO_NOT_QUEUE, NULL);
             if (status == AJ_OK) {
                 AJ_Printf("StartService returned %d\n", status);
                 connected = TRUE;

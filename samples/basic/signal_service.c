@@ -157,6 +157,7 @@ int AJ_Main(void)
             status = AJ_StartService(&busAttachment,
                                      NULL,
                                      CONNECT_TIMEOUT,
+                                     FALSE,
                                      ServicePort,
                                      ServiceName,
                                      AJ_NAME_REQ_DO_NOT_QUEUE,

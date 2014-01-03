@@ -122,7 +122,7 @@ AJ_Status AJ_RunAllJoynService(AJ_BusAttachment* bus, AllJoynConfiguration* conf
         uint32_t timeout = (uint32_t) -1;
 
         if (!connected) {
-            status = AJ_StartService2(
+            status = AJ_StartService(
                 bus,
                 config->daemonName, config->connect_timeout, config->connected,
                 config->session_port, config->service_name, config->flags, config->opts);
@@ -256,30 +256,15 @@ AJ_Status AJ_RunAllJoynService(AJ_BusAttachment* bus, AllJoynConfiguration* conf
     return AJ_OK;
 }
 
-
 AJ_Status AJ_StartService(AJ_BusAttachment* bus,
                           const char* daemonName,
                           uint32_t timeout,
+                          uint8_t connected,
                           uint16_t port,
                           const char* name,
                           uint32_t flags,
                           const AJ_SessionOpts* opts
                           )
-{
-    AJ_InfoPrintf(("AJ_StartService(daemonName=\"%s\", timeout=%d., port=%d., name=\"%s\", flags=0x%x, opts=0x%p)\n",
-                   daemonName, timeout, port, name, flags, opts));
-    return AJ_StartService2(bus, daemonName, timeout, FALSE, port, name, flags, opts);
-}
-
-AJ_Status AJ_StartService2(AJ_BusAttachment* bus,
-                           const char* daemonName,
-                           uint32_t timeout,
-                           uint8_t connected,
-                           uint16_t port,
-                           const char* name,
-                           uint32_t flags,
-                           const AJ_SessionOpts* opts
-                           )
 {
     AJ_Status status;
     AJ_Time timer;
@@ -377,25 +362,11 @@ AJ_Status AJ_StartService2(AJ_BusAttachment* bus,
 AJ_Status AJ_StartClient(AJ_BusAttachment* bus,
                          const char* daemonName,
                          uint32_t timeout,
+                         uint8_t connected,
                          const char* name,
                          uint16_t port,
                          uint32_t* sessionId,
                          const AJ_SessionOpts* opts)
-{
-    AJ_InfoPrintf(("AJ_StartClient(daemonName=\"%s\", timeout=%d., name=\"%s\", port=%d., sessionId=0x%p, opts=0x%p)\n",
-                   daemonName, timeout, name, port, sessionId, opts));
-
-    return AJ_StartClient2(bus, daemonName, timeout, FALSE, name, port, sessionId, opts);
-}
-
-AJ_Status AJ_StartClient2(AJ_BusAttachment* bus,
-                          const char* daemonName,
-                          uint32_t timeout,
-                          uint8_t connected,
-                          const char* name,
-                          uint16_t port,
-                          uint32_t* sessionId,
-                          const AJ_SessionOpts* opts)
 {
     AJ_Status status = AJ_OK;
     AJ_Time timer;

@@ -112,6 +112,7 @@ int AJ_Main(void)
             status = AJ_StartClient(&bus,
                                     NULL,
                                     CONNECT_TIMEOUT,
+                                    FALSE,
                                     ServiceName,
                                     ServicePort,
                                     &sessionId,
