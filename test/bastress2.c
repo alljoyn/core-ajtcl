@@ -186,7 +186,7 @@ int AJ_Main()
          */
         AJ_CloseMsg(&msg);
 
-        if (status == AJ_ERR_READ) {
+        if ((status == AJ_ERR_READ) || (status == AJ_ERR_LINK_DEAD)) {
             AJ_Printf("AllJoyn disconnect\n");
             AJ_Disconnect(&bus);
             connected = FALSE;

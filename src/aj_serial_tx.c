@@ -394,9 +394,15 @@ static void QueueReliable(TxPkt volatile* pkt)
 AJ_Status AJ_SerialSend(uint8_t* buffer,
                         uint16_t bufLen)
 {
+    AJ_Status status = AJ_OK;
     uint16_t len = bufLen;
 
     while (len) {
+        if (AJ_SerialLinkParams.linkState == AJ_LINK_DEAD) {
+            status = AJ_ERR_LINK_DEAD;
+            break;
+        }
+
         // wait until there is space to send a packet.
         if (!txFreeList || AJ_SerialLinkParams.linkState != AJ_LINK_ACTIVE) {
             AJ_StateMachine();
@@ -418,7 +424,7 @@ AJ_Status AJ_SerialSend(uint8_t* buffer,
             len -= num;
         }
     }
-    return AJ_OK;
+    return status;
 }
 
 

@@ -206,7 +206,7 @@ int AJ_Main(void)
          */
         AJ_CloseMsg(&msg);
 
-        if (status == AJ_ERR_SESSION_LOST) {
+        if ((status == AJ_ERR_SESSION_LOST) || (status == AJ_ERR_READ) || (status == AJ_ERR_LINK_DEAD)) {
             AJ_Printf("AllJoyn disconnect\n");
             AJ_Printf("Disconnected from Daemon:%s\n", AJ_GetUniqueName(&bus));
             AJ_Disconnect(&bus);

@@ -41,7 +41,12 @@
 uint8_t dbgSERIAL = 0;
 #endif
 
-#define SLAP_VERSION 0
+#define SLAP_VERSION 1
+
+/**
+ * SLAP added a disconnect feature in version 1
+ */
+const uint8_t SLAP_VERSION_DISCONNECT_FEATURE = 1;
 
 /**
  * global variable for link parameters
@@ -51,12 +56,17 @@ AJ_LinkParameters AJ_SerialLinkParams;
 /**
  * controls rate at which we send synch packets when the link is down in milliseconds
  */
-#define CONN_TIMEOUT   1000
+const uint32_t CONN_TIMEOUT = 200;
 
 /**
  * controls how long we will wait for a confirmation packet after we synchronize in milliseconds
  */
-#define NEGO_TIMEOUT   1000
+const uint32_t NEGO_TIMEOUT = 200;
+
+/**
+ * controls how long we will send disconnect packet when the application is closing the link in milliseconds
+ */
+const uint32_t DISC_TIMEOUT = 200;
 
 
 #define LINK_PACKET_SIZE    4
@@ -69,7 +79,9 @@ typedef enum {
     ACPT_PKT,
     NEGO_PKT,
     NRSP_PKT,
-    RESU_PKT
+    RESU_PKT,
+    DISC_PKT,
+    DRSP_PKT
 } LINK_PKT_TYPE;
 
 
@@ -81,6 +93,8 @@ static const char AcptPkt[LINK_PACKET_SIZE] = "ACPT";
 static const char NegoPkt[LINK_PACKET_SIZE] = "NEGO";
 static const char NrspPkt[LINK_PACKET_SIZE] = "NRSP";
 static const char ResuPkt[LINK_PACKET_SIZE] = "RESU";
+static const char DiscPkt[LINK_PACKET_SIZE] = "DISC";
+static const char DrspPkt[LINK_PACKET_SIZE] = "DRSP";
 
 /**
  * Time to send the LinkPacket
@@ -219,12 +233,24 @@ static void SendLinkPacket()
         ScheduleLinkControlPacket(NEGO_TIMEOUT);
         break;
 
-    case AJ_LINK_ACTIVE:
+    case AJ_LINK_DYING:
+        /*
+         * only send a DISC packet to daemons that understand them.
+         */
+        if (AJ_SerialLinkParams.protoVersion >= SLAP_VERSION_DISCONNECT_FEATURE) {
+            AJ_SerialTX_EnqueueCtrl((uint8_t*) DiscPkt, sizeof(DiscPkt), AJ_SERIAL_CTRL);
+            AJ_InfoPrintf(("Send DISC\n"));
+            ScheduleLinkControlPacket(DISC_TIMEOUT);
+            break;
+        }
+
+    default:
         /**
          * Do nothing. No more link control packets to be sent.
          */
         ScheduleLinkControlPacket(AJ_TIMER_FOREVER);
         break;
+
     }
 }
 
@@ -263,6 +289,10 @@ static LINK_PKT_TYPE ClassifyPacket(uint8_t* buffer, uint16_t bufLen)
         return NRSP_PKT;
     } else if (0 == memcmp(buffer, ResuPkt, sizeof(ResuPkt))) {
         return RESU_PKT;
+    } else if (0 == memcmp(buffer, DiscPkt, sizeof(DiscPkt))) {
+        return DISC_PKT;
+    } else if (0 == memcmp(buffer, DrspPkt, sizeof(DrspPkt))) {
+        return DRSP_PKT;
     }
 
     return UNKNOWN_PKT;
@@ -274,7 +304,7 @@ void AJ_Serial_LinkPacket(uint8_t* buffer, uint16_t len)
     LINK_PKT_TYPE pktType = ClassifyPacket(buffer, len);
 
     if (pktType == UNKNOWN_PKT) {
-        AJ_Printf("Unknown link packet type %x\n", (int) pktType);
+        AJ_WarnPrintf(("Unknown link packet type %x\n", (int) pktType));
         return;
     }
 
@@ -287,7 +317,7 @@ void AJ_Serial_LinkPacket(uint8_t* buffer, uint16_t len)
         if (pktType == CONN_PKT) {
             AJ_SerialTX_EnqueueCtrl((uint8_t*) AcptPkt, sizeof(AcptPkt), AJ_SERIAL_CTRL);
         } else if (pktType == ACPT_PKT) {
-            AJ_Printf("Received sync response - moving to LINK_INITIALIZED\n");
+            AJ_InfoPrintf(("Received sync response - moving to LINK_INITIALIZED\n"));
             AJ_SerialLinkParams.linkState = AJ_LINK_INITIALIZED;
             SendNegotiationPacket(NegoPkt);
         }
@@ -305,7 +335,7 @@ void AJ_Serial_LinkPacket(uint8_t* buffer, uint16_t len)
             ProcessNegoPacket(buffer);
             SendNegotiationPacket(NrspPkt);
         } else if (pktType == NRSP_PKT) {
-            AJ_Printf("Received nego response - Moving to LINK_ACTIVE\n");
+            AJ_InfoPrintf(("Received nego response - Moving to LINK_ACTIVE\n"));
             AJ_SerialLinkParams.linkState = AJ_LINK_ACTIVE;
 
             // update the timeout values now that the link is active
@@ -320,14 +350,40 @@ void AJ_Serial_LinkPacket(uint8_t* buffer, uint16_t len)
         if (pktType == NEGO_PKT) {
             ProcessNegoPacket(buffer);
             SendNegotiationPacket(NrspPkt);
+        } else if (pktType == CONN_PKT) {
+            // got a connection after active, so the link must have gone down without our knowledge
+            AJ_WarnPrintf(("Received CONN while in active state - Moving to LINK_DEAD\n"));
+            AJ_SerialLinkParams.linkState = AJ_LINK_DEAD;
+        } else if (pktType == DISC_PKT) {
+            // received a disconnect packet, move to link dying state.
+            AJ_WarnPrintf(("Received DISC while in active state - other side is going away.\n"));
+            AJ_SerialTX_EnqueueCtrl((uint8_t*) DrspPkt, sizeof(DrspPkt), AJ_SERIAL_CTRL);
+            AJ_SerialLinkParams.linkState = AJ_LINK_DYING;
         }
         break;
+
+    case AJ_LINK_DYING:
+        if (pktType == DISC_PKT) {
+            // simultaneous DISC while in dying state, send a DRSP to cleanly shutdown the other side.
+            AJ_WarnPrintf(("Received DISC while in dying state.\n"));
+            AJ_SerialLinkParams.linkState = AJ_LINK_DEAD;
+            AJ_SerialTX_EnqueueCtrl((uint8_t*) DrspPkt, sizeof(DrspPkt), AJ_SERIAL_CTRL);
+        } else if (pktType == DRSP_PKT) {
+            AJ_WarnPrintf(("Received DRSP while in dying state - other side knows we are going away.\n"));
+            AJ_SerialLinkParams.linkState = AJ_LINK_DEAD;
+        }
+        break;
+
+    case AJ_LINK_DEAD:
+        break;
+
+
     }
 
     /*
      * Ignore any other packets.
      */
-    AJ_Printf("Discarding link packet %d\n", pktType);
+    AJ_ErrPrintf(("Discarding link packet %d in state %d\n", pktType, AJ_SerialLinkParams.linkState));
 }
 
 AJ_Status AJ_SerialInit(const char* ttyName,
@@ -438,6 +494,29 @@ void ClearSlippedBuffer(volatile AJ_SlippedBuffer* buf)
         AJ_Free(buf->buffer);
         buf = buf->next;
         AJ_Free((void*) prev);
+    }
+}
+
+void AJ_SerialDisconnect(void)
+{
+    AJ_Time start, now;
+    AJ_InitTimer(&start);
+
+    if (AJ_SerialLinkParams.linkState != AJ_LINK_DEAD) {
+        AJ_SerialLinkParams.linkState = AJ_LINK_DYING;
+        ScheduleLinkControlPacket(DISC_TIMEOUT);
+
+        // Run the state machine up to 4 timeouts to wait for DRSP packets
+        do {
+            AJ_StateMachine();
+            AJ_InitTimer(&now);
+        } while (AJ_SerialLinkParams.linkState != AJ_LINK_DEAD && AJ_GetTimeDifference(&now, &start) < DISC_TIMEOUT * 4);
+
+        if (AJ_SerialLinkParams.linkState != AJ_LINK_DEAD) {
+            AJ_InfoPrintf(("serial link wasn't gracefully disconnected\n"));
+            AJ_SerialLinkParams.linkState = AJ_LINK_DEAD;
+        }
+
     }
 }
 

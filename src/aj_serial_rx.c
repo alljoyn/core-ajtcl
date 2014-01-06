@@ -297,6 +297,10 @@ AJ_Status AJ_SerialRecv(uint8_t* buffer,
     AJ_TimeAddOffset(&readTimeoutTimeStamp, timeout);
     AJ_InitTimer(&now);
     while (len && (AJ_CompareTime(readTimeoutTimeStamp, now) > 0)) {
+        if (AJ_SerialLinkParams.linkState == AJ_LINK_DEAD) {
+            status = AJ_ERR_LINK_DEAD;
+            break;
+        }
         /*
          * Fill as many packets as we can
          */

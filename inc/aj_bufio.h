@@ -49,6 +49,7 @@ typedef AJ_Status (*AJ_TxFunc)(struct _AJ_IOBuffer* buf);
  *         - AJ_ERR_RESOURCES if there isn't enough room in the buffer to read len bytes. The buffer
  *           will contain the bytes actually read so this is not a fatal error.
  *         - AJ_ERR_READ the read failed irrecoverably
+ *         - AJ_ERR_LINK_DEAD the network link is dead
  */
 typedef AJ_Status (*AJ_RxFunc)(struct _AJ_IOBuffer* buf, uint32_t len, uint32_t timeout);
 

@@ -168,6 +168,10 @@ const char* AJ_StatusText(AJ_Status status)
         AJ_CASE(AJ_ERR_DRIVER);
         AJ_CASE(AJ_ERR_OBJECT_PATH);
         AJ_CASE(AJ_ERR_BUSY);
+        AJ_CASE(AJ_ERR_DHCP);
+        AJ_CASE(AJ_ERR_ACCESS);
+        AJ_CASE(AJ_ERR_SESSION_LOST);
+        AJ_CASE(AJ_ERR_LINK_DEAD);
 
     default:
         return "<unknown>";
