@@ -237,7 +237,7 @@ AJ_Status AJ_RunAllJoynService(AJ_BusAttachment* bus, AllJoynConfiguration* conf
          */
         AJ_CloseMsg(&msg);
 
-        if (status == AJ_ERR_READ) {
+        if ((status == AJ_ERR_READ) || (status == AJ_ERR_LINK_DEAD)) {
             AJ_InfoPrintf(("AJ_RunAllJoynService(): AJ_Disconnect(): daemon \"%s\"\n", AJ_GetUniqueName(bus)));
             AJ_Disconnect(bus);
             connected = FALSE;

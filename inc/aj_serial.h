@@ -74,7 +74,9 @@
 typedef enum {
     AJ_LINK_UNINITIALIZED,
     AJ_LINK_INITIALIZED,
-    AJ_LINK_ACTIVE
+    AJ_LINK_ACTIVE,
+    AJ_LINK_DYING,
+    AJ_LINK_DEAD
 } AJ_LinkState;
 
 /**
@@ -199,6 +201,12 @@ AJ_Status AJ_SerialRecv(uint8_t* buffer,
                         uint16_t len,
                         uint32_t timeout,
                         uint16_t* recv);
+
+/**
+ * This function disconnects the serial transport layer.
+ *
+ */
+void AJ_SerialDisconnect(void);
 
 #endif /* AJ_SERIAL_CONNECTION */
 #endif /* _AJ_SERIAL_H */
