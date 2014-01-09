@@ -1,7 +1,7 @@
 #ifndef _AJ_DEBUG_H
 #define _AJ_DEBUG_H
 /******************************************************************************
- * Copyright (c) 2012-2013, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2012-2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -17,80 +17,148 @@
  ******************************************************************************/
 
 /**
- * @defgroup aj_debug Debug Logging
- * @{
  * @file aj_debug.h
  * This file contains the debug logging support for the Thin Client.
  *
- * The Thin Client runs on very disparate devices.  We provide off-target
- * development environments such as Linux and Windows to allow development of
- * thin client applications.  These environments have a relatively large amount
- * of resources available to dedicate to ease of debugging (which is the reason
- * one would run in those environments in the first place).  When Thin Client
- * applications are run on target, they run in very restrictive environments
- * where rich debug logging support may not be possible or desirable.  The debug
- * logging module allows capable targets to provide convenient debug logging
- * functions that are easily configured by shell environment variable; and it
- * allows for similar configuration via target memory global variables.  In
- * extremely constrained targets that simply cannot afford the memory for log
- * strings, the debug logging facility can be completely disabled or enabled
- * selectively per-module if desired.
+ * @defgroup aj_debug Debug Logging
  *
- * At the highest level, if NDEBUG is defined, the entire debug logging module is
- * disabled and no resources will be dedicated to debug support.
+ * @brief The debug logging module provides structured support for what is
+ * sometimes called "printf debugging" or "debug tracing."  As in most such
+ * facilities, support for different levels of verbosity is provided.  Since a
+ * Thin Client program can be run on different devices with very different
+ * capabilities, the debug logging module allows for convenient and verbose
+ * debug logging on off-target (desktop-like) platforms; and it provides the
+ * ability to constrain debug logging in on-target (embedded system) platforms.
+ * Because debug logging needs to work in both desktop and embedded environments
+ * there are a few more "knobs" than one might expect.  The next sections
+ * describe how to quickly enable debug output and then continues to explain how
+ * to configure debug logging in more detail on platforms of different
+ * capabilities.
  *
- * A slightly finer grain control is accomplished by controlling the definition
- * of the macro AJ_DEBUG_RESTRICT.  There are five levels of debug output
- * currently defined: AJ_DEBUG_OFF, AJ_DEBUG_ERROR, AJ_DEBUG_WARN,
- * AJ_DEBUG_INFO, AJ_DEBUG_DUMP and AJ_DEBUG_ALL.  See the documentation for
- * each of these macros for definitions.  If NDEBUG is not defined,
- * AJ_DEBUG_RESTRICT allows one to control which debug strings are compiled into
- * the codebase and are therefore printed.  If, for example, one is running on a
- * target whcih cannot store all debug strings, one might want to define
- * AJ_DEBUG_RESTRICT as AJ_DEBUG_WARN which would only compile and print error
- * messages across all modules.  AJ_DEBUG_RESTRICT defaults to AJ_DEBUG_INFO
- * which only allows warning and error messages to be compiled.  This is to
- * avoid intruducing large numbers of strings in the default case.
+ * @section aj_debug_qs Quick Start
  *
- * If NDEBUG is not defined, and AJ_DEBUG_RESTRICT allows some debug logging to
- * be compiled, the next level of granularity is a per-module enable.  In the
- * Thin Client, a module essentially corresponds to a source file.  For example,
- * the file aj_bus.h has a defgroup in doxygen to associate it with the aj_bus
- * documentation module.  Similarly the file aj_bus.c defines AJ_MODULE as BUS
- * delaring that the current module is called BUS.  The per-module granularity
- * of debug logging depends on those definitions.
+ * To enable all debug logging from all modules, open inc/aj_debug.h in your
+ * favorite editor and change the definition of @c AJ_DEBUG_RESTRICT to:
  *
- * Since writing and debugging of Thin Client programs is expected to happen on
- * off-target platforms, we want to provide easy-to-use mechanisms that can be
- * used to turn debugging on and off.  We chose to do this in a way similar to
- * the standard client.  We use ER_DEBUG_ environment variables.
+ * @code
+ *     #define AJ_DEBUG_RESTRICT AJ_DEBUG_ALL
+ * @endcode
  *
- * If NDEBUG is not defined and AJ_DEBUG_RESTRICT allows, error and warning
- * messages are always printed.  If one does the shell equivalent of "export
- * ER_DEBUG_ALL=1" then all messages will be printed.  Note that the value "1"
- * in the environment variable means enable and "0" means disable.  We do not
- * encode the restriction level in environment variables since AJ_DEBUG_RESTRICT
- * compiles the code in or out.
+ * Open src/aj_debug.c in your favorite editor and set the initial value of the
+ * verbosity setting @c AJ_DbgLevel to:
  *
- * Again, similarly to the standard client, if one does the shell equivalent of
- * ER_DEBUG_<module name> then debug logging for the specified module is
- * enabled.  For example, to get informational messages from aj_bus.c, one would
- * enable loging on the corresponding module using "export ER_DEBUG_BUS=1" (on
- * Linux).  Disabling logging would be done by setting the appropriate environment
- * variable value to zero (e.g., "export ER_DEBUG_BUS=0").
+ * @code
+ *     AJ_DebugLevel AJ_DbgLevel = AJ_DEBUG_ALL;
+ * @endcode
  *
- * If, however, one moves to a target platform proper, chances are that there
- * will be no shell and no environment variables -- another mechanism is
- * required.  In that case, for each AJ_MODULE definition, there is a
- * corresponding global variable that is named dbg<module name>.  For example,
- * the case of the file aj_bus.c, the corresponding module is BUS, and therefore
- * there will be a global variable (uint8_t) named dbgBUS that will control the
- * debug output exactly as the ER_DEBUG_BUS environment variable did (there is
- * also a variable dbgALL that corresponds to the ER_DEBUG_ALL variable).  In
- * order to enable ALL logging using this mechanism, one would (in the case of gdb)
- * "set dbgALL=1".  In order to enable logging in aj_bus.c, one would set the
- * dbgBUS global variable to 1.  Disabling logging would be done by setting the
- * appropriate global variable value to zero (e.g., "set dbgALL=0").
+ * If you want to enable logging from all modules, change the initial value of
+ * @c dbgALL in src/aj_debug.c to:
+ *
+ * @code
+ *     uint8_t dbgALL = 1;
+ * @endcode
+ *
+ * After the changes are made, do a debug build (NDEBUG must be set to false to
+ * allow any logging above the warning level).  Debug logging will now be
+ * enabled for all modules.  When a Thin Client program is run, the system will
+ * begin logging debug messages to the device console formatted as:
+ *
+ * @code
+ *     seconds.milliseconds filename:line-number messsage
+ * @endcode
+ *
+ * If you find the logging from all modules to be too verbose, you can enable
+ * logging from specific modules.  In this case, leave @c dbgALL set to zero and
+ * enable logging for each module individually.  For a module named @c MODULE
+ * change the initial value of the variable @c dbgMODULE in src/aj_MODULE.c to
+ * nonzero.  For example, to enable logging in the CONNECT module, change the
+ * variable @c dbgCONNECT in src/aj_connect.c to:
+ *
+ * @code
+ *     uint8_t dbgCONNECT = 1;
+ * @endcode
+ *
+ * @note Setting @c dbgALL or @c dbgCONNECT may be done by changing the variable
+ * in memory using a debugger at runtime instead of by hardcoding as shown here.
+ *
+ * @section aj_debug_env Enabling Debug Logging Using Environment Variables
+ *
+ * On targets that support it (for example Linux or Windows), debug logging may
+ * also enabled using environment variables.  Instead of setting a memory variable
+ * named as @c dbgMODULE one can set a corresponding environment variable named as
+ * @c ER_DEBUG_MODULE.  If one wanted to enable debug logging in the CONNECT module
+ * as done in the @ref aj_debug_qs section, one would set the environment variable
+ * for the CONNECT module:
+ *
+ * @code
+ *     export ER_DEBUG_CONNECT=1
+ * @endcode
+ *
+ * @note There is an environment variable corresponding to the @c dbgALL memory
+ * variable.  to enable logging on @c ALL modules, simply set the @c
+ * ER_DEBUG_ALL environment variable.
+ *
+ * @section aj_debug_ver Changing Verbosity of Debug Logging
+ *
+ * Often, the amount of debug logging printed can be quite large.  To minimize
+ * the amount of "debug spew" it is possible to control the verbosity of the
+ * debug output.  This is done by changing the value of the memory variable @c
+ * AJ_DbgLevel.
+ *
+ * There are several different levels of verbosity: @par
+ * @ref AJ_DEBUG_OFF @par
+ * @ref AJ_DEBUG_ERROR @par
+ * @ref AJ_DEBUG_WARN @par
+ * @ref AJ_DEBUG_INFO @par
+ * @ref AJ_DEBUG_DUMP @par
+ * @ref AJ_DEBUG_ALL @par
+ *
+ * To use this feature, set the variable @c AJ_DbgLevel either by hardcoding in
+ * src/aj_debug.c or by setting the memory variable using a debugger.  Think of
+ * this value as enabling messages of the specified verbosity and lesser.  For
+ * example, in order to enable error, warning and informational messages, go to
+ * src/aj_debug.c and set the initial value of @c AJ_DbgLevel to:
+ *
+ * @code
+ *    AJ_DebugLevel AJ_DbgLevel = AJ_DEBUG_INFO;
+ * @endcode
+ *
+ * @note Again, one can set AJ_DbgLevel in the debugger to dynamically control the
+ * verbosity of logging at runtime.
+ *
+ * @section aj_debug_com Restricting Compilation of Debug Logging
+ *
+ * It is possible that some target environments are restricted to such a degree that
+ * it is not possible to store all of the strings required for the various log
+ * statements in memory.  To accommodate such environments a @c RESTRICT mechanism
+ * is provided.  This restriction mechanism is controlled by the definition of
+ * @c AJ_DEBUG_RESTRICT in the inc/aj_debug.h header file.
+ *
+ * The same verbosity levels are used in the @c RESTRICT mechanism as were shown
+ * in the @ref aj_debug_ver section, but the meaning is different.  Think of the
+ * definition of AJ_DEBUG_RESTRICT as meaning, restrict messages of levels
+ * greater than the specified level from even being compiled into the code.  The
+ * default value of AJ_DEBUG_RESTRICT is given as AJ_DEBUG_WARN so by default
+ * only error and warning messages will be logged.  Messages of AJ_DEBUG_INFO
+ * level and greater are not compiled into the code by default.  In the @ref
+ * aj_debug_qs section, AJ_DEBUG_RESTRICT was set to AJ_DEBUG_ALL to allow all
+ * messages to be compiled into the code so they could be logged.
+ *
+ * Typically, if one is running on a platform that has enough memory to
+ * accommodate all of the log messages one would change AJ_DEBUG_RESTRICT to
+ * AJ_DEBUG_ALL and simply leave it along.  The usefulness of this definition is
+ * when the target cannot accommodate all of the strings.  In that case, it may
+ * be useful to relax the restriction on a per-module basis to enable subsets of
+ * logging when required.  To accomplish this, one would leave AJ_DEBUG_RESTRICT
+ * set to AJ_DEBUG_INFO in inc/aj_debug.h and add the following code to the
+ * source file of the module where logging was to be enabled before inclusion of
+ * aj_debug.h:
+ *
+ * @code
+ *     #define AJ_DEBUG_RESTRICT AJ_DEBUG_ALL
+ * @endcode
+ *
+ * @{
  */
 
 #include "aj_target.h"
@@ -108,7 +176,7 @@
 void _AJ_DumpMsg(const char* tag, AJ_Message* msg, uint8_t body);
 
 /**
- * Dump raw data
+ * Dump raw (byte) data in a convenient format.
  *
  * @param tag       tag name of message
  * @param data      start addres to dump
@@ -116,35 +184,36 @@ void _AJ_DumpMsg(const char* tag, AJ_Message* msg, uint8_t body);
  */
 void _AJ_DumpBytes(const char* tag, const uint8_t* data, uint32_t len);
 
-/**
- * Threshold levels for debug ouput.  Works in conjunction with AJ_DEBUG_RESTRICT
+/*
+ * Threshold level for debug ouput.  When used with AJ_DbgLevel the setting
+ * controls which debug messages are actually printed.  These values are also
+ * used in the AJ_DEBUG_RESTRICT mechanism to control which log messages are
+ * actually compiled into the code.
  */
 #define AJ_DEBUG_OFF   0  /**< Supresses all debug output */
-#define AJ_DEBUG_ERROR 1  /**< Only display debug messages at the error level */
-#define AJ_DEBUG_WARN  2  /**< Display warning and error messages */
-#define AJ_DEBUG_INFO  3  /**< Display info, warning, and error messages */
-#define AJ_DEBUG_DUMP  4  /**< Display byte-by-byte dumps */
-#define AJ_DEBUG_ALL   5  /**< A placeholder level for AJ_DEBUG_RESTRICT */
+#define AJ_DEBUG_ERROR 1  /**< Indicates a log message conveying an error condition */
+#define AJ_DEBUG_WARN  2  /**< Indicates a log message corresponding to a warning */
+#define AJ_DEBUG_INFO  3  /**< Incicates a log message with general information */
+#define AJ_DEBUG_DUMP  4  /**< Indicates a message with a detailed, possibly byte-by-byte dump */
+#define AJ_DEBUG_ALL   5  /**< A placeholder level above other levels */
 
+/**
+ * Type definition for a value used to control the debug level (verbosity)
+ * threshold.
+ */
 typedef uint32_t AJ_DebugLevel;
 
 /**
  * We allow the verbosity of debug output to be controlled programatically using
- * threshold levels defined above.  The macro AJ_DEBUG_RESTRICT is used in the sense
- * of restricting (not compiling in) messages of the given verbosity and above.
+ * predefined AJ_DEBUG_* threshold levels.  The macro AJ_DEBUG_RESTRICT is used
+ * in the sense of restricting (not compiling in) messages with verbosity levels
+ * greater than the given level.
  *
- * By default, all messages of all verbosity above info are not compiled into the
- * code (by definining AJ_DEBUG_RESTRICT to be AJ_DEBUG_INFO).
- *
- * It may be the case that your platform which can absorb the added overhead of
- * large numbers of debug strings.  For this case, redefine the macro
- * AJ_DEBUG_RESTRICT to, for example, AJ_DEBUG_ALL to compile in all debug
- * messages into the code.
- *
- * If desired this variable can be set per-file.
+ * By default, all messages of all verbosity at info level and above are not
+ * compiled into the code (by definining AJ_DEBUG_RESTRICT to be AJ_DEBUG_WARN).
  */
 #ifndef AJ_DEBUG_RESTRICT
-#define AJ_DEBUG_RESTRICT AJ_DEBUG_INFO
+#define AJ_DEBUG_RESTRICT AJ_DEBUG_WARN
 #endif
 
 /**
@@ -169,6 +238,17 @@ int _AJ_DbgHeader(AJ_DebugLevel level, const char* file, int line);
 
 #define CONCAT(x, y) x ## y
 #define MKVAR(x, y) CONCAT(x, y)
+
+/**
+ * Always print a message in a fashion similar to other conditional log outputs.
+ * Do not include time stamp, file and line number.
+ *
+ * @param msg  A format string and arguments
+ */
+#define AJ_AlwaysPrintf(msg) \
+    do { \
+        AJ_Printf msg; \
+    } while (0)
 
 #if AJ_DEBUG_RESTRICT >= AJ_DEBUG_ERROR
 /**
