@@ -473,7 +473,6 @@ static AJ_Status WriteBytes(AJ_Message* msg, const void* data, size_t numBytes, 
  */
 #define WritePad(msg, pad) WriteBytes(msg, NULL, 0, pad)
 
-
 AJ_Status AJ_CloseMsg(AJ_Message* msg)
 {
     AJ_Status status = AJ_OK;
@@ -801,6 +800,14 @@ AJ_Status AJ_UnmarshalMsg(AJ_BusAttachment* bus, AJ_Message* msg, uint32_t timeo
     msg->msgId = AJ_INVALID_MSG_ID;
     msg->bus = bus;
     /*
+     * Check that the read pointer is within the bounds of the recv buffer
+     */
+    if ((ioBuf->readPtr < ioBuf->bufStart) || (ioBuf->readPtr > (ioBuf->bufStart + ioBuf->bufSize))) {
+        AJ_ErrPrintf(("AJ_UnmarshalMsg(): Read pointer out of bounds: AJ_ERR_IO_BUFFER\n"));
+        status = AJ_ERR_IO_BUFFER;
+        return status;
+    }
+    /*
      * Move any unconsumed data to the start of the I/O buffer
      */
     AJ_IOBufRebase(ioBuf, 0);
@@ -840,10 +847,18 @@ AJ_Status AJ_UnmarshalMsg(AJ_BusAttachment* bus, AJ_Message* msg, uint32_t timeo
         return AJ_ERR_READ;
     }
     /*
-     * Endian swap header info - conventiently they are contiguous in the header
+     * Endian swap header info - conveniently they are contiguous in the header
      */
     EndianSwap(msg, AJ_ARG_INT32, &msg->hdr->bodyLen, 3);
     msg->bodyBytes = msg->hdr->bodyLen;
+    /*
+     * Make sure the header isn't going to overrun the buffer
+     * and that the total header length doesn't overflow.
+     */
+    if (msg->hdr->headerLen > (ioBuf->bufSize - sizeof(AJ_MsgHeader))) {
+        AJ_ErrPrintf(("AJ_UnmarshalMsg(): Header was too large: AJ_ERR_HDR_CORRUPT\n"));
+        return AJ_ERR_HDR_CORRUPT;
+    }
     /*
      * The header is null padded to an 8 bytes boundary
      */
@@ -881,6 +896,7 @@ AJ_Status AJ_UnmarshalMsg(AJ_BusAttachment* bus, AJ_Message* msg, uint32_t timeo
      * We have the header in the buffer now we can unmarshal the header fields
      */
     endOfHeader = ioBuf->bufStart + sizeof(AJ_MsgHeader) + msg->hdr->headerLen;
+
     while (ioBuf->readPtr < endOfHeader) {
         const char* fieldSig;
         uint8_t fieldId;
@@ -984,6 +1000,10 @@ AJ_Status AJ_UnmarshalMsg(AJ_BusAttachment* bus, AJ_Message* msg, uint32_t timeo
         AJ_Free(hdrRaw);
         hdrRaw = NULL;
     }
+    if (ioBuf->readPtr != endOfHeader) {
+        AJ_ErrPrintf(("AJ_UnmarshalMsg(): AJ_ERR_HDR_CORRUPT\n"));
+        return AJ_ERR_HDR_CORRUPT;
+    }
     if (status == AJ_OK) {
         AJ_ASSERT(ioBuf->readPtr == endOfHeader);
         /*
@@ -1027,7 +1047,6 @@ AJ_Status AJ_UnmarshalMsg(AJ_BusAttachment* bus, AJ_Message* msg, uint32_t timeo
         AJ_DumpMsg("DISCARDING", msg, FALSE);
         AJ_CloseMsg(msg);
     }
-
     return status;
 }
 
