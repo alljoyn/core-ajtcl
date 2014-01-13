@@ -308,7 +308,7 @@ AJ_Status AJ_StartService2(AJ_BusAttachment* bus,
          * Kick things off by binding a session port
          */
         AJ_InfoPrintf(("AJ_StartService2(): AJ_BindSessionPort()\n"));
-        status = AJ_BusBindSessionPort(bus, port, opts);
+        status = AJ_BusBindSessionPort(bus, port, opts, 0);
         if (status == AJ_OK) {
             break;
         }
@@ -356,7 +356,7 @@ AJ_Status AJ_StartService2(AJ_BusAttachment* bus,
                 status = AJ_ERR_FAILURE;
             } else {
                 AJ_InfoPrintf(("AJ_StartService2(): AJ_BusAdvertiseName()\n"));
-                status = AJ_BusAdvertiseName(bus, name, AJ_TRANSPORT_ANY, AJ_BUS_START_ADVERTISING);
+                status = AJ_BusAdvertiseName(bus, name, AJ_TRANSPORT_ANY, AJ_BUS_START_ADVERTISING, 0);
             }
             break;
 

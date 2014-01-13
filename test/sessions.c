@@ -242,7 +242,7 @@ int AJ_Main()
                 }
                 token = strtok(NULL, " \r\n");
                 if (token) transport = (uint16_t)atoi(token);
-                status = AJ_BusAdvertiseName(&bus, name, transport, AJ_BUS_START_ADVERTISING);
+                status = AJ_BusAdvertiseName(&bus, name, transport, AJ_BUS_START_ADVERTISING, 0);
             } else if (0 == strcmp("canceladvertise", command)) {
                 uint16_t transport = 0xFFFF;
                 char* token = NULL;
@@ -254,7 +254,7 @@ int AJ_Main()
 
                 token = strtok(NULL, " \r\n");
                 if (token) transport = (uint16_t)atoi(token);
-                status = AJ_BusAdvertiseName(&bus, name, transport, AJ_BUS_STOP_ADVERTISING);
+                status = AJ_BusAdvertiseName(&bus, name, transport, AJ_BUS_STOP_ADVERTISING, 0);
             } else if (0 == strcmp("bind", command)) {
                 AJ_SessionOpts opts;
                 uint16_t port = 0;
@@ -280,7 +280,7 @@ int AJ_Main()
                 if (token) opts.transports = atoi(token);
                 else opts.transports = 0xFFFF;
 
-                status = AJ_BusBindSessionPort(&bus, port, &opts);
+                status = AJ_BusBindSessionPort(&bus, port, &opts, 0);
             } else if (0 == strcmp("unbind", command)) {
                 uint16_t port = 0;
                 char* token = strtok(NULL, " \r\n");

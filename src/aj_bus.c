@@ -83,7 +83,7 @@ AJ_Status AJ_BusReleaseName(AJ_BusAttachment* bus, const char* name)
     return status;
 }
 
-AJ_Status AJ_BusAdvertiseName(AJ_BusAttachment* bus, const char* name, uint16_t transportMask, uint8_t op)
+AJ_Status AJ_BusAdvertiseName(AJ_BusAttachment* bus, const char* name, uint16_t transportMask, uint8_t op, uint8_t flags)
 {
     AJ_Status status;
     AJ_Message msg;
@@ -91,7 +91,7 @@ AJ_Status AJ_BusAdvertiseName(AJ_BusAttachment* bus, const char* name, uint16_t 
 
     AJ_InfoPrintf(("AJ_BusAdvertiseName(bus=0x%p, name=\"%s\", transportMask=0x%x, op=%d.)\n", bus, name, transportMask, op));
 
-    status = AJ_MarshalMethodCall(bus, &msg, msgId, AJ_BusDestination, 0, 0, AJ_METHOD_TIMEOUT);
+    status = AJ_MarshalMethodCall(bus, &msg, msgId, AJ_BusDestination, 0, flags, AJ_METHOD_TIMEOUT);
     if (status == AJ_OK) {
         status = AJ_MarshalArgs(&msg, "sq", name, transportMask);
     }
@@ -163,7 +163,7 @@ static const AJ_SessionOpts defaultSessionOpts = {
     FALSE
 };
 
-AJ_Status AJ_BusBindSessionPort(AJ_BusAttachment* bus, uint16_t port, const AJ_SessionOpts* opts)
+AJ_Status AJ_BusBindSessionPort(AJ_BusAttachment* bus, uint16_t port, const AJ_SessionOpts* opts, uint8_t flags)
 {
     AJ_Status status;
     AJ_Message msg;
@@ -173,7 +173,7 @@ AJ_Status AJ_BusBindSessionPort(AJ_BusAttachment* bus, uint16_t port, const AJ_S
     if (!opts) {
         opts = &defaultSessionOpts;
     }
-    status = AJ_MarshalMethodCall(bus, &msg, AJ_METHOD_BIND_SESSION_PORT, AJ_BusDestination, 0, 0, AJ_METHOD_TIMEOUT);
+    status = AJ_MarshalMethodCall(bus, &msg, AJ_METHOD_BIND_SESSION_PORT, AJ_BusDestination, 0, flags, AJ_METHOD_TIMEOUT);
     if (status == AJ_OK) {
         AJ_MarshalArgs(&msg, "q", port);
         status = MarshalSessionOpts(&msg, opts);

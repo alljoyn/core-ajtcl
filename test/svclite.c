@@ -265,7 +265,7 @@ int AJ_Main(void)
                     AJ_UnmarshalArgs(&msg, "uu", &id, &reason);
                     AJ_InfoPrintf(("Session lost. ID = %u, reason = %u", id, reason));
                     if (CancelAdvertiseName) {
-                        status = AJ_BusAdvertiseName(&bus, ServiceName, AJ_TRANSPORT_ANY, AJ_BUS_START_ADVERTISING);
+                        status = AJ_BusAdvertiseName(&bus, ServiceName, AJ_TRANSPORT_ANY, AJ_BUS_START_ADVERTISING, 0);
                     }
                     status = AJ_ERR_SESSION_LOST;
                 }
@@ -273,7 +273,7 @@ int AJ_Main(void)
 
             case AJ_SIGNAL_SESSION_JOINED:
                 if (CancelAdvertiseName) {
-                    status = AJ_BusAdvertiseName(&bus, ServiceName, AJ_TRANSPORT_ANY, AJ_BUS_STOP_ADVERTISING);
+                    status = AJ_BusAdvertiseName(&bus, ServiceName, AJ_TRANSPORT_ANY, AJ_BUS_STOP_ADVERTISING, 0);
                 }
                 break;
 
