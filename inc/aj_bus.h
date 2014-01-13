@@ -118,7 +118,7 @@ AJ_Status AJ_BusReleaseName(AJ_BusAttachment* bus, const char* name);
  *         - An error status otherwise
  */
 AJ_EXPORT
-AJ_Status AJ_BusAdvertiseName(AJ_BusAttachment* bus, const char* name, uint16_t transportMask, uint8_t op);
+AJ_Status AJ_BusAdvertiseName(AJ_BusAttachment* bus, const char* name, uint16_t transportMask, uint8_t op, uint8_t flags);
 
 #define AJ_BUS_START_FINDING 0       /**< Start finding advertised name */
 #define AJ_BUS_STOP_FINDING  1       /**< Stop finding advertised name */
@@ -134,6 +134,7 @@ AJ_Status AJ_BusAdvertiseName(AJ_BusAttachment* bus, const char* name, uint16_t 
  * @param  namePrefix   Well-known name prefix that application is interested in receiving
  *                      FoundAdvertisedName notifications about.
  * @param op            Either AJ_BUS_START_FINDING or AJ_BUS_STOP_FINDING
+ * @param flags         Flags being passed in
  *
  * @return  Return AJ_Status
  *         - AJ_OK if the request was sent
@@ -191,13 +192,14 @@ typedef struct _AJ_SessionOpts {
  *         - An error status otherwise
  */
 AJ_EXPORT
-AJ_Status AJ_BusBindSessionPort(AJ_BusAttachment* bus, uint16_t port, const AJ_SessionOpts* opts);
+AJ_Status AJ_BusBindSessionPort(AJ_BusAttachment* bus, uint16_t port, const AJ_SessionOpts* opts, uint8_t flags);
 
 /**
  * Make a method call to unbind a session port.
  *
  * @param bus          The bus attachment
  * @param port         The port the session is associated with
+ * @param flags        The flags associated with binding a port
  *
  * @return  Return AJ_Status
  *         - AJ_OK if the request was sent
