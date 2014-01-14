@@ -804,8 +804,7 @@ AJ_Status AJ_UnmarshalMsg(AJ_BusAttachment* bus, AJ_Message* msg, uint32_t timeo
      */
     if ((ioBuf->readPtr < ioBuf->bufStart) || (ioBuf->readPtr > (ioBuf->bufStart + ioBuf->bufSize))) {
         AJ_ErrPrintf(("AJ_UnmarshalMsg(): Read pointer out of bounds: AJ_ERR_IO_BUFFER\n"));
-        status = AJ_ERR_IO_BUFFER;
-        return status;
+        return AJ_ERR_READ; //Read pointer is out of bounds, this is unrecoverable
     }
     /*
      * Move any unconsumed data to the start of the I/O buffer
@@ -857,7 +856,7 @@ AJ_Status AJ_UnmarshalMsg(AJ_BusAttachment* bus, AJ_Message* msg, uint32_t timeo
      */
     if (msg->hdr->headerLen > (ioBuf->bufSize - sizeof(AJ_MsgHeader))) {
         AJ_ErrPrintf(("AJ_UnmarshalMsg(): Header was too large: AJ_ERR_HDR_CORRUPT\n"));
-        return AJ_ERR_HDR_CORRUPT;
+        return AJ_ERR_READ; //Unrecoverable state, return read error
     }
     /*
      * The header is null padded to an 8 bytes boundary
