@@ -73,7 +73,7 @@ typedef struct {
     int udp6Sock;
 } NetContext;
 
-static NetContext netContext;
+static NetContext netContext = { INVALID_SOCKET, INVALID_SOCKET, INVALID_SOCKET };
 
 static AJ_Status CloseNetSock(AJ_NetSocket* netSock)
 {
@@ -91,7 +91,8 @@ static AJ_Status CloseNetSock(AJ_NetSocket* netSock)
             close(context->udp6Sock);
             shutdown(context->udp6Sock, SHUT_RDWR);
         }
-        memset(context, 0, sizeof(NetContext));
+
+        context->tcpSock = context->udpSock = context->udp6Sock = INVALID_SOCKET;
         memset(netSock, 0, sizeof(AJ_NetSocket));
     }
     return AJ_OK;
@@ -365,6 +366,7 @@ static int MCastUp4()
     ret = bind(mcastSock, (struct sockaddr*) &sin, sizeof(sin));
     if (ret < 0) {
         AJ_ErrPrintf(("MCastUp4(): bind() failed. errno=\"%s\", status=AJ_ERR_READ\n", strerror(errno)));
+        close(mcastSock);
         return INVALID_SOCKET;
     }
 
@@ -415,6 +417,7 @@ static int MCastUp6()
     ret = bind(mcastSock, (struct sockaddr*) &sin6, sizeof(sin6));
     if (ret < 0) {
         AJ_ErrPrintf(("MCastUp6(): bind() failed. errno=\"%s\", status=AJ_ERR_READ\n", strerror(errno)));
+        close(mcastSock);
         return INVALID_SOCKET;
     }
 
