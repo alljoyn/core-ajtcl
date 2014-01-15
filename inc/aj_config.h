@@ -45,7 +45,6 @@
 #define AJ_MAX_NAME_SIZE            14          //aj_guid.c
 #define AJ_MAX_PEER_GUIDS           12          //Max number of peers that can store credentials (aj_creds.h)
 #define AJ_MAX_AUTH_COUNT           8           //check to prevent broken state machine loops (aj_sasl.c)
-#define AJ_SEMAPHORE_VALUE_MAX      0x7fff      //max number of accessors for a semaphore (aj_semaphore.h)
 #define AJ_LOCAL_GUID_NV_ID         1
 #define AJ_REMOTE_CREDS_NV_ID_BEGIN (AJ_LOCAL_GUID_NV_ID + 1)
 #define AJ_REMOTE_CREDS_NV_ID_END   (AJ_REMOTE_CREDS_NV_ID_BEGIN + 12)
@@ -68,7 +67,6 @@
 #define AJ_CCM_TRACE                0           //Enables fine-grained tracing for debugging new implementations.
 
 #define _SO_REUSEPORT               0       //Linux target
-#define _AJ_DEBUG_TIMER_LISTS       0       //Linux target
 
 /* Below sets the actual #define's based on values above */
 #if _AJ_AUTH_DEBUG
@@ -79,9 +77,6 @@
 #endif
 #if _SO_REUSEPORT
 #define SO_REUSEPORT
-#endif
-#if _AJ_DEBUG_TIMER_LISTS
-#define AJ_DEBUG_TIMER_LISTS
 #endif
 
 #if HOST_IS_LITTLE_ENDIAN

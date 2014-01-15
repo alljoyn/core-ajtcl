@@ -6,7 +6,7 @@
  * @{
  */
 /******************************************************************************
- * Copyright (c) 2012-2013, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2012-2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -66,6 +66,11 @@ int32_t AJ_GetTimeDifference(AJ_Time* timerA, AJ_Time* timerB);
 void AJ_TimeAddOffset(AJ_Time* timerA, uint32_t msec);
 
 int8_t AJ_CompareTime(AJ_Time timerA, AJ_Time timerB);
+
+/**
+ * Indicates a future time so a periodic event won't happen
+ */
+#define AJ_TIMER_FOREVER  -1
 
 
 /**
