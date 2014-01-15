@@ -3,7 +3,7 @@
  */
 
 /******************************************************************************
- * Copyright (c) 2012-2013, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2012-2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -239,7 +239,7 @@ int AJ_Main(void)
                 {
                     uint32_t id, reason;
                     AJ_UnmarshalArgs(&msg, "uu", &id, &reason);
-                    AJ_Printf(("Session lost. ID = %u, reason = %u", id, reason));
+                    AJ_AlwaysPrintf(("Session lost. ID = %u, reason = %u", id, reason));
                 }
                 status = AJ_ERR_SESSION_LOST;
                 break;
