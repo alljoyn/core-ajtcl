@@ -45,7 +45,7 @@ void AJ_NVRAM_Init()
     AJ_NVRAM_BASE_ADDRESS = AJ_EMULATED_NVRAM;
     _AJ_LoadNVFromFile();
     if (*((uint32_t*)AJ_NVRAM_BASE_ADDRESS) != AJ_NV_SENTINEL) {
-        _AJ_EraseNVRAM();
+        AJ_NVRAM_Clear();
         _AJ_StoreNVToFile();
     }
 }
@@ -61,16 +61,11 @@ void _AJ_NV_Read(void* src, void* buf, uint16_t size)
     memcpy(buf, src, size);
 }
 
-void _AJ_EraseNVRAM()
+void _AJ_NVRAM_Clear()
 {
     memset((uint8_t*)AJ_NVRAM_BASE_ADDRESS, INVALID_DATA_BYTE, AJ_NVRAM_SIZE);
     *((uint32_t*)AJ_NVRAM_BASE_ADDRESS) = AJ_NV_SENTINEL;
     _AJ_StoreNVToFile();
-}
-
-void AJ_NVRAM_Clear()
-{
-    _AJ_EraseNVRAM();
 }
 
 AJ_Status _AJ_LoadNVFromFile()
