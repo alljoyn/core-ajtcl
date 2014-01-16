@@ -2,7 +2,7 @@
  * @file
  */
 /******************************************************************************
- * Copyright (c) 2013, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2013-2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -126,7 +126,7 @@ void _AJ_DebugCheckPacketList(RX_PKT volatile* list, char* listName)
     AJ_Printf("%s list %p\n", listName, list);
 
     while (iter) {
-        assert(iter != iter->next);  //check for a single loop
+        AJ_ASSERT(iter != iter->next);  //check for a single loop
         AJ_Printf("%s list %p, iter %p next %p\n", listName, list, iter, iter->next);
         iter = iter->next;
     }
@@ -561,7 +561,7 @@ static uint32_t UART_RxComplete(uint8_t* buffer, uint16_t bytes)
             break;
 
         default:
-            assert(FALSE);
+            AJ_ASSERT(FALSE);
         }
     }
     /*
