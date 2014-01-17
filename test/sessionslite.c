@@ -279,28 +279,47 @@ int AJ_Main()
                 const char* name;
                 AJ_SessionOpts opts;
                 char* token = aj_strtok(NULL, " \r\n");
-                if (token) name = token;
-                else name = ServiceName;
+                if (token) {
+                    name = token;
+                } else {
+                    name = ServiceName;
+                }
                 token = aj_strtok(NULL, " \r\n");
 
-                if (token) port = (uint16_t)atoi(token);
-                if (port == 0) port = ServicePort;
+                if (token) {
+                    port = (uint16_t)atoi(token);
+                }
+                if (port == 0) {
+                    port = ServicePort;
+                }
                 token = aj_strtok(NULL, " \r\n");
 
-                if (token) opts.isMultipoint = (0 == strcmp("true", token));
-                else opts.isMultipoint = 0;
+                if (token) {
+                    opts.isMultipoint = (0 == strcmp("true", token));
+                } else {
+                    opts.isMultipoint = 0;
+                }
 
                 token = aj_strtok(NULL, " \r\n");
-                if (token) opts.traffic = atoi(token);
-                else opts.traffic = 0x1;
+                if (token) {
+                    opts.traffic = atoi(token);
+                } else {
+                    opts.traffic = 0x1;
+                }
 
                 token = aj_strtok(NULL, " \r\n");
-                if (token) opts.proximity = atoi(token);
-                else opts.proximity = 0xFF;
+                if (token) {
+                    opts.proximity = atoi(token);
+                } else {
+                    opts.proximity = 0xFF;
+                }
 
                 token = aj_strtok(NULL, " \r\n");
-                if (token) opts.transports = atoi(token);
-                else opts.transports = 0xFFFF;
+                if (token) {
+                    opts.transports = atoi(token);
+                } else {
+                    opts.transports = 0xFFFF;
+                }
 
                 status = AJ_StartService2(&bus, NULL, CONNECT_TIMEOUT, TRUE, port, name, AJ_NAME_REQ_DO_NOT_QUEUE, &opts);
             } else if (0 == strcmp("find", command)) {
@@ -321,7 +340,9 @@ int AJ_Main()
                 char* namePrefix = aj_strtok(NULL, " \r\n");
                 uint16_t transport = 0;
                 char* token = aj_strtok(NULL, " \r\n");
-                if (token) transport = (uint16_t)atoi(token);
+                if (token) {
+                    transport = (uint16_t)atoi(token);
+                }
                 if (!namePrefix || !transport) {
                     AJ_Printf("Usage: find2 <name_prefix> <transport>\n");
                     continue;
@@ -331,7 +352,9 @@ int AJ_Main()
                 char* namePrefix = aj_strtok(NULL, " \r\n");
                 uint16_t transport = 0;
                 char* token = aj_strtok(NULL, " \r\n");
-                if (token) transport = (uint16_t)atoi(token);
+                if (token) {
+                    transport = (uint16_t)atoi(token);
+                }
                 if (!namePrefix || !transport) {
                     AJ_Printf("Usage: cancelfind2 <name_prefix> <transport>\n");
                     continue;
@@ -360,7 +383,9 @@ int AJ_Main()
                     continue;
                 }
                 token = aj_strtok(NULL, " \r\n");
-                if (token) transport = (uint16_t)atoi(token);
+                if (token) {
+                    transport = (uint16_t)atoi(token);
+                }
                 status = AJ_BusAdvertiseName(&bus, name, transport, AJ_BUS_START_ADVERTISING);
             } else if (0 == strcmp("canceladvertise", command)) {
                 uint16_t transport = 0xFFFF;
@@ -372,38 +397,56 @@ int AJ_Main()
                 }
 
                 token = aj_strtok(NULL, " \r\n");
-                if (token) transport = (uint16_t)atoi(token);
+                if (token) {
+                    transport = (uint16_t)atoi(token);
+                }
                 status = AJ_BusAdvertiseName(&bus, name, transport, AJ_BUS_STOP_ADVERTISING);
             } else if (0 == strcmp("bind", command)) {
                 AJ_SessionOpts opts;
                 uint16_t port = 0;
                 char* token = aj_strtok(NULL, " \r\n");
-                if (token) port = (uint16_t)atoi(token);
+                if (token) {
+                    port = (uint16_t)atoi(token);
+                }
                 if (port == 0) {
                     AJ_Printf("Usage: bind <port> [isMultipoint] [traffic] [proximity] [transports]\n");
                     continue;
                 }
                 token = aj_strtok(NULL, " \r\n");
-                if (token) opts.isMultipoint = (0 == strcmp("true", token));
-                else opts.isMultipoint = 0;
+                if (token) {
+                    opts.isMultipoint = (0 == strcmp("true", token));
+                } else {
+                    opts.isMultipoint = 0;
+                }
 
                 token = aj_strtok(NULL, " \r\n");
-                if (token) opts.traffic = atoi(token);
-                else opts.traffic = 0x1;
+                if (token) {
+                    opts.traffic = atoi(token);
+                } else {
+                    opts.traffic = 0x1;
+                }
 
                 token = aj_strtok(NULL, " \r\n");
-                if (token) opts.proximity = atoi(token);
-                else opts.proximity = 0xFF;
+                if (token) {
+                    opts.proximity = atoi(token);
+                } else {
+                    opts.proximity = 0xFF;
+                }
 
                 token = aj_strtok(NULL, " \r\n");
-                if (token) opts.transports = atoi(token);
-                else opts.transports = 0xFFFF;
+                if (token) {
+                    opts.transports = atoi(token);
+                } else {
+                    opts.transports = 0xFFFF;
+                }
 
                 status = AJ_BusBindSessionPort(&bus, port, &opts);
             } else if (0 == strcmp("unbind", command)) {
                 uint16_t port = 0;
                 char* token = aj_strtok(NULL, " \r\n");
-                if (token) port = (uint16_t) atoi(token);
+                if (token) {
+                    port = (uint16_t) atoi(token);
+                }
 
                 if (port == 0) {
                     AJ_Printf("Usage: unbind <port>\n");
@@ -415,27 +458,42 @@ int AJ_Main()
                 uint16_t port = 0;
                 char* name = aj_strtok(NULL, " \r\n");
                 char* token = aj_strtok(NULL, " \r\n");
-                if (token) port = (uint16_t)atoi(token);
-                else port = 0;
+                if (token) {
+                    port = (uint16_t)atoi(token);
+                } else {
+                    port = 0;
+                }
                 if (!name || (port == 0)) {
                     AJ_Printf("Usage: join <name> <port> [isMultipoint] [traffic] [proximity] [transports]\n");
                     continue;
                 }
                 token = aj_strtok(NULL, " \r\n");
-                if (token) opts.isMultipoint = (0 == strcmp("true", token));
-                else opts.isMultipoint = 0;
+                if (token) {
+                    opts.isMultipoint = (0 == strcmp("true", token));
+                } else {
+                    opts.isMultipoint = 0;
+                }
 
                 token = aj_strtok(NULL, " \r\n");
-                if (token) opts.traffic = (uint8_t)atoi(token);
-                else opts.traffic = 0x1;
+                if (token) {
+                    opts.traffic = (uint8_t)atoi(token);
+                } else {
+                    opts.traffic = 0x1;
+                }
 
                 token = aj_strtok(NULL, " \r\n");
-                if (token) opts.proximity = (uint8_t)atoi(token);
-                else opts.proximity = 0xFF;
+                if (token) {
+                    opts.proximity = (uint8_t)atoi(token);
+                } else {
+                    opts.proximity = 0xFF;
+                }
 
                 token = aj_strtok(NULL, " \r\n");
-                if (token) opts.transports = (uint16_t)atoi(token);
-                else opts.transports = 0xFFFF;
+                if (token) {
+                    opts.transports = (uint16_t)atoi(token);
+                } else {
+                    opts.transports = 0xFFFF;
+                }
 
                 status = AJ_BusJoinSession(&bus, name, port, &opts);
             } else if (0 == strcmp("leave", command)) {
@@ -462,7 +520,9 @@ int AJ_Main()
             }  else if (0 == strcmp("sendttl", command)) {
                 int32_t ttl = 0;
                 char* token = aj_strtok(NULL, " \r\n");
-                if (token) ttl = atoi(token);
+                if (token) {
+                    ttl = atoi(token);
+                }
                 if (ttl < 0) {
                     AJ_Printf("Usage: sendttl <ttl>\n");
                     continue;
@@ -491,7 +551,9 @@ int AJ_Main()
             } else if (0 == strcmp("cancelsessionless", command)) {
                 uint32_t serialId = 0;
                 char* token = aj_strtok(NULL, " \r\n");
-                if (token) serialId = (uint32_t)atoi(token);
+                if (token) {
+                    serialId = (uint32_t)atoi(token);
+                }
                 if (serialId == 0) {
                     AJ_Printf("Invalid serial number\n");
                     AJ_Printf("Usage: cancelsessionless <serialNum>\n");
