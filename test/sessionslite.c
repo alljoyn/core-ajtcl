@@ -2,7 +2,7 @@
  * @file
  */
 /******************************************************************************
- * Copyright (c) 2013, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2013-2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -131,7 +131,7 @@ void Do_Connect()
     while (!connected) {
         AJ_Status status;
         AJ_InfoPrintf(("Attempting to connect to bus\n"));
-        status = AJ_Connect(&bus, NULL, CONNECT_TIMEOUT);
+        status = AJ_FindBusAndConnect(&bus, NULL, CONNECT_TIMEOUT);
         if (status != AJ_OK) {
             AJ_InfoPrintf(("Failed to connect to bus sleeping for %lu seconds\n", CONNECT_PAUSE / 1000));
             AJ_Sleep(CONNECT_PAUSE);

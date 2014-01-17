@@ -2,7 +2,7 @@
  * @file
  */
 /******************************************************************************
- * Copyright (c) 2012-2013, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2012-2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -478,16 +478,4 @@ void AJ_Net_MCastDown(AJ_NetSocket* netSock)
     }
 
     CloseNetSock(netSock);
-}
-
-
-AJ_Status AJ_Net_Up()
-{
-    AJ_InfoPrintf(("AJ_Net_Up()\n"));
-    return AJ_OK;
-}
-
-void AJ_Net_Down()
-{
-    AJ_InfoPrintf(("AJ_Net_Up()\n"));
 }

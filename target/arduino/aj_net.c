@@ -2,7 +2,7 @@
  * @file
  */
 /******************************************************************************
- * Copyright (c) 2013, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2013-2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -334,16 +334,4 @@ void AJ_Net_MCastDown(AJ_NetSocket* netSock)
     AJ_InfoPrintf(("AJ_Net_MCastDown(nexSock=0x%p)\n", netSock));
     g_clientUDP.flush();
     g_clientUDP.stop();
-}
-
-
-AJ_Status AJ_Net_Up()
-{
-    AJ_InfoPrintf(("AJ_Net_Up()\n"));
-    return AJ_OK;
-}
-
-void AJ_Net_Down()
-{
-    AJ_InfoPrintf(("AJ_Net_Up()\n"));
 }

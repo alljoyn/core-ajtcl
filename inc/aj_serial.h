@@ -4,7 +4,7 @@
  * @file
  */
 /******************************************************************************
- * Copyright (c) 2013, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2013-2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -167,6 +167,12 @@ AJ_Status AJ_SerialInit(const char* ttyName,
                         uint32_t bitRate,
                         uint8_t windowSize,
                         uint16_t packetSize);
+
+/**
+ * This function calls AJ_SerialInit with the appropriate parameters.
+ * Its implementation is target-dependent.
+ */
+AJ_Status AJ_Serial_Up();
 
 /**
  * This function shuts down the serial transport layer.
