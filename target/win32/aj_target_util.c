@@ -2,7 +2,7 @@
  * @file
  */
 /******************************************************************************
- * Copyright (c) 2012, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2012-2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -28,11 +28,6 @@
 #include "aj_util.h"
 
 uint8_t dbgTARGET_UTIL = 0;
-
-AJ_Status AJ_SuspendWifi(uint32_t msec)
-{
-    return AJ_OK;
-}
 
 void AJ_Sleep(uint32_t time)
 {

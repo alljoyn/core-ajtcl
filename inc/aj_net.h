@@ -6,7 +6,7 @@
  * @{
  */
 /******************************************************************************
- * Copyright (c) 2012-2013, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2012-2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -35,20 +35,6 @@ typedef struct _AJ_NetSocket {
     AJ_IOBuffer tx;             /**< transmit network socket */
     AJ_IOBuffer rx;             /**< receive network socket */
 } AJ_NetSocket;
-
-/**
- * Must be called before networking can be used
- *
- * @return        Return AJ_Status
- */
-AJ_Status AJ_Net_Up();
-
-/**
- * Call when the network is not longer needed
- *
- * @return        Return AJ_Status
- */
-void AJ_Net_Down();
 
 /**
  * Connect to bus at an IPV4 or IPV6 address
