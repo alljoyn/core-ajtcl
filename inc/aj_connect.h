@@ -6,7 +6,7 @@
  * @{
  */
 /******************************************************************************
- * Copyright (c) 2012-2013, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2012-2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -26,6 +26,15 @@
 #include "aj_bus.h"
 
 /**
+ * Authenticate with the daemon
+ *
+ * @param bus                   The bus attachment to authenticate
+ *
+ * @return        Return AJ_Status
+ */
+AJ_Status AJ_Authenticate(AJ_BusAttachment* bus);
+
+/**
  * Establish an AllJoyn connection.
  *
  * @param  bus          The bus attachment to connect.
@@ -37,6 +46,21 @@
  *         - AJ_ERR_TIMEOUT if the connection attempt timed out
  */
 AJ_Status AJ_Connect(AJ_BusAttachment* bus, const char* serviceName, uint32_t timeout);
+
+
+/**
+ * Find a daemon, connect to it and then authenticate.
+ *
+ * @param  bus          The bus attachment to connect.
+ * @param  serviceName  Name of a specific service to connect to, NULL for the default name.
+ * @param  timeout      How long to spend attempting to connect
+ *
+ * @return
+ *         - AJ_OK if the connection was succesfully established
+ *         - AJ_ERR_TIMEOUT if the connection attempt timed out
+ */
+AJ_Status AJ_FindBusAndConnect(AJ_BusAttachment* bus, const char* serviceName, uint32_t timeout);
+
 
 /**
  * Terminate an AllJoyn connection

@@ -42,6 +42,24 @@
 #include "aj_util.h"
 #include "aj_debug.h"
 
+static void WinsockCheck()
+{
+    static uint8_t initialized = FALSE;
+    if (!initialized) {
+        WSADATA wsaData;
+        WORD version = MAKEWORD(2, 0);
+        int ret;
+        AJ_InfoPrintf(("WinsockCheck\n"));
+
+        ret = WSAStartup(version, &wsaData);
+        if (ret) {
+            AJ_ErrPrintf(("WSAStartup failed with error: %d\n", ret));
+        } else {
+            initialized = TRUE;
+        }
+    }
+}
+
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
  * (usually in debugger).
@@ -321,6 +339,8 @@ AJ_Status AJ_Net_MCastUp(AJ_NetSocket* netSock)
     IP_ADAPTER_ADDRESSES info, * parray = NULL, * pinfo = NULL;
     ULONG infoLen = sizeof(info);
 
+    WinsockCheck();
+
     AJ_InfoPrintf(("AJ_Net_MCastUp(nexSock=0x%p)\n", netSock));
 
     // find out how many Adapter addresses we have and get the list
@@ -455,19 +475,4 @@ void AJ_Net_MCastDown(AJ_NetSocket* netSock)
     free(McastSocks);
     McastSocks = NULL;
     memset(netSock, 0, sizeof(AJ_NetSocket));
-}
-
-AJ_Status AJ_Net_Up(void)
-{
-    WSADATA wsaData;
-    WORD version = MAKEWORD(2, 0);
-    AJ_InfoPrintf(("AJ_Net_Up()\n"));
-    WSAStartup(version, &wsaData);
-    return AJ_OK;
-}
-
-void AJ_Net_Down(void)
-{
-    AJ_InfoPrintf(("AJ_Net_Up()\n"));
-    WSACleanup();
 }

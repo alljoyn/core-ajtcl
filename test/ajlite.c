@@ -32,7 +32,7 @@ int AJ_Main()
 
     AJ_Initialize();
 
-    status = AJ_Connect(&bus, NULL, CONNECT_TIMEOUT);
+    status = AJ_FindBusAndConnect(&bus, NULL, CONNECT_TIMEOUT);
     if (status == AJ_OK) {
         status = AJ_BusRequestName(&bus, ServiceName, AJ_NAME_REQ_DO_NOT_QUEUE);
     }

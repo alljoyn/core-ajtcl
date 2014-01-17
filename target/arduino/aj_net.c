@@ -335,15 +335,3 @@ void AJ_Net_MCastDown(AJ_NetSocket* netSock)
     g_clientUDP.flush();
     g_clientUDP.stop();
 }
-
-
-AJ_Status AJ_Net_Up()
-{
-    AJ_InfoPrintf(("AJ_Net_Up()\n"));
-    return AJ_OK;
-}
-
-void AJ_Net_Down()
-{
-    AJ_InfoPrintf(("AJ_Net_Up()\n"));
-}

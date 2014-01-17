@@ -179,7 +179,7 @@ int AJ_Main(void)
         if (!connected) {
             ButtonPushed = 0;
 
-            status = AJ_Connect(&bus, NULL, CONNECT_TIMEOUT);
+            status = AJ_FindBusAndConnect(&bus, NULL, CONNECT_TIMEOUT);
             if (status != AJ_OK) {
                 AJ_Printf("AllJoyn failed to connect sleeping for 15 seconds\n");
                 AJ_Sleep(15 * 1000);

@@ -280,8 +280,8 @@ AJ_Status AJ_StartService(AJ_BusAttachment* bus,
             return AJ_ERR_TIMEOUT;
         }
         if (!connected) {
-            AJ_InfoPrintf(("AJ_StartService2(): AJ_Connect()\n"));
-            status = AJ_Connect(bus, daemonName, AJ_CONNECT_TIMEOUT);
+            AJ_InfoPrintf(("AJ_StartService2(): AJ_FindBusAndConnect()\n"));
+            status = AJ_FindBusAndConnect(bus, daemonName, AJ_CONNECT_TIMEOUT);
             if (status != AJ_OK) {
                 AJ_WarnPrintf(("AJ_StartService2(): connect failed: sleeping for %d seconds\n", AJ_CONNECT_PAUSE / 1000));
                 AJ_Sleep(AJ_CONNECT_PAUSE);
@@ -381,8 +381,8 @@ AJ_Status AJ_StartClient(AJ_BusAttachment* bus,
 
     while (elapsed < timeout) {
         if (!connected) {
-            AJ_InfoPrintf(("AJ_StartClient(): AJ_Connect()\n"));
-            status = AJ_Connect(bus, daemonName, AJ_CONNECT_TIMEOUT);
+            AJ_InfoPrintf(("AJ_StartClient(): AJ_FindBusAndConnect()\n"));
+            status = AJ_FindBusAndConnect(bus, daemonName, AJ_CONNECT_TIMEOUT);
             elapsed = AJ_GetElapsedTime(&timer, TRUE);
             if (status != AJ_OK) {
                 elapsed += AJ_CONNECT_PAUSE;

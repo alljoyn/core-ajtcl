@@ -29,11 +29,6 @@
 
 uint8_t dbgTARGET_UTIL = 0;
 
-AJ_Status AJ_SuspendWifi(uint32_t msec)
-{
-    return AJ_OK;
-}
-
 void AJ_Sleep(uint32_t time)
 {
     struct timespec waittime = { };
