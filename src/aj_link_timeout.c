@@ -52,7 +52,9 @@ AJ_Status AJ_SendLinkProbeReq(AJ_BusAttachment* bus);
 
 AJ_Status AJ_SetBusLinkTimeout(AJ_BusAttachment* bus, uint32_t timeout)
 {
-    if (!timeout) return AJ_ERR_FAILURE;
+    if (!timeout) {
+        return AJ_ERR_FAILURE;
+    }
     timeout = (timeout > AJ_MIN_BUS_LINK_TIMEOUT) ? timeout : AJ_MIN_BUS_LINK_TIMEOUT;
     busLinkTimeout = timeout * 1000;
     return AJ_OK;
