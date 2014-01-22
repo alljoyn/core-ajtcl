@@ -793,6 +793,9 @@ AJ_Status AJ_UnmarshalMsg(AJ_BusAttachment* bus, AJ_Message* msg, uint32_t timeo
     void* hdrRaw = NULL;
     uint8_t* endOfHeader;
     uint32_t hdrPad;
+    AJ_Time msgTimer;
+
+    AJ_InitTimer(&msgTimer);
     /*
      * Clear message then set the bus
      */
@@ -818,6 +821,16 @@ AJ_Status AJ_UnmarshalMsg(AJ_BusAttachment* bus, AJ_Message* msg, uint32_t timeo
         //#pragma calls = AJ_Net_Recv
         status = ioBuf->recv(ioBuf, sizeof(AJ_MsgHeader) - AJ_IO_BUF_AVAIL(ioBuf), timeout);
         if (status != AJ_OK) {
+            if (status == AJ_ERR_TIMEOUT) {
+                /*
+                 * Work around recv imlpementations that return too soon.
+                 */
+                uint32_t elapsed = AJ_GetElapsedTime(&msgTimer, FALSE);
+                if (timeout > elapsed) {
+                    timeout -= elapsed;
+                    continue;
+                }
+            }
             /*
              * If there were no messages to receive check if we have any methods call that have
              * timed-out and if so generate an internal error message to allow the application to

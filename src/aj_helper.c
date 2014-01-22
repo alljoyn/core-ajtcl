@@ -319,20 +319,7 @@ AJ_Status AJ_StartService2(AJ_BusAttachment* bus,
     while (!serviceStarted && (status == AJ_OK)) {
         AJ_Message msg;
 
-        AJ_GetElapsedTime(&timer, TRUE);
-
         status = AJ_UnmarshalMsg(bus, &msg, AJ_UNMARSHAL_TIMEOUT);
-
-        /*
-         * TODO This is a temporary hack to work around buggy select imlpementations
-         */
-        if (status == AJ_ERR_TIMEOUT) {
-            if (AJ_GetElapsedTime(&timer, TRUE) < AJ_UNMARSHAL_TIMEOUT) {
-                AJ_WarnPrintf(("AJ_StartService2(): Spurious timeout error - continuing\n"));
-                status = AJ_OK;
-                continue;
-            }
-        }
 
         if (status != AJ_OK) {
             AJ_ErrPrintf(("AJ_StartService2(): status=%s.\n", AJ_StatusText(status)));
@@ -393,8 +380,7 @@ AJ_Status AJ_StartClient(AJ_BusAttachment* bus,
                          const char* name,
                          uint16_t port,
                          uint32_t* sessionId,
-                         const AJ_SessionOpts* opts
-                         )
+                         const AJ_SessionOpts* opts)
 {
     AJ_InfoPrintf(("AJ_StartClient(daemonName=\"%s\", timeout=%d., name=\"%s\", port=%d., sessionId=0x%p, opts=0x%p)\n",
                    daemonName, timeout, name, port, sessionId, opts));
@@ -409,28 +395,29 @@ AJ_Status AJ_StartClient2(AJ_BusAttachment* bus,
                           const char* name,
                           uint16_t port,
                           uint32_t* sessionId,
-                          const AJ_SessionOpts* opts
-                          )
+                          const AJ_SessionOpts* opts)
 {
     AJ_Status status = AJ_OK;
     AJ_Time timer;
-    AJ_Time unmarshalTimer;
     uint8_t foundName = FALSE;
     uint8_t clientStarted = FALSE;
+    uint32_t elapsed = 0;
 
     AJ_InfoPrintf(("AJ_StartClient(bus=0x%p, daemonName=\"%s\", timeout=%d., connected=%d., name=\"%s\", port=%d., sessionId=0x%p, opts=0x%p)\n",
                    bus, daemonName, timeout, connected, name, port, sessionId, opts));
 
     AJ_InitTimer(&timer);
 
-    while (TRUE) {
-        if (AJ_GetElapsedTime(&timer, TRUE) > timeout) {
-            return AJ_ERR_TIMEOUT;
-        }
+    while (elapsed < timeout) {
         if (!connected) {
             AJ_InfoPrintf(("AJ_StartClient(): AJ_Connect()\n"));
             status = AJ_Connect(bus, daemonName, AJ_CONNECT_TIMEOUT);
+            elapsed = AJ_GetElapsedTime(&timer, TRUE);
             if (status != AJ_OK) {
+                elapsed += AJ_CONNECT_PAUSE;
+                if (elapsed > timeout) {
+                    break;
+                }
                 AJ_WarnPrintf(("Failed to connect to bus sleeping for %d seconds\n", AJ_CONNECT_PAUSE / 1000));
                 AJ_Sleep(AJ_CONNECT_PAUSE);
                 continue;
@@ -445,32 +432,32 @@ AJ_Status AJ_StartClient2(AJ_BusAttachment* bus,
         if (status == AJ_OK) {
             break;
         }
-        AJ_WarnPrintf(("AjStartClient(): AJ_Disconnect(): status=%s.\n", AJ_StatusText(status)));
-        AJ_Disconnect(bus);
+        if (!connected) {
+            AJ_WarnPrintf(("AjStartClient2(): AJ_Disconnect(): status=%s.\n", AJ_StatusText(status)));
+            AJ_Disconnect(bus);
+        }
     }
+    if (elapsed > timeout) {
+        return AJ_ERR_TIMEOUT;
+    }
+    timeout -= elapsed;
 
     *sessionId = 0;
 
     while (!clientStarted && (status == AJ_OK)) {
         AJ_Message msg;
-
-        if (AJ_GetElapsedTime(&timer, TRUE) > timeout) {
-            AJ_ErrPrintf(("AJ_StartClient(): AJ_ERR_TIMEOUT\n"));
-            return AJ_ERR_TIMEOUT;
-        }
         status = AJ_UnmarshalMsg(bus, &msg, AJ_UNMARSHAL_TIMEOUT);
-        /*
-         * TODO This is a temporary hack to work around buggy select imlpementations
-         */
-        AJ_InitTimer(&unmarshalTimer);
-        if (status == AJ_ERR_TIMEOUT && (AJ_GetElapsedTime(&unmarshalTimer, TRUE) < AJ_UNMARSHAL_TIMEOUT || !foundName)) {
+        if ((status == AJ_ERR_TIMEOUT) && !foundName) {
             /*
              * Timeouts are expected until we find a name
              */
+            if (timeout < AJ_UNMARSHAL_TIMEOUT) {
+                return status;
+            }
+            timeout -= AJ_UNMARSHAL_TIMEOUT;
             status = AJ_OK;
             continue;
         }
-
         if (status != AJ_OK) {
             AJ_ErrPrintf(("AJ_StartClient(): status=%s\n", AJ_StatusText(status)));
             break;
