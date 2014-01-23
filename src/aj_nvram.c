@@ -303,3 +303,9 @@ uint8_t AJ_NVRAM_Exist(uint16_t id)
     }
     return (NULL != AJ_FindNVEntry(id));
 }
+
+void AJ_NVRAM_Clear()
+{
+    _AJ_NVRAM_Clear();
+}
+

@@ -31,7 +31,7 @@ void AJ_NVRAM_Init()
     static uint8_t inited = FALSE;
     if (!inited) {
         inited = TRUE;
-        _AJ_EraseNVRAM();
+        _AJ_NVRAM_Clear();
     }
 }
 
@@ -45,15 +45,10 @@ void _AJ_NV_Read(void* src, void* buf, uint16_t size)
     memcpy(buf, src, size);
 }
 
-void _AJ_EraseNVRAM()
+void _AJ_NVRAM_Clear()
 {
     memset((uint8_t*)AJ_NVRAM_BASE_ADDRESS, INVALID_DATA_BYTE, AJ_NVRAM_SIZE);
     *((uint32_t*)AJ_NVRAM_BASE_ADDRESS) = AJ_NV_SENTINEL;
-}
-
-void AJ_NVRAM_Clear()
-{
-    _AJ_EraseNVRAM();
 }
 
 // Compact the storage by removing invalid entries

@@ -62,6 +62,6 @@ void _AJ_NV_Read(void* src, void* buf, uint16_t size);
 /**
  * Erase the whole NVRAM sector and write the sentinel data
  */
-void _AJ_EraseNVRAM();
+void _AJ_NVRAM_Clear();
 
 #endif
