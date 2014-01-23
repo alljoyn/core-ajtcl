@@ -2,7 +2,7 @@
  * @file
  */
 /******************************************************************************
- * Copyright (c) 2013, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2013-2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -32,7 +32,6 @@
 #include "aj_serial_tx.h"
 #include "aj_crc16.h"
 #include "aj_util.h"
-#include "aj_timer.h"
 #include "aj_debug.h"
 
 /**
@@ -355,7 +354,6 @@ static void QueueUnreliable(void)
      */
     if (txQueue == txUnreliable) {
         AJ_Printf("QueueUnreliable: type %i unreliable packet already queued! %p\n", txUnreliable->type, txUnreliable);
-//        assert(FALSE);
     } else {
         txUnreliable->next = txQueue;
         txQueue = txUnreliable;
@@ -454,7 +452,7 @@ static uint16_t SlipBytes(AJ_SlippedBuffer volatile* slip,
 
     for (i = 0; i < len; ++i) {
         if (slip->actualLen == slip->allocatedLen) {
-            assert(FALSE);
+            AJ_ASSERT(FALSE);
             break;
         }
         b = *data++;
@@ -485,7 +483,7 @@ static uint8_t txSentPending(void)
     for (pkt = txSent; pkt != NULL; pkt = pkt->next) {
         ++n;
     }
-    assert(n <= AJ_SerialLinkParams.windowSize);
+    AJ_ASSERT(n <= AJ_SerialLinkParams.windowSize);
     return n;
 }
 
@@ -514,7 +512,7 @@ void ConvertPacketToBytes(AJ_SlippedBuffer volatile* slip, TxPkt volatile* txCur
          */
         if (txSentPending() == AJ_SerialLinkParams.windowSize) {
             AJ_Printf("TxSend - reached window size: %u\n", txSentPending());
-            assert(FALSE);
+            AJ_ASSERT(FALSE);
         }
 
         header[0] = (txCurrent->seq << 4);
@@ -576,7 +574,7 @@ void AJ_SerialTx_ReceivedAck(uint8_t ack)
         txSent = txSent->next;
         //AJ_Printf("Releasing seq=%d (acked by %d)\n", ackedPkt->seq, ack);
 
-        assert(ackedPkt->type == AJ_SERIAL_DATA);
+        AJ_ASSERT(ackedPkt->type == AJ_SERIAL_DATA);
         /*
          * Return pkt to ACL free list.
          */
