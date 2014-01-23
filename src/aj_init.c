@@ -28,6 +28,7 @@
 #include "aj_nvram.h"
 #include "aj_creds.h"
 #include "aj_guid.h"
+#include "aj_crypto.h"
 #include "aj_debug.h"
 
 /**
