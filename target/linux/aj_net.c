@@ -254,7 +254,7 @@ AJ_Status AJ_Net_SendTo(AJ_IOBuffer* buf)
 AJ_Status AJ_Net_RecvFrom(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)
 {
     NetContext* context = (NetContext*) buf->context;
-    AJ_Status status;
+    AJ_Status status = AJ_OK;
     ssize_t ret;
     size_t rx = AJ_IO_BUF_SPACE(buf);
     fd_set fds;
@@ -302,7 +302,7 @@ AJ_Status AJ_Net_RecvFrom(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)
 
 
     rx = AJ_IO_BUF_SPACE(buf);
-    if (status == AJ_OK && FD_ISSET(context->udpSock, &fds)) {
+    if (FD_ISSET(context->udpSock, &fds)) {
         rx = min(rx, len);
         if (rx) {
             ret = recvfrom(context->udpSock, buf->writePtr, rx, 0, NULL, 0);
