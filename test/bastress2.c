@@ -94,6 +94,9 @@ AJ_Status AppHandleCat(AJ_Message* msg)
     AJ_UnmarshalArgs(msg, "ss", &partA, &partB);
 
     totalString = (char*) AJ_Malloc(strlen(partA) + strlen(partB) + 1);
+    if (!totalString) {
+        return AJ_ERR_RESOURCES;
+    }
     strcpy(totalString, partA);
     strcpy(totalString + strlen(partA), partB);
 
