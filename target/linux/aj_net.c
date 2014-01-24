@@ -2,7 +2,7 @@
  * @file
  */
 /******************************************************************************
- * Copyright (c) 2012-2013, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2012-2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -28,6 +28,8 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <sys/ioctl.h>
+#include <net/if.h>
 #include <netinet/in.h>
 #include <assert.h>
 #include <errno.h>
@@ -210,6 +212,26 @@ void AJ_Net_Disconnect(AJ_NetSocket* netSock)
     CloseNetSock(netSock);
 }
 
+static int getBcastAddress(int sock)
+{
+    struct ifreq ifr;
+    struct sockaddr_in* bcast_addr;
+    int ret;
+
+    strncpy(ifr.ifr_name, "eth0", IFNAMSIZ - 1);
+    ifr.ifr_broadaddr.sa_family = AF_INET;
+
+    ret = ioctl(sock, SIOCGIFBRDADDR, &ifr);
+    if (ret != 0) {
+        AJ_ErrPrintf(("getBcastAddress returns %s\n", strerror(errno)));
+        return 0;
+    }
+
+    bcast_addr = (struct sockaddr_in*) &ifr.ifr_broadaddr;
+    return bcast_addr->sin_addr.s_addr;
+}
+
+
 AJ_Status AJ_Net_SendTo(AJ_IOBuffer* buf)
 {
     ssize_t ret;
@@ -220,13 +242,24 @@ AJ_Status AJ_Net_SendTo(AJ_IOBuffer* buf)
 
     if (tx > 0) {
         if (context->udpSock != INVALID_SOCKET) {
+            int bcast_addr;
+
             struct sockaddr_in sin;
             sin.sin_family = AF_INET;
             sin.sin_port = htons(AJ_UDP_PORT);
+
             if (inet_pton(AF_INET, AJ_IPV4_MULTICAST_GROUP, &sin.sin_addr) == 1) {
                 ret = sendto(context->udpSock, buf->readPtr, tx, 0, (struct sockaddr*)&sin, sizeof(sin));
             }
+
+            // now do IP broadcast to the subnet
+            bcast_addr = getBcastAddress(context->udpSock);
+            if (bcast_addr != 0) {
+                sin.sin_addr.s_addr = bcast_addr;
+                ret = sendto(context->udpSock, buf->readPtr, tx, 0, (struct sockaddr*)&sin, sizeof(sin));
+            }
         }
+
 
         // now sendto the ipv6 address
         if (context->udp6Sock != INVALID_SOCKET) {
@@ -340,6 +373,7 @@ static int MCastUp4()
     struct ip_mreq mreq;
     struct sockaddr_in sin;
     int reuse = 1;
+    int bcast = 1;
     int mcastSock;
 
     AJ_InfoPrintf(("MCastUp4()\n"));
@@ -353,8 +387,15 @@ static int MCastUp4()
     ret = setsockopt(mcastSock, SOL_SOCKET, SO_REUSEPORT, &reuse, sizeof(reuse));
     if (ret != 0) {
         AJ_ErrPrintf(("MCastUp4(): setsockopt(SO_REUSEPORT) failed. errno=\"%s\", status=AJ_ERR_READ\n", strerror(errno)));
-        close(mcastSock);
-        return INVALID_SOCKET;
+        goto ExitError;
+    }
+
+    // enable IP broadcast on this socket.
+    // This is needed for bcast router discovery
+    int r = setsockopt(mcastSock, SOL_SOCKET, SO_BROADCAST, (void*) &bcast, sizeof(bcast));
+    if (r != 0) {
+        AJ_ErrPrintf(("BcastUp4(): setsockopt(SOL_SOCKET, SO_BROADCAST) failed. errno=\"%s\"\n", strerror(errno)));
+        goto ExitError;
     }
 
     /*
@@ -366,8 +407,7 @@ static int MCastUp4()
     ret = bind(mcastSock, (struct sockaddr*) &sin, sizeof(sin));
     if (ret < 0) {
         AJ_ErrPrintf(("MCastUp4(): bind() failed. errno=\"%s\", status=AJ_ERR_READ\n", strerror(errno)));
-        close(mcastSock);
-        return INVALID_SOCKET;
+        goto ExitError;
     }
 
     /*
@@ -378,11 +418,14 @@ static int MCastUp4()
     ret = setsockopt(mcastSock, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq));
     if (ret < 0) {
         AJ_ErrPrintf(("MCastUp4(): setsockopt(IP_ADD_MEMBERSHIP) failed. errno=\"%s\", status=AJ_ERR_READ\n", strerror(errno)));
-        close(mcastSock);
-        return INVALID_SOCKET;
+        goto ExitError;
     }
 
     return mcastSock;
+
+ExitError:
+    close(mcastSock);
+    return INVALID_SOCKET;
 }
 
 static int MCastUp6()
@@ -404,8 +447,7 @@ static int MCastUp6()
     ret = setsockopt(mcastSock, SOL_SOCKET, SO_REUSEPORT, &reuse, sizeof(reuse));
     if (ret != 0) {
         AJ_ErrPrintf(("MCastUp6(): setsockopt(SO_REUSEPORT) failed. errno=\"%s\", status=AJ_ERR_READ\n", strerror(errno)));
-        close(mcastSock);
-        return INVALID_SOCKET;
+        goto ExitError;
     }
 
     /*
@@ -417,8 +459,7 @@ static int MCastUp6()
     ret = bind(mcastSock, (struct sockaddr*) &sin6, sizeof(sin6));
     if (ret < 0) {
         AJ_ErrPrintf(("MCastUp6(): bind() failed. errno=\"%s\", status=AJ_ERR_READ\n", strerror(errno)));
-        close(mcastSock);
-        return INVALID_SOCKET;
+        goto ExitError;
     }
 
     /*
@@ -429,11 +470,14 @@ static int MCastUp6()
     ret = setsockopt(mcastSock, IPPROTO_IPV6, IPV6_JOIN_GROUP, &mreq6, sizeof(mreq6));
     if (ret < 0) {
         AJ_ErrPrintf(("MCastUp6(): setsockopt(IP_ADD_MEMBERSHIP) failed. errno=\"%s\", status=AJ_ERR_READ\n", strerror(errno)));
-        close(mcastSock);
-        return INVALID_SOCKET;
+        goto ExitError;
     }
 
     return mcastSock;
+
+ExitError:
+    close(mcastSock);
+    return INVALID_SOCKET;
 }
 
 
