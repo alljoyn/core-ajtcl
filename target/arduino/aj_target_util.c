@@ -2,7 +2,7 @@
  * @file
  */
 /******************************************************************************
- * Copyright (c) 2013, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2013-2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -93,7 +93,6 @@ char* AJ_GetCmdLine(char* buf, size_t num)
 #ifndef NDEBUG
 
 uint8_t dbgCONFIGUREME = 0;
-uint8_t dbgINIT = 0;
 uint8_t dbgNET = 0;
 uint8_t dbgTARGET_CRYPTO = 0;
 uint8_t dbgTARGET_NVRAM = 0;
