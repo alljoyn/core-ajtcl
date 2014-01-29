@@ -751,39 +751,44 @@ static AJ_Status ValidateHeader(const AJ_Message* msg)
 
 AJ_Status AJ_ResetArgs(AJ_Message* msg)
 {
+    AJ_Status status = AJ_OK;;
+
     if (!msg->hdr) {
         return AJ_ERR_NULL;
     }
     /*
-     * Nothing to do if there are no arguments
+     * Nothing to do if the message has no arguments
      */
-    if (!msg->signature || *msg->signature) {
-        return AJ_OK;
+    if (!msg->signature || (msg->signature[0] == '\0')) {
+        return status;
     }
     /*
-     * The arguments must have already been fully unmarshaled.
+     * The arguments must fully unmarshaled before we can do a reset
      */
-    if (msg->sigOffset != strlen(msg->signature)) {
-        return AJ_ERR_UNMARSHAL;
-    } else {
+    while (msg->bodyBytes && (status == AJ_OK)) {
+        status = AJ_SkipArg(msg);
+    }
+    AJ_ASSERT(msg->sigOffset == strlen(msg->signature));
+    if (status == AJ_OK) {
         AJ_IOBuffer* ioBuf = &msg->bus->sock.rx;
-        size_t hdrSize = 8 + msg->hdr->headerLen + ((8 - msg->hdr->headerLen) & 7);
+        size_t hdrSize = sizeof(AJ_MsgHeader) + msg->hdr->headerLen + ((8 - msg->hdr->headerLen) & 7);
         /*
          * Args have already been converted to native endianess in place in the input buffer, this
          * prevents the unmarshaler from incorrectly undoing the conversion.
          */
         msg->hdr->endianess = AJ_NATIVE_ENDIAN;
         /*
-         * Reset the read pointer
+         * Reset the read pointer to the start of the argument list
          */
-        AJ_IO_BUF_RESET(ioBuf);
-        ioBuf->readPtr += hdrSize;
+        ioBuf->readPtr = ioBuf->bufStart + hdrSize;
+        AJ_ASSERT(ioBuf->readPtr < ioBuf->writePtr);
         /*
-         * Signature is reset to start
+         * Reset signature and body offsets
          */
         msg->sigOffset = 0;
-        return AJ_OK;
+        msg->bodyBytes = msg->hdr->bodyLen;
     }
+    return status;
 }
 
 AJ_Status AJ_UnmarshalMsg(AJ_BusAttachment* bus, AJ_Message* msg, uint32_t timeout)
@@ -1094,6 +1099,7 @@ AJ_Status AJ_SkipArg(AJ_Message* msg)
             status = LoadBytes(ioBuf, skippy.len, 0);
             if (status == AJ_OK) {
                 ioBuf->readPtr += skippy.len;
+                msg->bodyBytes -= skippy.len;
             }
         } else {
             /*
