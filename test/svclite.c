@@ -206,7 +206,7 @@ int AJ_Main(void)
 
         status = AJ_UnmarshalMsg(&bus, &msg, UNMARSHAL_TIMEOUT);
         if (AJ_ERR_TIMEOUT == status && AJ_ERR_LINK_TIMEOUT == AJ_BusLinkStateProc(&bus)) {
-            status = AJ_ERR_SESSION_LOST;
+            status = AJ_ERR_READ;
         }
         if (status != AJ_OK) {
             if (status == AJ_ERR_TIMEOUT) {
@@ -313,7 +313,7 @@ int AJ_Main(void)
          */
         AJ_CloseMsg(&msg);
 
-        if ((status == AJ_ERR_SESSION_LOST) || (status == AJ_ERR_READ) || (status == AJ_ERR_LINK_DEAD)) {
+        if ((status == AJ_ERR_READ) || (status == AJ_ERR_LINK_DEAD)) {
             AJ_InfoPrintf(("AllJoyn disconnect\n"));
             AJ_InfoPrintf(("Disconnected from Daemon:%s\n", AJ_GetUniqueName(&bus)));
             AJ_Disconnect(&bus);
