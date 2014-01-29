@@ -112,6 +112,7 @@ AJ_Status AJ_BusReleaseName(AJ_BusAttachment* bus, const char* name);
  * @param name          The name to be advertised
  * @param transportMask Restricts the transports the advertisement will be stopped/started on.
  * @param op            Either AJ_BUS_START_ADVERTISING or AJ_BUS_STOP_ADVERTISING
+ * @param flags         Flags to pass into AJ_MarshalMsg
  *
  * @return  Return AJ_Status
  *         - AJ_OK if the request was sent
@@ -186,6 +187,7 @@ typedef struct _AJ_SessionOpts {
  * @param port         The port to bind, if AJ_SESSION_PORT_ANY is passed in, the daemon
  *                     will assign an ephemeral session port
  * @param opts         Options for establishing a session, if NULL defaults are used.
+ * @param flags        Flags to pass into AJ_MarshalMsg
  *
  * @return  Return AJ_Status
  *         - AJ_OK if the request was sent
