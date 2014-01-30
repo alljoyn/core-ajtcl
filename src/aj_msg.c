@@ -404,6 +404,12 @@ static AJ_Status LoadBytes(AJ_IOBuffer* ioBuf, uint16_t numBytes, uint8_t pad)
         status = ioBuf->recv(ioBuf, numBytes - AJ_IO_BUF_AVAIL(ioBuf), UNMARSHAL_TIMEOUT);
         if (status != AJ_OK) {
             /*
+             * Ignore interrupted recv calls for now we can't handle resumption
+             */
+            if (status == AJ_ERR_INTERRUPTED) {
+                continue;
+            }
+            /*
              * Timeouts after we have started to unmarshal a message are a bad sign.
              */
             if (status == AJ_ERR_TIMEOUT) {

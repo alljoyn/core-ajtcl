@@ -57,7 +57,8 @@ typedef enum {
     AJ_ERR_LINK_DEAD    = 28, /**< The network link is now dead */
     AJ_ERR_HDR_CORRUPT  = 29, /**< The message header was corrupt */
     AJ_ERR_RESTART_APP  = 30, /**< The application must cleanup and restart */
-    AJ_STATUS_LAST      = 30  /**< The last error status code */
+    AJ_ERR_INTERRUPTED  = 31, /**< An I/O operation (READ) was interrupted */
+    AJ_STATUS_LAST      = 31  /**< The last error status code */
 
 } AJ_Status;
 
