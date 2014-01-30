@@ -164,6 +164,17 @@
 #include "aj_target.h"
 #include "aj_msg.h"
 
+/**
+ * Always print a message in a fashion similar to other conditional log outputs.
+ * Do not include time stamp, file and line number.
+ *
+ * @param msg  A format string and arguments
+ */
+#define AJ_AlwaysPrintf(msg) \
+    do { \
+        AJ_Printf msg; \
+    } while (0)
+
 #ifndef NDEBUG
 
 /**
@@ -238,17 +249,6 @@ int _AJ_DbgHeader(AJ_DebugLevel level, const char* file, int line);
 
 #define CONCAT(x, y) x ## y
 #define MKVAR(x, y) CONCAT(x, y)
-
-/**
- * Always print a message in a fashion similar to other conditional log outputs.
- * Do not include time stamp, file and line number.
- *
- * @param msg  A format string and arguments
- */
-#define AJ_AlwaysPrintf(msg) \
-    do { \
-        AJ_Printf msg; \
-    } while (0)
 
 #if AJ_DEBUG_RESTRICT >= AJ_DEBUG_ERROR
 /**

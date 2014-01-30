@@ -4,7 +4,7 @@
  * @file
  */
 /******************************************************************************
- * Copyright (c) 2012, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2012-2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -56,6 +56,8 @@ typedef unsigned long long uint64_t;  /** 64-bit unsigned integer */
 #define HOST_IS_LITTLE_ENDIAN  TRUE
 #define HOST_IS_BIG_ENDIAN     FALSE
 
+#define AJ_Printf printf
+
 #ifndef NDEBUG
 
 extern uint8_t dbgCONFIGUREME;
@@ -65,9 +67,6 @@ extern uint8_t dbgTARGET_CRYPTO;
 extern uint8_t dbgTARGET_NVRAM;
 extern uint8_t dbgTARGET_UTIL;
 
-    #define AJ_Printf printf
-#else
-    #define AJ_Printf(...)
 #endif
 
 #define AJ_ASSERT(x)  assert(x)
