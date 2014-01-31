@@ -713,7 +713,7 @@ static AJ_Status ValidateHeader(const AJ_Message* msg)
     /*
      * Sender field is mandatory for all messages
      */
-    if (msg->sender) {
+    if ((msg->sender) && (msg->objPath)) {
         /*
          * Check required fields are present for each message type
          */
