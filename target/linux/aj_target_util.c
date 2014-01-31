@@ -180,8 +180,8 @@ uint8_t AJ_StopReadFromStdIn()
 {
     void* exit_status;
     if (ioThreadRunning) {
-        pthread_join(threadId, &exit_status);
         ioThreadRunning = FALSE;
+        pthread_join(threadId, &exit_status);
         return TRUE;
     }
     return FALSE;
