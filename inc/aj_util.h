@@ -58,7 +58,7 @@ uint32_t AJ_GetElapsedTime(AJ_Time* timer, uint8_t cumulative);
  *
  * @param timer  The timer to initialize
  */
-#define AJ_InitTimer(timer)  (void)AJ_GetElapsedTime(timer, FALSE)
+void AJ_InitTimer(AJ_Time* timer);
 
 
 int32_t AJ_GetTimeDifference(AJ_Time* timerA, AJ_Time* timerB);
