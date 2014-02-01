@@ -4,7 +4,7 @@
  * @file
  */
 /******************************************************************************
- * Copyright (c) 2013, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2013-2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -76,6 +76,10 @@ void ram_diag();
     #include <EthernetUdp.h>
 #endif
 
+#define AJ_Printf(fmat, ...) \
+    do { printf(fmat, ## __VA_ARGS__); } while (0)
+
+
 #ifndef NDEBUG
 
 extern uint8_t dbgCONFIGUREME;
@@ -85,10 +89,6 @@ extern uint8_t dbgTARGET_CRYPTO;
 extern uint8_t dbgTARGET_NVRAM;
 extern uint8_t dbgTARGET_UTIL;
 
-    #define AJ_Printf(fmat, ...) \
-    do { printf(fmat, ## __VA_ARGS__); } while (0)
-#else
-    #define AJ_Printf(fmat, ...)
 #endif
 
 #define AJ_ASSERT(x) assert(x)
