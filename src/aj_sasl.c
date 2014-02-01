@@ -499,6 +499,21 @@ static AJ_Status Response(AJ_SASL_Context* context, char* inStr, char* outStr, u
         }
         break;
 
+    case AJ_SASL_BEGIN:
+        if (cmd == CMD_OK) {
+            AJ_GUID localGuid;
+            AJ_GetLocalGUID(&localGuid);
+            status = AJ_GUID_ToString(&localGuid, outStr, outLen);
+            if (status == AJ_OK) {
+                status = PrependStr(CMD_BEGIN, outStr, outLen, FALSE);
+                AJ_InfoPrintf(("AJ_GUID_ToString returned AJ_OK\n"));
+            }
+            context->state = AJ_SASL_AUTHENTICATED;
+        } else {
+            context->state = AJ_SASL_WAIT_FOR_REJECT;
+        }
+        break;
+
     case AJ_SASL_WAIT_FOR_DATA:
         AJ_InfoPrintf(("Response(): AJ_SASL_WAIT_FOR_DATA\n"));
         if (cmd == CMD_DATA) {
@@ -507,7 +522,8 @@ static AJ_Status Response(AJ_SASL_Context* context, char* inStr, char* outStr, u
                 result = context->mechanism->Response(inStr, outStr, outLen);
                 if (result == AJ_AUTH_STATUS_SUCCESS) {
                     status = PrependStr(CMD_DATA, outStr, outLen, TRUE);
-                    context->state = AJ_SASL_WAIT_FOR_OK;
+                    context->state = AJ_SASL_BEGIN;
+                    break;
                 } else if (result == AJ_AUTH_STATUS_ERROR) {
                     status = context->mechanism->Init(AJ_AUTH_RESPONDER, context->pwdFunc);
                     /*
