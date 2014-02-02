@@ -51,6 +51,7 @@ uint32_t AJ_GetElapsedTime(AJ_Time* timer, uint8_t cumulative)
 void AJ_InitTimer(AJ_Time* timer)
 {
     struct _timeb now;
+    _ftime(&now);
     timer->seconds = (uint32_t)now.time;
     timer->milliseconds = (uint32_t)now.millitm;
 }
