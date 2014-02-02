@@ -153,7 +153,7 @@ int AJ_Main()
             AJ_Printf(">~~~%s\n", buf);
             command = strtok(buf, " \r\n");
             if (!command) {
-                goto UNKNOWN_COMMAND;
+                continue;
             }
             if (0 == strcmp("startservice", command)) {
                 uint16_t port = 0;
@@ -477,7 +477,6 @@ int AJ_Main()
                 AJ_Printf("\n");
                 continue;
             } else {
-            UNKNOWN_COMMAND:
                 AJ_Printf("Unknown command: %s\n", command);
                 continue;
             }
