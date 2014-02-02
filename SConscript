@@ -31,6 +31,7 @@ vars.Add(EnumVariable('VARIANT', 'Build variant', 'debug', allowed_values=('debu
 vars.Add(PathVariable('GTEST_DIR', 'The path to googletest sources', os.environ.get('GTEST_DIR'), PathVariable.PathIsDir))
 vars.Add(EnumVariable('WS', 'Whitespace Policy Checker', 'check', allowed_values=('check', 'detail', 'fix', 'off')))
 vars.Add(EnumVariable('FORCE32', 'Force building 32 bit on 64 bit architecture', 'false', allowed_values=('false', 'true')))
+vars.Add(EnumVariable('NO_AUTH', 'Compile in authentication mechanism\'s to the code base', 'no', allowed_values=('no', 'yes')))
 
 if default_msvc_version:
     vars.Add(EnumVariable('MSVC_VERSION', 'MSVC compiler version - Windows', default_msvc_version, allowed_values=('8.0', '9.0', '10.0', '11.0', '11.0Exp')))
@@ -41,6 +42,12 @@ if ARGUMENTS.get('TARG', default_target) == 'win32':
 else:
     env = Environment(variables = vars)
 Help(vars.GenerateHelpText(env))
+
+# Define if compiling to use authenticaiton
+if env['NO_AUTH'] == 'no':
+    auth = ''
+else:
+    auth = 'NO_AUTH_PIN_KEYX'
 
 # Define compile/link options only for win32/linux.
 # In case of target platforms, the compilation/linking does not take place
@@ -115,7 +122,7 @@ if env['TARG'] in [ 'win32', 'linux' ]:
     env.Append(LIBS = [env['libs']])
 
     # Win/Linux programs need their own 'main' function
-    env.Append(CPPDEFINES = ['AJ_MAIN'])
+    env.Append(CPPDEFINES = ['AJ_MAIN', auth])
 
     # Produce shared libraries for these platforms
     srcs = env['aj_srcs'] + env['aj_targ_srcs']

@@ -2,7 +2,7 @@
  * @file
  */
 /******************************************************************************
- * Copyright (c) 2012,2013, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2012-2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -523,8 +523,10 @@ AJ_Status AJ_BusHandleBusMessage(AJ_Message* msg)
 
 void AJ_BusSetPasswordCallback(AJ_BusAttachment* bus, AJ_AuthPwdFunc pwdCallback)
 {
+#ifndef NO_AUTH_PIN_KEYX
     AJ_InfoPrintf(("AJ_BusSetPasswordCallback(bus=0x%p, pwdCallback=0x%p)\n", bus, pwdCallback));
     bus->pwdCallback = pwdCallback;
+#endif
 }
 
 AJ_Status AJ_BusAuthenticatePeer(AJ_BusAttachment* bus, const char* peerName, AJ_BusAuthPeerCallback callback, void* cbContext)

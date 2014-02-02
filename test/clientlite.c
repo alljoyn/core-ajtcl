@@ -3,7 +3,7 @@
  */
 
 /******************************************************************************
- * Copyright (c) 2012-2013, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2012-2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -29,6 +29,9 @@ static const uint16_t ServicePort = 24;
  * To define a secure interface, prepend '$' before the interface name, eg., "$org.alljoyn.alljoyn_test"
  */
 #ifdef SECURE_INTERFACE
+#ifdef NO_AUTH_PIN_KEYX
+#error "You are defining a secure interface but not using authentication\n"
+#endif
 static const char testInterfaceName[] = "$org.alljoyn.alljoyn_test";
 static const char testValuesInterfaceName[] = "$org.alljoyn.alljoyn_test.values";
 #else
