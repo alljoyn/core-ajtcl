@@ -60,6 +60,7 @@ uint32_t AJ_GetElapsedTime(AJ_Time* timer, uint8_t cumulative)
 void AJ_InitTimer(AJ_Time* timer)
 {
     struct timespec now;
+    clock_gettime(CLOCK_MONOTONIC, &now);
     timer->seconds = now.tv_sec;
     timer->milliseconds = now.tv_nsec / 1000000;
 
