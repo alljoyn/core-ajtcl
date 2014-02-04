@@ -32,3 +32,5 @@ ajlite.nvram
 libajtcl.so
 ajtcl.dll
 whitespace.db
+*.pyc
+*.exp
