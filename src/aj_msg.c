@@ -563,6 +563,13 @@ static AJ_Status UnmarshalStruct(AJ_Message* msg, const char** sig, AJ_Arg* arg,
 }
 
 /*
+ * Indicates that scalar arrays should be unmarshaled element by element. This value is set to TRUE
+ * in AJ_UnmarshalContainer() for the duration of a single call to AJ_UnmarshalArgs(). If we ever
+ * have to make the unmarshaler thread-safe this will need to be moved into AJ_Message.
+ */
+static uint8_t unmarshalScalarAsElement = TRUE;
+
+/*
  * Unmarshal an array argument.
  *
  * @param msg   The message
@@ -598,7 +605,7 @@ static AJ_Status UnmarshalArray(AJ_Message* msg, const char** sig, AJ_Arg* arg, 
     arg->val.v_data = ioBuf->readPtr;
     arg->sigPtr = *sig;
     arg->len = numBytes;
-    if (IsScalarType(typeId)) {
+    if (!unmarshalScalarAsElement && IsScalarType(typeId)) {
         /*
          * For scalar types we do an inplace endian swap (if needed) and return a pointer into the read buffer.
          */
@@ -1378,7 +1385,9 @@ AJ_Status AJ_UnmarshalContainer(AJ_Message* msg, AJ_Arg* arg, uint8_t typeId)
     AJ_Status status = AJ_ERR_UNMARSHAL;
 
     if ((TYPE_FLAG(typeId) & AJ_CONTAINER)) {
+        unmarshalScalarAsElement = TRUE;
         status = AJ_UnmarshalArg(msg, arg);
+        unmarshalScalarAsElement = FALSE;
         if (status == AJ_OK) {
             if (arg->typeId == typeId) {
                 arg->container = msg->outer;
