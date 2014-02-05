@@ -38,6 +38,10 @@
 #include "aj_debug.h"
 #include "aj_config.h"
 
+#if !(defined(ARDUINO) || defined(__linux) || defined(_WIN32))
+#include "aj_wifi_ctrl.h"
+#endif
+
 #ifdef AJ_SERIAL_CONNECTION
 #include "aj_serial.h"
 #endif

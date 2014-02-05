@@ -18,6 +18,8 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
+#define AJ_MODULE NETBUSSAMPLE
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
@@ -32,6 +34,11 @@
 #include "aj_disco.h"
 #include "aj_wifi_ctrl.h"
 #include "aj_auth.h"
+
+#ifndef NDEBUG
+AJ_EXPORT uint8_t dbgNETBUSSAMPLE = 0;
+#endif
+
 
 static const char* const testInterface[] = {
     "org.alljoyn.alljoyn_test",
@@ -191,6 +198,8 @@ int AJ_Main(void)
 
 // Windows, Linux and Arduino are already connected to the network when we get to this point.
 #if !(defined(ARDUINO) || defined(__linux) || defined(_WIN32))
+#define AJ_DHCP_TIMEOUT 10000
+
     // Step 1: connect to a WIFI network.
     // This will also attempt to acquire an IP from DHCP
     status = AJ_ConnectWiFi(ssid, secType, AJ_WIFI_CIPHER_CCMP, passphrase);
