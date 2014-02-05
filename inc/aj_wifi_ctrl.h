@@ -88,9 +88,9 @@ AJ_Status AJ_DisconnectWiFi(void);
  * @param ssid        The SSID for the AP
  * @param hidden      If TRUE the SSID is not broadcast
  * @param passphrase  The passphrase if secType != AJ_WIFI_SECURITY_NONE
- * @param timeout     Return AJ_ERR_TIMEOUT if nobody connects within <timeout> msec
+ * @param timeout     Return AJ_ERR_TIMEOUT if nobody connects within <timeout> msec.  0 means wait forever.
  */
-AJ_Status AJ_EnableSoftAP(const char* ssid, uint8_t hidden, const char* passphrase, int32_t timeout);
+AJ_Status AJ_EnableSoftAP(const char* ssid, uint8_t hidden, const char* passphrase, uint32_t timeout);
 
 /*
  * Put the wifi radio to sleep for a while
