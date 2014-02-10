@@ -1024,8 +1024,7 @@ AJ_Status AJ_UnmarshalMsg(AJ_BusAttachment* bus, AJ_Message* msg, uint32_t timeo
         hdrRaw = NULL;
     }
     if (ioBuf->readPtr != endOfHeader) {
-        AJ_ErrPrintf(("AJ_UnmarshalMsg(): AJ_ERR_HDR_CORRUPT\n"));
-        return AJ_ERR_HDR_CORRUPT;
+        status = AJ_ERR_HDR_CORRUPT;
     }
     if (status == AJ_OK) {
         AJ_ASSERT(ioBuf->readPtr == endOfHeader);
