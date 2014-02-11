@@ -48,6 +48,12 @@ uint32_t AJ_GetElapsedTime(AJ_Time* timer, uint8_t cumulative)
     }
     return elapsed;
 }
+void AJ_InitTimer(AJ_Time* timer)
+{
+    struct _timeb now;
+    timer->seconds = (uint32_t)now.time;
+    timer->milliseconds = (uint32_t)now.millitm;
+}
 /*
  * get a line of input from the the file pointer (most likely stdin).
  * This will capture the the num-1 characters or till a newline character is

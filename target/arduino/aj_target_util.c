@@ -46,6 +46,12 @@ uint32_t AJ_GetElapsedTime(AJ_Time* timer, uint8_t cumulative)
     }
     return elapsed;
 }
+void AJ_InitTimer(AJ_Time* timer)
+{
+    TIME_STRUCT now;
+    timer->seconds = (uint32_t)(now.milliseconds / 1000);
+    timer->milliseconds = (uint16_t)(now.milliseconds % 1000);
+}
 
 void* AJ_Malloc(size_t sz)
 {
