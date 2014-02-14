@@ -2,7 +2,7 @@
  * @file   PIN code authentication mechanism
  */
 /******************************************************************************
- * Copyright (c) 2012, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2012, 2014 AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -71,6 +71,7 @@ typedef struct _PinAuthContext {
 /*
  * This is only 36 bytes - probably not worth malloc'ing
  */
+#ifndef NO_AUTH_PIN_KEYX
 static PinAuthContext context;
 
 #ifdef AUTH_DEBUG
@@ -139,9 +140,13 @@ static AJ_Status ComputeMS(const uint8_t* nonce)
 #endif
     return status;
 }
+#endif
 
 static AJ_AuthResult AuthResponse(const char* inStr, char* outStr, uint32_t outLen)
 {
+#ifdef NO_AUTH_PIN_KEYX
+    return AJ_AUTH_STATUS_CONTINUE;
+#else
     AJ_AuthResult result;
     AJ_Status status = AJ_OK;
     uint8_t* nonce;
@@ -205,10 +210,14 @@ static AJ_AuthResult AuthResponse(const char* inStr, char* outStr, uint32_t outL
         AJ_ErrPrintf(("AuthReponse(): AJ_AUTH_STATUS_FAILURE\n"));
     }
     return result;
+#endif
 }
 
 static AJ_AuthResult AuthChallenge(const char* inStr, char* outStr, uint32_t outLen)
 {
+#ifdef NO_AUTH_PIN_KEYX
+    return AJ_AUTH_STATUS_CONTINUE;
+#else
     AJ_AuthResult result = AJ_AUTH_STATUS_FAILURE;
     AJ_Status status;
 
@@ -273,10 +282,14 @@ static AJ_AuthResult AuthChallenge(const char* inStr, char* outStr, uint32_t out
         result = AJ_AUTH_STATUS_FAILURE;
     }
     return result;
+#endif
 }
 
 AJ_Status AuthInit(uint8_t role, AJ_AuthPwdFunc pwdFunc)
 {
+#ifdef NO_AUTH_PIN_KEYX
+    return AJ_OK;
+#else
     AJ_InfoPrintf(("AuthInit(role=%d., pwdFunc=0x%p)\n", role, pwdFunc));
 
     if (pwdFunc) {
@@ -290,12 +303,13 @@ AJ_Status AuthInit(uint8_t role, AJ_AuthPwdFunc pwdFunc)
         AJ_InfoPrintf(("AuthInit(): AJ_ERR_SECURITY\n"));
         return AJ_ERR_SECURITY;
     }
+#endif
 }
 
 static AJ_Status AuthFinal(const AJ_GUID* peerGuid)
 {
     AJ_Status status = AJ_OK;
-
+#ifndef NO_AUTH_PIN_KEYX
     AJ_InfoPrintf(("AuthFinal(peerGuid=0x%p)\n", peerGuid));
 
     if (peerGuid) {
@@ -314,5 +328,6 @@ static AJ_Status AuthFinal(const AJ_GUID* peerGuid)
         }
     }
     memset(&context, 0, sizeof(context));
+#endif
     return status;
 }

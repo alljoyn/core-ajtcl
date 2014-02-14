@@ -2,7 +2,7 @@
  * @file
  */
 /******************************************************************************
- * Copyright (c) 2012, 2013 AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2012-2014 AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -333,6 +333,7 @@ static void PeerAuthComplete(AJ_Status status)
 
 AJ_Status AJ_PeerAuthenticate(AJ_BusAttachment* bus, const char* peerName, AJ_PeerAuthenticateCallback callback, void* cbContext)
 {
+#ifndef NO_AUTH_PIN_KEYX
     AJ_Message msg;
     char guidStr[33];
     AJ_GUID localGuid;
@@ -370,8 +371,11 @@ AJ_Status AJ_PeerAuthenticate(AJ_BusAttachment* bus, const char* peerName, AJ_Pe
     AJ_GUID_ToString(&localGuid, guidStr, sizeof(guidStr));
     AJ_MarshalArgs(&msg, "su", guidStr, version);
     return AJ_DeliverMsg(&msg);
+#else
+    return AJ_OK;
+#endif
 }
-
+#ifndef NO_AUTH_PIN_KEYX
 static AJ_Status GenSessionKey(AJ_Message* msg)
 {
     AJ_Message call;
@@ -398,9 +402,11 @@ static AJ_Status GenSessionKey(AJ_Message* msg)
     }
     return AJ_DeliverMsg(&call);
 }
+#endif
 
 static AJ_Status AuthResponse(AJ_Message* msg, char* inStr)
 {
+#ifndef NO_AUTH_PIN_KEYX
     AJ_Status status;
     char* buf;
 
@@ -441,10 +447,14 @@ static AJ_Status AuthResponse(AJ_Message* msg, char* inStr)
         }
     }
     return status;
+#else
+    return AJ_OK;
+#endif
 }
 
 AJ_Status AJ_PeerHandleAuthChallengeReply(AJ_Message* msg)
 {
+#ifndef NO_AUTH_PIN_KEYX
     AJ_Status status;
     AJ_Arg arg;
 
@@ -462,6 +472,9 @@ AJ_Status AJ_PeerHandleAuthChallengeReply(AJ_Message* msg)
         status = AuthResponse(msg, (char*)arg.val.v_string);
     }
     return status;
+#else
+    return AJ_OK;
+#endif
 }
 
 AJ_Status AJ_PeerHandleExchangeGUIDsReply(AJ_Message* msg)

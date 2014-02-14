@@ -2,7 +2,7 @@
  * @file
  */
 /******************************************************************************
- * Copyright (c) 2012-2013, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2012-2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -52,6 +52,9 @@ static int32_t propVal = 123456;
  */
 static const char* const testInterface[] = {
 #ifdef SECURE_INTERFACE
+#ifdef NO_AUTH_PIN_KEYX
+#error "You are defining a secure interface but not using authentication\n"
+#endif
     "$org.alljoyn.alljoyn_test",
 #else
     "org.alljoyn.alljoyn_test",
