@@ -31,7 +31,7 @@
 #define AJ_DUMP_BYTE_SIZE           16          //aj_debug.c
 
 /* Network options */
-#define _AJ_CONNECT_LOCALHOST       0           //Enable to bypass discovery and connect locally
+#define AJ_CONNECT_LOCALHOST        0           //Enable to bypass discovery and connect locally
 #define AJ_WHO_HAS_REPEAT           4           //number of times to send WHO_HAS       (aj_disco.c)
 #define AJ_MAX_TIMERS               4           //maximum number of timers              (aj_helper.c)
 #define AJ_NUM_REPLY_CONTEXTS       2           //number of reply contexts              (aj_introspect.c)
@@ -71,9 +71,6 @@
 /* Below sets the actual #define's based on values above */
 #if _AJ_AUTH_DEBUG
 #define AUTH_DEBUG
-#endif
-#if _AJ_CONNECT_LOCALHOST
-#define AJ_CONNECT_LOCALHOST
 #endif
 #if _SO_REUSEPORT
 #define SO_REUSEPORT
