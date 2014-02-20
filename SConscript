@@ -49,6 +49,16 @@ if env['NO_AUTH'] == 'no':
 else:
     auth = 'NO_AUTH_PIN_KEYX'
 
+# Set AJ_DEBUG_RESTRICT level
+restrict = ARGUMENTS.get('DEBUG_RESTRICT', '')
+if restrict != '':
+    if restrict in ['0', '1', '2', '3', '4', '5', 'AJ_DEBUG_OFF', 'AJ_DEBUG_ERROR', 'AJ_DEBUG_WARN', 'AJ_DEBUG_INFO', 'AJ_DEBUG_DUMP', 'AJ_DEBUG_ALL']:
+        env.Append(CPPDEFINES=['AJ_DEBUG_RESTRICT' + '=' + restrict])
+    else:
+        print 'Invalid value for DEBUG_RESTRICT'
+        Exit(0)
+
+
 # Define compile/link options only for win32/linux.
 # In case of target platforms, the compilation/linking does not take place
 # using SCons files.
