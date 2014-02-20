@@ -2,7 +2,7 @@
  * @file
  */
 /******************************************************************************
- * Copyright (c) 2012, 2013 AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2012-2014 AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -152,7 +152,7 @@ AJ_Status AJ_PeerHandleAuthChallenge(AJ_Message* msg, AJ_Message* reply)
         /*
          * Initialize SASL state machine
          */
-        AJ_SASL_InitContext(&authContext.sasl, authMechanisms, AJ_AUTH_CHALLENGER, msg->bus->pwdCallback);
+        AJ_SASL_InitContext(&authContext.sasl, authMechanisms, AJ_AUTH_CHALLENGER, msg->bus->pwdCallback, TRUE);
     }
     if (AJ_UnmarshalArg(msg, &arg) != AJ_OK) {
         goto FailAuth;
@@ -495,7 +495,7 @@ AJ_Status AJ_PeerHandleExchangeGUIDsReply(AJ_Message* msg)
     /*
      * Initialize SASL state machine
      */
-    AJ_SASL_InitContext(&authContext.sasl, authMechanisms, AJ_AUTH_RESPONDER, msg->bus->pwdCallback);
+    AJ_SASL_InitContext(&authContext.sasl, authMechanisms, AJ_AUTH_RESPONDER, msg->bus->pwdCallback, TRUE);
     /*
      * Start the authentication conversation
      */
