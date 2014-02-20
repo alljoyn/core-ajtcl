@@ -114,6 +114,7 @@ AJ_Status TestNVRAM()
             bytes = AJ_NVRAM_Write(&i, sizeof(i), handle);
             if (bytes != sizeof(i)) {
                 status = AJ_ERR_FAILURE;
+                AJ_NVRAM_Close(handle);
                 goto _TEST_NVRAM_EXIT;
             }
         }
@@ -123,11 +124,13 @@ AJ_Status TestNVRAM()
             bytes = AJ_NVRAM_Write(buf, sizeof(buf), handle);
             if (bytes != sizeof(buf)) {
                 status = AJ_ERR_FAILURE;
+                AJ_NVRAM_Close(handle);
                 goto _TEST_NVRAM_EXIT;
             }
             bytes = AJ_NVRAM_Write(buf2, sizeof(buf2), handle);
             if (bytes != sizeof(buf2)) {
                 status = AJ_ERR_FAILURE;
+                AJ_NVRAM_Close(handle);
                 goto _TEST_NVRAM_EXIT;
             }
 
@@ -142,6 +145,7 @@ AJ_Status TestNVRAM()
             bytes = AJ_NVRAM_Read(&data, sizeof(data), handle);
             if (bytes != sizeof(data) || data != i) {
                 status = AJ_ERR_FAILURE;
+                AJ_NVRAM_Close(handle);
                 goto _TEST_NVRAM_EXIT;
             }
         }
@@ -150,6 +154,7 @@ AJ_Status TestNVRAM()
             AJ_NVRAM_Read(&data, 1, handle);
             if (data != i * 11) {
                 status = AJ_ERR_FAILURE;
+                AJ_NVRAM_Close(handle);
                 goto _TEST_NVRAM_EXIT;
             }
         }
@@ -181,7 +186,6 @@ AJ_Status TestNVRAM()
     }
 
 _TEST_NVRAM_EXIT:
-    AJ_NVRAM_Close(handle);
     return status;
 }
 
@@ -189,15 +193,10 @@ _TEST_NVRAM_EXIT:
 int AJ_Main()
 {
     AJ_Status status = AJ_OK;
-    AJ_Printf("AJ_Main 1\n");
     AJ_Initialize();
-
     AJ_NVRAM_Clear();
     AJ_Printf("Clearing NVRAM\n");
-
-    AJ_Printf("AJ_Main 2\n");
     status = TestNVRAM();
-    AJ_Printf("AJ_Main 3\n");
     AJ_ASSERT(status == AJ_OK);
     status = TestCreds();
     AJ_ASSERT(status == AJ_OK);
