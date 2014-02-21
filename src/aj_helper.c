@@ -269,7 +269,7 @@ AJ_Status AJ_StartService(AJ_BusAttachment* bus,
     AJ_Time timer;
     uint8_t serviceStarted = FALSE;
 
-    AJ_InfoPrintf(("AJ_StartService2(bus=0x%p, daemonName=\"%s\", timeout=%d., connected=%d., port=%d., name=\"%s\", flags=0x%x, opts=0x%p)\n",
+    AJ_InfoPrintf(("AJ_StartService(bus=0x%p, daemonName=\"%s\", timeout=%d., connected=%d., port=%d., name=\"%s\", flags=0x%x, opts=0x%p)\n",
                    bus, daemonName, timeout, connected, port, name, flags, opts));
 
     AJ_InitTimer(&timer);
@@ -279,24 +279,24 @@ AJ_Status AJ_StartService(AJ_BusAttachment* bus,
             return AJ_ERR_TIMEOUT;
         }
         if (!connected) {
-            AJ_InfoPrintf(("AJ_StartService2(): AJ_FindBusAndConnect()\n"));
+            AJ_InfoPrintf(("AJ_StartService(): AJ_FindBusAndConnect()\n"));
             status = AJ_FindBusAndConnect(bus, daemonName, AJ_CONNECT_TIMEOUT);
             if (status != AJ_OK) {
-                AJ_WarnPrintf(("AJ_StartService2(): connect failed: sleeping for %d seconds\n", AJ_CONNECT_PAUSE / 1000));
+                AJ_WarnPrintf(("AJ_StartService(): connect failed: sleeping for %d seconds\n", AJ_CONNECT_PAUSE / 1000));
                 AJ_Sleep(AJ_CONNECT_PAUSE);
                 continue;
             }
-            AJ_InfoPrintf(("AJ_StartService2(): connected to bus\n"));
+            AJ_InfoPrintf(("AJ_StartService(): connected to bus\n"));
         }
         /*
          * Kick things off by binding a session port
          */
-        AJ_InfoPrintf(("AJ_StartService2(): AJ_BindSessionPort()\n"));
+        AJ_InfoPrintf(("AJ_StartService(): AJ_BindSessionPort()\n"));
         status = AJ_BusBindSessionPort(bus, port, opts, 0);
         if (status == AJ_OK) {
             break;
         }
-        AJ_ErrPrintf(("AJ_StartService2(): AJ_Disconnect(): status=%s.\n", AJ_StatusText(status)));
+        AJ_ErrPrintf(("AJ_StartService(): AJ_Disconnect(): status=%s.\n", AJ_StatusText(status)));
         AJ_Disconnect(bus);
     }
 
@@ -306,34 +306,34 @@ AJ_Status AJ_StartService(AJ_BusAttachment* bus,
         status = AJ_UnmarshalMsg(bus, &msg, AJ_UNMARSHAL_TIMEOUT);
 
         if (status != AJ_OK) {
-            AJ_ErrPrintf(("AJ_StartService2(): status=%s.\n", AJ_StatusText(status)));
+            AJ_ErrPrintf(("AJ_StartService(): status=%s.\n", AJ_StatusText(status)));
             break;
         }
 
         switch (msg.msgId) {
         case AJ_REPLY_ID(AJ_METHOD_BIND_SESSION_PORT):
             if (msg.hdr->msgType == AJ_MSG_ERROR) {
-                AJ_ErrPrintf(("AJ_StartService2(): AJ_METHOD_BIND_SESSION_PORT: AJ_ERR_FAILURE\n"));
+                AJ_ErrPrintf(("AJ_StartService(): AJ_METHOD_BIND_SESSION_PORT: %s\n", msg.error));
                 status = AJ_ERR_FAILURE;
             } else {
-                AJ_InfoPrintf(("AJ_StartService2(): AJ_BusRequestName()\n"));
+                AJ_InfoPrintf(("AJ_StartService(): AJ_BusRequestName()\n"));
                 status = AJ_BusRequestName(bus, name, flags);
             }
             break;
 
         case AJ_REPLY_ID(AJ_METHOD_REQUEST_NAME):
             if (msg.hdr->msgType == AJ_MSG_ERROR) {
-                AJ_ErrPrintf(("AJ_StartService2(): AJ_METHOD_REQUEST_NAME: AJ_ERR_FAILURE\n"));
+                AJ_ErrPrintf(("AJ_StartService(): AJ_METHOD_REQUEST_NAME: %s\n", msg.error));
                 status = AJ_ERR_FAILURE;
             } else {
-                AJ_InfoPrintf(("AJ_StartService2(): AJ_BusAdvertiseName()\n"));
+                AJ_InfoPrintf(("AJ_StartService(): AJ_BusAdvertiseName()\n"));
                 status = AJ_BusAdvertiseName(bus, name, AJ_TRANSPORT_ANY, AJ_BUS_START_ADVERTISING, 0);
             }
             break;
 
         case AJ_REPLY_ID(AJ_METHOD_ADVERTISE_NAME):
             if (msg.hdr->msgType == AJ_MSG_ERROR) {
-                AJ_ErrPrintf(("AJ_StartService2(): AJ_METHOD_ADVERTISE_NAME: AJ_ERR_FAILURE\n"));
+                AJ_ErrPrintf(("AJ_StartService(): AJ_METHOD_ADVERTISE_NAME: %s\n", msg.error));
                 status = AJ_ERR_FAILURE;
             } else {
                 serviceStarted = TRUE;
@@ -344,7 +344,7 @@ AJ_Status AJ_StartService(AJ_BusAttachment* bus,
             /*
              * Pass to the built-in bus message handlers
              */
-            AJ_InfoPrintf(("AJ_StartService2(): AJ_BusHandleBusMessage()\n"));
+            AJ_InfoPrintf(("AJ_StartService(): AJ_BusHandleBusMessage()\n"));
             status = AJ_BusHandleBusMessage(&msg);
             break;
         }
@@ -352,7 +352,7 @@ AJ_Status AJ_StartService(AJ_BusAttachment* bus,
     }
 
     if (status != AJ_OK) {
-        AJ_WarnPrintf(("AJ_StartService2(): AJ_Disconnect(): status=%s\n", AJ_StatusText(status)));
+        AJ_WarnPrintf(("AJ_StartService(): AJ_Disconnect(): status=%s\n", AJ_StatusText(status)));
         AJ_Disconnect(bus);
     }
     return status;
@@ -437,7 +437,7 @@ AJ_Status AJ_StartClient(AJ_BusAttachment* bus,
         case AJ_REPLY_ID(AJ_METHOD_FIND_NAME):
         case AJ_REPLY_ID(AJ_METHOD_FIND_NAME_BY_TRANSPORT):
             if (msg.hdr->msgType == AJ_MSG_ERROR) {
-                AJ_ErrPrintf(("AJ_StartClient(): AJ_METHOD_FIND_NAME: AJ_ERR_FAILURE\n"));
+                AJ_ErrPrintf(("AJ_StartClient(): AJ_METHOD_FIND_NAME: %s\n", msg.error));
                 status = AJ_ERR_FAILURE;
             } else {
                 uint32_t disposition;
@@ -465,7 +465,7 @@ AJ_Status AJ_StartClient(AJ_BusAttachment* bus,
                 uint32_t replyCode;
 
                 if (msg.hdr->msgType == AJ_MSG_ERROR) {
-                    AJ_ErrPrintf(("AJ_StartClient(): AJ_METHOD_JOIN_SESSION: AJ_ERR_FAILURE\n"));
+                    AJ_ErrPrintf(("AJ_StartClient(): AJ_METHOD_JOIN_SESSION: %s\n", msg.error));
                     status = AJ_ERR_FAILURE;
                 } else {
                     status = AJ_UnmarshalArgs(&msg, "uu", &replyCode, sessionId);
