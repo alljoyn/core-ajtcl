@@ -78,7 +78,8 @@ static const char* const testSignature[] = {
     "ya{ss}",
     "yyyyya{ys}",
     "(iay)",
-    "ia{iv}i"
+    "ia{iv}i",
+    "ay"
 };
 
 typedef struct {
@@ -126,6 +127,7 @@ int AJ_Main()
     AJ_Arg struct1;
     AJ_Arg struct2;
     size_t sz;
+    uint32_t test;
     uint32_t i;
     uint32_t j;
     uint32_t k;
@@ -175,14 +177,14 @@ int AJ_Main()
     return -1;
 #endif
 
-    for (i = 0; i < ArraySize(testSignature); ++i) {
+    for (test = 0; test < ArraySize(testSignature); ++test) {
 
-        status = AJ_MarshalSignal(&bus, &txMsg, i, "mutter.service", 0, 0, 0);
+        status = AJ_MarshalSignal(&bus, &txMsg, test, "mutter.service", 0, 0, 0);
         if (status != AJ_OK) {
             break;
         }
 
-        switch (i) {
+        switch (test) {
         case 0:
             status = AJ_MarshalContainer(&txMsg, &array1, AJ_ARG_ARRAY);
             if (status != AJ_OK) {
@@ -741,9 +743,23 @@ int AJ_Main()
                 break;
             }
             break;
+
+        case 15:
+            status = AJ_MarshalContainer(&txMsg, &array1, AJ_ARG_ARRAY);
+            if (status != AJ_OK) {
+                break;
+            }
+            for (i = 0; i < 100; ++i) {
+                status = AJ_MarshalArgs(&txMsg, "y", i);
+            }
+            status = AJ_MarshalCloseContainer(&txMsg, &array1);
+            if (status != AJ_OK) {
+                break;
+            }
+            break;
         }
         if (status != AJ_OK) {
-            AJ_Printf("Failed %d\n", i);
+            AJ_Printf("Failed %d\n", test);
             break;
         }
 
@@ -755,7 +771,7 @@ int AJ_Main()
             break;
         }
 
-        switch (i) {
+        switch (test) {
         case 0:
             status = AJ_UnmarshalContainer(&rxMsg, &array1, AJ_ARG_ARRAY);
             if (status != AJ_OK) {
@@ -1363,18 +1379,39 @@ int AJ_Main()
             AJ_ASSERT(j == 0x2222);
             break;
 
+        case 15:
+            status = AJ_UnmarshalContainer(&rxMsg, &array1, AJ_ARG_ARRAY);
+            if (status != AJ_OK) {
+                break;
+            }
+            while (status == AJ_OK) {
+                status = AJ_UnmarshalArgs(&rxMsg, "y", &i);
+            }
+            /*
+             * We expect AJ_ERR_NO_MORE
+             */
+            if (status == AJ_ERR_NO_MORE) {
+                status = AJ_OK;
+            }
+            if (status != AJ_OK) {
+                break;
+            }
+            status = AJ_UnmarshalCloseContainer(&rxMsg, &array1);
+            if (status != AJ_OK) {
+                break;
+            }
+            break;
         }
 
         if (status != AJ_OK) {
-            AJ_Printf("Failed %d\n", i);
+            AJ_Printf("Failed %d\n", test);
             break;
         }
         AJ_CloseMsg(&rxMsg);
-        AJ_Printf("Passed %d\n", i);
-
+        AJ_Printf("Passed %d \"%s\"\n", test, testSignature[test]);
     }
     if (status != AJ_OK) {
-        AJ_Printf("Marshal/Unmarshal unit test[%d] failed %d\n", i, status);
+        AJ_Printf("Marshal/Unmarshal unit test[%d] failed %d\n", test, status);
     }
 
     return status;

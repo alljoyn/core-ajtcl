@@ -34,6 +34,9 @@
 #include <assert.h>
 #include <errno.h>
 #include <time.h>
+#include <unistd.h>
+#include <netdb.h>
+#include <ifaddrs.h>
 
 #include "aj_target.h"
 #include "aj_bufio.h"
@@ -212,25 +215,29 @@ void AJ_Net_Disconnect(AJ_NetSocket* netSock)
     CloseNetSock(netSock);
 }
 
-static int getBcastAddress(int sock)
+static void sendToBroadcast(int sock, void* ptr, size_t tx)
 {
-    struct ifreq ifr;
-    struct sockaddr_in* bcast_addr;
-    int ret;
+    struct ifaddrs* addrs;
+    struct ifaddrs* addr;
 
-    strncpy(ifr.ifr_name, "eth0", IFNAMSIZ - 1);
-    ifr.ifr_broadaddr.sa_family = AF_INET;
+    getifaddrs(&addrs);
+    addr = addrs;
 
-    ret = ioctl(sock, SIOCGIFBRDADDR, &ifr);
-    if (ret != 0) {
-        AJ_ErrPrintf(("getBcastAddress returns %s\n", strerror(errno)));
-        return 0;
+    while (addr != NULL) {
+        // only care about IPV4
+        if (addr->ifa_addr != NULL && addr->ifa_addr->sa_family == AF_INET) {
+            char buf[INET_ADDRSTRLEN];
+            struct sockaddr_in* sin_bcast = (struct sockaddr_in*) addr->ifa_ifu.ifu_broadaddr;
+            sin_bcast->sin_port = htons(AJ_UDP_PORT);
+            inet_ntop(AF_INET, &(sin_bcast->sin_addr), buf, sizeof(buf));
+            AJ_InfoPrintf(("sendToBroadcast: sending to bcast addr %s\n", buf));
+            sendto(sock, ptr, tx, 0, (struct sockaddr*) sin_bcast, sizeof(struct sockaddr_in));
+        }
+
+        addr = addr->ifa_next;
     }
-
-    bcast_addr = (struct sockaddr_in*) &ifr.ifr_broadaddr;
-    return bcast_addr->sin_addr.s_addr;
+    freeifaddrs(addrs);
 }
-
 
 AJ_Status AJ_Net_SendTo(AJ_IOBuffer* buf)
 {
@@ -242,8 +249,6 @@ AJ_Status AJ_Net_SendTo(AJ_IOBuffer* buf)
 
     if (tx > 0) {
         if (context->udpSock != INVALID_SOCKET) {
-            int bcast_addr;
-
             struct sockaddr_in sin;
             sin.sin_family = AF_INET;
             sin.sin_port = htons(AJ_UDP_PORT);
@@ -252,12 +257,8 @@ AJ_Status AJ_Net_SendTo(AJ_IOBuffer* buf)
                 ret = sendto(context->udpSock, buf->readPtr, tx, 0, (struct sockaddr*)&sin, sizeof(sin));
             }
 
-            // now do IP broadcast to the subnet
-            bcast_addr = getBcastAddress(context->udpSock);
-            if (bcast_addr != 0) {
-                sin.sin_addr.s_addr = bcast_addr;
-                ret = sendto(context->udpSock, buf->readPtr, tx, 0, (struct sockaddr*)&sin, sizeof(sin));
-            }
+
+            sendToBroadcast(context->udpSock, buf->readPtr, tx);
         }
 
 
