@@ -567,7 +567,7 @@ static AJ_Status UnmarshalStruct(AJ_Message* msg, const char** sig, AJ_Arg* arg,
  * in AJ_UnmarshalContainer() for the duration of a single call to AJ_UnmarshalArgs(). If we ever
  * have to make the unmarshaler thread-safe this will need to be moved into AJ_Message.
  */
-static uint8_t unmarshalScalarAsElement = TRUE;
+static uint8_t unmarshalScalarAsElement = FALSE;
 
 /*
  * Unmarshal an array argument.
