@@ -2,7 +2,7 @@
  * @file
  */
 /******************************************************************************
- * Copyright (c) 2012, 2013, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2012-2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -132,9 +132,18 @@ static const uint8_t TypeFlags[] = {
 };
 
 /**
- * Macros for indexing into TypeFlags
+ * This macro makes sure that the signature contains valid characters
+ * in the TypeFlags array. If the index passed is below ascii 'a'
+ * or above ascii '}' and not ascii '(' or ')' then the signature is invalid.
+ * Below is the macro broken into smaller chunks:
+ *
+ * ((t) == '(' || (t) == ')') ? (t) - '('       --> If the value is ) or (, get the value in TypeFlags
+ * :
+ * (((t) < 'a' || (t) > '}') ? '}' + 2 - 'a'    --> The value is too high or too low, return TypeFlags[30] (0)
+ * :
+ * (t) + 2 - 'a'                                --> The value is valid, get the value in TypeFlags
  */
-#define TYPE_FLAG(t) TypeFlags[((t) < 'a') ? (t) - '(' : (t) + 2 - 'a']
+#define TYPE_FLAG(t) TypeFlags[((t) == '(' || (t) == ')') ? (t) - '(' : (((t) < 'a' || (t) > '}') ? '}' + 2 - 'a' : (t) + 2 - 'a') ]
 
 /**
  * Extract the alignment from the TypeFlags
@@ -573,7 +582,7 @@ static AJ_Status UnmarshalStruct(AJ_Message* msg, const char** sig, AJ_Arg* arg,
  * in AJ_UnmarshalContainer() for the duration of a single call to AJ_UnmarshalArgs(). If we ever
  * have to make the unmarshaler thread-safe this will need to be moved into AJ_Message.
  */
-static uint8_t unmarshalScalarAsElement = TRUE;
+static uint8_t unmarshalScalarAsElement = FALSE;
 
 /*
  * Unmarshal an array argument.
@@ -1096,6 +1105,9 @@ AJ_Status AJ_SkipArg(AJ_Message* msg)
     }
     if (msg->varOffset) {
         status = AJ_UnmarshalArg(msg, &skippy);
+    }
+    if (TYPE_FLAG(skippy.typeId) == 0) {
+        return AJ_ERR_SIGNATURE;
     }
     /*
      * If skipping a container skip the contents
