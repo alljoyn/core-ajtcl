@@ -154,7 +154,8 @@ AJ_Status AJ_PeerHandleAuthChallenge(AJ_Message* msg, AJ_Message* reply)
          */
         AJ_SASL_InitContext(&authContext.sasl, authMechanisms, AJ_AUTH_CHALLENGER, msg->bus->pwdCallback);
     }
-    if (AJ_UnmarshalArg(msg, &arg) != AJ_OK) {
+    status = AJ_UnmarshalArg(msg, &arg);
+    if (status != AJ_OK) {
         goto FailAuth;
     }
     /*
