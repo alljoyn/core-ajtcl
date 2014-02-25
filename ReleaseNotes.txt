@@ -1,42 +1,73 @@
 
-AllJoyn Thin Client Version 3.4.1 Release Notes
------------------------------------
+AllJoyn Thin Client Version 14.02 Release Notes
+===============================================
 
 Platform Support
 ----------------
 1) Linux Ubuntu (32 and 64 bit x86)
-2) Windows XP (32 bit x86)
-3) Windows 7 (32 and 64 bit x86)
-4) Windows 8 (32 and 64 bit x86)
-5) Arduino 
+2) Windows 7 (32 and 64 bit x86)
+3) Windows 8 (32 and 64 bit x86)
 
-
-Features added in Version 3.4.1
+Features added in Version 14.02
 -------------------------------
-None
+1) Configurable debug logging mechanism;
+2) Discovery mechanism extended to use IPv4 broadcast and IPv6 mutlicast;
+3) Network API extended to allow more intelligent error handling.
 
-Issues Addressed in Version 3.4.1
+Issues Addressed in Version 14.02
 ---------------------------------
+AJTCT-21:   Helper functions ending in 2 are now removed
+AJTCT-24:   moved aj_init.c out of target builds
+AJTCT 50:   use IPV4 and IPV6 multicast for discovery
+AJTCT-60:   Replaced all printf calls with AJ_Printf, AJ_InfoPrintf or AJ_ErrPrintf
+AJTCT-61:   Added return code AJ_ERR_SESSION_LOST
+AJTCT-78:   fixed code that was closing stdin on Linux
+AJTCT-82:   iniitlize status variable; check for IPV4 mcast even if IPV6 fails
+AJTCT-87:   Linux stdin I/O thread never stops
+AJTCT-92:   send broadcast discovery packets out on ALL IPV4 interfaces
 
-ALLJOYN-2473: Wait 3 seconds for reply to NameOwnerChanged ADD_MATCH.
-
-ALLJOYN-2213: Provide a new API to allow message args and struct and array elements to be skipped rather than unmarshaled.
-
-ALLJOYN-2472: do nothing in response to RemoveNatch method.
-
-ALLJOYN-2422: removed redundant call to AJ_SetSIgnalRule2.
-
-ALLJOYN-2456: fixed a bug in the random number in EncryptRounds; parameters were reversed.
-
-ALLJOYN-2422: removed redundant NameOwnerChanged registration.
+AJCORE-4:   Level based filtering needs <= not < to give the expected behavior.
+AJCORE-5:   Added aj_config.h file to hold config data
+AJCORE-28:  Removed useless variable 'initial'
+AJCORE-80:  Fixed null object path crash
+AJCORE-182: Added flag parameter to AJ_BusAdvertiseName and AJ_BusBindSessionPort
+AJCORE-233: Added API AJ_RemoveSessionMember to thin client
+AJCORE-241: Added SessionLostWithReason signal
+AJCORE-351: Added SessionLostWithReason signal
+AJCORE-703: Minor restructure to expose some internal APIs to support language bindings.
+AJCORE-704: Reworked pool based malloc to be more useful.
+AJCORE-716: Added AJ_GetVersion that returns the alljoyn version
+AJCORE-719: memcpy did not take into account null terminator
+AJCORE 721: clean up socket if bind fails
+AJCORE-722: Pointer is dereferenced before checking for null
+AJCORE-725: Fixed possible NULL pointer dereference
+AJCORE 726: fixed some klocwork issues
+AJCORE-727: Fixed memory leak in nvramtest
+AJCORE-728: Fixed multiple NULL pointer dereferences in sessions
+AJCORE-741: Fix AJ_UnmarshalRaw so it doesn't overwrite the message header
+AJCORE-742: Add a new API to reset the message args allowing them to be unmarshaled again
+AJCORE-753: Make debug logging dox easier to understand.
+AJCORE-758: AJ_UnmarshalMsg() now returns ERR_READ when in an unrecoverable state
+AJCORE-760: Replace CHECK macro with explicit status check
+AJCORE-771  added IPV4 broadcast and IPv6 multicast discovery support
+AJCORE-772: Separated out network primitives so they can be used independently of the Connect helper
+AJCORE-777  fixed missing include
+AJCORE-785: svclite disconnects from session lost signal
+AJCORE-787: Fixed AJ_CONNECT_LOCALHOST
+AJCORE-790: Fixed SASL authentication error
+AJCORE-796  fixed nvram function declarations
+AJCORE-804: Set flag to indicate that scalar array will be marshaled element-by-element
+AJCORE-845: Fixed possible uninitialized variable
+AJCORE-854: Fixed AJ_InitTimer not setting the time to the current time
+AJCORE-887: Fixed possible array out of bounds failure
+AJCORE-899: unmarshalScalarAsElement should be initialized to FALSE
 
 Compatibility
 -------------
-
 No known issues.
 
 Change history
 --------------
-
+14.02 - AllSeen Alliance Release
 3.4.1 - Bug fixes.
 3.4.0 - Support for Object Level Security.
