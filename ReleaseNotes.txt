@@ -1,6 +1,6 @@
 
 AllJoyn Thin Client Version 3.4.1 Release Notes
------------------------------------
+-----------------------------------------------
 
 Platform Support
 ----------------
