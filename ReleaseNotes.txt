@@ -33,7 +33,7 @@ AJCORE-80:  Fixed null object path crash
 AJCORE-182: Added flag parameter to AJ_BusAdvertiseName and AJ_BusBindSessionPort
 AJCORE-233: Added API AJ_RemoveSessionMember to thin client
 AJCORE-241: Added SessionLostWithReason signal
-AJCORE-351: Added SessionLostWithReason signal
+AJCORE-351: Thin client must send the supported protocol version to the daemon
 AJCORE-703: Minor restructure to expose some internal APIs to support language bindings.
 AJCORE-704: Reworked pool based malloc to be more useful.
 AJCORE-716: Added AJ_GetVersion that returns the alljoyn version
@@ -64,7 +64,12 @@ AJCORE-899: unmarshalScalarAsElement should be initialized to FALSE
 
 Compatibility
 -------------
-No known issues.
+1) Thin Client now negotiates AllJoyn protocol version with routing node (version 8).
+2) AJ_Connect has been deprecated in favor of AJ_FindBusAndDisconnect.
+3) Renamed AJ_BusSetSignalRule2 to AJ_BusAddSignalRule
+4) Removed functions AJ_StartService2 and AJ_StartClient2.
+5) Added parameter <connected> to AJ_StartService and AJ_StartClient
+
 
 Change history
 --------------
