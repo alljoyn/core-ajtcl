@@ -64,6 +64,7 @@ AJ_Status RxFunc(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)
 }
 
 static const char* const testSignature[] = {
+    "ays",
     "a{us}",
     "u(usu(ii)qsq)yyy",
     "a(usay)",
@@ -114,7 +115,7 @@ static const char* const Colors[] = {
 
 static const uint8_t Data8[] = { 0xA0, 0xB0, 0xC0, 0xD0, 0xE0, 0xF0, 0xA1, 0xB1, 0xC2, 0xD3 };
 static const uint16_t Data16[] = { 0xFF01, 0xFF02, 0xFF03, 0xFF04, 0xFF05, 0xFF06 };
-
+static const char* const string_marshalled_after_scalar_array = "string after array";
 int AJ_Main()
 {
     AJ_Status status;
@@ -185,7 +186,15 @@ int AJ_Main()
         }
 
         switch (test) {
+
         case 0:
+            status = AJ_MarshalArgs(&txMsg, "ays", Data8, sizeof(Data8), string_marshalled_after_scalar_array);
+            if (status != AJ_OK) {
+                break;
+            }
+            break;
+
+        case 1:
             status = AJ_MarshalContainer(&txMsg, &array1, AJ_ARG_ARRAY);
             if (status != AJ_OK) {
                 break;
@@ -213,7 +222,7 @@ int AJ_Main()
             }
             break;
 
-        case 1:
+        case 2:
             status = AJ_MarshalArgs(&txMsg, "u", 11111);
             if (status != AJ_OK) {
                 break;
@@ -259,7 +268,7 @@ int AJ_Main()
             }
             break;
 
-        case 2:
+        case 3:
             status = AJ_MarshalContainer(&txMsg, &array1, AJ_ARG_ARRAY);
             if (status != AJ_OK) {
                 break;
@@ -297,7 +306,7 @@ int AJ_Main()
             }
             break;
 
-        case 3:
+        case 4:
             status = AJ_MarshalContainer(&txMsg, &array1, AJ_ARG_ARRAY);
             if (status != AJ_OK) {
                 break;
@@ -326,7 +335,7 @@ int AJ_Main()
             }
             break;
 
-        case 4:
+        case 5:
             status = AJ_MarshalArgs(&txMsg, "i", 987654321);
             if (status != AJ_OK) {
                 break;
@@ -373,7 +382,7 @@ int AJ_Main()
             }
             break;
 
-        case 5:
+        case 6:
 #ifdef EXPANDED_FORM
             status = AJ_MarshalVariant(&txMsg, "(ivi)");
             if (status != AJ_OK) {
@@ -411,7 +420,7 @@ int AJ_Main()
 #endif
             break;
 
-        case 6:
+        case 7:
             status = AJ_MarshalVariant(&txMsg, "v");
             if (status != AJ_OK) {
                 break;
@@ -438,7 +447,7 @@ int AJ_Main()
             }
             break;
 
-        case 7:
+        case 8:
 #ifdef EXPANDED_FORM
             status = AJ_MarshalContainer(&txMsg, &struct1, AJ_ARG_STRUCT);
             if (status != AJ_OK) {
@@ -510,7 +519,7 @@ int AJ_Main()
 #endif
             break;
 
-        case 8:
+        case 9:
             status = AJ_MarshalArgs(&txMsg, "uq", 0xF00F00F0, 0x0707);
             if (status != AJ_OK) {
                 break;
@@ -533,7 +542,7 @@ int AJ_Main()
             }
             break;
 
-        case 9:
+        case 10:
             len = 500;
             u = len * sizeof(TestStruct);
             status = AJ_DeliverMsgPartial(&txMsg, u + sizeof(u) + 4);
@@ -565,7 +574,7 @@ int AJ_Main()
             }
             break;
 
-        case 10:
+        case 11:
             status = AJ_MarshalContainer(&txMsg, &array1, AJ_ARG_ARRAY);
             if (status != AJ_OK) {
                 break;
@@ -576,7 +585,7 @@ int AJ_Main()
             }
             break;
 
-        case 11:
+        case 12:
             status = AJ_MarshalArgs(&txMsg, "y", 127);
             if (status != AJ_OK) {
                 break;
@@ -608,7 +617,7 @@ int AJ_Main()
             }
             break;
 
-        case 12:
+        case 13:
             status = AJ_MarshalArgs(&txMsg, "y", 0x11);
             if (status != AJ_OK) {
                 break;
@@ -656,7 +665,7 @@ int AJ_Main()
             }
             break;
 
-        case 13:
+        case 14:
             status = AJ_MarshalContainer(&txMsg, &struct1, AJ_ARG_STRUCT);
             if (status != AJ_OK) {
                 break;
@@ -675,7 +684,7 @@ int AJ_Main()
             }
             break;
 
-        case 14:
+        case 15:
             status = AJ_MarshalArgs(&txMsg, "i", 0x1111);
             if (status != AJ_OK) {
                 break;
@@ -744,7 +753,7 @@ int AJ_Main()
             }
             break;
 
-        case 15:
+        case 16:
             status = AJ_MarshalContainer(&txMsg, &array1, AJ_ARG_ARRAY);
             if (status != AJ_OK) {
                 break;
@@ -773,6 +782,16 @@ int AJ_Main()
 
         switch (test) {
         case 0:
+            status = AJ_UnmarshalArgs(&rxMsg, "ays", (const void**)&raw, &sz, &str);
+            if (status != AJ_OK) {
+                break;
+            }
+            if (strncmp(str, string_marshalled_after_scalar_array, strlen(string_marshalled_after_scalar_array))) {
+                break;
+            }
+            break;
+
+        case 1:
             status = AJ_UnmarshalContainer(&rxMsg, &array1, AJ_ARG_ARRAY);
             if (status != AJ_OK) {
                 break;
@@ -813,7 +832,7 @@ int AJ_Main()
             }
             break;
 
-        case 1:
+        case 2:
             status = AJ_UnmarshalArgs(&rxMsg, "u", &u);
             if (status != AJ_OK) {
                 break;
@@ -867,7 +886,7 @@ int AJ_Main()
             AJ_Printf("Unmarshal %d\n", y);
             break;
 
-        case 2:
+        case 3:
             status = AJ_UnmarshalContainer(&rxMsg, &array1, AJ_ARG_ARRAY);
             if (status != AJ_OK) {
                 break;
@@ -911,7 +930,7 @@ int AJ_Main()
             }
             break;
 
-        case 3:
+        case 4:
             status = AJ_UnmarshalContainer(&rxMsg, &array1, AJ_ARG_ARRAY);
             if (status != AJ_OK) {
                 break;
@@ -949,7 +968,7 @@ int AJ_Main()
             }
             break;
 
-        case 4:
+        case 5:
             status = AJ_UnmarshalArgs(&rxMsg, "i", &j);
             if (status != AJ_OK) {
                 break;
@@ -996,7 +1015,7 @@ int AJ_Main()
             AJ_Printf("Unmarshal %d\n", j);
             break;
 
-        case 5:
+        case 6:
 #ifdef EXPANDED_FORM
             status = AJ_UnmarshalVariant(&rxMsg, (const char**)&sig);
             if (status != AJ_OK) {
@@ -1039,7 +1058,7 @@ int AJ_Main()
 #endif
             break;
 
-        case 6:
+        case 7:
             status = AJ_UnmarshalVariant(&rxMsg, (const char**)&sig);
             if (status != AJ_OK) {
                 break;
@@ -1072,7 +1091,7 @@ int AJ_Main()
             AJ_Printf("Unmarshal %s\n", str);
             break;
 
-        case 7:
+        case 8:
             status = AJ_UnmarshalContainer(&rxMsg, &struct1, AJ_ARG_STRUCT);
             if (status != AJ_OK) {
                 break;
@@ -1130,7 +1149,7 @@ int AJ_Main()
             }
             break;
 
-        case 8:
+        case 9:
             status = AJ_UnmarshalArgs(&rxMsg, "uq", &j, &q);
             if (status != AJ_OK) {
                 break;
@@ -1157,7 +1176,7 @@ int AJ_Main()
             }
             break;
 
-        case 9:
+        case 10:
             status = AJ_UnmarshalRaw(&rxMsg, (const void**)&raw, 4, &sz);
             if (status != AJ_OK) {
                 break;
@@ -1183,7 +1202,7 @@ int AJ_Main()
             }
             break;
 
-        case 10:
+        case 11:
             status = AJ_UnmarshalContainer(&rxMsg, &array1, AJ_ARG_ARRAY);
             if (status != AJ_OK) {
                 break;
@@ -1200,7 +1219,7 @@ int AJ_Main()
             }
             break;
 
-        case 11:
+        case 12:
             status = AJ_UnmarshalArgs(&rxMsg, "y", &y);
             if (status != AJ_OK) {
                 break;
@@ -1238,7 +1257,7 @@ int AJ_Main()
             }
             break;
 
-        case 12:
+        case 13:
             status = AJ_UnmarshalArgs(&rxMsg, "y", &y);
             if (status != AJ_OK) {
                 break;
@@ -1299,7 +1318,7 @@ int AJ_Main()
             }
             break;
 
-        case 13:
+        case 14:
             status = AJ_UnmarshalContainer(&rxMsg, &struct1, AJ_ARG_STRUCT);
             if (status != AJ_OK) {
                 break;
@@ -1326,7 +1345,7 @@ int AJ_Main()
             }
             break;
 
-        case 14:
+        case 15:
             status = AJ_UnmarshalArgs(&rxMsg, "i", &j);
             if (status != AJ_OK) {
                 break;
@@ -1379,7 +1398,7 @@ int AJ_Main()
             AJ_ASSERT(j == 0x2222);
             break;
 
-        case 15:
+        case 16:
             status = AJ_UnmarshalContainer(&rxMsg, &array1, AJ_ARG_ARRAY);
             if (status != AJ_OK) {
                 break;
