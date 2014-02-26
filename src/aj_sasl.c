@@ -2,7 +2,7 @@
  * @file
  */
 /******************************************************************************
- * Copyright (c) 2012, 2013, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2012-2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -74,7 +74,7 @@ static const char* const CmdList[] = {
     CMD_PROTO
 };
 
-AJ_Status AJ_SASL_InitContext(AJ_SASL_Context* context, const AJ_AuthMechanism* const* mechList, uint8_t role, AJ_AuthPwdFunc pwdFunc)
+AJ_Status AJ_SASL_InitContext(AJ_SASL_Context* context, const AJ_AuthMechanism* const* mechList, uint8_t role, AJ_AuthPwdFunc pwdFunc, uint8_t peer2peer)
 {
     AJ_InfoPrintf(("AJ_SASL_InitContext(context=0x%p, mechList=0x%p, role=%d., pwdfunc=0x%p)\n", context, mechList, role, pwdFunc));
 
@@ -89,6 +89,7 @@ AJ_Status AJ_SASL_InitContext(AJ_SASL_Context* context, const AJ_AuthMechanism* 
     context->mechList = mechList;
     context->mechanism = NULL;
     context->nextMech = -1;
+    context->peer2peer = peer2peer;
     return AJ_OK;
 }
 
@@ -456,6 +457,7 @@ static AJ_Status Response(AJ_SASL_Context* context, char* inStr, char* outStr, u
             if (status == AJ_OK) {
                 status = AppendCRLF(outStr, outLen);
             }
+            AJ_InfoPrintf(("Response(): result = %u\n", result));
             context->state = (result == AJ_AUTH_STATUS_SUCCESS) ? AJ_SASL_WAIT_FOR_OK : AJ_SASL_WAIT_FOR_DATA;
         } else {
             status = AJ_ERR_SECURITY;
@@ -468,13 +470,12 @@ static AJ_Status Response(AJ_SASL_Context* context, char* inStr, char* outStr, u
      */
     case AJ_SASL_WAIT_FOR_VERSION:
         AJ_InfoPrintf(("Response(): AJ_SASL_WAIT_FOR_VERSION\n"));
-        if (cmd == CMD_PROTO) {
+        if (cmd == CMD_PROTO || cmd == CMD_ERROR) {
             /* What's left in inStr should be the daemon's version number */
-            unsigned int version = 0;
-            version = atoi(inStr);
-            AJ_InfoPrintf(("Response(): Version number = %u\n", version));
+            unsigned int version = (cmd == CMD_PROTO) ? atoi(inStr) : 0;
             /* If the daemons version is valid... */
             if (version != 0) {
+                AJ_InfoPrintf(("Response(): Version number = %u\n", version));
                 /* Our version is higher so reject the connection */
                 if (version < PROTO_VERSION) {
                     rsp = CMD_CANCEL;
@@ -482,16 +483,19 @@ static AJ_Status Response(AJ_SASL_Context* context, char* inStr, char* outStr, u
                     break;
                     /* Our version is either the same or lower so send BEGIN */
                 } else {
+
                     AJ_GUID localGuid;
                     AJ_GetLocalGUID(&localGuid);
                     status = AJ_GUID_ToString(&localGuid, outStr, outLen);
                     if (status == AJ_OK) {
                         status = PrependStr(CMD_BEGIN, outStr, outLen, FALSE);
                     }
+
                     context->state = AJ_SASL_AUTHENTICATED;
                 }
-                /* Daemons version was 0 (it was either never sent or the value it sent was invalid) */
             } else {
+                /* Daemons version was 0 (it was either never sent or the value it sent was invalid) */
+                AJ_ErrPrintf(("Response(): Version number = invalid\n"));
                 rsp = CMD_CANCEL;
                 context->state = AJ_SASL_WAIT_FOR_REJECT;
                 break;
@@ -506,7 +510,6 @@ static AJ_Status Response(AJ_SASL_Context* context, char* inStr, char* outStr, u
             status = AJ_GUID_ToString(&localGuid, outStr, outLen);
             if (status == AJ_OK) {
                 status = PrependStr(CMD_BEGIN, outStr, outLen, FALSE);
-                AJ_InfoPrintf(("AJ_GUID_ToString returned AJ_OK\n"));
             }
             context->state = AJ_SASL_AUTHENTICATED;
         } else {
@@ -522,8 +525,10 @@ static AJ_Status Response(AJ_SASL_Context* context, char* inStr, char* outStr, u
                 result = context->mechanism->Response(inStr, outStr, outLen);
                 if (result == AJ_AUTH_STATUS_SUCCESS) {
                     status = PrependStr(CMD_DATA, outStr, outLen, TRUE);
-                    context->state = AJ_SASL_BEGIN;
-                    break;
+                    if (context->peer2peer) {
+                        context->state = AJ_SASL_BEGIN;
+                        break;
+                    }
                 } else if (result == AJ_AUTH_STATUS_ERROR) {
                     status = context->mechanism->Init(AJ_AUTH_RESPONDER, context->pwdFunc);
                     /*
@@ -544,13 +549,23 @@ static AJ_Status Response(AJ_SASL_Context* context, char* inStr, char* outStr, u
                     }
                 }
             }
-            break;
+            if (!context->peer2peer) {
+                break;
+            }
         }
 
     /* Fallthrough */
     case AJ_SASL_WAIT_FOR_OK:
         AJ_InfoPrintf(("Response(): AJ_SASL_WAIT_FOR_OK\n"));
         /* Received 'OK' so we can send our protocol version */
+        if (context->peer2peer) {
+            AJ_GUID localGuid;
+            AJ_GetLocalGUID(&localGuid);
+            status = AJ_GUID_ToString(&localGuid, outStr, outLen);
+            if (status == AJ_OK) {
+                status = PrependStr(CMD_BEGIN, outStr, outLen, FALSE);
+            }
+        }
         if (cmd == CMD_OK) {
             AJ_InfoPrintf(("Response(): AJ_SASL_INFORM_VERSION\n"));
             status = PrependStr(CMD_PROTO_VER, outStr, outLen, FALSE);

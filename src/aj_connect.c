@@ -158,7 +158,7 @@ AJ_Status AJ_Authenticate(AJ_BusAttachment* bus)
         AJ_InfoPrintf(("AJ_Authenticate(): status=%s\n", AJ_StatusText(status)));
         goto ExitConnect;
     }
-    AJ_SASL_InitContext(&sasl, mechList, AJ_AUTH_RESPONDER, busAuthPwdFunc);
+    AJ_SASL_InitContext(&sasl, mechList, AJ_AUTH_RESPONDER, busAuthPwdFunc, FALSE);
     while (TRUE) {
         status = AuthAdvance(&sasl, &bus->sock.rx, &bus->sock.tx);
         if ((status != AJ_OK) || (sasl.state == AJ_SASL_FAILED)) {

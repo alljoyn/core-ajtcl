@@ -731,7 +731,6 @@ static const AJ_MsgHeader internalErrorHdr = { HOST_ENDIANESS, AJ_MSG_ERROR, 0, 
 static AJ_Status ValidateHeader(const AJ_Message* msg)
 {
     AJ_Status status = AJ_ERR_UNMARSHAL;
-
     /*
      * Sender field is mandatory for all messages
      */
@@ -755,6 +754,10 @@ static AJ_Status ValidateHeader(const AJ_Message* msg)
         case AJ_MSG_ERROR:
             if (msg->destination && msg->error && msg->replySerial) {
                 status = AJ_OK;
+            } else {
+                AJ_ErrPrintf(("The connection was rejected by the routing node\n"));
+                status = AJ_ERR_REJECTED;
+                return status;
             }
             break;
 

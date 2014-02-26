@@ -152,7 +152,7 @@ AJ_Status AJ_PeerHandleAuthChallenge(AJ_Message* msg, AJ_Message* reply)
         /*
          * Initialize SASL state machine
          */
-        AJ_SASL_InitContext(&authContext.sasl, authMechanisms, AJ_AUTH_CHALLENGER, msg->bus->pwdCallback);
+        AJ_SASL_InitContext(&authContext.sasl, authMechanisms, AJ_AUTH_CHALLENGER, msg->bus->pwdCallback, TRUE);
     }
     status = AJ_UnmarshalArg(msg, &arg);
     if (status != AJ_OK) {
@@ -509,7 +509,7 @@ AJ_Status AJ_PeerHandleExchangeGUIDsReply(AJ_Message* msg)
     /*
      * Initialize SASL state machine
      */
-    AJ_SASL_InitContext(&authContext.sasl, authMechanisms, AJ_AUTH_RESPONDER, msg->bus->pwdCallback);
+    AJ_SASL_InitContext(&authContext.sasl, authMechanisms, AJ_AUTH_RESPONDER, msg->bus->pwdCallback, TRUE);
     /*
      * Start the authentication conversation
      */

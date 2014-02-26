@@ -172,6 +172,10 @@ const char* AJ_StatusText(AJ_Status status)
         AJ_CASE(AJ_ERR_ACCESS);
         AJ_CASE(AJ_ERR_SESSION_LOST);
         AJ_CASE(AJ_ERR_LINK_DEAD);
+        AJ_CASE(AJ_ERR_HDR_CORRUPT);
+        AJ_CASE(AJ_ERR_RESTART_APP);
+        AJ_CASE(AJ_ERR_INTERRUPTED);
+        AJ_CASE(AJ_ERR_REJECTED);
 
     default:
         return "<unknown>";

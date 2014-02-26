@@ -6,7 +6,7 @@
  * @{
  */
 /******************************************************************************
- * Copyright (c) 2012-2013, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2012-2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -104,7 +104,7 @@ typedef enum {
     AJ_SASL_FAILED,            /**< Authentication failed - conversation it over */
     AJ_SASL_INFORM_VERSION,    /**< Tell daemon our protocol version */
     AJ_SASL_WAIT_FOR_VERSION,  /**< Wait for daemon to tell us its protocol version */
-    AJ_SASL_BEGIN              /**< Send begin */
+    AJ_SASL_BEGIN              /**< State to send BEGIN to the routing node/peer */
 } AJ_SASL_State;
 
 #define AJ_AUTH_CHALLENGER  0  /**< Challenger role */
@@ -122,7 +122,7 @@ typedef struct _AJ_SASL_Context {
     const AJ_AuthMechanism* const* mechList; /**< NULL terminated array of authentication mechanismse */
     const AJ_AuthMechanism* mechanism;       /**< The authentication mechansim current in use */
     uint8_t nextMech;                        /**< Index of the next authentication mechanism to be used */
-
+    uint8_t peer2peer;                       /**< Indicates peer to peer authentication */
 } AJ_SASL_Context;
 
 /**
@@ -133,10 +133,11 @@ typedef struct _AJ_SASL_Context {
  * @param role       Defines if the context is being initialized for the responder or challenger
  *                   side of an authentication conversation.
  * @param pwdFunc    Callback function for requesting a password, or NULL if not applicable.
+ * @param peer2peer  Flag to say if you are connecting to a routing node or a peer
  *
  * @return           Return AJ_Status
  */
-AJ_Status AJ_SASL_InitContext(AJ_SASL_Context* context, const AJ_AuthMechanism* const* mechList, uint8_t role, AJ_AuthPwdFunc pwdFunc);
+AJ_Status AJ_SASL_InitContext(AJ_SASL_Context* context, const AJ_AuthMechanism* const* mechList, uint8_t role, AJ_AuthPwdFunc pwdFunc, uint8_t peer2peer);
 
 /**
  * Advances the SASL state machine.
