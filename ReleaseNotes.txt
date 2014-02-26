@@ -65,7 +65,7 @@ AJCORE-899: unmarshalScalarAsElement should be initialized to FALSE
 Compatibility
 -------------
 1) Thin Client now negotiates AllJoyn protocol version with routing node (version 8).
-2) AJ_Connect has been deprecated in favor of AJ_FindBusAndDisconnect.
+2) AJ_Connect has been deprecated in favor of AJ_FindBusAndConnect.
 3) Renamed AJ_BusSetSignalRule2 to AJ_BusAddSignalRule
 4) Removed functions AJ_StartService2 and AJ_StartClient2.
 5) Added parameter <connected> to AJ_StartService and AJ_StartClient
