@@ -27,6 +27,11 @@ const char AJ_ErrServiceUnknown[] = "org.freedesktop.DBus.Error.ServiceUnknown";
 const char AJ_ErrSecurityViolation[] = "org.alljoyn.Bus.SecurityViolation";
 const char AJ_ErrTimeout[] = "org.alljoyn.Bus.Timeout";
 const char AJ_ErrRejected[] = "org.alljoyn.Bus.Rejected";
+const char AJ_ErrUpdateNotAllowed[] = "org.alljoyn.Error.UpdateNotAllowed";
+const char AJ_ErrInvalidValue[] = "org.alljoyn.Error.InvalidValue";
+const char AJ_ErrFeatureNotAvailable[] = "org.alljoyn.Error.FeatureNotAvailable";
+const char AJ_ErrMaxSizeExceeded[] = "org.alljoyn.Error.MaxSizeExceeded";
+const char AJ_ErrLanguageNotSuppored[] = "org.alljoyn.Error.LanguageNotSupported";
 
 static const char DBusObjectPath[] = "/org/freedesktop/DBus";
 static const char DBusInterface[] = "org.freedesktop.DBus";
@@ -43,6 +48,12 @@ static const char DaemonInterface[] = "org.alljoyn.Daemon";
 static const char PeerObjectPath[] = "/org/alljoyn/Bus/Peer";
 static const char PeerSessionInterface[] = "org.alljoyn.Bus.Peer.Session";
 static const char PeerAuthInterface[] = "org.alljoyn.Bus.Peer.Authentication";
+
+static const char AboutObjectPath[] = "/About";
+static const char AboutInterface[] = "org.alljoyn.About";
+
+static const char AboutIconObjectPath[] = "/About/DeviceIcon";
+static const char AboutIconInterface[] = "org.alljoyn.AboutIcon";
 
 
 
@@ -136,6 +147,25 @@ static const char* const PeerAuthIface[] = {
     NULL
 };
 
+static const char* const AboutIface[] = {
+    AboutInterface,
+    "@Version>q",
+    "?GetAboutData <s >a{sv}",
+    "?GetObjectDescription >a(oas)",
+    "!Announce >q >q >a(oas) >a{sv}",
+    NULL
+};
+
+static const char* const AboutIconIface[] = {
+    AboutIconInterface,
+    "@Version>q",
+    "@MimeType>s",
+    "@Size>u",
+    "?GetUrl >s",
+    "?GetContent >ay",
+    NULL
+};
+
 static const AJ_InterfaceDescription PeerIfaces[] = {
     PeerSessionIface,
     PeerAuthIface,
@@ -161,11 +191,25 @@ static const AJ_InterfaceDescription DaemonIfaces[] = {
     NULL
 };
 
+static const AJ_InterfaceDescription AboutIfaces[] = {
+    AJ_PropertiesIface,
+    AboutIface,
+    NULL
+};
+
+const AJ_InterfaceDescription AboutIconIfaces[] = {
+    AJ_PropertiesIface,
+    AboutIconIface,
+    NULL
+};
+
 const AJ_Object AJ_StandardObjects[] = {
-    { DBusObjectPath, DBusIfaces },
-    { BusObjectPath,  BusIfaces },
-    { PeerObjectPath, PeerIfaces },
-    { "*",            CommonIfaces },
-    { DaemonObjectPath, DaemonIfaces },
-    { NULL,           NULL }
+    { DBusObjectPath,      DBusIfaces },
+    { BusObjectPath,       BusIfaces },
+    { PeerObjectPath,      PeerIfaces },
+    { "*",                 CommonIfaces },
+    { DaemonObjectPath,    DaemonIfaces },
+    { AboutObjectPath,     AboutIfaces },
+    { AboutIconObjectPath, AboutIconIfaces },
+    { NULL,                NULL }
 };

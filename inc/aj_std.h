@@ -104,6 +104,31 @@
 #define AJ_SIGNAL_PROBE_REQ            AJ_BUS_MESSAGE_ID(4, 0, 0)    /**< signal for link probe request */
 #define AJ_SIGNAL_PROBE_ACK            AJ_BUS_MESSAGE_ID(4, 0, 1)    /**< signal for link probe acknowledgement */
 
+/*
+ * Members of interface org.alljoyn.About
+ */
+#define AJ_METHOD_ABOUT_GET_PROP                AJ_BUS_MESSAGE_ID(5, 0, AJ_PROP_GET)
+#define AJ_METHOD_ABOUT_SET_PROP                AJ_BUS_MESSAGE_ID(5, 0, AJ_PROP_SET)
+
+#define AJ_PROPERTY_ABOUT_VERSION               AJ_BUS_PROPERTY_ID(5, 1, 0)
+
+#define AJ_METHOD_ABOUT_GET_ABOUT_DATA          AJ_BUS_MESSAGE_ID(5, 1, 1)
+#define AJ_METHOD_ABOUT_GET_OBJECT_DESCRIPTION  AJ_BUS_MESSAGE_ID(5, 1, 2)
+#define AJ_SIGNAL_ABOUT_ANNOUNCE                AJ_BUS_MESSAGE_ID(5, 1, 3)
+
+/*
+ * Members of interface org.alljoyn.AboutIcon
+ */
+#define AJ_METHOD_ABOUT_ICON_GET_PROP          AJ_BUS_MESSAGE_ID(6, 0, AJ_PROP_GET)
+#define AJ_METHOD_ABOUT_ICON_SET_PROP          AJ_BUS_MESSAGE_ID(6, 0, AJ_PROP_SET)
+
+#define AJ_PROPERTY_ABOUT_ICON_VERSION_PROP    AJ_BUS_PROPERTY_ID(6, 1, 0)
+#define AJ_PROPERTY_ABOUT_ICON_MIMETYPE_PROP   AJ_BUS_PROPERTY_ID(6, 1, 1)
+#define AJ_PROPERTY_ABOUT_ICON_SIZE_PROP       AJ_BUS_PROPERTY_ID(6, 1, 2)
+
+#define AJ_METHOD_ABOUT_ICON_GET_URL           AJ_BUS_MESSAGE_ID(6, 1, 3)
+#define AJ_METHOD_ABOUT_ICON_GET_CONTENT       AJ_BUS_MESSAGE_ID(6, 1, 4)
+
 /**
  * Message identifier that indicates a message was invalid.
  */
@@ -132,6 +157,12 @@ extern const char AJ_ErrTimeout[25];              /**< Error timeout string */
 extern const char AJ_ErrRejected[26];             /**< Error rejected string */
 extern const char AJ_ErrServiceUnknown[42];       /**< Error service unknown string */
 
+extern const char AJ_ErrUpdateNotAllowed[35];     /**< Error update not allowed string */
+extern const char AJ_ErrInvalidValue[31];         /**< Error invalid value string */
+extern const char AJ_ErrFeatureNotAvailable[38];  /**< Error feature not available string */
+extern const char AJ_ErrMaxSizeExceeded[34];      /**< Error max size exceeded string */
+extern const char AJ_ErrLanguageNotSuppored[39];  /**< Error language not supported string */
+
 /**
  * The properties interface. This interface must be included in the property lists of all local and
  * proxy objects that have properties.
@@ -153,7 +184,7 @@ extern const char* const AJ_IntrospectionIface[3];
 /**
  * The standard objects that implement AllJoyn core functionality
  */
-extern const AJ_Object AJ_StandardObjects[6];
+extern const AJ_Object AJ_StandardObjects[8];
 
 /**
  * @}

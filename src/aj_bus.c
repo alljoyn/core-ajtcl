@@ -34,6 +34,7 @@
 #include "aj_introspect.h"
 #include "aj_peer.h"
 #include "aj_config.h"
+#include "aj_about.h"
 
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
@@ -403,6 +404,7 @@ AJ_Status AJ_BusRemoveSessionMember(AJ_BusAttachment* bus, uint32_t sessionId, c
 AJ_Status AJ_BusHandleBusMessage(AJ_Message* msg)
 {
     AJ_Status status = AJ_OK;
+    AJ_BusAttachment* bus = msg->bus;
     char* name;
     char* oldOwner;
     char* newOwner;
@@ -508,6 +510,28 @@ AJ_Status AJ_BusHandleBusMessage(AJ_Message* msg)
         status = AJ_ResetArgs(msg);
         break;
 
+    case AJ_METHOD_ABOUT_GET_PROP:
+        return AJ_AboutHandleGetProp(msg);
+
+    case AJ_METHOD_ABOUT_GET_ABOUT_DATA:
+        status = AJ_AboutHandleGetAboutData(msg, &reply);
+        break;
+
+    case AJ_METHOD_ABOUT_GET_OBJECT_DESCRIPTION:
+        status = AJ_AboutHandleGetObjectDescription(msg, &reply);
+        break;
+
+    case AJ_METHOD_ABOUT_ICON_GET_PROP:
+        return AJ_AboutIconHandleGetProp(msg);
+
+    case AJ_METHOD_ABOUT_ICON_GET_URL:
+        status = AJ_AboutIconHandleGetURL(msg, &reply);
+        break;
+
+    case AJ_METHOD_ABOUT_ICON_GET_CONTENT:
+        status = AJ_AboutIconHandleGetContent(msg, &reply);
+        break;
+
     default:
         AJ_InfoPrintf(("AJ_BusHandleBusMessage(): default\n"));
         if (msg->hdr->msgType == AJ_MSG_METHOD_CALL) {
@@ -517,6 +541,12 @@ AJ_Status AJ_BusHandleBusMessage(AJ_Message* msg)
     }
     if ((status == AJ_OK) && (msg->hdr->msgType == AJ_MSG_METHOD_CALL)) {
         status = AJ_DeliverMsg(&reply);
+    }
+    /*
+     * Check if there is anything to announce
+     */
+    if (status == AJ_OK) {
+        AJ_AboutAnnounce(bus);
     }
     return status;
 }

@@ -176,6 +176,7 @@ const char* AJ_StatusText(AJ_Status status)
         AJ_CASE(AJ_ERR_RESTART_APP);
         AJ_CASE(AJ_ERR_INTERRUPTED);
         AJ_CASE(AJ_ERR_REJECTED);
+        AJ_CASE(AJ_ERR_RANGE);
 
     default:
         return "<unknown>";

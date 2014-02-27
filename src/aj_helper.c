@@ -351,7 +351,9 @@ AJ_Status AJ_StartService(AJ_BusAttachment* bus,
         AJ_CloseMsg(&msg);
     }
 
-    if (status != AJ_OK) {
+    if (status == AJ_OK) {
+        status = AJ_AboutInit(bus, port);
+    } else {
         AJ_WarnPrintf(("AJ_StartService2(): AJ_Disconnect(): status=%s\n", AJ_StatusText(status)));
         AJ_Disconnect(bus);
     }

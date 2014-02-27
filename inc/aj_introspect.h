@@ -94,6 +94,16 @@
  */
 
 /**
+ * Enmeration type for characterizing interface members
+ */
+typedef enum {
+    AJ_INVALID_MEMBER   = 0,  /**< Invalid member */
+    AJ_SIGNAL_MEMBER   = '!', /**< Member is a signal */
+    AJ_METHOD_MEMBER   = '?', /**< Member is a method call */
+    AJ_PROPERTY_MEMBER = '@'  /**< Member is a property */
+} AJ_MemberType;
+
+/**
  * Type for an interface description - NULL terminated array of strings.
  */
 typedef const char* const* AJ_InterfaceDescription;
@@ -102,6 +112,7 @@ typedef const char* const* AJ_InterfaceDescription;
 #define AJ_OBJ_FLAG_SECURE    0x01  /**< If set this bit indicates that an object is secure */
 #define AJ_OBJ_FLAG_HIDDEN    0x02  /**< If set this bit indicates this is object is not announced */
 #define AJ_OBJ_FLAG_DISABLED  0x04  /**< If set this bit indicates that method calls cannot be made to the object at this time */
+#define AJ_OBJ_FLAG_ANNOUNCED 0x08  /**< If set this bit indicates this object is announced by ABOUT */
 
 /**
  * Type for an AllJoyn object description
@@ -110,38 +121,77 @@ typedef struct _AJ_Object {
     const char* path;                               /**< object path */
     const AJ_InterfaceDescription* interfaces;      /**< interface descriptor */
     uint8_t flags;                                  /**< flags for the object */
+    void* context;                                  /**< an application provided context pointer for this object */
 } AJ_Object;
 
+/*
+ * When a message unmarshalled the message is validated by matching it against a list of object
+ * tables that fully describe the message. If the message matches the unmarshal code sets the msgId
+ * field in the AJ_Message struct. Rather than using a series of string comparisons, application code
+ * can simply use this msgId to identify the message. There are three predefined object tables and
+ * applications and services are free to add additional tables. The maximum number of table is 127
+ * because the most signifant bit in the msgId is reserved to distinguish between method calls and
+ * their corresponding replies.
+ *
+ * Of the three predefined tables the first is reserved for bus management messages. The second is
+ * for objects implemented by the application. The third is for proxy (remote) objects the
+ * application interacts with.
+ *
+ * The same message identifiers are also used by the marshalling code to populate the message header
+ * with the appropriate strings for the object path, interface name, member, and signature. This
+ * relieves the application developer from having to explicitly set these values in the message.
+ */
+#define AJ_BUS_ID_FLAG   0x00  /**< Identifies that a message belongs to the set of builtin bus object messages */
+#define AJ_APP_ID_FLAG   0x01  /**< Identifies that a message belongs to the set of objects implemented by the application */
+#define AJ_PRX_ID_FLAG   0x02  /**< Identifies that a message belongs to the set of objects implemented by remote peers */
 
 /*
- * Indicates that an identified member belongs to an application object
+ * This flag AJ_REP_ID_FLAG is set in the msgId filed to indentify that a message is a reply to a
+ * method call. Because the object description describes the out (call) and in (reply) arguments the
+ * same entry in the object table is used for both method calls and replies but since they are
+ * handled differently this flags is set by the unmarshaller to indicate whether the specific
+ * message is the call or reply.
  */
-#define AJ_BUS_ID_FLAG   0x00  /**< Built in bus object messages */
-#define AJ_APP_ID_FLAG   0x01  /**< Application object messages */
-#define AJ_PRX_ID_FLAG   0x02  /**< Proxy object messages */
-#define AJ_SVC_ID_FLAG   0x04  /**< Service object messages */
 #define AJ_REP_ID_FLAG   0x80  /**< Indicates a message is a reply message */
 
 /*
- * Macros to encode a message id from the object path, interface, and member indices.
+ * Macros to encode a message or property id from object table index, object path, interface, and member indices.
  */
-#define AJ_BUS_MESSAGE_ID(p, i, m)  ((AJ_BUS_ID_FLAG << 24) | (((uint32_t)(p)) << 16) | (((uint32_t)(i)) << 8) | (m))       /**< Encode a message id from bus object */
-#define AJ_APP_MESSAGE_ID(p, i, m)  ((AJ_APP_ID_FLAG << 24) | (((uint32_t)(p)) << 16) | (((uint32_t)(i)) << 8) | (m))       /**< Encode a message id from application object */
-#define AJ_PRX_MESSAGE_ID(p, i, m)  ((AJ_PRX_ID_FLAG << 24) | (((uint32_t)(p)) << 16) | (((uint32_t)(i)) << 8) | (m))       /**< Encode a message id from proxy object */
-#define AJ_SVC_MESSAGE_ID(p, i, m)  ((AJ_SVC_ID_FLAG << 24) | (((uint32_t)(p)) << 16) | (((uint32_t)(i)) << 8) | (m))       /**< Encode a message id from service object */
+#define AJ_ENCODE_MESSAGE_ID(o, p, i, m)  (((uint32_t)(o) << 24) | (((uint32_t)(p)) << 16) | (((uint32_t)(i)) << 8) | (m)) /**< Encode a message id */
+#define AJ_ENCODE_PROPERTY_ID(o, p, i, m) (((uint32_t)(o) << 24) | (((uint32_t)(p)) << 16) | (((uint32_t)(i)) << 8) | (m)) /**< Encode a property id */
+
 /*
- * Macros to encode a property id from the object path, interface, and member indices.
+ * Macros for encoding the standard bus and applications messages
  */
-#define AJ_BUS_PROPERTY_ID(p, i, m) AJ_BUS_MESSAGE_ID(p, i, m)      /**< Encode a property id from bus object */
-#define AJ_APP_PROPERTY_ID(p, i, m) AJ_APP_MESSAGE_ID(p, i, m)      /**< Encode a property id from application object */
-#define AJ_PRX_PROPERTY_ID(p, i, m) AJ_PRX_MESSAGE_ID(p, i, m)      /**< Encode a property id from proxy object */
-#define AJ_SVC_PROPERTY_ID(p, i, m) AJ_SVC_MESSAGE_ID(p, i, m)      /**< Encode a property id from service object */
+#define AJ_BUS_MESSAGE_ID(p, i, m) AJ_ENCODE_MESSAGE_ID(AJ_BUS_ID_FLAG, p, i, m)   /**< Encode a message id from bus object */
+#define AJ_APP_MESSAGE_ID(p, i, m) AJ_ENCODE_MESSAGE_ID(AJ_APP_ID_FLAG, p, i, m)   /**< Encode a message id from application object */
+#define AJ_PRX_MESSAGE_ID(p, i, m) AJ_ENCODE_MESSAGE_ID(AJ_PRX_ID_FLAG, p, i, m)   /**< Encode a message id from proxy object */
+/*
+ * Macros for encoding the standard bus and application properties
+ */
+#define AJ_BUS_PROPERTY_ID(p, i, m) AJ_ENCODE_PROPERTY_ID(AJ_BUS_ID_FLAG, p, i, m) /**< Encode a property id from bus object */
+#define AJ_APP_PROPERTY_ID(p, i, m) AJ_ENCODE_PROPERTY_ID(AJ_APP_ID_FLAG, p, i, m) /**< Encode a property id from application object */
+#define AJ_PRX_PROPERTY_ID(p, i, m) AJ_ENCODE_PROPERTY_ID(AJ_PRX_ID_FLAG, p, i, m) /**< Encode a property id from proxy object */
 
 /**
  * Macro to generate the reply message identifier from method call message. This is the message
  * identifier in the reply context.
  */
 #define AJ_REPLY_ID(id)  ((id) | (uint32_t)(AJ_REP_ID_FLAG << 24))
+
+/**
+ * Register an object list with a specific index. This overrides any existing object list
+ * registered at the specified index.
+ *
+ * @param objList   A NULL terminated array of object info structs.
+ * @param index     The index for the object list to register.
+ *
+ * @return  - AJ_OK if the object list was succesfully registered
+ *          - AJ_ERR_RANGE if the index is outside the allowed range
+ *          - AJ_ERR_DISALLOWED if the index is a predefined object index
+ */
+AJ_EXPORT
+AJ_Status AJ_RegisterObjectList(const AJ_Object* objList, uint8_t index);
 
 /**
  * Register the local objects and the remote objects for this application.  Local objects have
@@ -155,6 +205,33 @@ typedef struct _AJ_Object {
  */
 AJ_EXPORT
 void AJ_RegisterObjects(const AJ_Object* localObjects, const AJ_Object* proxyObjects);
+
+/**
+ * Object iterator type - treat as opaque
+ */
+typedef struct {
+    uint8_t f;
+    uint8_t l;
+    uint16_t n;
+} AJ_ObjectIterator;
+
+/**
+ * Initialize announce object iterator.
+ *
+ * @param iter    Struct for maintaining object iterator state
+ * @param flags   Flag values to match against in the object tables
+ *
+ * @return  Returns the first iterated object. Call AJ_NextAnnounceObject to return successive
+ *          objects.
+ */
+AJ_EXPORT
+const AJ_Object* AJ_InitObjectIterator(AJ_ObjectIterator* iter, uint8_t flags);
+
+/**
+ * Returns the next iterated object
+ */
+AJ_EXPORT
+const AJ_Object* AJ_NextObject(AJ_ObjectIterator* iter);
 
 /**
  * This function checks that a message ifrom a remote peer is valid and correct and returns the
@@ -305,6 +382,20 @@ void AJ_ReleaseReplyContext(AJ_Message* msg);
  */
 AJ_EXPORT
 AJ_Status AJ_SetObjectFlags(const char* objPath, uint8_t setFlags, uint8_t clearFlags);
+
+/**
+ * Returns the member type for a given message or property Id. Returns 0 if the
+ * identifier is not a message or property identifier.
+ *
+ * @param identifier  The identifier to characterize.
+ * @param member      If not NULL returns the member string
+ * @param isSecure    If not NULL returns TRUE if the member is secure either because the interface
+ *                    is secure or the object instance is secure.
+ *
+ * @return  One of the AJ_MemberType enumeration values.
+ */
+AJ_EXPORT
+AJ_MemberType AJ_GetMemberType(uint32_t identifier, const char** member, uint8_t* isSecure);
 
 /**
  * Debugging aid prints out the XML for an object table
