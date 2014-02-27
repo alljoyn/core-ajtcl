@@ -70,6 +70,7 @@ elif env['TARG'] in [ 'linux' ]:
         env.Replace(CC = os.environ['CROSS_PREFIX'] + 'gcc')
         env.Replace(CXX = os.environ['CROSS_PREFIX'] + 'g++')
         env.Replace(LINK = os.environ['CROSS_PREFIX'] + 'gcc')
+        env.Replace(AR = os.environ['CROSS_PREFIX'] + 'ar')
         env['ENV']['STAGING_DIR'] = os.environ.get('STAGING_DIR', '')
 
     if os.environ.has_key('CROSS_PATH'):
