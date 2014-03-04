@@ -37,11 +37,13 @@
  *          - AJ_OK if the bus link timeout is set successfully
  *          - AJ_ERR_FAILURE if timeout is 0
  */
+AJ_EXPORT
 AJ_Status AJ_SetBusLinkTimeout(AJ_BusAttachment* bus, uint32_t timeout);
 
 /**
  * Call to notify that the bus link is currently active. This is implicitly implied upon receiving packets from the bus.
  */
+AJ_EXPORT
 void AJ_NotifyLinkActive();
 
 /**
@@ -51,6 +53,7 @@ void AJ_NotifyLinkActive();
  *          - AJ_ERR_LINK_TIMEOUT if the bus link is considered as dead. The application has to re-connect to the daemon bus.
  *          - AJ_OK otherwise
  */
+AJ_EXPORT
 AJ_Status AJ_BusLinkStateProc(AJ_BusAttachment* bus);
 
 /**
