@@ -386,6 +386,7 @@ AJ_Status AJ_BusHandleBusMessage(AJ_Message* msg);
  * @param bus          The bus attachment struct
  * @param pwdCallback  The password callback function.
  */
+AJ_EXPORT
 void AJ_BusSetPasswordCallback(AJ_BusAttachment* bus, AJ_AuthPwdFunc pwdCallback);
 
 /**

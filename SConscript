@@ -131,6 +131,7 @@ if env['TARG'] in [ 'win32', 'linux' ]:
         srcs += env['aj_sw_crypto'] + env['aj_malloc']
 
     env.SharedLibrary('ajtcl', srcs)
+    env.StaticLibrary('ajtcl_st', srcs)
 
 # Build objects for the target-specific sources and AllJoyn Thin Client sources
 if env['TARG'] == 'win32':

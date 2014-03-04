@@ -39,6 +39,7 @@ typedef struct _AJ_Time {
  *
  * @return  A string containing the alljoyn version
  */
+AJ_EXPORT
 const char* AJ_GetVersion();
 
 /**
@@ -51,6 +52,7 @@ const char* AJ_GetVersion();
  *
  * @return  The elapsed milliseconds.
  */
+AJ_EXPORT
 uint32_t AJ_GetElapsedTime(AJ_Time* timer, uint8_t cumulative);
 
 /**
@@ -58,13 +60,16 @@ uint32_t AJ_GetElapsedTime(AJ_Time* timer, uint8_t cumulative);
  *
  * @param timer  The timer to initialize
  */
+AJ_EXPORT
 void AJ_InitTimer(AJ_Time* timer);
 
-
+AJ_EXPORT
 int32_t AJ_GetTimeDifference(AJ_Time* timerA, AJ_Time* timerB);
 
+AJ_EXPORT
 void AJ_TimeAddOffset(AJ_Time* timerA, uint32_t msec);
 
+AJ_EXPORT
 int8_t AJ_CompareTime(AJ_Time timerA, AJ_Time timerB);
 
 /**
@@ -86,17 +91,20 @@ AJ_Status AJ_SuspendWifi(uint32_t msec);
 /**
  * Pause the current thread for a number of milliseconds
  */
+AJ_EXPORT
 void AJ_Sleep(uint32_t time);
 
 /**
  * Allocate memory. This function should only be used for allocation of short term buffers that
  * might otherwise be allocated on the stack.
  */
+AJ_EXPORT
 void* AJ_Malloc(size_t size);
 
 /**
  * Free memory previously allocated by AJ_Malloc()
  */
+AJ_EXPORT
 void AJ_Free(void* mem);
 
 

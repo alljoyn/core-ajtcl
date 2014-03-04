@@ -45,6 +45,7 @@ AJ_Status AJ_Authenticate(AJ_BusAttachment* bus);
  *         - AJ_OK if the connection was succesfully established
  *         - AJ_ERR_TIMEOUT if the connection attempt timed out
  */
+AJ_EXPORT
 AJ_Status AJ_Connect(AJ_BusAttachment* bus, const char* serviceName, uint32_t timeout);
 
 
@@ -59,6 +60,7 @@ AJ_Status AJ_Connect(AJ_BusAttachment* bus, const char* serviceName, uint32_t ti
  *         - AJ_OK if the connection was succesfully established
  *         - AJ_ERR_TIMEOUT if the connection attempt timed out
  */
+AJ_EXPORT
 AJ_Status AJ_FindBusAndConnect(AJ_BusAttachment* bus, const char* serviceName, uint32_t timeout);
 
 
@@ -67,6 +69,7 @@ AJ_Status AJ_FindBusAndConnect(AJ_BusAttachment* bus, const char* serviceName, u
  *
  * @param  bus  The bus attachment to disconnect.
  */
+AJ_EXPORT
 void AJ_Disconnect(AJ_BusAttachment* bus);
 
 /**
@@ -86,6 +89,7 @@ typedef uint32_t (*BusAuthPwdFunc)(uint8_t* buffer, uint32_t bufLen);
  *
  * @param callback  The callback provided by the application
  */
+AJ_EXPORT
 void SetBusAuthPwdCallback(BusAuthPwdFunc callback);
 
 /**

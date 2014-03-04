@@ -242,6 +242,7 @@ extern int _AJ_DbgEnabled(char* module);
  * @param file  File name for file calling this function
  * @param line  Line number for line this function was called from
  */
+AJ_EXPORT
 int _AJ_DbgHeader(AJ_DebugLevel level, const char* file, int line);
 
 #define QUOTE(x) # x
