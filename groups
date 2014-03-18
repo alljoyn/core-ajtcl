@@ -1,0 +1,11 @@
+# UUID                                  	Group Name
+#
+global:Database-Admins				Database Admins
+global:Non-Interactive-Users			Non-Interactive Users
+global:Administrators				Administrators
+global:Stream-Events				Stream Events
+global:Anonymous-Users                  	Anonymous Users
+global:Project-Owners                   	Project Owners
+global:Registered-Users                 	Registered Users
+ldap:cn=all_project_owners,ou=groups,cn=allseen,dc=codeaurora,dc=org	ldap/all_project_owners
+ldap:cn=gerrit_core_committers,ou=groups,cn=allseen,dc=codeaurora,dc=org	ldap/gerrit_core_committers
