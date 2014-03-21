@@ -157,7 +157,7 @@ if env['WS'] != 'off' and not env.GetOption('clean') and not env.GetOption('help
         print "Note: enter 'scons -h' to see whitespace (WS) options"
         return whitespace.main([env['WS'],env['uncrustify_cfg']])
 
-    env.Command('#/ws', Dir('$DISTDIR'), wsbuild)
+    env.Command('#/ws_ajtcl', Dir('$DISTDIR'), wsbuild)
 
 # In case of Arduino target, package the 'SDK' suitable for development
 # on Arduino IDE
