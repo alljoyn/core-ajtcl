@@ -6,7 +6,7 @@
  * @{
  */
 /******************************************************************************
- * Copyright (c) 2012-2013, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2012-2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -24,11 +24,6 @@
 #include "aj_target.h"
 #include "aj_guid.h"
 #include "aj_status.h"
-
-/**
- * Maximum number of different peers for which we can store credentials.
- */
-#define AJ_MAX_PEER_GUIDS  12
 
 /**
  * Credentials for a remote peer
