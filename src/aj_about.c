@@ -14,7 +14,22 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
-#include <alljoyn.h>
+/**
+ * Per-module definition of the current module for debug logging.  Must be defined
+ * prior to first inclusion of aj_debug.h
+ */
+#define AJ_MODULE ABOUT
+
+#include "alljoyn.h"
+#include "aj_debug.h"
+
+/**
+ * Turn on per-module debug printing by setting this variable to non-zero value
+ * (usually in debugger).
+ */
+#ifndef NDEBUG
+uint8_t dbgABOUT = 0;
+#endif
 
 static const uint8_t aboutVersion = 1;
 static const uint8_t aboutIconVersion = 1;
@@ -183,8 +198,11 @@ AJ_Status AJ_AboutAnnounce(AJ_BusAttachment* bus)
     AJ_Message announcement;
 
     if (!doAnnounce || !aboutPort) {
+        AJ_InfoPrintf(("AJ_AboutAnnounce - nothing to announce port=%d\n", aboutPort));
         return AJ_OK;
     }
+
+    AJ_InfoPrintf(("AJ_AboutAnnounce - announcing\n"));
 
     doAnnounce = FALSE;
     status = AJ_MarshalSignal(bus, &announcement, AJ_SIGNAL_ABOUT_ANNOUNCE, NULL, 0, ALLJOYN_FLAG_SESSIONLESS, 0);
@@ -204,7 +222,7 @@ AJ_Status AJ_AboutAnnounce(AJ_BusAttachment* bus)
         goto ErrorExit;
     }
     if (PropStoreGetter) {
-        status = PropStoreGetter(&announcement, NULL);
+        status = PropStoreGetter(&announcement, "");
     } else {
         status = MarshalDefaultProps(&announcement);
     }
