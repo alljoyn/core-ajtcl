@@ -59,10 +59,11 @@ typedef enum {
     AJ_ERR_RESTART_APP  = 30, /**< The application must cleanup and restart */
     AJ_ERR_INTERRUPTED  = 31, /**< An I/O operation (READ) was interrupted */
     AJ_ERR_REJECTED     = 32, /**< The connection was rejected */
-    AJ_STATUS_LAST      = 32  /**< The last error status code */
-/*
- * REMINDER: Update AJ_StatusText in aj_debug.c if adding a new status code.
- */
+    AJ_ERR_RANGE        = 33, /**< Value provided was out of range */
+    /*
+     * REMINDER: Update AJ_StatusText in aj_debug.c if adding a new status code.
+     */
+    AJ_STATUS_LAST      = 33  /**< The last error status code */
 } AJ_Status;
 
 /**

@@ -43,6 +43,17 @@ else:
     env = Environment(variables = vars)
 Help(vars.GenerateHelpText(env))
 
+# Allows specification of preprocessor defines on the command line
+#
+# DEFINE="FOO=1" DEFINE="BAR=2"
+#
+cppdefines = []
+for key, value in ARGLIST:
+   if key == 'define':
+       cppdefines.append(value)
+
+env.Append(CPPDEFINES=cppdefines)
+
 # Define if compiling to use authenticaiton
 if env['NO_AUTH'] == 'no':
     auth = ''

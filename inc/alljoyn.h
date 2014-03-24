@@ -32,6 +32,7 @@
 #include "aj_introspect.h"
 #include "aj_std.h"
 #include "aj_connect.h"
+#include "aj_about.h"
 #include "aj_helper.h"
 
 /**

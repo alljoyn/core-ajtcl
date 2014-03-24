@@ -50,18 +50,28 @@
 #define AJ_REMOTE_CREDS_NV_ID_END   (AJ_REMOTE_CREDS_NV_ID_BEGIN + 12)
 
 /* Timeouts */
-#define AJ_WHO_HAS_TIMEOUT          1000        //how long to wait for WHO_HAS response (aj_disco.c)
-#define AJ_UNMARSHAL_TIMEOUT    (100 * 1000)    //unmarshal timeout                     (aj_helper.c + aj_msg.c)
-#define AJ_CONNECT_TIMEOUT      (60 * 1000)     //connection timeout                    (aj_helper.c)
-#define AJ_CONNECT_PAUSE        (10 * 1000)     //aj_helper.c
-#define AJ_DEFAULT_REPLY_TIMEOUT (1000 * 20)    //reply timeout                         (aj_introspect.c)
-#define AJ_MIN_BUS_LINK_TIMEOUT     40          //min link timeout for the bus          (aj_link_timeout.c)
-#define AJ_BUS_LINK_PING_TIMEOUT    5           //time period where probe requests should be acked (aj_link_timeout.c)
-#define AJ_MAX_LINK_PING_PACKETS    3           //max number of outstanding probe requests (aj_link_timeout.c)
-#define AJ_METHOD_TIMEOUT       (1000 * 3)      //timeout for method calls              (aj_bus.c)
-#define AJ_MAX_AUTH_TIME        (5 * 60 * 1000ul) //max time for incomplete authentication(aj_peer.c)
-#define AJ_AUTH_CALL_TIMEOUT    (2 * 60 * 1000ul) //long timeout for method calls w/ user input (aj_peer.c)
-#define AJ_CALL_TIMEOUT         (1000ul * 5)    //timout for all other method calls     (aj_peer.c)
+#define AJ_WHO_HAS_TIMEOUT       (1000)            //how long to wait for WHO_HAS response            (aj_disco.c)
+#define AJ_UNMARSHAL_TIMEOUT     (100 * 1000)      //unmarshal timeout                                (aj_helper.c + aj_msg.c)
+#define AJ_CONNECT_TIMEOUT       (60 * 1000)       //connection timeout                               (aj_helper.c)
+#define AJ_CONNECT_PAUSE         (10 * 1000)       //how long to pause between failed connects        (aj_helper.c)
+#define AJ_DEFAULT_REPLY_TIMEOUT (1000 * 20)       //reply timeout                                    (aj_introspect.c)
+#define AJ_MIN_BUS_LINK_TIMEOUT  (40)              //min link timeout for the bus                     (aj_link_timeout.c)
+#define AJ_BUS_LINK_PING_TIMEOUT (5)               //time period where probe requests should be acked (aj_link_timeout.c)
+#define AJ_MAX_LINK_PING_PACKETS (3)               //max number of outstanding probe requests         (aj_link_timeout.c)
+#define AJ_METHOD_TIMEOUT        (1000 * 3)        //timeout for method calls                         (aj_bus.c)
+#define AJ_MAX_AUTH_TIME         (5 * 60 * 1000ul) //max time for incomplete authentication           (aj_peer.c)
+#define AJ_AUTH_CALL_TIMEOUT     (2 * 60 * 1000ul) //long timeout for method calls w/ user input      (aj_peer.c)
+#define AJ_CALL_TIMEOUT          (1000ul * 5)      //default timout for method calls                  (aj_peer.c)
+
+/* Message identification related */
+
+#if !defined(AJ_NUM_REPLY_CONTEXTS)
+#define AJ_NUM_REPLY_CONTEXTS    (2)               //number of concurrent method calls     (aj_introspect.c)
+#endif
+
+#if !(defined(AJ_MAX_OBJECT_LISTS))
+#define AJ_MAX_OBJECT_LISTS      (3)               //maximum number of object lists        (aj_introspect.c)
+#endif
 
 /* Crypto */
 #define AJ_CCM_TRACE                0           //Enables fine-grained tracing for debugging new implementations.

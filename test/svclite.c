@@ -86,15 +86,15 @@ static const AJ_InterfaceDescription testInterfaces[] = {
 };
 
 static const AJ_Object AppObjects[] = {
-    { "/org/alljoyn/alljoyn_test", testInterfaces },
+    { "/org/alljoyn/alljoyn_test", testInterfaces, AJ_OBJ_FLAG_ANNOUNCED },
     { NULL }
 };
 
 /*
  * Message identifiers for the method calls this application implements
  */
-#define APP_GET_PROP  AJ_APP_MESSAGE_ID(0, 0, AJ_PROP_GET)
-#define APP_SET_PROP  AJ_APP_MESSAGE_ID(0, 0, AJ_PROP_SET)
+#define APP_GET_PROP        AJ_APP_MESSAGE_ID(0, 0, AJ_PROP_GET)
+#define APP_SET_PROP        AJ_APP_MESSAGE_ID(0, 0, AJ_PROP_SET)
 #define APP_MY_PING         AJ_APP_MESSAGE_ID(0, 1, 0)
 #define APP_DELAYED_PING    AJ_APP_MESSAGE_ID(0, 1, 1)
 #define APP_TIME_PING       AJ_APP_MESSAGE_ID(0, 1, 2)

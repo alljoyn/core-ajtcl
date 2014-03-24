@@ -44,7 +44,7 @@ uint8_t dbgINTROSPECT = 0;
 /*
  * The various object lists
  */
-const AJ_Object* objectLists[3] = { AJ_StandardObjects, NULL, NULL };
+const AJ_Object* objectLists[AJ_MAX_OBJECT_LISTS] = { AJ_StandardObjects, NULL, NULL };
 
 /**
  * Struct for a reply context for a method call
@@ -1006,8 +1006,21 @@ AJ_Status AJ_IdentifyMessage(AJ_Message* msg)
 
 void AJ_RegisterObjects(const AJ_Object* localObjects, const AJ_Object* proxyObjects)
 {
+    AJ_ASSERT(AJ_PRX_ID_FLAG < ArraySize(objectLists));
     objectLists[AJ_APP_ID_FLAG] = localObjects;
     objectLists[AJ_PRX_ID_FLAG] = proxyObjects;
+}
+
+AJ_Status AJ_RegisterObjectList(const AJ_Object* objList, uint8_t index)
+{
+    if (index <= AJ_PRX_ID_FLAG) {
+        return AJ_ERR_DISALLOWED;
+    }
+    if (index >= ArraySize(objectLists)) {
+        return AJ_ERR_RANGE;
+    }
+    objectLists[index] = objList;
+    return AJ_OK;
 }
 
 AJ_Status AJ_SetProxyObjectPath(AJ_Object* proxyObjects, uint32_t msgId, const char* objPath)
@@ -1089,7 +1102,6 @@ uint8_t AJ_TimedOutMethodCall(AJ_Message* msg)
 void AJ_ReleaseReplyContexts(void)
 {
     memset(replyContexts, 0, sizeof(replyContexts));
-
 }
 
 AJ_Status AJ_SetObjectFlags(const char* objPath, uint8_t setFlags, uint8_t clearFlags)
@@ -1112,4 +1124,48 @@ AJ_Status AJ_SetObjectFlags(const char* objPath, uint8_t setFlags, uint8_t clear
         }
     }
     return status;
+}
+
+AJ_MemberType AJ_GetMemberType(uint32_t identifier, const char** member, uint8_t* isSecure)
+{
+    const char* name;
+    uint8_t secure;
+    AJ_Status status = UnpackMsgId(identifier, NULL, NULL, &name, &secure);
+    if (status == AJ_OK) {
+        if (isSecure) {
+            *isSecure = secure;
+        }
+        if (member) {
+            *member = name + 1;
+        }
+        return (AJ_MemberType) * name;
+    } else {
+        return AJ_INVALID_MEMBER;
+    }
+}
+
+const AJ_Object* AJ_InitObjectIterator(AJ_ObjectIterator* iter, uint8_t flags)
+{
+    iter->f = flags;
+    iter->l = 0;
+    iter->n = 0;
+    return AJ_NextObject(iter);
+}
+
+const AJ_Object* AJ_NextObject(AJ_ObjectIterator* iter)
+{
+    while (iter->l < ArraySize(objectLists)) {
+        const AJ_Object* list = objectLists[iter->l];
+        if (list) {
+            while (list[iter->n].path) {
+                const AJ_Object* obj = &list[iter->n++];
+                if (obj->flags & iter->f) {
+                    return obj;
+                }
+            }
+        }
+        iter->n = 0;
+        ++iter->l;
+    }
+    return NULL;
 }
