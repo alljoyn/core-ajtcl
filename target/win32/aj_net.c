@@ -156,6 +156,9 @@ AJ_Status AJ_Net_Connect(AJ_NetSocket* netSock, uint16_t port, uint8_t addrType,
 
     AJ_InfoPrintf(("AJ_Net_Connect(nexSock=0x%p, port=%d., addrType=%d., addr=0x%p)\n", netSock, port, addrType, addr));
 
+    /* Initialize Winsock, if not done already */
+    WinsockCheck();
+
     memset(&addrBuf, 0, sizeof(addrBuf));
 
     sock = socket(AF_INET, SOCK_STREAM, 0);
