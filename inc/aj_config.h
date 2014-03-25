@@ -43,7 +43,6 @@
 #define AJ_ADHOC_LEN                16          //AD-HOC maximal passcode length        (aj_auth.h)
 #define AJ_NAME_MAP_GUID_SIZE       2           //aj_guid.c
 #define AJ_MAX_NAME_SIZE            14          //aj_guid.c
-#define AJ_MAX_PEER_GUIDS           12          //Max number of peers that can store credentials (aj_creds.h)
 #define AJ_MAX_AUTH_COUNT           8           //check to prevent broken state machine loops (aj_sasl.c)
 #define AJ_LOCAL_GUID_NV_ID         1
 #define AJ_REMOTE_CREDS_NV_ID_BEGIN (AJ_LOCAL_GUID_NV_ID + 1)
