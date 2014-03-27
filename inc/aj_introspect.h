@@ -113,6 +113,7 @@ typedef const char* const* AJ_InterfaceDescription;
 #define AJ_OBJ_FLAG_HIDDEN    0x02  /**< If set this bit indicates this is object is not announced */
 #define AJ_OBJ_FLAG_DISABLED  0x04  /**< If set this bit indicates that method calls cannot be made to the object at this time */
 #define AJ_OBJ_FLAG_ANNOUNCED 0x08  /**< If set this bit indicates this object is announced by ABOUT */
+#define AJ_OBJ_FLAG_IS_PROXY  0x10  /**< If set this bit indicates this object is a proxy object */
 
 /**
  * Type for an AllJoyn object description
@@ -210,7 +211,8 @@ void AJ_RegisterObjects(const AJ_Object* localObjects, const AJ_Object* proxyObj
  * Object iterator type - treat as opaque
  */
 typedef struct {
-    uint8_t f;
+    uint8_t fin;
+    uint8_t fex;
     uint8_t l;
     uint16_t n;
 } AJ_ObjectIterator;
@@ -218,14 +220,16 @@ typedef struct {
 /**
  * Initialize announce object iterator.
  *
- * @param iter    Struct for maintaining object iterator state
- * @param flags   Flag values to match against in the object tables
+ * @param iter      Struct for maintaining object iterator state
+ * @param inFlags   Object flags included in the iteration (logical AND with the object flags)
+ * @param exFlags   Object flags excluded from the iteration (logical AND with the object flags)
+ *
  *
  * @return  Returns the first iterated object. Call AJ_NextAnnounceObject to return successive
  *          objects.
  */
 AJ_EXPORT
-const AJ_Object* AJ_InitObjectIterator(AJ_ObjectIterator* iter, uint8_t flags);
+const AJ_Object* AJ_InitObjectIterator(AJ_ObjectIterator* iter, uint8_t inFlags, uint8_t exFlags);
 
 /**
  * Returns the next iterated object

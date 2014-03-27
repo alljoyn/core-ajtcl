@@ -207,7 +207,7 @@ const AJ_Object AJ_StandardObjects[] = {
     { DBusObjectPath,      DBusIfaces },
     { BusObjectPath,       BusIfaces },
     { PeerObjectPath,      PeerIfaces },
-    { "*",                 CommonIfaces },
+    { "?",                 CommonIfaces },
     { DaemonObjectPath,    DaemonIfaces },
     { AboutObjectPath,     AboutIfaces },
     { AboutIconObjectPath, AboutIconIfaces },

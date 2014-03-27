@@ -123,8 +123,10 @@ static AJ_Status MarshalObjectDescriptions(AJ_Message* msg)
     if (status != AJ_OK) {
         goto ErrorExit;
     }
-
-    for (obj = AJ_InitObjectIterator(&iter, AJ_OBJ_FLAG_ANNOUNCED); obj != NULL; obj = AJ_NextObject(&iter)) {
+    /*
+     * Announce object that a flagged for announcement and not hidden
+     */
+    for (obj = AJ_InitObjectIterator(&iter, AJ_OBJ_FLAG_ANNOUNCED, AJ_OBJ_FLAG_HIDDEN); obj != NULL; obj = AJ_NextObject(&iter)) {
         size_t i;
         AJ_Arg structure;
         AJ_Arg ifcList;
@@ -133,6 +135,7 @@ static AJ_Status MarshalObjectDescriptions(AJ_Message* msg)
         if (status != AJ_OK) {
             goto ErrorExit;
         }
+        AJ_InfoPrintf(("Announcing object %s\n", obj->path));
         status = AJ_MarshalArgs(msg, "o", obj->path);
         if (status != AJ_OK) {
             goto ErrorExit;
@@ -151,6 +154,7 @@ static AJ_Status MarshalObjectDescriptions(AJ_Message* msg)
                     if (*iface == '$') {
                         ++iface;
                     }
+                    AJ_InfoPrintf(("  %s\n", iface));
                     status = AJ_MarshalArgs(msg, "s", iface);
                     if (status != AJ_OK) {
                         goto ErrorExit;

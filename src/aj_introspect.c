@@ -404,51 +404,73 @@ void WriteXML(void* context, const char* str, uint32_t len)
 AJ_Status AJ_HandleIntrospectRequest(const AJ_Message* msg, AJ_Message* reply)
 {
     AJ_Status status = AJ_OK;
-    const AJ_Object* obj = objectLists[AJ_APP_ID_FLAG];
-    uint32_t children = 0;
+    const AJ_Object* obj = NULL;
     AJ_Object parent;
     WriteContext context;
+    size_t list;
 
-    /*
-     * Return an error if there are no local objects
-     */
-    if (!obj) {
-        return AJ_MarshalErrorMsg(msg, reply, AJ_ErrServiceUnknown);
-    }
-    /*
-     * Find out which object we are introspecting. There are two possibilities:
-     *
-     * - The request has a complete object path to one of the application objects.
-     * - The request has a path to a parent object of one or more application objects where the
-     *   parent itself is just a place-holder in the object hierarchy.
-     */
-    for (; obj->path != NULL; ++obj) {
-        if (strcmp(msg->objPath, obj->path) == 0) {
+    for (list = AJ_APP_ID_FLAG; list < ArraySize(objectLists); ++list) {
+        uint32_t children = 0;
+
+        obj = objectLists[list];
+        /*
+         * Skip entry if there are no objects
+         */
+        if (!obj) {
+            continue;
+        }
+        /*
+         * For backwards compatibility the third entry is reserved for proxy objects. Going forward
+         * proxy objects are identified in the object list by the AJ_OBJ_FLAG_IS_PROXY.
+         */
+        if (list == AJ_PRX_ID_FLAG) {
+            continue;
+        }
+        /*
+         * Find out which object we are introspecting. There are two possibilities:
+         *
+         * - The request has a complete object path to one of the application objects.
+         * - The request has a path to a parent object of one or more application objects where the
+         *   parent itself is just a place-holder in the object hierarchy.
+         */
+        for (; obj->path != NULL; ++obj) {
+            /*
+             * We don't introspect proxy objects
+             */
+            if (obj->flags & AJ_OBJ_FLAG_IS_PROXY) {
+                continue;
+            }
+            if (strcmp(msg->objPath, obj->path) == 0) {
+                break;
+            }
+            if (ChildPath(msg->objPath, obj->path, NULL)) {
+                ++children;
+            }
+        }
+        if (obj->path) {
             break;
         }
-        if (ChildPath(msg->objPath, obj->path, NULL)) {
-            ++children;
+        /*
+         * If there was not a direct match but the requested node has children we create
+         * a temporary AJ_Object for the parent and introspect that object.
+         */
+        if (children) {
+            parent.flags = 0;
+            parent.path = msg->objPath;
+            parent.interfaces = NULL;
+            obj = &parent;
+            break;
         }
-    }
-    /*
-     * If there was not a direct match but the requested node has children we create
-     * a temporary AJ_Object for the parent and introspect that object.
-     */
-    if ((obj->path == NULL) && children) {
-        parent.flags = 0;
-        parent.path = msg->objPath;
-        parent.interfaces = NULL;
-        obj = &parent;
     }
     /*
      * Skip objects that are hidden or disabled
      */
-    if (obj->path && !(obj->flags & (AJ_OBJ_FLAG_HIDDEN | AJ_OBJ_FLAG_DISABLED))) {
+    if (obj && obj->path && !(obj->flags & (AJ_OBJ_FLAG_HIDDEN | AJ_OBJ_FLAG_DISABLED))) {
         /*
          * First pass computes the size of the XML string
          */
         context.len = 0;
-        status = GenXML(SizeXML, &context.len, obj, objectLists[1]);
+        status = GenXML(SizeXML, &context.len, obj, objectLists[list]);
         if (status != AJ_OK) {
             AJ_ErrPrintf(("AJ_HandleIntrospectRequest(): Failed to generate XML. status=%s", AJ_StatusText(status)));
             return status;
@@ -472,7 +494,7 @@ AJ_Status AJ_HandleIntrospectRequest(const AJ_Message* msg, AJ_Message* reply)
             uint8_t nul = 0;
             context.status = AJ_OK;
             context.reply = reply;
-            GenXML(WriteXML, &context, obj, objectLists[1]);
+            GenXML(WriteXML, &context, obj, objectLists[list]);
             status = context.status;
             if (status == AJ_OK) {
                 /*
@@ -621,6 +643,23 @@ static AJ_InterfaceDescription FindInterface(const AJ_InterfaceDescription* inte
     return NULL;
 }
 
+/*
+ * Match the object path. There are two wild card entries for object paths: '?'  matches any method
+ * call and '!' matches any signal.  The method call wildcard is specifically to support the
+ * introspection and ping methods. The signal wildcard allows for a single handler for a specific
+ * signal emitted by any object. Note that these wildcards are expected to provide unique matches,
+ * i.e. there should be no non-wildcarded entry in any object table that would also match.
+ */
+static uint8_t inline MatchPath(const char* path, AJ_Message* msg) {
+    if ((*path == '?') && (msg->hdr->msgType == AJ_MSG_METHOD_CALL)) {
+        return TRUE;
+    }
+    if ((*path == '!') && (msg->hdr->msgType == AJ_MSG_SIGNAL)) {
+        return TRUE;
+    }
+    return strcmp(path, msg->objPath) == 0;
+}
+
 AJ_Status AJ_LookupMessageId(AJ_Message* msg, uint8_t* secure)
 {
     uint8_t oIndex = 0;
@@ -631,12 +670,14 @@ AJ_Status AJ_LookupMessageId(AJ_Message* msg, uint8_t* secure)
         if (!obj) {
             continue;
         }
-        while (obj->path) {
+        for (; obj->path; ++pIndex, ++obj) {
             /*
-             * Match the object path. The wildcard entry is for interfaces that are automatically
-             * defined for all objects; specifically to support the introspection and ping methods.
+             * Skip objects that are currently disabled
              */
-            if (!(obj->flags & AJ_OBJ_FLAG_DISABLED) && ((obj->path[0] == '*') || (strcmp(obj->path, msg->objPath) == 0))) {
+            if (obj->flags & AJ_OBJ_FLAG_DISABLED) {
+                continue;
+            }
+            if (MatchPath(obj->path, msg)) {
                 uint8_t iIndex;
                 AJ_InterfaceDescription desc = FindInterface(obj->interfaces, msg->iface, &iIndex);
                 if (desc) {
@@ -655,8 +696,6 @@ AJ_Status AJ_LookupMessageId(AJ_Message* msg, uint8_t* secure)
                     }
                 }
             }
-            ++pIndex;
-            ++obj;
         }
     }
     AJ_ErrPrintf(("LookupMessageId(): AJ_ERR_NO_MATCH\n"));
@@ -1136,17 +1175,18 @@ AJ_MemberType AJ_GetMemberType(uint32_t identifier, const char** member, uint8_t
             *isSecure = secure;
         }
         if (member) {
-            *member = name + 1;
+            *member = name;
         }
-        return (AJ_MemberType) * name;
+        return (AJ_MemberType) * (name - 1);
     } else {
         return AJ_INVALID_MEMBER;
     }
 }
 
-const AJ_Object* AJ_InitObjectIterator(AJ_ObjectIterator* iter, uint8_t flags)
+const AJ_Object* AJ_InitObjectIterator(AJ_ObjectIterator* iter, uint8_t inFlags, uint8_t exFlags)
 {
-    iter->f = flags;
+    iter->fin = inFlags;
+    iter->fex = exFlags;
     iter->l = 0;
     iter->n = 0;
     return AJ_NextObject(iter);
@@ -1159,7 +1199,7 @@ const AJ_Object* AJ_NextObject(AJ_ObjectIterator* iter)
         if (list) {
             while (list[iter->n].path) {
                 const AJ_Object* obj = &list[iter->n++];
-                if (obj->flags & iter->f) {
+                if ((obj->flags & iter->fin) && !(obj->flags & iter->fex)) {
                     return obj;
                 }
             }
