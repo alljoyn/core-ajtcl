@@ -942,7 +942,7 @@ AJ_Status AJ_IdentifyProperty(AJ_Message* msg, const char* iface, const char* pr
 
 #ifndef NDEBUG
     if ((oIndex > ArraySize(objectLists)) || !CheckIndex(objectLists[oIndex], pIndex, sizeof(AJ_Object))) {
-        AJ_ErrPrintf(("AJ_UnmarshalPropertyArgs(): AJ_ERR_INVALID\n"));
+        AJ_ErrPrintf(("AJ_IdentifyProperty(): AJ_ERR_INVALID\n"));
         return AJ_ERR_INVALID;
     }
 #endif
@@ -965,7 +965,7 @@ AJ_Status AJ_IdentifyProperty(AJ_Message* msg, const char* iface, const char* pr
             if (status != AJ_ERR_NO_MATCH) {
                 if (status == AJ_OK) {
                     *propId = (oIndex << 24) | (pIndex << 16) | (iIndex << 8) | mIndex;
-                    AJ_InfoPrintf(("Identified property %x sig \"%s\"\n", *propId, *sigPtr));
+                    AJ_InfoPrintf(("Identified property %s:%s id=%x sig=\"%s\"\n", iface, prop, *propId, *sigPtr));
                 }
                 break;
             }

@@ -580,7 +580,7 @@ static AJ_Status PropAccess(AJ_Message* msg, PropCallback* cb, uint8_t op)
     uint32_t propId;
     const char* sig;
 
-    AJ_InfoPrintf(("PropAccess(msg=0x%p, cb=0x%p, op=%d.)\n", msg, cb, op));
+    AJ_InfoPrintf(("PropAccess(msg=0x%p, cb=0x%p, op=%s)\n", msg, cb, (op == AJ_PROP_GET) ? "get" : "set"));
 
     /*
      * Find out which property is being accessed and whether the access is a GET or SET
