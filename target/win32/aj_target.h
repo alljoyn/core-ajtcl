@@ -78,4 +78,6 @@ extern uint8_t dbgTARGET_UTIL;
 
 #define AJ_EXPORT  __declspec(dllexport)
 
+#define inline __inline
+
 #endif
