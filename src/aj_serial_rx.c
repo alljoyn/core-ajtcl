@@ -296,7 +296,7 @@ AJ_Status AJ_SerialRecv(uint8_t* buffer,
     AJ_InitTimer(&readTimeoutTimeStamp);
     AJ_TimeAddOffset(&readTimeoutTimeStamp, timeout);
     AJ_InitTimer(&now);
-    while (len && (AJ_CompareTime(readTimeoutTimeStamp, now) > 0)) {
+    do {
         if (AJ_SerialLinkParams.linkState == AJ_LINK_DEAD) {
             status = AJ_ERR_LINK_DEAD;
             break;
@@ -335,7 +335,7 @@ AJ_Status AJ_SerialRecv(uint8_t* buffer,
         // Running state machine, waiting for RxRecv to get another buffer.
         AJ_StateMachine();
         AJ_InitTimer(&now);
-    }
+    } while (len && (AJ_CompareTime(readTimeoutTimeStamp, now) > 0));
 
     if (AJ_CompareTime(readTimeoutTimeStamp, now) <= 0 && (req == len)) {
         status = AJ_ERR_TIMEOUT;
