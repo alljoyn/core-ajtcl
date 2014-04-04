@@ -6,7 +6,7 @@
  * @{
  */
 /******************************************************************************
- * Copyright (c) 2012-2013, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2012-2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -90,13 +90,19 @@
  * Note - If you use this message id explicitly to construct a method call it will always introspect
  * the root object.
  */
-#define AJ_METHOD_INTROSPECT           AJ_BUS_MESSAGE_ID(3, 0, 0)    /**< method for intprospect */
+#define AJ_METHOD_INTROSPECT           AJ_BUS_MESSAGE_ID(3, 0, 0)    /**< method for introspect */
 
 /*
  * Members of the interface org.freedesktop.DBus.Peer
  */
 #define AJ_METHOD_PING                 AJ_BUS_MESSAGE_ID(3, 1, 0)    /**< method for ping */
 #define AJ_METHOD_GET_MACHINE_ID       AJ_BUS_MESSAGE_ID(3, 1, 1)    /**< method for get machine id */
+
+/*
+ * Members of the interface org.allseen.Introspectable
+ */
+#define AJ_METHOD_GET_DESCRIPTION_LANG AJ_BUS_MESSAGE_ID(3, 2, 0)    /**< method for get description langauges */
+#define AJ_METHOD_INTROSPECT_WITH_DESC AJ_BUS_MESSAGE_ID(3, 2, 1)    /**< method for introspect with descriptions */
 
 /*
  * Members of /org/alljoyn/Daemon interface org.alljoyn.Daemon

@@ -6,7 +6,7 @@
  * @{
  */
 /******************************************************************************
- * Copyright (c) 2012-2013, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2012-2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -108,6 +108,20 @@ typedef enum {
  */
 typedef const char* const* AJ_InterfaceDescription;
 
+/*
+ * AJ_DESCRIPTION_ID(BusObject base ID, Interface index, Member index, Arg index)
+ * Interface, Member, and Arg indexes starts at 1 and represent the readible index in a list.
+ * [ a, b, ... ] a would be index 1, b 2, etc.
+ */
+#define AJ_DESCRIPTION_ID(o, i, m, a)   (((uint32_t)(o) << 24) | (((uint32_t)(i)) << 16) | (((uint32_t)(m)) << 8) | (a))
+
+/**
+ * Function pointer type for an abstracted Description lookup function
+ *
+ * @param descId    The encoded id that represents the request description value
+ * @param lang      The language that is being asked for
+ */
+typedef const char* (*AJ_DescriptionLookupFunc)(uint32_t descId, const char* lang);
 
 #define AJ_OBJ_FLAG_SECURE    0x01  /**< If set this bit indicates that an object is secure */
 #define AJ_OBJ_FLAG_HIDDEN    0x02  /**< If set this bit indicates this is object is not announced */
@@ -123,6 +137,8 @@ typedef struct _AJ_Object {
     const AJ_InterfaceDescription* interfaces;      /**< interface descriptor */
     uint8_t flags;                                  /**< flags for the object */
     void* context;                                  /**< an application provided context pointer for this object */
+    uint8_t objectId;                               /**< an ID to be used with the descLookup so it is understood what is being asked for */
+    AJ_DescriptionLookupFunc descLookup;            /**< function pointer to provide description */
 } AJ_Object;
 
 /*
@@ -208,6 +224,15 @@ AJ_EXPORT
 void AJ_RegisterObjects(const AJ_Object* localObjects, const AJ_Object* proxyObjects);
 
 /**
+ * Register a local array of languages that will allow for a description to be supplied.
+ *
+ * @param languages The list of languages that are supported for descriptions.
+ */
+AJ_EXPORT
+void AJ_RegisterDescriptionLanguages(const char* const* languages);
+
+
+/**
  * Object iterator type - treat as opaque
  */
 typedef struct {
@@ -291,10 +316,20 @@ AJ_Status AJ_MarshalPropertyArgs(AJ_Message* msg, uint32_t propId);
  *
  * @param msg        The introspection request method call
  * @param reply      The reply to the introspection request
+ * @param languageTag The language that descriptions should be returned in if supported, else default lang used
  *
  * @return           Return AJ_Status
  */
-AJ_Status AJ_HandleIntrospectRequest(const AJ_Message* msg, AJ_Message* reply);
+AJ_Status AJ_HandleIntrospectRequest(const AJ_Message* msg, AJ_Message* reply, const char* languageTag);
+
+/**
+ * Handle a request to get the supported description languages
+ *
+ * @param msg       The get description languages method call
+ * @param reply     The reply to the get description languages request
+ *
+ */
+AJ_Status AJ_HandleGetDescriptionLanguages(const AJ_Message* msg, AJ_Message* reply);
 
 /**
  * Internal function for initializing a message from information obtained via the message id.

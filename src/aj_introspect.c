@@ -2,7 +2,7 @@
  * @file
  */
 /******************************************************************************
- * Copyright (c) 2012,2013 AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2012-2014 AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -46,6 +46,11 @@ uint8_t dbgINTROSPECT = 0;
  */
 const AJ_Object* objectLists[AJ_MAX_OBJECT_LISTS] = { AJ_StandardObjects, NULL, NULL };
 
+/*
+ * The language list
+ */
+const char* const* languageList = NULL;
+
 /**
  * Struct for a reply context for a method call
  */
@@ -80,6 +85,9 @@ typedef void (*XMLWriterFunc)(void* context, const char* str, uint32_t len);
 #define METHOD     MEMBER_TYPE('?')  /* ((0x3F >> 4) - 2) == 1 */
 #define PROPERTY   MEMBER_TYPE('@')  /* ((0x40 >> 4) - 2) == 2 */
 
+#define SESSIONLESS  '&' /* Only to be uesd with a signal member types, indicates that the signal will not require a session and is a sessionless signal */
+#define IS_SESSIONLESS(c) ((c) == SESSIONLESS)
+
 #define SECURE_TRUE  '$' /* Security is required for an interface that start with a '$' character */
 #define SECURE_OFF   '#' /* Security is OFF, i.e. never required for an interface that starts with a '#' character */
 
@@ -93,7 +101,8 @@ static const char* const MemberOpen[] = {
 static const char* const MemberClose[] = {
     "  </signal>\n",
     "  </method>\n",
-    "/>\n"
+    "/>\n",
+    "  </property>\n", /* One element larger than the close to allow for a property to encompass a description tag */
 };
 
 static const char* const Access[] = {
@@ -102,14 +111,24 @@ static const char* const Access[] = {
     "\" access=\"read\""
 };
 
+/*
+ * Table contains 6 elements to allow for the ability to encompass a description tag if one exists.
+ * The computed index for closure of the tag has 3 added to it when a description tag is present.
+ */
 static const char* const Direction[] = {
     "\" direction=\"in\"/>\n",
     "\"/>\n",
-    "\" direction=\"out\"/>\n"
+    "\" direction=\"out\"/>\n",
+    "\" direction=\"in\">\n",
+    "\">\n",
+    "\" direction=\"out\">\n"
 };
 
 static const char nameAttr[] = " name=\"";
 static const char typeAttr[] = " type=\"";
+
+static const char descriptionOpen[] = "<description";
+static const char descriptionClose[] = "</description>\n";
 
 static const char nodeOpen[] = "<node";
 static const char nodeClose[] = "</node>\n";
@@ -148,15 +167,51 @@ static void XMLWriteTag(XMLWriterFunc XMLWriter, void* context, const char* tag,
     XMLWriter(context, atom ? "\"/>\n" : "\">\n", 0);
 }
 
-static AJ_Status ExpandInterfaces(XMLWriterFunc XMLWriter, void* context, const AJ_InterfaceDescription* iface)
+static void XMLWriteDescription(XMLWriterFunc XMLWriter, void* context, uint8_t level, AJ_DescriptionLookupFunc descLookup, uint32_t descId, const char* languageTag) {
+    uint8_t i;
+    const char* description;
+
+    if (!descLookup) {
+        return;
+    }
+
+    description = descLookup(descId, languageTag);
+    if (description) {
+
+        for (i = 0; i < level; i++) {
+            XMLWriter(context, "    ", 0);
+        }
+
+        XMLWriter(context, descriptionOpen, 0);
+        if (strlen(languageTag) > 0) {
+            XMLWriter(context, " language=\"", 0);
+            XMLWriter(context, languageTag, 0);
+            XMLWriter(context, "\"", 0);
+        }
+        XMLWriter(context, ">", 0);
+
+        XMLWriter(context, description, 0);
+
+        XMLWriter(context, descriptionClose, 0);
+    }
+}
+
+static AJ_Status ExpandInterfaces(XMLWriterFunc XMLWriter, void* context, const AJ_InterfaceDescription* iface, AJ_DescriptionLookupFunc descLookup, uint32_t descObjId, const char* languageTag)
 {
+    uint32_t descId;
+    uint8_t ifaceIndex = 0;
     if (!iface) {
         return AJ_OK;
     }
     while (*iface) {
+        uint8_t memberIndex = 0;
         const char* const* entries = *iface;
         char flag = entries[0][0];
         uint8_t dBus_std_iface = FALSE;
+
+        /* Increase the interface index since we start at 1 */
+        ++ifaceIndex;
+        descId = descObjId | (((uint32_t)(ifaceIndex)) << 16);
 
         if ((flag == SECURE_TRUE) || (flag == SECURE_OFF)) {
 
@@ -168,7 +223,7 @@ static AJ_Status ExpandInterfaces(XMLWriterFunc XMLWriter, void* context, const 
             }
 
             /*
-             * if secure, skip the first char (the $) of the name
+             * If secure, skip the first char (the $) of the name
              */
             XMLWriteTag(XMLWriter, context, "<interface", nameAttr, entries[0] + 1, 0, FALSE);
             if (!dBus_std_iface) {
@@ -177,17 +232,40 @@ static AJ_Status ExpandInterfaces(XMLWriterFunc XMLWriter, void* context, const 
             }
         } else {
             XMLWriteTag(XMLWriter, context, "<interface", nameAttr, entries[0], 0, FALSE);
+
+        }
+        if (languageTag) {
+            XMLWriteDescription(XMLWriter, context, 0, descLookup, descId, languageTag);
         }
 
         while (*(++entries)) {
+            uint8_t argIndex = 0;
             const char* member = *entries;
             uint8_t memberType = MEMBER_TYPE(*member++);
             uint8_t attr;
+            uint8_t isSessionless = FALSE;
+
+            /* Increase index since we start at 1 */
+            ++memberIndex;
+
             if (memberType > 2) {
                 AJ_ErrPrintf(("ExpandInterfaces(): AJ_ERR_UNEXPECTED"));
                 return AJ_ERR_UNEXPECTED;
             }
             XMLWriter(context, MemberOpen[memberType], 0);
+            if (IS_SESSIONLESS(*member)) {
+                /*
+                 * Advance so that we do not return a & character
+                 */
+                member++;
+                if (languageTag != NULL) {
+                    /*
+                     * Checking on languageTag implies that we entered the method
+                     * through the org.allseen.Introspect interface
+                     */
+                    isSessionless = TRUE;
+                }
+            }
             attr = ExpandAttribute(XMLWriter, context, &member, nameAttr, "\"");
             if (memberType == PROPERTY) {
                 uint8_t acc = attr - WRITE_ONLY;
@@ -197,9 +275,17 @@ static AJ_Status ExpandInterfaces(XMLWriterFunc XMLWriter, void* context, const 
                 }
                 ExpandAttribute(XMLWriter, context, &member, typeAttr, Access[acc]);
             } else {
+                if (memberType == SIGNAL) {
+                    XMLWriter(context, " sessionless=", 0);
+                    XMLWriter(context, isSessionless ? "true" : "false", 0);
+                }
                 XMLWriter(context, ">\n", 2);
                 while (attr) {
                     uint8_t dir;
+
+                    /* increae arg index since we start at 1 */
+                    ++argIndex;
+
                     XMLWriter(context, "    <arg", 0);
                     if (IS_DIRECTION(*member)) {
                         dir = *member++ - IN_ARG;
@@ -213,10 +299,34 @@ static AJ_Status ExpandInterfaces(XMLWriterFunc XMLWriter, void* context, const 
                     if (memberType == SIGNAL) {
                         dir = 1;
                     }
+                    /*
+                     * If we have a description then do not close the xml tag and put in a description tag
+                     */
+                    if (languageTag) {
+                        dir += 3;
+                    }
                     attr = ExpandAttribute(XMLWriter, context, &member, typeAttr, Direction[dir]);
+
+                    if (languageTag) {
+                        XMLWriteDescription(XMLWriter, context, 2, descLookup, (descId | (((uint32_t)memberIndex) << 8) | ((uint32_t)argIndex)), languageTag);
+                        XMLWriter(context, "    </arg>\n", 0);
+                    }
                 }
             }
-            XMLWriter(context, MemberClose[memberType], 0);
+            if (languageTag) {
+                /* write out the description for the interface */
+                XMLWriteDescription(XMLWriter, context, 1, descLookup, (descId | (((uint32_t)memberIndex) << 8)), languageTag);
+                if (memberType == PROPERTY) {
+                    /*
+                     * Move to the alternate close for a propety
+                     * which is in the memberClose table of entry 4
+                     */
+                    memberType++;
+                }
+                XMLWriter(context, MemberClose[memberType], 0);
+            } else {
+                XMLWriter(context, MemberClose[memberType], 0);
+            }
         }
         XMLWriter(context, "</interface>\n", 0);
         ++iface;
@@ -300,7 +410,7 @@ static uint32_t SecurityApplies(const char* ifc, const AJ_Object* obj, const AJ_
     return FALSE;
 }
 
-static AJ_Status GenXML(XMLWriterFunc XMLWriter, void* context, const AJ_Object* obj, const AJ_Object* objList)
+static AJ_Status GenXML(XMLWriterFunc XMLWriter, void* context, const AJ_Object* obj, const AJ_Object* objList, const char* languageTag)
 {
     AJ_Status status;
     const AJ_Object* list = objList;
@@ -316,7 +426,10 @@ static AJ_Status GenXML(XMLWriterFunc XMLWriter, void* context, const AJ_Object*
         XMLWriter(context, annotateSecure, 0);
         XMLWriter(context, secureTrue, 0);
     }
-    status = ExpandInterfaces(XMLWriter, context, obj->interfaces);
+    if (languageTag) {
+        XMLWriteDescription(XMLWriter, context, 0, obj->descLookup, (((uint32_t)obj->objectId) << 24), languageTag);
+    }
+    status = ExpandInterfaces(XMLWriter, context, obj->interfaces, obj->descLookup, (((uint32_t)obj->objectId) << 24), languageTag);
     if (status == AJ_OK) {
         /*
          * Check if the object has any child nodes
@@ -328,7 +441,14 @@ static AJ_Status GenXML(XMLWriterFunc XMLWriter, void* context, const AJ_Object*
              * If there is a child check that this is the first instance of this child.
              */
             if (child && (FirstInstance(obj->path, child, len, objList) == list)) {
-                XMLWriteTag(XMLWriter, context, nodeOpen, nameAttr, child, len, TRUE);
+                if (languageTag) {
+
+                    XMLWriteTag(XMLWriter, context, nodeOpen, nameAttr, child, len, FALSE);
+                    XMLWriteDescription(XMLWriter, context, 0, list->descLookup, (((uint32_t)list->objectId) << 24), languageTag);
+                    XMLWriter(context, nodeClose, 0);
+                } else {
+                    XMLWriteTag(XMLWriter, context, nodeOpen, nameAttr, child, len, TRUE);
+                }
             }
             ++list;
         }
@@ -364,7 +484,7 @@ void AJ_PrintXML(const AJ_Object* obj)
     while (obj->path) {
         emptyList.path = NULL;
         emptyList.interfaces = NULL;
-        status = GenXML(PrintXML, NULL, obj, &emptyList);
+        status = GenXML(PrintXML, NULL, obj, &emptyList, ""); //with default descriptions
         if (status != AJ_OK) {
             AJ_ErrPrintf(("\nFailed to generate XML - check interface descriptions of %s for errors\n", obj->path));
         }
@@ -401,7 +521,7 @@ void WriteXML(void* context, const char* str, uint32_t len)
     }
 }
 
-AJ_Status AJ_HandleIntrospectRequest(const AJ_Message* msg, AJ_Message* reply)
+AJ_Status AJ_HandleIntrospectRequest(const AJ_Message* msg, AJ_Message* reply, const char* languageTag)
 {
     AJ_Status status = AJ_OK;
     const AJ_Object* obj = NULL;
@@ -458,6 +578,8 @@ AJ_Status AJ_HandleIntrospectRequest(const AJ_Message* msg, AJ_Message* reply)
             parent.flags = 0;
             parent.path = msg->objPath;
             parent.interfaces = NULL;
+            parent.objectId = 0;
+            parent.descLookup = NULL;
             obj = &parent;
             break;
         }
@@ -470,7 +592,7 @@ AJ_Status AJ_HandleIntrospectRequest(const AJ_Message* msg, AJ_Message* reply)
          * First pass computes the size of the XML string
          */
         context.len = 0;
-        status = GenXML(SizeXML, &context.len, obj, objectLists[list]);
+        status = GenXML(SizeXML, &context.len, obj, objectLists[list], languageTag);
         if (status != AJ_OK) {
             AJ_ErrPrintf(("AJ_HandleIntrospectRequest(): Failed to generate XML. status=%s", AJ_StatusText(status)));
             return status;
@@ -494,7 +616,8 @@ AJ_Status AJ_HandleIntrospectRequest(const AJ_Message* msg, AJ_Message* reply)
             uint8_t nul = 0;
             context.status = AJ_OK;
             context.reply = reply;
-            GenXML(WriteXML, &context, obj, objectLists[list]);
+
+            GenXML(WriteXML, &context, obj, objectLists[list], languageTag);
             status = context.status;
             if (status == AJ_OK) {
                 /*
@@ -510,6 +633,28 @@ AJ_Status AJ_HandleIntrospectRequest(const AJ_Message* msg, AJ_Message* reply)
         AJ_WarnPrintf(("AJ_HandleIntrospectRequest() NO MATCH for %s\n", msg->objPath));
         AJ_MarshalErrorMsg(msg, reply, AJ_ErrServiceUnknown);
     }
+    return status;
+}
+
+AJ_Status AJ_HandleGetDescriptionLanguages(const AJ_Message* msg, AJ_Message* reply) {
+    AJ_Status status = AJ_OK;
+    AJ_Arg languageListArray;
+    const char* const* languageTag;
+
+    if (status == AJ_OK) {
+        status = AJ_MarshalContainer(reply, &languageListArray, AJ_ARG_ARRAY);
+    }
+    if (status == AJ_OK) {
+        languageTag = languageList;
+        while (languageTag++ && status == AJ_OK) {
+            status = AJ_MarshalArgs(reply, "s", *languageTag);
+        }
+    }
+
+    if (status == AJ_OK) {
+        status = AJ_MarshalCloseContainer(reply, &languageListArray);
+    }
+
     return status;
 }
 
@@ -1048,6 +1193,10 @@ void AJ_RegisterObjects(const AJ_Object* localObjects, const AJ_Object* proxyObj
     AJ_ASSERT(AJ_PRX_ID_FLAG < ArraySize(objectLists));
     objectLists[AJ_APP_ID_FLAG] = localObjects;
     objectLists[AJ_PRX_ID_FLAG] = proxyObjects;
+}
+
+void AJ_RegisterDescriptionLanguages(const char* const* languages) {
+    languageList = languages;
 }
 
 AJ_Status AJ_RegisterObjectList(const AJ_Object* objList, uint8_t index)

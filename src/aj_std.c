@@ -2,7 +2,7 @@
  * @file
  */
 /******************************************************************************
- * Copyright (c) 2012,2013 AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2012-2014 AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -55,7 +55,7 @@ static const char AboutInterface[] = "org.alljoyn.About";
 static const char AboutIconObjectPath[] = "/About/DeviceIcon";
 static const char AboutIconInterface[] = "org.alljoyn.Icon";
 
-
+static const char AllSeenIntrospectableInterface[] = "#org.allseen.Introspectable";
 
 const char* const AJ_PropertiesIface[] = {
     DBusPropsInterface,
@@ -68,6 +68,13 @@ const char* const AJ_PropertiesIface[] = {
 const char* const AJ_IntrospectionIface[] = {
     DBusIntrospectableInterface,
     "?Introspect >s",
+    NULL
+};
+
+const char* const AJ_AllSeenIntrospectionIface[] = {
+    AllSeenIntrospectableInterface,
+    "?GetDescriptionLanguages >as",
+    "?IntrospectWithDescription <s >s",
     NULL
 };
 
@@ -183,6 +190,7 @@ static const AJ_InterfaceDescription BusIfaces[] = {
 static const AJ_InterfaceDescription CommonIfaces[] = {
     AJ_IntrospectionIface,
     DBusPeerIface,
+    AJ_AllSeenIntrospectionIface,
     NULL
 };
 

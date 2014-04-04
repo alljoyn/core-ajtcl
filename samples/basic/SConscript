@@ -1,4 +1,4 @@
-# Copyright (c) 2013, AllSeen Alliance. All rights reserved.
+# Copyright (c) 2013-2014, AllSeen Alliance. All rights reserved.
 #
 #    Permission to use, copy, modify, and/or distribute this software for any
 #    purpose with or without fee is hereby granted, provided that the above
@@ -19,3 +19,4 @@ env.Program('basic_client', ['basic_client.c'] + env['aj_obj'])
 env.Program('signal_service', ['signal_service.c'] + env['aj_obj'])
 env.Program('nameChange_client', ['nameChange_client.c'] + env['aj_obj'])
 env.Program('signalConsumer_client', ['signalConsumer_client.c'] + env['aj_obj'])
+env.Program('eventaction_service', ['eventaction_service.c'] + env['aj_obj'])

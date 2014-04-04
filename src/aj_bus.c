@@ -408,6 +408,7 @@ AJ_Status AJ_BusHandleBusMessage(AJ_Message* msg)
     char* name;
     char* oldOwner;
     char* newOwner;
+    char* languageTag;
     AJ_Message reply;
 
     AJ_InfoPrintf(("AJ_BusHandleBusMessage(msg=0x%p)\n", msg));
@@ -432,7 +433,18 @@ AJ_Status AJ_BusHandleBusMessage(AJ_Message* msg)
 
     case AJ_METHOD_INTROSPECT:
         AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_METHOD_INTROSPECT\n"));
-        status = AJ_HandleIntrospectRequest(msg, &reply);
+        status = AJ_HandleIntrospectRequest(msg, &reply, NULL);
+        break;
+
+    case AJ_METHOD_GET_DESCRIPTION_LANG:
+        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_METHOD_INTROSPECT\n"));
+        status = AJ_HandleGetDescriptionLanguages(msg, &reply);
+        break;
+
+    case AJ_METHOD_INTROSPECT_WITH_DESC:
+        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_METHOD_INTROSPECT\n"));
+        AJ_UnmarshalArgs(msg, "s", &languageTag);
+        status = AJ_HandleIntrospectRequest(msg, &reply, languageTag);
         break;
 
     case AJ_METHOD_EXCHANGE_GUIDS:
