@@ -57,7 +57,7 @@ static const char* const someSessionlessSignalDesc[] = { "An example sessionless
  * Interface, Member, and Arg indexes starts at 1 and represent the readible index in a list.
  * [ a, b, ... ] a would be index 1, b 2, etc.
  */
-#define SAMPLE_OBJECT_ID                    1
+#define SAMPLE_OBJECT_ID                    0
 #define SAMPLE_OBJECT_DESC                  AJ_DESCRIPTION_ID(SAMPLE_OBJECT_ID, 0, 0, 0)
 #define SAMPLE_INTERFACE_DESC               AJ_DESCRIPTION_ID(SAMPLE_OBJECT_ID, 1, 0, 0)
 #define SAMPLE_JOIN_DESC                    AJ_DESCRIPTION_ID(SAMPLE_OBJECT_ID, 1, 2, 0)
@@ -135,7 +135,7 @@ static const AJ_InterfaceDescription sampleInterfaces[] = {
  * The second is the collection of all interfaces at that path.
  */
 static const AJ_Object AppObjects[] = {
-    { ServicePath, sampleInterfaces, 0, NULL, SAMPLE_OBJECT_ID, MyTranslator },
+    { ServicePath, sampleInterfaces, 0, NULL },
     { NULL }
 };
 
@@ -194,8 +194,8 @@ int AJ_Main(void)
     /* One time initialization before calling any other AllJoyn APIs. */
     AJ_Initialize();
 
-    /* Set the languages so that we can print out the default descriptions in the AJ_PrintXML call */
-    AJ_RegisterDescriptionLanguages(languages);
+    /* Set the languages and a lookup function so that we can print out the default descriptions in the AJ_PrintXML call */
+    AJ_RegisterDescriptions(languages, MyTranslator);
 
     /* This is for debug purposes and is optional. */
     AJ_PrintXML(AppObjects);

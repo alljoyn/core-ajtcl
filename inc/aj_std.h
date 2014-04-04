@@ -188,6 +188,15 @@ extern const char* const AJ_PropertiesIface[5];
 extern const char* const AJ_IntrospectionIface[3];
 
 /**
+ * The AllSeen introspection interface name
+ */
+extern const char AllSeenIntrospectableInterface[28];
+
+/**
+ * The AllSeen introspection interface with the additional descriptions
+ */
+extern const char* const AJ_AllSeenIntrospectionIface[4];
+/**
  * The standard objects that implement AllJoyn core functionality
  */
 extern const AJ_Object AJ_StandardObjects[8];

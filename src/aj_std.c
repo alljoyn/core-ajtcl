@@ -55,7 +55,7 @@ static const char AboutInterface[] = "org.alljoyn.About";
 static const char AboutIconObjectPath[] = "/About/DeviceIcon";
 static const char AboutIconInterface[] = "org.alljoyn.Icon";
 
-static const char AllSeenIntrospectableInterface[] = "#org.allseen.Introspectable";
+const char AllSeenIntrospectableInterface[] = "#org.allseen.Introspectable";
 
 const char* const AJ_PropertiesIface[] = {
     DBusPropsInterface,
@@ -205,19 +205,19 @@ static const AJ_InterfaceDescription AboutIfaces[] = {
     NULL
 };
 
-const AJ_InterfaceDescription AboutIconIfaces[] = {
+static const AJ_InterfaceDescription AboutIconIfaces[] = {
     AJ_PropertiesIface,
     AboutIconIface,
     NULL
 };
 
 const AJ_Object AJ_StandardObjects[] = {
-    { DBusObjectPath,      DBusIfaces },
-    { BusObjectPath,       BusIfaces },
-    { PeerObjectPath,      PeerIfaces },
-    { "?",                 CommonIfaces },
-    { DaemonObjectPath,    DaemonIfaces },
-    { AboutObjectPath,     AboutIfaces,     AJ_OBJ_FLAG_ANNOUNCED },
-    { AboutIconObjectPath, AboutIconIfaces, AJ_OBJ_FLAG_ANNOUNCED },
-    { NULL,                NULL }
+    { DBusObjectPath,      DBusIfaces,      0,                     NULL },
+    { BusObjectPath,       BusIfaces,       0,                     NULL },
+    { PeerObjectPath,      PeerIfaces,      0,                     NULL },
+    { "?",                 CommonIfaces,    0,                     NULL },
+    { DaemonObjectPath,    DaemonIfaces,    0,                     NULL },
+    { AboutObjectPath,     AboutIfaces,     AJ_OBJ_FLAG_ANNOUNCED, NULL },
+    { AboutIconObjectPath, AboutIconIfaces, AJ_OBJ_FLAG_ANNOUNCED, NULL },
+    { NULL,                NULL,            0,                     NULL }
 };

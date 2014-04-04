@@ -141,10 +141,11 @@ static AJ_Status MarshalObjectDescriptions(AJ_Message* msg)
     /*
      * Announce object that a flagged for announcement and not hidden
      */
-    for (obj = AJ_InitObjectIterator(&iter, AJ_OBJ_FLAG_ANNOUNCED, AJ_OBJ_FLAG_HIDDEN); obj != NULL; obj = AJ_NextObject(&iter)) {
+    for (obj = AJ_InitObjectIterator(&iter, AJ_OBJ_FLAG_ANNOUNCED | AJ_OBJ_FLAG_DESCRIBED, AJ_OBJ_FLAG_HIDDEN); obj != NULL; obj = AJ_NextObject(&iter)) {
         size_t i;
         AJ_Arg structure;
         AJ_Arg ifcList;
+        const char* iface;
 
         status = AJ_MarshalContainer(msg, &structure, AJ_ARG_STRUCT);
         if (status != AJ_OK) {
@@ -159,14 +160,31 @@ static AJ_Status MarshalObjectDescriptions(AJ_Message* msg)
         if (status != AJ_OK) {
             goto ErrorExit;
         }
+        /*
+         * Add the AllSeenIntrospectableInterface if this object is flagged as being described
+         */
+        if (obj->flags & AJ_OBJ_FLAG_DESCRIBED) {
+            iface = AllSeenIntrospectableInterface;
+            /*
+             * Don't need the $ or # that indicate the interface is secure or not
+             */
+            if (*iface == '$' || *iface == '#') {
+                ++iface;
+            }
+            AJ_InfoPrintf(("  %s\n", iface));
+            status = AJ_MarshalArgs(msg, "s", iface);
+            if (status != AJ_OK) {
+                goto ErrorExit;
+            }
+        }
         for (i = 0; obj->interfaces[i]; ++i) {
             if (obj->interfaces[i] != AJ_PropertiesIface) {
-                const char* iface = obj->interfaces[i][0];
+                iface = obj->interfaces[i][0];
                 if (iface) {
                     /*
-                     * Don't need the $ that indicates the interface is secure
+                     * Don't need the $ or # that indicate the interface is secure or not
                      */
-                    if (*iface == '$') {
+                    if (*iface == '$' || *iface == '#') {
                         ++iface;
                     }
                     AJ_InfoPrintf(("  %s\n", iface));

@@ -41,15 +41,25 @@
 uint8_t dbgINTROSPECT = 0;
 #endif
 
-/*
+/**
  * The various object lists
  */
-const AJ_Object* objectLists[AJ_MAX_OBJECT_LISTS] = { AJ_StandardObjects, NULL, NULL };
+static const AJ_Object* objectLists[AJ_MAX_OBJECT_LISTS] = { AJ_StandardObjects, NULL, NULL };
 
-/*
+/**
  * The language list
  */
-const char* const* languageList = NULL;
+static const char* const* languageList = NULL;
+
+/**
+ * The root object
+ */
+const AJ_Object AJ_ROOT_OBJECT = { "/", NULL, 0, NULL };
+
+/**
+ * ObjectIterator exclusion flags mask for Introspectable objects
+ */
+#define AJ_OBJ_FLAGS_INTROSPECTABLE_EXCLUDE_MASK (AJ_OBJ_FLAG_HIDDEN | AJ_OBJ_FLAG_DISABLED | AJ_OBJ_FLAG_IS_PROXY)
 
 /**
  * Struct for a reply context for a method call
@@ -67,6 +77,11 @@ static ReplyContext replyContexts[AJ_NUM_REPLY_CONTEXTS];
  * Function used by XML generator to push generated XML
  */
 typedef void (*XMLWriterFunc)(void* context, const char* str, uint32_t len);
+
+/*
+ * Per object list description lookup function
+ */
+static AJ_DescriptionLookupFunc descriptionLookups[AJ_MAX_OBJECT_LISTS] = { NULL, NULL, NULL };
 
 #define IN_ARG     '<'  /* 0x3C */
 #define OUT_ARG    '>'  /* 0x3E */
@@ -127,9 +142,6 @@ static const char* const Direction[] = {
 static const char nameAttr[] = " name=\"";
 static const char typeAttr[] = " type=\"";
 
-static const char descriptionOpen[] = "<description";
-static const char descriptionClose[] = "</description>\n";
-
 static const char nodeOpen[] = "<node";
 static const char nodeClose[] = "</node>\n";
 static const char annotateSecure[] = "  <annotation name=\"org.alljoyn.Bus.Secure\" value=\"";
@@ -162,38 +174,44 @@ static char ExpandAttribute(XMLWriterFunc XMLWriter, void* context, const char**
 static void XMLWriteTag(XMLWriterFunc XMLWriter, void* context, const char* tag, const char* attr, const char* val, uint32_t valLen, uint8_t atom)
 {
     XMLWriter(context, tag, 0);
-    XMLWriter(context, attr, 0);
-    XMLWriter(context, val, valLen);
-    XMLWriter(context, atom ? "\"/>\n" : "\">\n", 0);
+    if (attr != NULL) {
+        XMLWriter(context, attr, 0);
+        XMLWriter(context, val, valLen);
+        XMLWriter(context, "\"", 1);
+    }
+    if (atom) {
+        XMLWriter(context, "/>\n", 3);
+    } else {
+        XMLWriter(context, ">\n", 2);
+    }
 }
 
-static void XMLWriteDescription(XMLWriterFunc XMLWriter, void* context, uint8_t level, AJ_DescriptionLookupFunc descLookup, uint32_t descId, const char* languageTag) {
-    uint8_t i;
-    const char* description;
-
-    if (!descLookup) {
-        return;
+static const char* GetDescription(AJ_DescriptionLookupFunc descLookup, uint32_t descId, const char* languageTag)
+{
+    if (descLookup == NULL) {
+        return NULL;
     }
 
-    description = descLookup(descId, languageTag);
-    if (description) {
+    return descLookup(descId, languageTag);
+}
 
+static void XMLWriteDescription(XMLWriterFunc XMLWriter, void* context, uint8_t level, const char* description, const char* languageTag) {
+    if (description != NULL) {
+        uint8_t i;
         for (i = 0; i < level; i++) {
-            XMLWriter(context, "    ", 0);
+            XMLWriter(context, "    ", 4);
         }
-
-        XMLWriter(context, descriptionOpen, 0);
+        XMLWriter(context, "<description", 12);
         if (strlen(languageTag) > 0) {
-            XMLWriter(context, " language=\"", 0);
+            XMLWriter(context, " language=\"", 11);
             XMLWriter(context, languageTag, 0);
-            XMLWriter(context, "\"", 0);
+            XMLWriter(context, "\"", 1);
         }
-        XMLWriter(context, ">", 0);
-
+        XMLWriter(context, ">", 1);
         XMLWriter(context, description, 0);
-
-        XMLWriter(context, descriptionClose, 0);
+        XMLWriter(context, "</description>\n", 15);
     }
+    return;
 }
 
 static AJ_Status ExpandInterfaces(XMLWriterFunc XMLWriter, void* context, const AJ_InterfaceDescription* iface, AJ_DescriptionLookupFunc descLookup, uint32_t descObjId, const char* languageTag)
@@ -208,6 +226,7 @@ static AJ_Status ExpandInterfaces(XMLWriterFunc XMLWriter, void* context, const 
         const char* const* entries = *iface;
         char flag = entries[0][0];
         uint8_t dBus_std_iface = FALSE;
+        const char* description = NULL;
 
         /* Increase the interface index since we start at 1 */
         ++ifaceIndex;
@@ -215,27 +234,32 @@ static AJ_Status ExpandInterfaces(XMLWriterFunc XMLWriter, void* context, const 
 
         if ((flag == SECURE_TRUE) || (flag == SECURE_OFF)) {
 
-            /* If it is a D-Bus interface, do not add any annotations.*/
+            /* If it is a common standard interface, do not add any annotations.*/
             if ((strcmp(entries[0], "#org.freedesktop.DBus.Introspectable") == 0) ||
                 (strcmp(entries[0], "#org.freedesktop.DBus.Properties") == 0) ||
-                (strcmp(entries[0], "#org.freedesktop.DBus.Peer") == 0)) {
+                (strcmp(entries[0], "#org.freedesktop.DBus.Peer") == 0) ||
+                (strcmp(entries[0], "#org.allseen.Introspectable") == 0)) {
                 dBus_std_iface = TRUE;
             }
 
             /*
-             * If secure, skip the first char (the $) of the name
+             * If flagged as secure or not secure, skip the first char (the '$' or '#') of the name
              */
             XMLWriteTag(XMLWriter, context, "<interface", nameAttr, entries[0] + 1, 0, FALSE);
             if (!dBus_std_iface) {
-                XMLWriter(context, annotateSecure, 0);
-                XMLWriter(context, (flag == SECURE_TRUE) ? secureTrue : secureOff, 0);
+                XMLWriter(context, annotateSecure, 51);
+                if (flag == SECURE_TRUE) {
+                    XMLWriter(context, secureTrue, 8);
+                } else {
+                    XMLWriter(context, secureOff, 7);
+                }
             }
         } else {
             XMLWriteTag(XMLWriter, context, "<interface", nameAttr, entries[0], 0, FALSE);
-
         }
-        if (languageTag) {
-            XMLWriteDescription(XMLWriter, context, 0, descLookup, descId, languageTag);
+        description = GetDescription(descLookup, descId, languageTag);
+        if (description != NULL) {
+            XMLWriteDescription(XMLWriter, context, 0, description, languageTag);
         }
 
         while (*(++entries)) {
@@ -247,9 +271,8 @@ static AJ_Status ExpandInterfaces(XMLWriterFunc XMLWriter, void* context, const 
 
             /* Increase index since we start at 1 */
             ++memberIndex;
-
             if (memberType > 2) {
-                AJ_ErrPrintf(("ExpandInterfaces(): AJ_ERR_UNEXPECTED"));
+                AJ_ErrPrintf(("ExpandInterfaces(): %s", AJ_StatusText(AJ_ERR_UNEXPECTED)));
                 return AJ_ERR_UNEXPECTED;
             }
             XMLWriter(context, MemberOpen[memberType], 0);
@@ -258,9 +281,9 @@ static AJ_Status ExpandInterfaces(XMLWriterFunc XMLWriter, void* context, const 
                  * Advance so that we do not return a & character
                  */
                 member++;
-                if (languageTag != NULL) {
+                if (descLookup != NULL) {
                     /*
-                     * Checking on languageTag implies that we entered the method
+                     * If we have a descLookup function pointer it implies that we entered the method
                      * through the org.allseen.Introspect interface
                      */
                     isSessionless = TRUE;
@@ -268,32 +291,40 @@ static AJ_Status ExpandInterfaces(XMLWriterFunc XMLWriter, void* context, const 
             }
             attr = ExpandAttribute(XMLWriter, context, &member, nameAttr, "\"");
             if (memberType == PROPERTY) {
-                uint8_t acc = attr - WRITE_ONLY;
+                uint8_t acc;
+                if (attr == SEPARATOR) {
+                    attr = member++[0];
+                }
+                acc = attr - WRITE_ONLY;
                 if (acc > 2) {
-                    AJ_ErrPrintf(("ExpandInterfaces(): AJ_ERR_UNEXPECTED"));
+                    AJ_ErrPrintf(("ExpandInterfaces(): %s", AJ_StatusText(AJ_ERR_UNEXPECTED)));
                     return AJ_ERR_UNEXPECTED;
                 }
                 ExpandAttribute(XMLWriter, context, &member, typeAttr, Access[acc]);
             } else {
                 if (memberType == SIGNAL) {
-                    XMLWriter(context, " sessionless=", 0);
-                    XMLWriter(context, isSessionless ? "true" : "false", 0);
+                    XMLWriter(context, " sessionless=", 13);
+                    if (isSessionless) {
+                        XMLWriter(context, "\"true\"", 6);
+                    } else {
+                        XMLWriter(context, "\"false\"", 7);
+                    }
                 }
                 XMLWriter(context, ">\n", 2);
                 while (attr) {
                     uint8_t dir;
 
-                    /* increae arg index since we start at 1 */
+                    /* increase arg index since we start at 1 */
                     ++argIndex;
 
-                    XMLWriter(context, "    <arg", 0);
+                    XMLWriter(context, "    <arg", 8);
                     if (IS_DIRECTION(*member)) {
                         dir = *member++ - IN_ARG;
                     } else {
                         dir = ExpandAttribute(XMLWriter, context, &member, nameAttr, "\"") - IN_ARG;
                     }
                     if ((dir != 0) && (dir != 2)) {
-                        AJ_ErrPrintf(("ExpandInterfaces(): AJ_ERR_UNEXPECTED"));
+                        AJ_ErrPrintf(("ExpandInterfaces(): %s", AJ_StatusText(AJ_ERR_UNEXPECTED)));
                         return AJ_ERR_UNEXPECTED;
                     }
                     if (memberType == SIGNAL) {
@@ -302,20 +333,20 @@ static AJ_Status ExpandInterfaces(XMLWriterFunc XMLWriter, void* context, const 
                     /*
                      * If we have a description then do not close the xml tag and put in a description tag
                      */
-                    if (languageTag) {
+                    description = GetDescription(descLookup, (descId | (((uint32_t)memberIndex) << 8) | ((uint32_t)argIndex)), languageTag);
+                    if (description != NULL) {
                         dir += 3;
                     }
                     attr = ExpandAttribute(XMLWriter, context, &member, typeAttr, Direction[dir]);
-
-                    if (languageTag) {
-                        XMLWriteDescription(XMLWriter, context, 2, descLookup, (descId | (((uint32_t)memberIndex) << 8) | ((uint32_t)argIndex)), languageTag);
-                        XMLWriter(context, "    </arg>\n", 0);
+                    if (description != NULL) {
+                        XMLWriteDescription(XMLWriter, context, 2, description, languageTag);
+                        XMLWriter(context, "    </arg>\n", 11);
                     }
                 }
             }
-            if (languageTag) {
-                /* write out the description for the interface */
-                XMLWriteDescription(XMLWriter, context, 1, descLookup, (descId | (((uint32_t)memberIndex) << 8)), languageTag);
+            description = GetDescription(descLookup, (descId | (((uint32_t)memberIndex) << 8)), languageTag);
+            if (description != NULL) {
+                XMLWriteDescription(XMLWriter, context, 1, description, languageTag);
                 if (memberType == PROPERTY) {
                     /*
                      * Move to the alternate close for a propety
@@ -323,12 +354,10 @@ static AJ_Status ExpandInterfaces(XMLWriterFunc XMLWriter, void* context, const 
                      */
                     memberType++;
                 }
-                XMLWriter(context, MemberClose[memberType], 0);
-            } else {
-                XMLWriter(context, MemberClose[memberType], 0);
             }
+            XMLWriter(context, MemberClose[memberType], 0);
         }
-        XMLWriter(context, "</interface>\n", 0);
+        XMLWriter(context, "</interface>\n", 13);
         ++iface;
     }
     return AJ_OK;
@@ -368,25 +397,31 @@ static const char* ChildPath(const char* p, const char* c, uint32_t* sz)
     }
 }
 
-static const AJ_Object* FirstInstance(const char* path, const char* child, uint32_t sz, const AJ_Object* objList)
+static const AJ_Object* FirstInstance(const char* path, const char* child, uint32_t sz)
 {
-    while (objList->path) {
+    AJ_ObjectIterator iter;
+    const AJ_Object* obj = AJ_InitObjectIterator(&iter, AJ_OBJ_FLAGS_ALL_INCLUDE_MASK, AJ_OBJ_FLAGS_INTROSPECTABLE_EXCLUDE_MASK);
+
+    while (obj != NULL) {
         uint32_t len;
-        const char* c = ChildPath(path, objList->path, &len);
+        const char* c = ChildPath(path, obj->path, &len);
         if (c && (len == sz) && (memcmp(c, child, sz) == 0)) {
-            return objList;
+            return obj;
         }
-        ++objList;
+        obj = AJ_NextObject(&iter);
     }
-    return NULL;
+    return obj;
 }
 
 /*
  * Security applies if the interface is secure or if the object or it's parent object is flagged as
  * secure and the security is not explicitly OFF for the interface.
  */
-static uint32_t SecurityApplies(const char* ifc, const AJ_Object* obj, const AJ_Object* objList)
+static uint32_t SecurityApplies(const char* ifc, const AJ_Object* obj)
 {
+    AJ_ObjectIterator iter;
+    const AJ_Object* lookup;
+
     if (ifc) {
         if (*ifc == SECURE_TRUE) {
             return TRUE;
@@ -401,58 +436,94 @@ static uint32_t SecurityApplies(const char* ifc, const AJ_Object* obj, const AJ_
     /*
      * Check that obj is not a child of a secure parent object
      */
-    while (objList->path) {
-        if ((objList->flags & AJ_OBJ_FLAG_SECURE) && ChildPath(objList->path, obj->path, NULL)) {
+    lookup = AJ_InitObjectIterator(&iter, AJ_OBJ_FLAGS_ALL_INCLUDE_MASK, AJ_OBJ_FLAG_IS_PROXY);
+    while (lookup != NULL) {
+        if ((lookup->flags & AJ_OBJ_FLAG_SECURE) && ChildPath(lookup->path, obj->path, NULL)) {
             return TRUE;
         }
-        ++objList;
+        lookup = AJ_NextObject(&iter);
     }
     return FALSE;
 }
 
-static AJ_Status GenXML(XMLWriterFunc XMLWriter, void* context, const AJ_Object* obj, const AJ_Object* objList, const char* languageTag)
+static AJ_Status GenXML(XMLWriterFunc XMLWriter, void* context, const AJ_ObjectIterator* objIter, const AJ_Object* virtualObject, const char* languageTag)
 {
-    AJ_Status status;
-    const AJ_Object* list = objList;
+    AJ_Status status = AJ_OK;
+    const AJ_Object* obj;
+    AJ_DescriptionLookupFunc descLookup = NULL;
 
-    /*
-     * Ignore objects that are hidden or disabled
-     */
-    if (obj->flags & (AJ_OBJ_FLAG_HIDDEN | AJ_OBJ_FLAG_DISABLED)) {
-        return AJ_OK;
-    }
-    XMLWriteTag(XMLWriter, context, nodeOpen, nameAttr, obj->path, 0, FALSE);
-    if (SecurityApplies(NULL, obj, objList)) {
-        XMLWriter(context, annotateSecure, 0);
-        XMLWriter(context, secureTrue, 0);
-    }
-    if (languageTag) {
-        XMLWriteDescription(XMLWriter, context, 0, obj->descLookup, (((uint32_t)obj->objectId) << 24), languageTag);
-    }
-    status = ExpandInterfaces(XMLWriter, context, obj->interfaces, obj->descLookup, (((uint32_t)obj->objectId) << 24), languageTag);
-    if (status == AJ_OK) {
-        /*
-         * Check if the object has any child nodes
-         */
-        while (list->path) {
-            uint32_t len;
-            const char* child = ChildPath(obj->path, list->path, &len);
-            /*
-             * If there is a child check that this is the first instance of this child.
-             */
-            if (child && (FirstInstance(obj->path, child, len, objList) == list)) {
-                if (languageTag) {
-
-                    XMLWriteTag(XMLWriter, context, nodeOpen, nameAttr, child, len, FALSE);
-                    XMLWriteDescription(XMLWriter, context, 0, list->descLookup, (((uint32_t)list->objectId) << 24), languageTag);
-                    XMLWriter(context, nodeClose, 0);
-                } else {
-                    XMLWriteTag(XMLWriter, context, nodeOpen, nameAttr, child, len, TRUE);
-                }
-            }
-            ++list;
+    if (objIter == NULL) {
+        obj = virtualObject;
+    } else {
+        if (objIter->l >= ArraySize(objectLists) && virtualObject == NULL) {
+            return AJ_OK;
         }
-        XMLWriter(context, nodeClose, sizeof(nodeClose));
+        obj = &(objectLists[objIter->l][objIter->n - 1]);
+    }
+    if (obj != NULL && obj->path != NULL) {
+        AJ_ObjectIterator childObjectIter;
+        const AJ_Object* childObj = AJ_InitObjectIterator(&childObjectIter, AJ_OBJ_FLAGS_ALL_INCLUDE_MASK, AJ_OBJ_FLAGS_INTROSPECTABLE_EXCLUDE_MASK);
+        const char* description = NULL;
+
+        /*
+         * Ignore objects that are hidden or disabled or proxy
+         */
+        if (obj->flags & (AJ_OBJ_FLAGS_INTROSPECTABLE_EXCLUDE_MASK)) {
+            return AJ_OK;
+        }
+        /*
+         * Find matching description lookup function. NULL indicates no descriptions
+         */
+        if (objIter != NULL && languageTag != NULL) {
+            descLookup = descriptionLookups[objIter->l];
+        }
+        /*
+         * Generate object's XML
+         */
+        XMLWriteTag(XMLWriter, context, nodeOpen, NULL, NULL, 0, FALSE);
+        if (SecurityApplies(NULL, obj)) {
+            XMLWriter(context, annotateSecure, 51);
+            XMLWriter(context, secureTrue, 8);
+        }
+        description = GetDescription(descLookup, (objIter->n - 1) << 24, languageTag);
+        if (description != NULL) {
+            XMLWriteDescription(XMLWriter, context, 0, description, languageTag);
+        }
+        if (status == AJ_OK) {
+            status = ExpandInterfaces(XMLWriter, context, obj->interfaces, descLookup, (objIter->n - 1) << 24, languageTag);
+        }
+        if (status == AJ_OK) {
+            while (childObj != NULL) {
+                uint32_t len;
+                /*
+                 * Find immediate descendants
+                 */
+                const char* child = ChildPath(obj->path, childObj->path, &len);
+                /*
+                 * If there is a child check that this is the first instance of this child.
+                 */
+                if (child && (FirstInstance(obj->path, child, len) == childObj)) {
+                    if (languageTag != NULL) {
+                        descLookup = descriptionLookups[childObjectIter.l];
+                    } else {
+                        descLookup = NULL;
+                    }
+                    description = GetDescription(descLookup, (childObjectIter.n - 1) << 24, languageTag);
+                    if (description != NULL) {
+                        XMLWriteTag(XMLWriter, context, nodeOpen, nameAttr, child, len, FALSE);
+                        XMLWriteDescription(XMLWriter, context, 0, description, languageTag);
+                        XMLWriter(context, nodeClose, 8);
+                    } else {
+                        XMLWriteTag(XMLWriter, context, nodeOpen, nameAttr, child, len, TRUE);
+                    }
+                }
+                childObj = AJ_NextObject(&childObjectIter);
+            }
+            XMLWriter(context, nodeClose, 8);
+        }
+        if (status != AJ_OK) {
+            AJ_ErrPrintf(("\nFailed to generate XML - check interface descriptions of %s for errors\n", obj->path));
+        }
     }
     return status;
 }
@@ -465,7 +536,7 @@ static AJ_Status GenXML(XMLWriterFunc XMLWriter, void* context, const AJ_Object*
  */
 #ifndef NDEBUG
 
-void PrintXML(void* context, const char* str, uint32_t len)
+static void PrintXML(void* context, const char* str, uint32_t len)
 {
     if (len) {
         while (len--) {
@@ -478,17 +549,36 @@ void PrintXML(void* context, const char* str, uint32_t len)
 
 void AJ_PrintXML(const AJ_Object* obj)
 {
-    AJ_Status status;
-    AJ_Object emptyList;
+    AJ_PrintXMLWithDescriptions(obj, NULL); // without descriptions
+}
 
-    while (obj->path) {
-        emptyList.path = NULL;
-        emptyList.interfaces = NULL;
-        status = GenXML(PrintXML, NULL, obj, &emptyList, ""); //with default descriptions
-        if (status != AJ_OK) {
-            AJ_ErrPrintf(("\nFailed to generate XML - check interface descriptions of %s for errors\n", obj->path));
+void AJ_PrintXMLWithDescriptions(const AJ_Object* obj, const char* languageTag)
+{
+    AJ_Status status;
+
+    if (obj->path) {
+        if (strcmp(obj->path, "/") == 0) {
+            status = GenXML(PrintXML, NULL, NULL, obj, languageTag); // with descriptions in the given language
+            if (status != AJ_OK) {
+                AJ_ErrPrintf(("\nFailed to generate XML - check interface descriptions of %s for errors\n", obj->path));
+            }
+        } else {
+            AJ_ObjectIterator iter;
+            const AJ_Object* lookup;
+            lookup = AJ_InitObjectIterator(&iter, AJ_OBJ_FLAGS_ALL_INCLUDE_MASK, AJ_OBJ_FLAGS_INTROSPECTABLE_EXCLUDE_MASK);
+            while (lookup != NULL) {
+                if (strcmp(lookup->path, obj->path) == 0) {
+                    break;
+                }
+                lookup = AJ_NextObject(&iter);
+            }
+            if (lookup != NULL) {
+                status = GenXML(PrintXML, NULL, &iter, NULL, languageTag); // with descriptions in the given language
+                if (status != AJ_OK) {
+                    AJ_ErrPrintf(("\nFailed to generate XML - check interface descriptions of %s for errors\n", obj->path));
+                }
+            }
         }
-        obj++;
     }
 }
 #endif
@@ -524,28 +614,16 @@ void WriteXML(void* context, const char* str, uint32_t len)
 AJ_Status AJ_HandleIntrospectRequest(const AJ_Message* msg, AJ_Message* reply, const char* languageTag)
 {
     AJ_Status status = AJ_OK;
-    const AJ_Object* obj = NULL;
-    AJ_Object parent;
+    AJ_ObjectIterator objIter;
+    const AJ_Object* obj = AJ_InitObjectIterator(&objIter, AJ_OBJ_FLAGS_ALL_INCLUDE_MASK, AJ_OBJ_FLAGS_INTROSPECTABLE_EXCLUDE_MASK);
+    const AJ_Object virtualObject = { msg->objPath, NULL, 0, NULL };
     WriteContext context;
-    size_t list;
+    uint32_t children = 0;
 
-    for (list = AJ_APP_ID_FLAG; list < ArraySize(objectLists); ++list) {
-        uint32_t children = 0;
-
-        obj = objectLists[list];
-        /*
-         * Skip entry if there are no objects
-         */
-        if (!obj) {
-            continue;
-        }
-        /*
-         * For backwards compatibility the third entry is reserved for proxy objects. Going forward
-         * proxy objects are identified in the object list by the AJ_OBJ_FLAG_IS_PROXY.
-         */
-        if (list == AJ_PRX_ID_FLAG) {
-            continue;
-        }
+    /*
+     * Find the requested object in the registered object lists
+     */
+    while (obj != NULL) {
         /*
          * Find out which object we are introspecting. There are two possibilities:
          *
@@ -553,46 +631,33 @@ AJ_Status AJ_HandleIntrospectRequest(const AJ_Message* msg, AJ_Message* reply, c
          * - The request has a path to a parent object of one or more application objects where the
          *   parent itself is just a place-holder in the object hierarchy.
          */
-        for (; obj->path != NULL; ++obj) {
-            /*
-             * We don't introspect proxy objects
-             */
-            if (obj->flags & AJ_OBJ_FLAG_IS_PROXY) {
-                continue;
-            }
-            if (strcmp(msg->objPath, obj->path) == 0) {
-                break;
-            }
-            if (ChildPath(msg->objPath, obj->path, NULL)) {
-                ++children;
-            }
-        }
-        if (obj->path) {
+        if (strcmp(msg->objPath, obj->path) == 0) {
             break;
+        }
+        if (ChildPath(msg->objPath, obj->path, NULL)) {
+            ++children;
         }
         /*
          * If there was not a direct match but the requested node has children we create
          * a temporary AJ_Object for the parent and introspect that object.
          */
         if (children) {
-            parent.flags = 0;
-            parent.path = msg->objPath;
-            parent.interfaces = NULL;
-            parent.objectId = 0;
-            parent.descLookup = NULL;
-            obj = &parent;
+            obj = &virtualObject;
             break;
         }
+        obj = AJ_NextObject(&objIter);
     }
-    /*
-     * Skip objects that are hidden or disabled
-     */
-    if (obj && obj->path && !(obj->flags & (AJ_OBJ_FLAG_HIDDEN | AJ_OBJ_FLAG_DISABLED))) {
+    if (obj != NULL && obj->path != NULL) {
+        AJ_PrintXMLWithDescriptions(obj, languageTag);
         /*
          * First pass computes the size of the XML string
          */
         context.len = 0;
-        status = GenXML(SizeXML, &context.len, obj, objectLists[list], languageTag);
+        if (children > 0) {
+            status = GenXML(SizeXML, &context.len, NULL, &virtualObject, languageTag);
+        } else {
+            status = GenXML(SizeXML, &context.len, &objIter, NULL, languageTag);
+        }
         if (status != AJ_OK) {
             AJ_ErrPrintf(("AJ_HandleIntrospectRequest(): Failed to generate XML. status=%s", AJ_StatusText(status)));
             return status;
@@ -617,7 +682,11 @@ AJ_Status AJ_HandleIntrospectRequest(const AJ_Message* msg, AJ_Message* reply, c
             context.status = AJ_OK;
             context.reply = reply;
 
-            GenXML(WriteXML, &context, obj, objectLists[list], languageTag);
+            if (children > 0) {
+                GenXML(WriteXML, &context, NULL, &virtualObject, languageTag);
+            } else {
+                GenXML(WriteXML, &context, &objIter, NULL, languageTag);
+            }
             status = context.status;
             if (status == AJ_OK) {
                 /*
@@ -650,7 +719,6 @@ AJ_Status AJ_HandleGetDescriptionLanguages(const AJ_Message* msg, AJ_Message* re
             status = AJ_MarshalArgs(reply, "s", *languageTag);
         }
     }
-
     if (status == AJ_OK) {
         status = AJ_MarshalCloseContainer(reply, &languageListArray);
     }
@@ -827,7 +895,7 @@ AJ_Status AJ_LookupMessageId(AJ_Message* msg, uint8_t* secure)
                 AJ_InterfaceDescription desc = FindInterface(obj->interfaces, msg->iface, &iIndex);
                 if (desc) {
                     uint8_t mIndex = 0;
-                    *secure = SecurityApplies(*desc, obj, objectLists[oIndex]);
+                    *secure = SecurityApplies(*desc, obj);
                     /*
                      * Skip the interface name and iterate over the members of the interface
                      */
@@ -901,7 +969,7 @@ static AJ_Status UnpackMsgId(uint32_t msgId, const char** objPath, const char** 
     if (objPath) {
         *objPath = obj->path;
     }
-    *secure = SecurityApplies(*ifc, obj, objectLists[oIndex]);
+    *secure = SecurityApplies(*ifc, obj);
     if (iface) {
         /*
          * Skip over security specifier if there is one
@@ -1087,8 +1155,9 @@ AJ_Status AJ_IdentifyProperty(AJ_Message* msg, const char* iface, const char* pr
 
 #ifndef NDEBUG
     if ((oIndex > ArraySize(objectLists)) || !CheckIndex(objectLists[oIndex], pIndex, sizeof(AJ_Object))) {
-        AJ_ErrPrintf(("AJ_IdentifyProperty(): AJ_ERR_INVALID\n"));
-        return AJ_ERR_INVALID;
+        status = AJ_ERR_INVALID;
+        AJ_ErrPrintf(("AJ_IdentifyProperty(): %s\n", AJ_StatusText(status)));
+        return status;
     }
 #endif
     obj = &objectLists[oIndex][pIndex];
@@ -1101,7 +1170,7 @@ AJ_Status AJ_IdentifyProperty(AJ_Message* msg, const char* iface, const char* pr
         /*
          * Security is based on the interface the property is defined on.
          */
-        *secure = SecurityApplies(*desc, obj, objectLists[oIndex]);
+        *secure = SecurityApplies(*desc, obj);
         /*
          * Iterate over the interface members to locate the property is being accessed.
          */
@@ -1199,13 +1268,24 @@ void AJ_RegisterDescriptionLanguages(const char* const* languages) {
     languageList = languages;
 }
 
-AJ_Status AJ_RegisterObjectList(const AJ_Object* objList, uint8_t index)
+void AJ_RegisterDescriptions(const char* const* languages, AJ_DescriptionLookupFunc descLookup) {
+    languageList = languages;
+    descriptionLookups[0] = descLookup;
+}
+
+AJ_Status AJ_RegisterObjectListWithDescriptions(const AJ_Object* objList, uint8_t index, AJ_DescriptionLookupFunc descLookup)
 {
     if (index >= ArraySize(objectLists)) {
         return AJ_ERR_RANGE;
     }
     objectLists[index] = objList;
+    descriptionLookups[index] = descLookup;
     return AJ_OK;
+}
+
+AJ_Status AJ_RegisterObjectList(const AJ_Object* objList, uint8_t index)
+{
+    return AJ_RegisterObjectListWithDescriptions(objList, index, NULL);
 }
 
 AJ_Status AJ_SetProxyObjectPath(AJ_Object* proxyObjects, uint32_t msgId, const char* objPath)
@@ -1345,7 +1425,15 @@ const AJ_Object* AJ_NextObject(AJ_ObjectIterator* iter)
         if (list) {
             while (list[iter->n].path) {
                 const AJ_Object* obj = &list[iter->n++];
-                if ((obj->flags & iter->fin) && !(obj->flags & iter->fex)) {
+                uint8_t objFlags = obj->flags;
+                /*
+                 * For backwards compatibility the third entry is reserved for proxy objects. Going forward
+                 * proxy objects are identified in the object list by the AJ_OBJ_FLAG_IS_PROXY.
+                 */
+                if (iter->l == AJ_PRX_ID_FLAG) {
+                    objFlags &= AJ_OBJ_FLAG_IS_PROXY;
+                }
+                if ((objFlags & iter->fin || (objFlags == 0 && iter->fin == AJ_OBJ_FLAGS_ALL_INCLUDE_MASK)) && !(objFlags & iter->fex)) {
                     return obj;
                 }
             }

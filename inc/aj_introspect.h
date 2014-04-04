@@ -128,6 +128,9 @@ typedef const char* (*AJ_DescriptionLookupFunc)(uint32_t descId, const char* lan
 #define AJ_OBJ_FLAG_DISABLED  0x04  /**< If set this bit indicates that method calls cannot be made to the object at this time */
 #define AJ_OBJ_FLAG_ANNOUNCED 0x08  /**< If set this bit indicates this object is announced by ABOUT */
 #define AJ_OBJ_FLAG_IS_PROXY  0x10  /**< If set this bit indicates this object is a proxy object */
+#define AJ_OBJ_FLAG_DESCRIBED 0x20  /**< If set this bit indicates this object has descriptions and is announced by ABOUT with 'org.allseen.Introspectable' interface added to the announcement */
+
+#define AJ_OBJ_FLAGS_ALL_INCLUDE_MASK 0xFF  /**< The include filter mask for the object iterator indicating ALL objects */
 
 /**
  * Type for an AllJoyn object description
@@ -137,9 +140,12 @@ typedef struct _AJ_Object {
     const AJ_InterfaceDescription* interfaces;      /**< interface descriptor */
     uint8_t flags;                                  /**< flags for the object */
     void* context;                                  /**< an application provided context pointer for this object */
-    uint8_t objectId;                               /**< an ID to be used with the descLookup so it is understood what is being asked for */
-    AJ_DescriptionLookupFunc descLookup;            /**< function pointer to provide description */
 } AJ_Object;
+
+/**
+ * The root object
+ */
+extern const AJ_Object AJ_ROOT_OBJECT;
 
 /*
  * When a message unmarshalled the message is validated by matching it against a list of object
@@ -211,6 +217,29 @@ AJ_EXPORT
 AJ_Status AJ_RegisterObjectList(const AJ_Object* objList, uint8_t index);
 
 /**
+ * Register an object list with a specific index providing also a lookup function for the descriptions of objects in the list.
+ * This overrides any existing object list and lookup function registered at the specified index.
+ *
+ * @param objList    A NULL terminated array of object info structs.
+ * @param index      The index for the object list to register.
+ * @param descLookup A lookup function for the descriptions of the describable items namely the objects, interfaces, members and arguments.
+ *
+ * @return  - AJ_OK if the object list was succesfully registered
+ *          - AJ_ERR_RANGE if the index is outside the allowed range
+ *          - AJ_ERR_DISALLOWED if the index is a predefined object index
+ */
+AJ_EXPORT
+AJ_Status AJ_RegisterObjectListWithDescriptions(const AJ_Object* objList, uint8_t index, AJ_DescriptionLookupFunc descLookup);
+
+/**
+ * Register a local array of languages that will allow for a description to be supplied.
+ *
+ * @param languages The list of languages that are supported for descriptions.
+ */
+AJ_EXPORT
+void AJ_RegisterDescriptionLanguages(const char* const* languages);
+
+/**
  * Register the local objects and the remote objects for this application.  Local objects have
  * methods that remote applications can call, have properties that a remote application can GET or
  * SET or define signals that the local application can emit.  Proxy objects describe the remote
@@ -224,13 +253,14 @@ AJ_EXPORT
 void AJ_RegisterObjects(const AJ_Object* localObjects, const AJ_Object* proxyObjects);
 
 /**
- * Register a local array of languages that will allow for a description to be supplied.
+ * Register a local array of languages that will allow for a description to be supplied and
+ * a lookup function to return the description for local objects registered using AJ_RegisterObjects.
  *
  * @param languages The list of languages that are supported for descriptions.
+ * @param descLookup A lookup function for the descriptions of the describable items namely the objects, interfaces, members and arguments.
  */
 AJ_EXPORT
-void AJ_RegisterDescriptionLanguages(const char* const* languages);
-
+void AJ_RegisterDescriptions(const char* const* languages, AJ_DescriptionLookupFunc descLookup);
 
 /**
  * Object iterator type - treat as opaque
@@ -441,9 +471,13 @@ AJ_MemberType AJ_GetMemberType(uint32_t identifier, const char** member, uint8_t
  */
 #ifdef NDEBUG
 #define AJ_PrintXML(obj)
+#define AJ_PrintXMLWithDescriptions(...)
 #else
 AJ_EXPORT
 void AJ_PrintXML(const AJ_Object* obj);
+
+AJ_EXPORT
+void AJ_PrintXMLWithDescriptions(const AJ_Object* obj, const char* languageTag);
 #endif
 
 /**
