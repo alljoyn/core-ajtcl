@@ -40,6 +40,7 @@ typedef struct _AJ_NV_DATASET {
     uint16_t capacity;     /**< The capacity of the data set established by AJ_NVRAM_Open() */
     uint16_t id;           /**< The unique id of a data set */
     uint8_t* inode;        /**< Pointer or offset to a location of the data set in the NVRAM */
+    void* internal;        /**< Implementation-specific state */
 } AJ_NV_DATASET;
 
 /**
