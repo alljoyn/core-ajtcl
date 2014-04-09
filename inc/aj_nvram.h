@@ -25,7 +25,7 @@
 #include "alljoyn.h"
 
 #define AJ_NVRAM_ID_CREDS_MAX        0x0FFF   /**< Last NVRAM ID reserved for AllJoyn credentials management */
-#define AJ_NVARM_ID_RESERVED_MAX     0x7FFF   /**< Last NVRAM ID reserved for AllJoyn framework and services use */
+#define AJ_NVRAM_ID_RESERVED_MAX     0x7FFF   /**< Last NVRAM ID reserved for AllJoyn framework and services use */
 #define AJ_NVRAM_ID_FOR_APPS         0x8000   /**< First NVRAM ID available for application used */
 
 #define AJ_NV_DATASET_MODE_READ      'r'      /**< Data set is in read mode */
