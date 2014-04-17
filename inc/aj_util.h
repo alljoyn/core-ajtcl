@@ -102,6 +102,11 @@ AJ_EXPORT
 void* AJ_Malloc(size_t size);
 
 /**
+ * Reallocate a previously allocated memory block to a new size
+ */
+AJ_EXPORT
+void* AJ_Realloc(void* ptr, size_t size);
+/**
  * Free memory previously allocated by AJ_Malloc()
  */
 AJ_EXPORT
