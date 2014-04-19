@@ -73,7 +73,7 @@ static NameToGUID* LookupName(const char* name)
             return &nameMap[i];
         }
     }
-    AJ_ErrPrintf(("LookupName(): NULL\n"));
+    AJ_WarnPrintf(("LookupName(): NULL\n"));
     return NULL;
 }
 
@@ -137,7 +137,7 @@ AJ_Status AJ_SetGroupKey(const char* uniqueName, const uint8_t* key)
         memcpy(mapping->groupKey, key, 16);
         return AJ_OK;
     } else {
-        AJ_ErrPrintf(("AJ_SetGroupKey(): AJ_ERR_NO_MATCH\n"));
+        AJ_WarnPrintf(("AJ_SetGroupKey(): AJ_ERR_NO_MATCH\n"));
         return AJ_ERR_NO_MATCH;
     }
 }
@@ -154,7 +154,7 @@ AJ_Status AJ_SetSessionKey(const char* uniqueName, const uint8_t* key, uint8_t r
         memcpy(mapping->sessionKey, key, 16);
         return AJ_OK;
     } else {
-        AJ_ErrPrintf(("AJ_SetSessionKey(): AJ_ERR_NO_MATCH\n"));
+        AJ_WarnPrintf(("AJ_SetSessionKey(): AJ_ERR_NO_MATCH\n"));
         return AJ_ERR_NO_MATCH;
     }
 }
@@ -171,7 +171,7 @@ AJ_Status AJ_GetSessionKey(const char* name, uint8_t* key, uint8_t* role)
         memcpy(key, mapping->sessionKey, 16);
         return AJ_OK;
     } else {
-        AJ_ErrPrintf(("AJ_GetSessionKey(): AJ_ERR_NO_MATCH\n"));
+        AJ_WarnPrintf(("AJ_GetSessionKey(): AJ_ERR_NO_MATCH\n"));
         return AJ_ERR_NO_MATCH;
     }
 }
@@ -182,7 +182,7 @@ AJ_Status AJ_GetGroupKey(const char* name, uint8_t* key)
     if (name) {
         NameToGUID* mapping = LookupName(name);
         if (!mapping) {
-            AJ_ErrPrintf(("AJ_GetGroupKey(): AJ_ERR_NO_MATCH\n"));
+            AJ_WarnPrintf(("AJ_GetGroupKey(): AJ_ERR_NO_MATCH\n"));
             return AJ_ERR_NO_MATCH;
         }
         memcpy(key, mapping->groupKey, 16);
