@@ -79,6 +79,11 @@ size_t AJ_PoolRequired(const AJ_HeapConfig* heapConfig, uint8_t numPools);
 AJ_Status AJ_PoolInit(void* heap, size_t heapSz, const AJ_HeapConfig* heapConfig, uint8_t numPools);
 
 /**
+ * Indicates if the heap has been initialized
+ */
+uint8_t AJ_PoolIsInitialized();
+
+/**
  * Allocate memory
  *
  * @param sz  The size of the memory block to allocate

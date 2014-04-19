@@ -117,6 +117,11 @@ AJ_Status AJ_PoolInit(void* heap, size_t heapSz, const AJ_HeapConfig* poolConfig
     return AJ_OK;
 }
 
+uint8_t AJ_PoolIsInitialized()
+{
+    return heapPools != NULL;
+}
+
 void* AJ_PoolAlloc(size_t sz)
 {
     Pool* p = heapPools;
