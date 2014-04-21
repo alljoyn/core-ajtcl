@@ -34,7 +34,6 @@
 #define AJ_CONNECT_LOCALHOST        0           //Enable to bypass discovery and connect locally
 #define AJ_WHO_HAS_REPEAT           4           //number of times to send WHO_HAS       (aj_disco.c)
 #define AJ_MAX_TIMERS               4           //maximum number of timers              (aj_helper.c)
-#define AJ_NUM_REPLY_CONTEXTS       2           //number of reply contexts              (aj_introspect.c)
 
 /* Auth options */
 #define AJ_NONCE_LEN                28          //Length of the nonce.
