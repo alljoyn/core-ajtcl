@@ -22,11 +22,14 @@ if platform.system() == 'Linux':
 elif platform.system() == 'Windows':
     default_target = 'win32'
     default_msvc_version = '11.0'
+elif platform.system() == 'Darwin':
+    default_target = 'darwin'
+    default_msvc_version = None
 
 vars = Variables()
 
 # Common build variables
-vars.Add(EnumVariable('TARG', 'Target platform variant', default_target, allowed_values=('win32', 'linux', 'arduino', 'bsp')))
+vars.Add(EnumVariable('TARG', 'Target platform variant', default_target, allowed_values=('win32', 'linux', 'arduino', 'bsp', 'darwin')))
 vars.Add(EnumVariable('VARIANT', 'Build variant', 'debug', allowed_values=('debug', 'release')))
 vars.Add(PathVariable('GTEST_DIR', 'The path to googletest sources', os.environ.get('GTEST_DIR'), PathVariable.PathIsDir))
 vars.Add(EnumVariable('WS', 'Whitespace Policy Checker', 'check', allowed_values=('check', 'detail', 'fix', 'off')))
@@ -269,6 +272,42 @@ elif env['TARG'] == 'bsp':
                           env['ATMEL_DIR'] + '/sam/drivers/dmac',
                           os.getcwd() + '/RTOS', os.getcwd() + '/crypto', os.getcwd() + '/crypto/ecc', os.getcwd() + '/external/sha2', os.getcwd() + '/malloc', os.getcwd() + '/inc', os.getcwd() + '/WSL']
 
+elif env['TARG'] in [ 'darwin' ]:
+    if os.environ.has_key('CROSS_PREFIX'):
+        env.Replace(CC = os.environ['CROSS_PREFIX'] + 'gcc')
+        env.Replace(CXX = os.environ['CROSS_PREFIX'] + 'g++')
+        env.Replace(LINK = os.environ['CROSS_PREFIX'] + 'gcc')
+        env.Replace(AR = os.environ['CROSS_PREFIX'] + 'ar')
+        env['ENV']['STAGING_DIR'] = os.environ.get('STAGING_DIR', '')
+
+    if os.environ.has_key('CROSS_PATH'):
+        env['ENV']['PATH'] = ':'.join([ os.environ['CROSS_PATH'], env['ENV']['PATH'] ] )
+
+    if os.environ.has_key('CROSS_CFLAGS'):
+        env.Append(CFLAGS=os.environ['CROSS_CFLAGS'].split())
+
+    if os.environ.has_key('CROSS_LINKFLAGS'):
+        env.Append(LINKFLAGS=os.environ['CROSS_LINKFLAGS'].split())
+
+    env['libs'] = ['crypto', 'pthread']
+    env.Append(CFLAGS=['-Wall',
+                       '-pipe',
+                       '-static',
+                       '-funsigned-char',
+                       '-Wpointer-sign',
+                       '-Wimplicit-function-declaration',
+                       '-fno-strict-aliasing'])
+    if env['VARIANT'] == 'debug':
+        env.Append(CFLAGS='-g')
+    else:
+        env.Append(CPPDEFINES=['NDEBUG'])
+        env.Append(CFLAGS='-Os')
+        env.Append(LINKFLAGS='-s')
+
+    if env['FORCE32'] == 'true':
+        env.Append(CFLAGS='-m32')
+        env.Append(LINKFLAGS='-m32')
+
 # Include paths
 env['includes'] = [ os.getcwd() + '/inc', os.getcwd() + '/target/${TARG}', os.getcwd() + '/crypto/ecc', os.getcwd() + '/external/sha2']
 
@@ -287,7 +326,7 @@ env['aj_external_sha2'] = [Glob('external/sha2/*.c')]
 wsl = [Glob('WSL/*.c')]
 
 # Set-up the environment for Win/Linux
-if env['TARG'] in [ 'win32', 'linux' ]:
+if env['TARG'] in [ 'win32', 'linux', 'darwin' ]:
     # To compile, sources need access to include files
     env.Append(CPPPATH = [env['includes']])
 

@@ -195,7 +195,7 @@ int AJ_Main(void)
     SetBusAuthPwdCallback(MyBusAuthPwdCB);
 
 // Windows, Linux and Arduino are already connected to the network when we get to this point.
-#if !(defined(ARDUINO) || defined(__linux) || defined(_WIN32))
+#if !(defined(ARDUINO) || defined(__linux) || defined(_WIN32) || defined(__MACH__))
 #define AJ_DHCP_TIMEOUT 10000
 
     // Step 1: connect to a WIFI network.

@@ -15,7 +15,7 @@
 Import('env')
 
 # Build the test programs on win32/linux
-if env['TARG'] == 'win32' or env['TARG'] == 'linux' or env['TARG'] == 'linux-uart':
+if env['TARG'] == 'win32' or env['TARG'] == 'linux' or env['TARG'] == 'linux-uart' or env['TARG'] == 'darwin':
     env.Program('mutter', ['mutter.c'] + env['aj_obj'])
     env.Program('ajlite', ['ajlite.c'] + env['aj_obj'])
     env.Program('aestest', ['aestest.c'] + env['aj_obj'])

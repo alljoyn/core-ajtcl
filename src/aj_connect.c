@@ -38,7 +38,7 @@
 #include "aj_creds.h"
 #include "aj_peer.h"
 
-#if !(defined(ARDUINO) || defined(__linux) || defined(_WIN32))
+#if !(defined(ARDUINO) || defined(__linux) || defined(_WIN32) || defined(__MACH__))
 #include "aj_wifi_ctrl.h"
 #endif
 
@@ -288,7 +288,7 @@ AJ_Status AJ_Connect(AJ_BusAttachment* bus, const char* serviceName, uint32_t ti
      */
     AJ_GUID_ClearNameMap();
 
-#if !(defined(ARDUINO) || defined(__linux) || defined(_WIN32))
+#if !(defined(ARDUINO) || defined(__linux) || defined(_WIN32) || defined(__MACH__))
     /*
      * Get an IP address.  We don't want to break this older version
      * of AJ_Connect, so acquire an IP if we don't already have one.
