@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2013, AllSeen Alliance. All rights reserved.
+# Copyright (c) 2013-2014 AllSeen Alliance. All rights reserved.
 #
 #    Permission to use, copy, modify, and/or distribute this software for any
 #    purpose with or without fee is hereby granted, provided that the above
@@ -136,22 +136,22 @@ else
 	  <listen>$daemon_unix_local_transport</listen>
 	  <listen>tcp:r4addr=0.0.0.0,r4port=$daemon_standard_port_number</listen>
 
-	  <limit auth_timeout=\"32768\"/>
-	  <limit max_incomplete_connections=\"16\"/>
-	  <limit max_completed_connections=\"64\"/>
+	  <limit name=\"auth_timeout\">32768</limit>
+	  <limit name=\"max_incomplete_connections\">16</limit>
+	  <limit name=\"max_completed_connections\">64</limit>
 
-	  <property restrict_untrusted_clients=\"true\"/>
-	  <limit max_untrusted_clients=\"1\"/>
+	  <property name=\"restrict_untrusted_clients\">true</property>
+	  <limit name=\"max_untrusted_clients\">1</limit>
 
 	  <ip_name_service>
-	    <property interfaces=\"*\"/>
-	    <property disable_directed_broadcast=\"false\"/>
-	    <property enable_ipv4=\"true\"/>
-	    <property enable_ipv6=\"true\"/>
+	    <property name=\"interfaces\">*</property>
+	    <property name=\"disable_directed_broadcast\">false</property>
+	    <property name=\"enable_ipv4\">true</property>
+	    <property name=\"enable_ipv6\">true</property>
 	  </ip_name_service>
 
 	  <tcp>
-	    <property router_advertisement_prefix=\"org.alljoyn.BusNode.\"/>
+	    <property name=\"router_advertisement_prefix\">org.alljoyn.BusNode.</property>
 	  </tcp>
 
 	</busconfig>
