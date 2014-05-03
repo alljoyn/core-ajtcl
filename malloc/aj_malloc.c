@@ -70,6 +70,11 @@ size_t AJ_PoolRequired(const AJ_HeapConfig* poolConfig, uint8_t numPools)
     return heapSz;
 }
 
+void AJ_PoolTerminate(void* heap)
+{
+    heapPools = NULL;
+}
+
 AJ_Status AJ_PoolInit(void* heap, size_t heapSz, const AJ_HeapConfig* poolConfig, uint8_t num)
 {
     uint8_t i;
