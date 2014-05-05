@@ -17,6 +17,12 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
+/**
+ * Per-module definition of the current module for debug logging.  Must be defined
+ * prior to first inclusion of aj_debug.h
+ */
+#define AJ_MODULE MALLOC
+
 #include <stdio.h>
 #include <assert.h>
 
@@ -24,17 +30,12 @@
 #include "aj_debug.h"
 #include "aj_malloc.h"
 
-
-/*
- * Set this to 1 enable detailed pool logging
+/**
+ * Turn on per-module debug printing by setting this variable to non-zero value
+ * (usually in debugger).
  */
-#define LOG_POOLS 0
-
-#if LOG_POOLS == 0
-#ifdef AJ_InfoPrintf
-#undef AJ_InfoPrintf
-#define AJ_InfoPrintf(X)
-#endif
+#ifndef NDEBUG
+uint8_t dbgMALLOC = 0;
 #endif
 
 typedef struct {
