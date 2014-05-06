@@ -27,6 +27,7 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/eventfd.h>
 #include <arpa/inet.h>
 #include <sys/ioctl.h>
 #include <net/if.h>
@@ -129,6 +130,27 @@ AJ_Status AJ_Net_Send(AJ_IOBuffer* buf)
     return AJ_OK;
 }
 
+/*
+ * An eventfd handle used for interrupting a network read blocked on select
+ */
+static int interruptFd = -1;
+
+/*
+ * The socket that is blocked in select
+ */
+static uint8_t blocked;
+
+/*
+ * This function is called to cancel a pending select.
+ */
+void AJ_Net_Interrupt()
+{
+    if (blocked) {
+        uint64_t u64;
+        write(interruptFd, &u64, sizeof(u64));
+    }
+}
+
 AJ_Status AJ_Net_Recv(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)
 {
     NetContext* context = (NetContext*) buf->context;
@@ -136,6 +158,7 @@ AJ_Status AJ_Net_Recv(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)
     size_t rx = AJ_IO_BUF_SPACE(buf);
     fd_set fds;
     int rc = 0;
+    int maxFd = context->tcpSock;
     struct timeval tv = { timeout / 1000, 1000 * (timeout % 1000) };
 
     AJ_InfoPrintf(("AJ_Net_Recv(buf=0x%p, len=%d., timeout=%d.)\n", buf, len, timeout));
@@ -144,11 +167,21 @@ AJ_Status AJ_Net_Recv(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)
 
     FD_ZERO(&fds);
     FD_SET(context->tcpSock, &fds);
-    rc = select(context->tcpSock + 1, &fds, NULL, NULL, &tv);
+    if (interruptFd >= 0) {
+        FD_SET(interruptFd, &fds);
+        maxFd = max(maxFd, interruptFd);
+    }
+    blocked = TRUE;
+    rc = select(maxFd + 1, &fds, NULL, NULL, &tv);
+    blocked = FALSE;
     if (rc == 0) {
         return AJ_ERR_TIMEOUT;
     }
-
+    if ((interruptFd >= 0) && FD_ISSET(interruptFd, &fds)) {
+        uint64_t u64;
+        read(interruptFd, &u64, sizeof(u64));
+        return AJ_ERR_INTERRUPTED;
+    }
     rx = min(rx, len);
     if (rx) {
         ssize_t ret = recv(context->tcpSock, buf->writePtr, rx, 0);
@@ -173,6 +206,11 @@ AJ_Status AJ_Net_Connect(AJ_NetSocket* netSock, uint16_t port, uint8_t addrType,
     socklen_t addrSize;
 
     AJ_InfoPrintf(("AJ_Net_Connect(netSock=0x%p, port=%d., addrType=%d., addr=0x%p)\n", netSock, port, addrType, addr));
+
+    interruptFd = eventfd(0, EFD_NONBLOCK);
+    if (interruptFd < 0) {
+        AJ_ErrPrintf(("AJ_Net_Connect(): failed to created interrupt event\n"));
+    }
 
     memset(&addrBuf, 0, sizeof(addrBuf));
 
@@ -212,6 +250,10 @@ AJ_Status AJ_Net_Connect(AJ_NetSocket* netSock, uint16_t port, uint8_t addrType,
 
 void AJ_Net_Disconnect(AJ_NetSocket* netSock)
 {
+    if (interruptFd >= 0) {
+        fclose(interruptFd);
+        interruptFd = -1;
+    }
     CloseNetSock(netSock);
 }
 
