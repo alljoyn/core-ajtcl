@@ -251,7 +251,7 @@ AJ_Status AJ_Net_Connect(AJ_NetSocket* netSock, uint16_t port, uint8_t addrType,
 void AJ_Net_Disconnect(AJ_NetSocket* netSock)
 {
     if (interruptFd >= 0) {
-        fclose(interruptFd);
+        close(interruptFd);
         interruptFd = -1;
     }
     CloseNetSock(netSock);
