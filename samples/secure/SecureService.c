@@ -28,7 +28,6 @@ uint8_t dbgSECURE_SERVICE = 0;
 
 #define CONNECT_ATTEMPTS   10
 static const char ServiceName[] = "org.alljoyn.bus.samples.secure";
-static const char InterfaceName[] = "org.alljoyn.bus.samples.secure.SecureInterface";
 static const char ServicePath[] = "/SecureService";
 static const uint16_t ServicePort = 42;
 
@@ -107,9 +106,22 @@ static AJ_Status AppHandlePing(AJ_Message* msg)
 
 static uint32_t PasswordCallback(uint8_t* buffer, uint32_t bufLen)
 {
-    int pin;
     char pinStr[16];
-    size_t pinLength = 0;
+    uint32_t pinLength = 0;
+#ifdef AJ_NO_CONSOLE                    /* If there is no console to read/write from/to. */
+    const char password[] = "107734";   /* Upside down this can be read as 'hELLO!'. */
+    const int maxPinSize = sizeof(pinStr) / sizeof(pinStr[0]) - 1;
+
+    pinLength = sizeof(password) - 1;
+
+    if (pinLength > maxPinSize) {
+        pinLength = maxPinSize;
+    }
+
+    memcpy(pinStr, password, pinLength);
+    pinStr[pinLength] = '\0';
+#else
+    int pin;
 
     /* seed the random number */
     srand((unsigned int) time(NULL));
@@ -117,14 +129,20 @@ static uint32_t PasswordCallback(uint8_t* buffer, uint32_t bufLen)
 
     sprintf(pinStr, "%06d", pin);
     AJ_Printf("One Time Password : '%s'.\n", pinStr);
-    fflush(stdout);
 
-    pinLength = strlen(pinStr);
-    memcpy(buffer, pinStr, pinLength + 1);
+    pinLength = (uint32_t)strlen(pinStr);
+#endif
 
-    AJ_Printf("Need password of '%s' length %zu.\n", buffer, pinLength);
+    if (pinLength > bufLen) {
+        pinLength = bufLen;
+    }
 
-    return (uint32_t)pinLength;
+    /* Always terminated with a '\0' for following AJ_Printf(). */
+    pinStr[pinLength] = '\0';
+    memcpy(buffer, pinStr, pinLength);
+    AJ_Printf("Need password of '%s' length %u.\n", pinStr, pinLength);
+
+    return pinLength;
 }
 
 /* All times are expressed in milliseconds. */
@@ -220,8 +238,6 @@ int AJ_Main(void)
             AJ_Sleep(SLEEP_TIME);
         }
     }
-
-    AJ_Printf("Secure service exiting with status 0x%04x.\n", status);
 
     return status;
 }

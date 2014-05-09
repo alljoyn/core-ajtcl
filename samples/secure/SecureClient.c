@@ -62,6 +62,7 @@ static void AppDoWork()
 {
 }
 
+#ifndef AJ_NO_CONSOLE /* If there is a console to read/write from/to. */
 /*
  * get a line of input from the file pointer (most likely stdin).
  * This will capture the the num-1 characters or till a newline character is
@@ -89,23 +90,48 @@ uint32_t get_line(char*str, int num, FILE*fp)
 
     return stringLength;
 }
+#endif
 
+/**
+ * Callback function prototype for requesting a password or pincode from an application.
+ *
+ * @param buffer  The buffer to receive the password.
+ * @param bufLen  The size of the buffer
+ *
+ * @return  Returns the length of the password. If the length is zero this will be
+ *          treated as a rejected password request.
+ */
 static uint32_t PasswordCallback(uint8_t* buffer, uint32_t bufLen)
 {
     char inputBuffer[16];
-    const int bufSize = sizeof(inputBuffer) / sizeof(inputBuffer[0]);
+    const uint32_t bufSize = sizeof(inputBuffer) / sizeof(inputBuffer[0]);
     uint32_t maxCopyLength;
+#ifdef AJ_NO_CONSOLE                    /* If there is no console to read/write from/to. */
+    const char password[] = "107734";   /* Upside down this can be read as 'hELLO!'. */
 
+    maxCopyLength = sizeof(password) - 1;
+
+    if (maxCopyLength > bufSize) {
+        maxCopyLength = bufSize;
+    }
+
+    memcpy(inputBuffer, password, maxCopyLength);
+#else
     /* Take input from stdin and send it. */
     AJ_Printf("Please enter one time password : ");
-    maxCopyLength = get_line(inputBuffer, bufSize, stdin);
+
+    /* Use 'bufSize - 1' to allow for '\0' termination. */
+    maxCopyLength = get_line(inputBuffer, bufSize - 1, stdin);
+#endif
 
     if (maxCopyLength > bufLen) {
         maxCopyLength = bufLen;
     }
 
+    /* Always terminated with a '\0' for following AJ_Printf(). */
+    inputBuffer[maxCopyLength] = '\0';
     memcpy(buffer, inputBuffer, maxCopyLength);
-    AJ_Printf("Responding with password of '%s' length %d.\n", buffer, maxCopyLength);
+    AJ_Printf("Responding with password of '%s' length %u.\n", inputBuffer, maxCopyLength);
 
     return maxCopyLength;
 }
