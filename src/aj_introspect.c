@@ -1052,9 +1052,6 @@ void AJ_RegisterObjects(const AJ_Object* localObjects, const AJ_Object* proxyObj
 
 AJ_Status AJ_RegisterObjectList(const AJ_Object* objList, uint8_t index)
 {
-    if (index <= AJ_PRX_ID_FLAG) {
-        return AJ_ERR_DISALLOWED;
-    }
     if (index >= ArraySize(objectLists)) {
         return AJ_ERR_RANGE;
     }
