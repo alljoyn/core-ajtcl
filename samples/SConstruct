@@ -15,7 +15,7 @@
 
 import os
 
-env = SConscript(['../SConscript'])
+sample_env = SConscript(['../SConscript'])
 
 # Add/remove projects from build
-env.SConscript(['SConscript'])
+sample_env.SConscript(['SConscript'])
