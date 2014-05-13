@@ -14,7 +14,48 @@
 
 import os
 
-env = SConscript(['SConscript'])
+env = SConscript(['conf/SConscript'])
+
+# Services should be built or not?
+vars = Variables()
+vars.Add('SERVICES', 'AllJoyn Thin services libraries to buid (comma separated list, about always included): about,config,controlpanel,notification,onboarding,sample_apps,services_common', 'about')
+vars.Update(env)
+Help(vars.GenerateHelpText(env))
+
+# Services configurations. Having as a base current 
+# Add about service for the moment as hardcoded
+if not 'about' in env['SERVICES']:
+    env['SERVICES'] += ',about'
+
+services = set([ s.strip()
+                 for s in env['SERVICES'].split(',')
+                 if s.strip() == 'about' or os.path.exists('../../services/base_tcl/%s/SConscript' % s.strip())])
+
+env['services'] = services
+
+# Always build AllJoyn Thin Client
+env.SConscript(['SConscript'])
+
+if services.intersection(['config', 'controlpanel', 'notification', 'onboarding', 'audio', 'about']):
+    if services.intersection(['about']):
+        env['_ALLJOYN_ABOUT_'] = True
+
+    env['APP_COMMON_DIR'] = env.Dir('../../services/base_tcl/sample_apps')
+
+    if services.intersection(['config', 'onboarding']):
+        # onboarding also depends on config
+        env.SConscript(['../../services/base_tcl/config/SConscript'])
+
+        if 'onboarding' in services:
+            env.SConscript(['../../services/base_tcl/onboarding/SConscript'])
+
+    if services.intersection(['controlpanel', 'notification']):
+        # controlpanel also depends on notification
+        env.SConscript(['../../services/base_tcl/notification/SConscript'])
+
+        if 'controlpanel' in services:
+            env.SConscript(['../../services/base_tcl/controlpanel/SConscript'])
+
 
 # Add/remove projects from build
 env.SConscript('test/SConscript')
