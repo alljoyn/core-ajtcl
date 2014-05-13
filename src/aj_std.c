@@ -209,7 +209,7 @@ const AJ_Object AJ_StandardObjects[] = {
     { PeerObjectPath,      PeerIfaces },
     { "?",                 CommonIfaces },
     { DaemonObjectPath,    DaemonIfaces },
-    { AboutObjectPath,     AboutIfaces },
-    { AboutIconObjectPath, AboutIconIfaces },
+    { AboutObjectPath,     AboutIfaces,     AJ_OBJ_FLAG_ANNOUNCED },
+    { AboutIconObjectPath, AboutIconIfaces, AJ_OBJ_FLAG_ANNOUNCED },
     { NULL,                NULL }
 };
