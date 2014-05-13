@@ -12,7 +12,7 @@
 #    ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 #    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-Import('env')
+Import('sample_env')
 
-env.Program('SecureClient', ['SecureClient.c'] + env['aj_obj'])
-env.Program('SecureService', ['SecureService.c'] + env['aj_obj'])
+sample_env.Program('SecureClient', ['SecureClient.c'] + sample_env['aj_obj'])
+sample_env.Program('SecureService', ['SecureService.c'] + sample_env['aj_obj'])

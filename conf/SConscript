@@ -1,0 +1,142 @@
+# Copyright (c) 2013-2014, AllSeen Alliance. All rights reserved.
+#
+#    Permission to use, copy, modify, and/or distribute this software for any
+#    purpose with or without fee is hereby granted, provided that the above
+#    copyright notice and this permission notice appear in all copies.
+#
+#    THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+#    WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+#    MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+#    ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+#    WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+#    ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+#    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+import os
+import shutil
+import platform
+
+if platform.system() == 'Linux':
+    default_target = 'linux'
+    allowed_targets = ('linux', 'arduino')
+
+    if platform.machine() == 'x86_64':
+        default_target_cpu = 'x86_64'
+    else:
+        default_target_cpu = 'x86'
+    allowed_target_cpus = ('x86', 'x86_64')
+    default_msvc_version = None
+
+elif platform.system() == 'Windows':
+    default_target = 'win32'
+    allowed_targets = ('win32', 'arduino')
+    default_target_cpu = 'x86'
+    allowed_target_cpus = ('x86')
+    default_msvc_version = '10.0'
+
+vars = Variables()
+
+# Common build variables
+vars.Add(EnumVariable('TARG', 'Target platform', default_target, allowed_values=allowed_targets))
+vars.Add(EnumVariable('CPU', 'Target CPU', default_target_cpu, allowed_values = allowed_target_cpus))
+vars.Add(EnumVariable('VARIANT', 'Build variant', 'debug', allowed_values=('debug', 'release')))
+vars.Add(PathVariable('GTEST_DIR', 'The path to googletest sources', os.environ.get('GTEST_DIR'), PathVariable.PathIsDir))
+vars.Add(EnumVariable('WS', 'Whitespace Policy Checker', 'check', allowed_values=('check', 'detail', 'fix', 'off')))
+vars.Add(EnumVariable('NO_AUTH', 'Compile in authentication mechanism\'s to the code base', 'no', allowed_values=('yes', 'no')))
+
+if default_msvc_version:
+    vars.Add(EnumVariable('MSVC_VERSION', 'MSVC compiler version - Windows', default_msvc_version, allowed_values=('8.0', '9.0', '10.0', '11.0', '11.0Exp')))
+
+
+target = ARGUMENTS.get('TARG', default_target)
+target_cpu = ARGUMENTS.get('CPU', default_target_cpu)
+
+if target in ['win32']:
+    msvc_version = ARGUMENTS.get('MSVC_VERSION')
+    env = Environment(variables = vars,
+                      MSVC_VERSION=msvc_version,
+                      TARGET_ARCH=target_cpu)
+else:
+    env = Environment(variables = vars)
+Help(vars.GenerateHelpText(env))
+
+
+# Standard variant directories
+if env['TARG'] in ['arduino', 'win32']:
+    build_dir = 'build/${TARG}/${VARIANT}'
+else:
+    build_dir = 'build/${TARG}/${CPU}/${VARIANT}'
+
+vars.AddVariables(('BUILDDIR', '', '#' + build_dir),
+                  ('OBJDIR', '', build_dir + '/obj'),
+                  ('DISTDIR', '', '#' + build_dir + '/dist'),
+                  ('TESTDIR', '', '#' + build_dir + '/test'))
+
+
+# Allows specification of preprocessor defines on the command line
+#
+# DEFINE="FOO=1" DEFINE="BAR=2"
+#
+cppdefines = []
+for key, value in ARGLIST:
+   if key == 'DEFINE':
+       cppdefines.append(value)
+
+env.Append(CPPDEFINES=cppdefines)
+
+# Define if compiling to use authenticaiton
+if env['NO_AUTH'] == 'no':
+    env['AUTH_DEFINE'] = ''
+else:
+    env['AUTH_DEFINE'] = 'NO_AUTH_PIN_KEYX'
+
+# Set AJ_DEBUG_RESTRICT level
+restrict = ARGUMENTS.get('DEBUG_RESTRICT', '')
+if restrict != '':
+    if restrict in ['0', '1', '2', '3', '4', '5', 'AJ_DEBUG_OFF', 'AJ_DEBUG_ERROR', 'AJ_DEBUG_WARN', 'AJ_DEBUG_INFO', 'AJ_DEBUG_DUMP', 'AJ_DEBUG_ALL']:
+        env.Append(CPPDEFINES=['AJ_DEBUG_RESTRICT' + '=' + restrict])
+    else:
+        print 'Invalid value for DEBUG_RESTRICT'
+        Exit(0)
+
+
+# Include paths
+env['includes'] = [ os.path.abspath('../inc'),
+                    os.path.abspath('../target/${TARG}')]
+
+# Target-specific headers and sources
+env['aj_targ_headers'] = [Glob('../target/' + env['TARG'] + '/*.h')]
+env['aj_targ_srcs'] = [Glob('../target/' + env['TARG'] + '/*.c')]
+
+# AllJoyn Thin Client headers and sources (target independent)
+env['aj_headers'] = [Glob('../inc/*.h')]
+env['aj_srcs'] = [Glob('../src/*.c')]
+env['aj_sw_crypto'] = [Glob('../crypto/*.c')]
+env['aj_malloc'] = [Glob('../malloc/*.c')]
+
+# Define compile/link options only for win32/linux, and placing files as
+# expected by arduino toolchain.
+# In case of target platforms, the compilation/linking does not take place
+# using SCons files.
+Export('env')
+
+env.SConscript(['${TARG}/SConscript'])
+
+
+if env['WS'] != 'off' and not env.GetOption('clean') and not env.GetOption('help'):
+    # Set the location of the uncrustify config file
+    env['uncrustify_cfg'] = os.getcwd() + '/ajuncrustify.cfg'
+
+    import sys
+    bin_dir = os.path.abspath('/tools')
+    sys.path.append(bin_dir)
+    import whitespace
+
+    def wsbuild(target, source, env):
+        print "Evaluating whitespace compliance..."
+        print "Note: enter 'scons -h' to see whitespace (WS) options"
+        return whitespace.main([env['WS'],env['uncrustify_cfg']])
+
+    env.Command('#/ws_ajtcl', Dir('$DISTDIR'), wsbuild)
+
+Return('env')
