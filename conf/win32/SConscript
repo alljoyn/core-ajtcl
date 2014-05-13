@@ -1,0 +1,50 @@
+# Copyright (c) 2014, AllSeen Alliance. All rights reserved.
+#
+#    Permission to use, copy, modify, and/or distribute this software for any
+#    purpose with or without fee is hereby granted, provided that the above
+#    copyright notice and this permission notice appear in all copies.
+#
+#    THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+#    WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+#    MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+#    ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+#    WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+#    ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+#    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+# 
+
+import os
+Import('env')
+
+
+# Win programs need libs to link
+env.Append(LIBS = ['wsock32', 'advapi32'])
+
+env.Append(CFLAGS=['/J', '/W3'])
+env.Append(CPPDEFINES=['_CRT_SECURE_NO_WARNINGS'])
+if env['VARIANT'] == 'debug':
+    env.Append(CFLAGS=['/MD', '/Zi', '/Od'])
+    env.Append(LINKFLAGS=['/debug'])
+else:
+    env.Append(CPPDEFINES = ['NDEBUG'])
+    env.Append(CFLAGS=['/MD', '/Gy', '/O1', '/GF'])
+    env.Append(LINKFLAGS=['/opt:ref'])
+    env.Append(LFLAGS=['/NODEFAULTLIB:libcmt.lib'])
+    env.Append(LINKFLAGS=['/NODEFAULTLIB:libcmt.lib'])
+
+# Set-up the environment for Win/Linux
+# To compile, sources need access to include files
+env.Append(CPPPATH = [env['includes']])
+
+# Win/Linux programs need their own 'main' function
+env.Append(CPPDEFINES = ['AJ_MAIN', env['AUTH_DEFINE']])
+
+# Produce shared libraries for these platforms
+srcs = env['aj_srcs'] + env['aj_targ_srcs'] + env['aj_sw_crypto'] + env['aj_malloc']
+
+env.SharedLibrary('$DISTDIR/lib/ajtcl', srcs)
+env.StaticLibrary('$DISTDIR/lib/ajtcl_st', srcs)
+
+# Build objects for the target-specific sources and AllJoyn Thin Client sources
+env['aj_obj'] = env.Object(env['aj_srcs'] + env['aj_targ_srcs'] + env['aj_sw_crypto'] + env['aj_malloc'])
+
