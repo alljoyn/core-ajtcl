@@ -53,7 +53,7 @@ static const char AboutObjectPath[] = "/About";
 static const char AboutInterface[] = "org.alljoyn.About";
 
 static const char AboutIconObjectPath[] = "/About/DeviceIcon";
-static const char AboutIconInterface[] = "org.alljoyn.AboutIcon";
+static const char AboutIconInterface[] = "org.alljoyn.Icon";
 
 
 
