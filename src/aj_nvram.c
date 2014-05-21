@@ -39,6 +39,27 @@ extern uint8_t* AJ_NVRAM_BASE_ADDRESS;
 
 #define AJ_NVRAM_END_ADDRESS (AJ_NVRAM_BASE_ADDRESS + AJ_NVRAM_SIZE)
 
+uint32_t AJ_NVRAM_GetSize(void)
+{
+    uint32_t size = 0;
+    uint16_t* data = (uint16_t*)(AJ_NVRAM_BASE_ADDRESS + SENTINEL_OFFSET);
+    uint16_t entryId = 0;
+    uint16_t capacity = 0;
+    while ((uint8_t*)data < (uint8_t*)AJ_NVRAM_END_ADDRESS && *data != INVALID_DATA) {
+        entryId = *data;
+        capacity = *(data + 1);
+        if (entryId != 0) {
+            size += capacity + ENTRY_HEADER_SIZE;
+        }
+        data += (ENTRY_HEADER_SIZE + capacity) >> 1;
+    }
+    return size + SENTINEL_OFFSET;
+}
+uint32_t AJ_NVRAM_GetSizeRemaining(void)
+{
+    return AJ_NVRAM_SIZE - AJ_NVRAM_GetSize();
+}
+
 void AJ_NVRAM_Layout_Print()
 {
     int i = 0;

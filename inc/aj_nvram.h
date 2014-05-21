@@ -48,6 +48,20 @@ typedef struct _AJ_NV_DATASET {
  */
 void AJ_NVRAM_Init();
 
+/*
+ * Get the number of bytes currently used in the NVRAM memory block
+ *
+ * @return      Number of bytes used
+ */
+uint32_t AJ_NVRAM_GetSize(void);
+
+/*
+ * Get the number of bytes unallocated in the NVRAM memory block
+ *
+ * @return      Number of free bytes remaining
+ */
+uint32_t AJ_NVRAM_GetSizeRemaining(void);
+
 /**
  * Completely clear NVRAM
  */
