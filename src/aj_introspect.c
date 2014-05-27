@@ -139,14 +139,23 @@ static const char* const Direction[] = {
     "\" direction=\"out\">\n"
 };
 
+static const char interfaceOpen[] = "<interface";
+static const char interfaceClose[] = "</interface>\n";
+static const char argOpen[] = "    <arg";
+static const char argClose[] = "    </arg>\n";
+
 static const char nameAttr[] = " name=\"";
 static const char typeAttr[] = " type=\"";
+static const char sessionlessAttr[] = " sessionless=\"";
+static const char trueVal[] = "true\"";
+static const char falseVal[] = "false\"";
 
 static const char nodeOpen[] = "<node";
 static const char nodeClose[] = "</node>\n";
 static const char annotateSecure[] = "  <annotation name=\"org.alljoyn.Bus.Secure\" value=\"";
 static const char secureTrue[] = "true\"/>\n";
 static const char secureOff[] = "off\"/>\n";
+
 
 
 static char ExpandAttribute(XMLWriterFunc XMLWriter, void* context, const char** str, const char* pre, const char* post)
@@ -245,17 +254,17 @@ static AJ_Status ExpandInterfaces(XMLWriterFunc XMLWriter, void* context, const 
             /*
              * If flagged as secure or not secure, skip the first char (the '$' or '#') of the name
              */
-            XMLWriteTag(XMLWriter, context, "<interface", nameAttr, entries[0] + 1, 0, FALSE);
+            XMLWriteTag(XMLWriter, context, interfaceOpen, nameAttr, entries[0] + 1, 0, FALSE);
             if (!dBus_std_iface) {
-                XMLWriter(context, annotateSecure, 51);
+                XMLWriter(context, annotateSecure, sizeof(annotateSecure) - 1);
                 if (flag == SECURE_TRUE) {
-                    XMLWriter(context, secureTrue, 8);
+                    XMLWriter(context, secureTrue, sizeof(secureTrue) - 1);
                 } else {
-                    XMLWriter(context, secureOff, 7);
+                    XMLWriter(context, secureOff, sizeof(secureOff) - 1);
                 }
             }
         } else {
-            XMLWriteTag(XMLWriter, context, "<interface", nameAttr, entries[0], 0, FALSE);
+            XMLWriteTag(XMLWriter, context, interfaceOpen, nameAttr, entries[0], 0, FALSE);
         }
         description = GetDescription(descLookup, descId, languageTag);
         if (description != NULL) {
@@ -303,11 +312,11 @@ static AJ_Status ExpandInterfaces(XMLWriterFunc XMLWriter, void* context, const 
                 ExpandAttribute(XMLWriter, context, &member, typeAttr, Access[acc]);
             } else {
                 if (memberType == SIGNAL) {
-                    XMLWriter(context, " sessionless=", 13);
+                    XMLWriter(context, sessionlessAttr, sizeof(sessionlessAttr) - 1);
                     if (isSessionless) {
-                        XMLWriter(context, "\"true\"", 6);
+                        XMLWriter(context, trueVal, sizeof(trueVal) - 1);
                     } else {
-                        XMLWriter(context, "\"false\"", 7);
+                        XMLWriter(context, falseVal, sizeof(falseVal) - 1);
                     }
                 }
                 XMLWriter(context, ">\n", 2);
@@ -317,7 +326,7 @@ static AJ_Status ExpandInterfaces(XMLWriterFunc XMLWriter, void* context, const 
                     /* increase arg index since we start at 1 */
                     ++argIndex;
 
-                    XMLWriter(context, "    <arg", 8);
+                    XMLWriter(context, argOpen, sizeof(argOpen) - 1);
                     if (IS_DIRECTION(*member)) {
                         dir = *member++ - IN_ARG;
                     } else {
@@ -331,7 +340,7 @@ static AJ_Status ExpandInterfaces(XMLWriterFunc XMLWriter, void* context, const 
                         dir = 1;
                     }
                     /*
-                     * If we have a description then do not close the xml tag and put in a description tag
+                     * If we have a description then wait to close the tag until after adding in a description tag
                      */
                     description = GetDescription(descLookup, (descId | (((uint32_t)memberIndex) << 8) | ((uint32_t)argIndex)), languageTag);
                     if (description != NULL) {
@@ -340,7 +349,7 @@ static AJ_Status ExpandInterfaces(XMLWriterFunc XMLWriter, void* context, const 
                     attr = ExpandAttribute(XMLWriter, context, &member, typeAttr, Direction[dir]);
                     if (description != NULL) {
                         XMLWriteDescription(XMLWriter, context, 2, description, languageTag);
-                        XMLWriter(context, "    </arg>\n", 11);
+                        XMLWriter(context, argClose, sizeof(argClose) - 1);
                     }
                 }
             }
@@ -357,7 +366,7 @@ static AJ_Status ExpandInterfaces(XMLWriterFunc XMLWriter, void* context, const 
             }
             XMLWriter(context, MemberClose[memberType], 0);
         }
-        XMLWriter(context, "</interface>\n", 13);
+        XMLWriter(context, interfaceClose, sizeof(interfaceClose) - 1);
         ++iface;
     }
     return AJ_OK;
