@@ -25,7 +25,6 @@
 
 #include "aj_target.h"
 #include "aj_status.h"
-#include "aj_sasl.h"
 #include "aj_auth.h"
 #include "aj_guid.h"
 #include "aj_creds.h"
@@ -63,7 +62,7 @@ typedef struct _PinAuthContext {
      * The lifetimes of the nonce and secret don't overlap so they can use the same memory.
      */
     union {
-        uint8_t masterSecret[AJ_MASTER_SECRET_LEN];
+        uint8_t masterSecret[AJ_PINX_MASTER_SECRET_LEN];
         uint8_t nonce[AJ_NONCE_LEN];
     };
 } PinAuthContext;
@@ -92,7 +91,7 @@ static AJ_Status ComputeVerifier(const char* label, char* buffer, size_t bufLen)
     AJ_InfoPrintf(("ComputeVerifier(label=\"%s\", buffer=0x%p, bufLen=%zu.)\n", label, buffer, bufLen));
 
     data[0] = context.masterSecret;
-    lens[0] = AJ_MASTER_SECRET_LEN;
+    lens[0] = AJ_PINX_MASTER_SECRET_LEN;
     data[1] = (uint8_t*)label;
     lens[1] = (uint8_t)strlen(label);
 
@@ -134,9 +133,9 @@ static AJ_Status ComputeMS(const uint8_t* nonce)
     /*
      * Use the PRF function to compute the master secret
      */
-    status = AJ_Crypto_PRF(data, lens, ArraySize(data), context.masterSecret, AJ_MASTER_SECRET_LEN);
+    status = AJ_Crypto_PRF(data, lens, ArraySize(data), context.masterSecret, AJ_PINX_MASTER_SECRET_LEN);
 #ifdef AUTH_DEBUG
-    AJ_InfoPrintf(("ComputeMS(): MasterSecret: %s\n", Hex(context.masterSecret, AJ_MASTER_SECRET_LEN)));
+    AJ_InfoPrintf(("ComputeMS(): MasterSecret: %s\n", Hex(context.masterSecret, AJ_PINX_MASTER_SECRET_LEN)));
 #endif
     return status;
 }
@@ -318,13 +317,11 @@ static AJ_Status AuthFinal(const AJ_GUID* peerGuid)
          * NVRAM otherwise delete any stale credentials that might be stored.
          */
         if (context.success) {
-            AJ_PeerCred cred;
-            AJ_ASSERT(sizeof(cred.secret) == AJ_MASTER_SECRET_LEN);
-            memcpy(&cred.guid, peerGuid, sizeof(AJ_GUID));
-            memcpy(&cred.secret, context.masterSecret, AJ_MASTER_SECRET_LEN);
-            status = AJ_StoreCredential(&cred);
+            //TODO PINX cred is only 24 bytes - not 48
+            AJ_ASSERT(sizeof(context.masterSecret) == AJ_PINX_MASTER_SECRET_LEN);
+            status = AJ_StorePeerSecret(peerGuid, context.masterSecret, AJ_PINX_MASTER_SECRET_LEN, 0);
         } else {
-            status = AJ_DeleteCredential(peerGuid);
+            status = AJ_DeletePeerCredential(peerGuid);
         }
     }
     memset(&context, 0, sizeof(context));

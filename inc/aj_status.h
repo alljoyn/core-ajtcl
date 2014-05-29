@@ -60,10 +60,12 @@ typedef enum {
     AJ_ERR_INTERRUPTED  = 31, /**< An I/O operation (READ) was interrupted */
     AJ_ERR_REJECTED     = 32, /**< The connection was rejected */
     AJ_ERR_RANGE        = 33, /**< Value provided was out of range */
+    AJ_ERR_ACCESS_ROUTING_NODE = 34, /**< Access defined by routing node */
+    AJ_ERR_KEY_EXPIRED  = 35, /**< The key has expired */
     /*
      * REMINDER: Update AJ_StatusText in aj_debug.c if adding a new status code.
      */
-    AJ_STATUS_LAST      = 33  /**< The last error status code */
+    AJ_STATUS_LAST      = 35  /**< The last error status code */
 } AJ_Status;
 
 /**

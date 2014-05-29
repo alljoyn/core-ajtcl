@@ -38,14 +38,16 @@
 /* Auth options */
 #define AJ_NONCE_LEN                28          //Length of the nonce.
 #define AJ_VERIFIER_LEN             12          //Length of the verifier string
-#define AJ_MASTER_SECRET_LEN        24          //Length of the master secret
+#define AJ_PINX_MASTER_SECRET_LEN   24          //Length of the master secret PINX
+#define AJ_MASTER_SECRET_LEN        48          //Length of the master secret - RFC 5246
 #define AJ_ADHOC_LEN                16          //AD-HOC maximal passcode length        (aj_auth.h)
 #define AJ_NAME_MAP_GUID_SIZE       2           //aj_guid.c
 #define AJ_MAX_NAME_SIZE            14          //aj_guid.c
 #define AJ_MAX_AUTH_COUNT           8           //check to prevent broken state machine loops (aj_sasl.c)
+#define AJ_MAX_CREDS                40          //Max number of credentials that can store credentials (aj_creds.h)
 #define AJ_LOCAL_GUID_NV_ID         1
-#define AJ_REMOTE_CREDS_NV_ID_BEGIN (AJ_LOCAL_GUID_NV_ID + 1)
-#define AJ_REMOTE_CREDS_NV_ID_END   (AJ_REMOTE_CREDS_NV_ID_BEGIN + 12)
+#define AJ_CREDS_NV_ID_BEGIN (AJ_LOCAL_GUID_NV_ID + 1)
+#define AJ_CREDS_NV_ID_END   (AJ_CREDS_NV_ID_BEGIN + AJ_MAX_CREDS)
 
 /* Timeouts */
 #define AJ_WHO_HAS_TIMEOUT       (1000)            //how long to wait for WHO_HAS response            (aj_disco.c)

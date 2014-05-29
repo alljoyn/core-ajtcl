@@ -2,7 +2,7 @@
  * @file
  */
 /******************************************************************************
- * Copyright (c) 2013, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2013-2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -233,7 +233,7 @@ OPEN_ERR_EXIT:
 
 size_t AJ_NVRAM_Write(void* ptr, uint16_t size, AJ_NV_DATASET* handle)
 {
-    uint16_t bytesWrite = 0;
+    int16_t bytesWrite = 0;
     uint8_t patchBytes = 0;
     uint8_t* buf = (uint8_t*)ptr;
     NV_EntryHeader* header;
@@ -259,6 +259,9 @@ size_t AJ_NVRAM_Write(void* ptr, uint16_t size, AJ_NV_DATASET* handle)
         uint16_t alignedPos = handle->curPos & (~0x3);
         patchBytes = 4 - (handle->curPos & 0x3);
         memcpy(tmpBuf, handle->inode + sizeof(NV_EntryHeader) + alignedPos, handle->curPos & 0x3);
+        if (patchBytes > bytesWrite) {
+            patchBytes = bytesWrite;
+        }
         memcpy(tmpBuf + (handle->curPos & 0x3), buf, patchBytes);
         _AJ_NV_Write(handle->inode + sizeof(NV_EntryHeader) + alignedPos, tmpBuf, 4);
         buf += patchBytes;
