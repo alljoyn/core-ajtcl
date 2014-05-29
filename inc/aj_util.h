@@ -174,7 +174,7 @@ AJ_Status AJ_HexToRaw(const char* hex, size_t hexLen, uint8_t* raw, size_t rawLe
  * @return returns the same string as 'str' if there has been a read error a null
  *                 pointer will be returned and 'str' will remain unchanged.
  */
-char* AJ_GetLine(char*str, size_t num, void*fp);
+char* AJ_GetLine(char* str, size_t num, void* fp);
 
 /**
  * Prepare to read input from stdin
@@ -198,6 +198,34 @@ uint8_t AJ_StopReadFromStdIn();
  *                 pointer will be returned and 'buf' will remain unchanged.
  */
 char* AJ_GetCmdLine(char* buf, size_t num);
+
+/**
+ * Encodes raw bytes to base 64
+ *
+ * @param raw    The raw bytes to encode
+ * @param rawlen The length of the raw bytes to encode
+ * @param pem    The base64 encoded string
+ * @param pemlen The size of the input buffer
+ *
+ * @return AJ_OK on success, AJ_ERR_RESOURCES if input buffer too short
+ */
+AJ_Status AJ_RawToB64(const uint8_t* raw, size_t rawlen, char* pem, size_t pemlen);
+
+/**
+ * Decodes base64 to raw bytes
+ *
+ * @param pem    The base64 encoded string
+ * @param pemlen The length of the encoded string
+ * @param raw    The decoded raw bytes
+ * @param rawlen The size of the input buffer
+ *
+ * @return AJ_OK on success, AJ_ERR_RESOURCES if input buffer too short
+ */
+AJ_Status AJ_B64ToRaw(const char* pem, size_t pemlen, uint8_t* raw, size_t rawlen);
+
+uint16_t AJ_ByteSwap16(uint16_t x);
+uint32_t AJ_ByteSwap32(uint32_t x);
+uint64_t AJ_ByteSwap64(uint64_t x);
 
 /**
  * @}

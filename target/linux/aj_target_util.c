@@ -23,6 +23,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
+#include <byteswap.h>
 #include <aj_debug.h>
 #include "aj_target.h"
 #include "aj_util.h"
@@ -227,3 +228,18 @@ int _AJ_DbgEnabled(char* module)
 }
 
 #endif
+
+uint16_t AJ_ByteSwap16(uint16_t x)
+{
+    return bswap_16(x);
+}
+
+uint32_t AJ_ByteSwap32(uint32_t x)
+{
+    return bswap_32(x);
+}
+
+uint64_t AJ_ByteSwap64(uint64_t x)
+{
+    return bswap_64(x);
+}

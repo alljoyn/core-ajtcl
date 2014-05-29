@@ -29,7 +29,6 @@
 #include "aj_msg.h"
 #include "aj_connect.h"
 #include "aj_introspect.h"
-#include "aj_sasl.h"
 #include "aj_net.h"
 #include "aj_bus.h"
 #include "aj_disco.h"
@@ -37,6 +36,7 @@
 #include "aj_auth.h"
 #include "aj_debug.h"
 #include "aj_config.h"
+#include "aj_creds.h"
 
 #if !(defined(ARDUINO) || defined(__linux) || defined(_WIN32))
 #include "aj_wifi_ctrl.h"
@@ -113,32 +113,71 @@ static AJ_Status SendHello(AJ_BusAttachment* bus)
     return status;
 }
 
-static AJ_Status AuthAdvance(AJ_SASL_Context* context, AJ_IOBuffer* rxBuf, AJ_IOBuffer* txBuf)
-{
+static void ResetRead(AJ_IOBuffer* rxBuf) {
+    rxBuf->readPtr += AJ_IO_BUF_AVAIL(rxBuf);
+    *rxBuf->writePtr = '\0';
+}
+static AJ_Status ReadLine(AJ_IOBuffer* rxBuf) {
+    /*
+     * All the authentication messages end in a CR/LF so read until we get a newline
+     */
     AJ_Status status = AJ_OK;
+    while ((AJ_IO_BUF_AVAIL(rxBuf) == 0) || (*(rxBuf->writePtr - 1) != '\n')) {
+        status = rxBuf->recv(rxBuf, AJ_IO_BUF_SPACE(rxBuf), 3500);
+        if (status != AJ_OK) {
+            break;
+        }
+    }
+    return status;
+}
 
-    AJ_InfoPrintf(("AuthAdvance(context=0x%p, rxBuf=0x%p, txBuf=0x%p)\n", context, rxBuf, txBuf));
+static AJ_Status WriteLine(AJ_IOBuffer* txBuf, char* line) {
+    strcpy((char*) txBuf->writePtr, line);
+    txBuf->writePtr += strlen(line);
+    return txBuf->send(txBuf);
+}
+static AJ_Status AnonymousAuthAdvance(AJ_IOBuffer* rxBuf, AJ_IOBuffer* txBuf) {
+    AJ_Status status = AJ_OK;
+    AJ_GUID localGuid;
+    char buf[40];
 
-    if (context->state != AJ_SASL_SEND_AUTH_REQ) {
-        /*
-         * All the authentication messages end in a CR/LF so read until we get a newline
-         */
-        while ((AJ_IO_BUF_AVAIL(rxBuf) == 0) || (*(rxBuf->writePtr - 1) != '\n')) {
-            status = rxBuf->recv(rxBuf, AJ_IO_BUF_SPACE(rxBuf), 3500);
-            if (status != AJ_OK) {
-                break;
+    /* initiate the SASL exchange with AUTH ANONYMOUS */
+    status = WriteLine(txBuf, "AUTH ANONYMOUS\n");
+    ResetRead(rxBuf);
+
+    if (status == AJ_OK) {
+        /* expect server to send back OK GUID */
+        status = ReadLine(rxBuf);
+        if (status == AJ_OK) {
+            if (memcmp(rxBuf->readPtr, "OK", 2) != 0) {
+                return AJ_ERR_ACCESS_ROUTING_NODE;
             }
         }
     }
+
     if (status == AJ_OK) {
-        uint32_t inLen = AJ_IO_BUF_AVAIL(rxBuf);
-        *rxBuf->writePtr = '\0';
-        status = AJ_SASL_Advance(context, (char*)rxBuf->readPtr, (char*)txBuf->writePtr, AJ_IO_BUF_SPACE(txBuf));
+        status = WriteLine(txBuf, "INFORM_PROTO_VERSION 9\n"); /* old codes use 8, but server uses 9 */
+        ResetRead(rxBuf);
+    }
+
+    if (status == AJ_OK) {
+        /* expect server to send back INFORM_PROTO_VERSION version# */
+        status = ReadLine(rxBuf);
         if (status == AJ_OK) {
-            rxBuf->readPtr += inLen;
-            txBuf->writePtr += strlen((char*)txBuf->writePtr);
-            status = txBuf->send(txBuf);
+            if (memcmp(rxBuf->readPtr, "INFORM_PROTO_VERSION", strlen("INFORM_PROTO_VERSION")) != 0) {
+                return AJ_ERR_ACCESS_ROUTING_NODE;
+            }
         }
+    }
+
+    if (status == AJ_OK) {
+        /* send BEGIN LocalGUID to server */
+        AJ_GetLocalGUID(&localGuid);
+        strcpy(buf, "BEGIN ");
+        status = AJ_GUID_ToString(&localGuid, buf + strlen(buf), 33);
+        strcat(buf, "\n");
+        status = WriteLine(txBuf, buf);
+        ResetRead(rxBuf);
     }
     return status;
 }
@@ -146,7 +185,6 @@ static AJ_Status AuthAdvance(AJ_SASL_Context* context, AJ_IOBuffer* rxBuf, AJ_IO
 AJ_Status AJ_Authenticate(AJ_BusAttachment* bus)
 {
     AJ_Status status = AJ_OK;
-    AJ_SASL_Context sasl;
 
     /*
      * Send initial NUL byte
@@ -158,16 +196,9 @@ AJ_Status AJ_Authenticate(AJ_BusAttachment* bus)
         AJ_InfoPrintf(("AJ_Authenticate(): status=%s\n", AJ_StatusText(status)));
         goto ExitConnect;
     }
-    AJ_SASL_InitContext(&sasl, mechList, AJ_AUTH_RESPONDER, busAuthPwdFunc, FALSE);
-    while (TRUE) {
-        status = AuthAdvance(&sasl, &bus->sock.rx, &bus->sock.tx);
-        if ((status != AJ_OK) || (sasl.state == AJ_SASL_FAILED)) {
-            break;
-        }
-        if (sasl.state == AJ_SASL_AUTHENTICATED) {
-            status = SendHello(bus);
-            break;
-        }
+    status = AnonymousAuthAdvance(&bus->sock.rx, &bus->sock.tx);
+    if (status == AJ_OK) {
+        status = SendHello(bus);
     }
     if (status == AJ_OK) {
         AJ_Message helloResponse;
@@ -460,4 +491,12 @@ void AJ_Disconnect(AJ_BusAttachment* bus)
 #ifdef AJ_SERIAL_CONNECTION
     AJ_SerialShutdown();
 #endif
+
+    /*
+     * Free cipher suite memory
+     */
+    if (bus->suites) {
+        AJ_Free(bus->suites);
+        bus->numsuites = 0;
+    }
 }

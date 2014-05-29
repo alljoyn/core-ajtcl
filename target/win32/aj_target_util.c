@@ -22,6 +22,7 @@
 #include <process.h>
 #include <sys/timeb.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <assert.h>
 #include <aj_debug.h>
 #include "aj_target.h"
@@ -175,3 +176,18 @@ int _AJ_DbgEnabled(char* module)
 }
 
 #endif
+
+uint16_t AJ_ByteSwap16(uint16_t x)
+{
+    return _byteswap_ushort(x);
+}
+
+uint32_t AJ_ByteSwap32(uint32_t x)
+{
+    return _byteswap_ulong(x);
+}
+
+uint64_t AJ_ByteSwap64(uint64_t x)
+{
+    return _byteswap_uint64(x);
+}

@@ -123,17 +123,19 @@ elif env['TARG'] in [ 'linux' ]:
         env.Append(LINKFLAGS='-m32')
         
 # Include paths
-env['includes'] = [ os.getcwd() + '/inc', os.getcwd() + '/target/${TARG}']
+env['includes'] = [ os.getcwd() + '/inc', os.getcwd() + '/target/${TARG}', os.getcwd() + '/crypto/ecc', os.getcwd() + '/external/sha2']
 
 # Target-specific headers and sources
 env['aj_targ_headers'] = [Glob('target/' + env['TARG'] + '/*.h')]
 env['aj_targ_srcs'] = [Glob('target/' + env['TARG'] + '/*.c')]
 
 # AllJoyn Thin Client headers and sources (target independent)
-env['aj_headers'] = [Glob('inc/*.h')]
+env['aj_headers'] = [Glob('inc/*.h') + Glob('external/*/*.h')]
 env['aj_srcs'] = [Glob('src/*.c')]
 env['aj_sw_crypto'] = [Glob('crypto/*.c')]
 env['aj_malloc'] = [Glob('malloc/*.c')]
+env['aj_crypto_ecc'] = [Glob('crypto/ecc/*.c')]
+env['aj_external_sha2'] = [Glob('external/sha2/*.c')]
 
 # Set-up the environment for Win/Linux
 if env['TARG'] in [ 'win32', 'linux' ]:
@@ -149,16 +151,16 @@ if env['TARG'] in [ 'win32', 'linux' ]:
     # Produce shared libraries for these platforms
     srcs = env['aj_srcs'] + env['aj_targ_srcs']
     if env['TARG'] == 'win32':
-        srcs += env['aj_sw_crypto'] + env['aj_malloc']
+        srcs += env['aj_sw_crypto'] + env['aj_crypto_ecc'] + env['aj_malloc'] + env['aj_external_sha2']
 
     env.SharedLibrary('ajtcl', srcs)
     env.StaticLibrary('ajtcl_st', srcs)
 
 # Build objects for the target-specific sources and AllJoyn Thin Client sources
 if env['TARG'] == 'win32':
-    env['aj_obj'] = env.Object(env['aj_srcs'] + env['aj_targ_srcs'] + env['aj_sw_crypto'] + env['aj_malloc'])
+    env['aj_obj'] = env.Object(env['aj_srcs'] + env['aj_targ_srcs'] + env['aj_sw_crypto'] + env['aj_malloc'] + env['aj_crypto_ecc'] + env['aj_external_sha2'])
 elif env['TARG'] in [ 'linux' ]:
-    env['aj_obj'] = env.StaticObject(env['aj_srcs'] + env['aj_targ_srcs'])
+    env['aj_obj'] = env.StaticObject(env['aj_srcs'] + env['aj_targ_srcs'] + env['aj_crypto_ecc'] + env['aj_external_sha2'])
     env['aj_shobj'] = env.SharedObject(env['aj_srcs'] + env['aj_targ_srcs'])
     env.StaticLibrary('ajtcl', env['aj_obj'])
     env.SharedLibrary('ajtcl', env['aj_shobj'])
@@ -209,11 +211,11 @@ if env['TARG'] == 'arduino':
         env.InstallAs(File(arduinoLibDir + 'tests/AJ_' + test + '/' + test + '.cpp').abspath, in_path.abspath)
 
     replaced_names = []
-    for x in Flatten([env['aj_srcs'], env['aj_targ_srcs'], env['aj_sw_crypto']]):
+    for x in Flatten([env['aj_srcs'], env['aj_targ_srcs'], env['aj_sw_crypto'], env['aj_external_sha2']]):
         replaced_names.append( File(arduinoLibDir + x.name.replace('.c', '.cpp') ) )
 
     # change the extension
-    install_renamed_files = env.InstallAs(Flatten(replaced_names), Flatten([env['aj_srcs'], env['aj_targ_srcs'], env['aj_sw_crypto']]))
+    install_renamed_files = env.InstallAs(Flatten(replaced_names), Flatten([env['aj_srcs'], env['aj_targ_srcs'], env['aj_sw_crypto'], env['aj_external_sha2']]))
     install_host_headers = env.Install(arduinoLibDir, env['aj_targ_headers'])
     install_headers = env.Install(arduinoLibDir, env['aj_headers'])
 

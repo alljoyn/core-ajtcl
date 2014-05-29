@@ -25,8 +25,11 @@ if env['TARG'] == 'win32' or env['TARG'] == 'linux' or env['TARG'] == 'linux-uar
     env.Program('siglite', ['siglite.c'] + env['aj_obj'])
     env.Program('sessions', ['sessions.c'] + env['aj_obj'])
     env.Program('nvramtest', ['nvramtest.c'] + env['aj_obj'])
+    env.Program('nvramdump', ['nvramdump.c'] + env['aj_obj'])
     env.Program('nvrampersistencetest', ['nvrampersistencetest.c'] + env['aj_obj'])
     env.Program('bastress2', ['bastress2.c'] + env['aj_obj'])
+    env.Program('certificate', ['certificate.c'] + env['aj_obj'])
+    env.Program('base64', ['base64.c'] + env['aj_obj'])
 
 
     if env['TARG'] == 'linux-uart':

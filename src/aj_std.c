@@ -27,6 +27,7 @@ const char AJ_ErrServiceUnknown[] = "org.freedesktop.DBus.Error.ServiceUnknown";
 const char AJ_ErrSecurityViolation[] = "org.alljoyn.Bus.SecurityViolation";
 const char AJ_ErrTimeout[] = "org.alljoyn.Bus.Timeout";
 const char AJ_ErrRejected[] = "org.alljoyn.Bus.Rejected";
+const char AJ_ErrResources[] = "org.alljoyn.Bus.Resources";
 const char AJ_ErrUpdateNotAllowed[] = "org.alljoyn.Error.UpdateNotAllowed";
 const char AJ_ErrInvalidValue[] = "org.alljoyn.Error.InvalidValue";
 const char AJ_ErrFeatureNotAvailable[] = "org.alljoyn.Error.FeatureNotAvailable";
@@ -149,6 +150,9 @@ static const char* const PeerAuthIface[] = {
     "?GenSessionKey <s <s <s >s >s",
     "?ExchangeGroupKeys <ay >ay",
     "?AuthChallenge <s >s",
+    "?ExchangeSuites <au >au",
+    "?KeyExchange <u <v >u >v",
+    "?KeyAuthentication <v >v",
     "@Mechanisms >s",
     "@Version >u",
     NULL

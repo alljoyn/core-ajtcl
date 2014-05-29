@@ -43,6 +43,8 @@
 #define min(x, y) ((x) < (y) ? (x) : (y))
 #endif
 
+#define WORD_ALIGN(x) ((x & 0x3) ? ((x >> 2) + 1) << 2 : x)
+
 #if __BYTE_ORDER == __LITTLE_ENDIAN
 #define HOST_IS_LITTLE_ENDIAN  TRUE
 #define HOST_IS_BIG_ENDIAN     FALSE
@@ -74,5 +76,10 @@ extern uint8_t dbgTARGET_UTIL;
 #define AJ_Reboot()
 
 #define AJ_EXPORT
+
+/*
+ * Main method allows argc, argv
+ */
+#define MAIN_ALLOWS_ARGS
 
 #endif
