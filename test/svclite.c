@@ -23,10 +23,18 @@
  */
 #define AJ_MODULE SVCLITE
 
+#define SECURE_INTERFACE
+
 #include <aj_target.h>
 #include <aj_link_timeout.h>
 #include <aj_debug.h>
 #include <alljoyn.h>
+#include <aj_cert.h>
+#include <aj_creds.h>
+#include <aj_peer.h>
+#include <aj_auth_listener.h>
+#include <aj_keyexchange.h>
+#include <aj_keyauthentication.h>
 
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
@@ -46,6 +54,11 @@ static const uint8_t ReflectSignal = FALSE;
  * An application property to SET or GET
  */
 static int32_t propVal = 123456;
+
+/*
+ * Default key expiration
+ */
+static const uint32_t keyexpiration = 0xFFFFFFFF;
 
 /*
  * To define a secure interface, prepend '$' before the interface name, eg., "$org.alljoyn.alljoyn_test"
@@ -116,12 +129,124 @@ static void AppDoWork()
     AJ_InfoPrintf(("do work\n"));
 }
 
-static const char PWD[] = "ABCDEFGH";
+static const char PWD[] = "123456";
 
 static uint32_t PasswordCallback(uint8_t* buffer, uint32_t bufLen)
 {
     memcpy(buffer, PWD, sizeof(PWD));
     return sizeof(PWD) - 1;
+}
+
+//static const char psk_b64[] = "EBESExQVFhcYGRobHB0eHw==";
+//static uint8_t psk[16];
+static const char psk_hint[] = "bob";
+static const char psk_char[] = "123456";
+static const char owner_pub_b64[] = "RCf5ihem02VFXvIa8EVJ1CJcJns3el0IH+H51s07rc0AAAAAn6KJifUPH1oRmPLoyBHGCg7/NT8kW67GD8kQjZh/U/AAAAAAAAAAAA==";
+static const char ecc_pub_b64[] = "C/KGAyLE5jyVqHEipZBhPb7Ahj/MBdNLtpDvT9OJ0LYAAAAAn8QabXetJcPD7OWmEB6uXGXh+ftJOLlCTJhAHjTJsDkAAAAAAAAAAA==";
+static const char ecc_prv_b64[] = "wxieVOfgCMgys3m+V82eV/B/p0WlIMu8fizZiqMQnYsAAAAA";
+static const char owner_cert1_b64[] = "\
+AAAAAUQn+YoXptNlRV7yGvBFSdQiXCZ7N3pdCB/h+dbNO63NAAAAAJ+iiYn1Dx9a\
+EZjy6MgRxgoO/zU/JFuuxg/JEI2Yf1PwAAAAAAAAAAAL8oYDIsTmPJWocSKlkGE9\
+vsCGP8wF00u2kO9P04nQtgAAAACfxBptd60lw8Ps5aYQHq5cZeH5+0k4uUJMmEAe\
+NMmwOQAAAAAAAAAAAAAAAAAAAAAAAAAA/////wBOnWRZjvJdd9adaDleMIDQJOJC\
+OuSepUTdfamDakEy/s6dN/ePP+iDV96kBT0XkQfNKiyfGbPf+ux6a2mx48/rAAAA\
+AGfrER3HqAGYic+k8B/iIWUyJy414G+4+tTklxFAatmmAAAAAA==";
+static const char owner_cert2_b64[] = "\
+AAAAAkQn+YoXptNlRV7yGvBFSdQiXCZ7N3pdCB/h+dbNO63NAAAAAJ+iiYn1Dx9a\
+EZjy6MgRxgoO/zU/JFuuxg/JEI2Yf1PwAAAAAAAAAAAL8oYDIsTmPJWocSKlkGE9\
+vsCGP8wF00u2kO9P04nQtgAAAACfxBptd60lw8Ps5aYQHq5cZeH5+0k4uUJMmEAe\
+NMmwOQAAAAAAAAAAAAAAAAAAAAAAAAAA/////wD5/PM2YlgaDcbxM2GD2BntTp1k\
+WY7yXXfWnWg5XjCA0CTiQjrknqVE3X2pg2pBMv7ZCwVue216z7QXomTSt4nPyFum\
+tj2XcycgTidW60XeVAAAAADCAWDa119gVqq2GOiteOKBaM7huRPUOl+ytTMQQpCj\
+WAAAAAA=";
+static ecc_publickey ecc_pub;
+static ecc_privatekey ecc_prv;
+//static ecc_publickey  ecc_pub;
+static AJ_Certificate root_cert;
+
+static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, AJ_Credential*cred)
+{
+    AJ_Status status = AJ_ERR_INVALID;
+    uint8_t b8[sizeof (AJ_Certificate)];
+    AJ_Printf("AuthListenerCallback authmechanism %d command %d\n", authmechanism, command);
+
+    switch (authmechanism) {
+    case AUTH_SUITE_PIN_KEYX:
+        cred->mask = AJ_CRED_PRV_KEY;
+        cred->data = (uint8_t*) PWD;
+        cred->len = sizeof (PWD) - 1;
+        cred->expiration = keyexpiration;
+        status = AJ_OK;
+        break;
+
+    case AUTH_SUITE_ECDHE_NULL:
+        cred->expiration = keyexpiration;
+        status = AJ_OK;
+        break;
+
+    case AUTH_SUITE_ECDHE_PSK:
+        switch (command) {
+        case AJ_CRED_PUB_KEY:
+            break; // Don't use username - use anon
+            cred->mask = AJ_CRED_PUB_KEY;
+            cred->data = (uint8_t*) psk_hint;
+            cred->len = strlen(psk_hint);
+            status = AJ_OK;
+            break;
+
+        case AJ_CRED_PRV_KEY:
+            if (AJ_CRED_PUB_KEY == cred->mask) {
+                AJ_Printf("Request Credentials for PSK ID: %s\n", cred->data);
+            }
+            cred->mask = AJ_CRED_PRV_KEY;
+            cred->data = (uint8_t*) psk_char;
+            cred->len = strlen(psk_char);
+            cred->expiration = keyexpiration;
+            status = AJ_OK;
+            break;
+        }
+        break;
+
+    case AUTH_SUITE_ECDHE_ECDSA:
+        switch (command) {
+        case AJ_CRED_PUB_KEY:
+            status = AJ_B64ToRaw(ecc_pub_b64, strlen(ecc_pub_b64), b8, sizeof (b8));
+            AJ_ASSERT(AJ_OK == status);
+            status = AJ_DecodePublicKey(&ecc_pub, b8);
+            AJ_ASSERT(AJ_OK == status);
+            cred->mask = AJ_CRED_PUB_KEY;
+            cred->data = (uint8_t*) &ecc_pub;
+            cred->len = sizeof (ecc_pub);
+            cred->expiration = keyexpiration;
+            break;
+
+        case AJ_CRED_PRV_KEY:
+            status = AJ_B64ToRaw(ecc_prv_b64, strlen(ecc_prv_b64), b8, sizeof (b8));
+            AJ_ASSERT(AJ_OK == status);
+            status = AJ_DecodePrivateKey(&ecc_prv, b8);
+            AJ_ASSERT(AJ_OK == status);
+            cred->mask = AJ_CRED_PRV_KEY;
+            cred->data = (uint8_t*) &ecc_prv;
+            cred->len = sizeof (ecc_prv);
+            cred->expiration = keyexpiration;
+            break;
+
+        case AJ_CRED_CERT_CHAIN:
+            status = AJ_B64ToRaw(owner_cert1_b64, strlen(owner_cert1_b64), b8, sizeof (b8));
+            AJ_ASSERT(AJ_OK == status);
+            status = AJ_DecodeCertificate(&root_cert, b8, sizeof (b8));
+            AJ_ASSERT(AJ_OK == status);
+            cred->mask = AJ_CRED_CERT_CHAIN;
+            cred->data = (uint8_t*) &root_cert;
+            cred->len = sizeof (root_cert);
+            break;
+        }
+        break;
+
+    default:
+        break;
+    }
+    return status;
 }
 
 static AJ_Status AppHandlePing(AJ_Message* msg)
@@ -169,15 +294,48 @@ uint32_t MyBusAuthPwdCB(uint8_t* buf, uint32_t bufLen)
     return (uint32_t)strlen(myPwd);
 }
 
+static AJ_Status StoreIssuer()
+{
+    AJ_Status status;
+    AJ_PeerCred cred;
+    uint8_t b8[sizeof (ecc_publickey)];
+    uint8_t digest[SHA256_DIGEST_LENGTH];
+    AJ_SHA256_Context ctx;
+
+    status = AJ_B64ToRaw(owner_pub_b64, strlen(owner_pub_b64), b8, sizeof (b8));
+    AJ_ASSERT(AJ_OK == status);
+
+    AJ_SHA256_Init(&ctx);
+    AJ_SHA256_Update(&ctx, b8, sizeof (b8));
+    AJ_SHA256_Final(&ctx, digest);
+
+    cred.type = AJ_CRED_TYPE_DSA_PUBLIC;
+    cred.idLen = sizeof (digest);
+    cred.id = digest;
+    cred.associationLen = 0;
+    cred.data = b8;
+    cred.dataLen = sizeof (b8);
+    cred.expiration = keyexpiration;
+
+    status = AJ_StoreCredential(&cred);
+    AJ_ASSERT(AJ_OK == status);
+
+    return AJ_OK;
+}
+
+static const uint32_t suites[3] = { AUTH_SUITE_ECDHE_ECDSA, AUTH_SUITE_ECDHE_PSK, AUTH_SUITE_ECDHE_NULL };
+static const size_t numsuites = 3;
+
 #define CONNECT_TIMEOUT    (1000 * 1000)
 #define UNMARSHAL_TIMEOUT  (1000 * 5)
 
-int AJ_Main(void)
+int AJ_Main()
 {
     AJ_Status status = AJ_OK;
     AJ_BusAttachment bus;
     uint8_t connected = FALSE;
     uint32_t sessionId = 0;
+
     /*
      * One time initialization before calling any other AllJoyn APIs
      */
@@ -186,6 +344,7 @@ int AJ_Main(void)
     AJ_PrintXML(AppObjects);
     AJ_RegisterObjects(AppObjects, NULL);
 
+    StoreIssuer();
     SetBusAuthPwdCallback(MyBusAuthPwdCB);
     while (TRUE) {
         AJ_Message msg;
@@ -202,6 +361,8 @@ int AJ_Main(void)
 
             /* Register a callback for providing bus authentication password */
             AJ_BusSetPasswordCallback(&bus, PasswordCallback);
+            AJ_BusEnableSecurity(&bus, suites, numsuites);
+            AJ_BusSetAuthListenerCallback(&bus, AuthListenerCallback);
 
             /* Configure timeout for the link to the daemon bus */
             AJ_SetBusLinkTimeout(&bus, 60); // 60 seconds

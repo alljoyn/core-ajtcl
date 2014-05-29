@@ -462,9 +462,19 @@ AJ_Status AJ_BusHandleBusMessage(AJ_Message* msg)
         status = AJ_PeerHandleExchangeGroupKeys(msg, &reply);
         break;
 
-    case AJ_METHOD_AUTH_CHALLENGE:
-        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_METHOD_AUTH_CHALLENGE\n"));
-        status = AJ_PeerHandleAuthChallenge(msg, &reply);
+    case AJ_METHOD_EXCHANGE_SUITES:
+        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_METHOD_EXCHANGE_SUITES\n"));
+        status = AJ_PeerHandleExchangeSuites(msg, &reply);
+        break;
+
+    case AJ_METHOD_KEY_EXCHANGE:
+        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_METHOD_KEY_EXCHANGE\n"));
+        status = AJ_PeerHandleKeyExchange(msg, &reply);
+        break;
+
+    case AJ_METHOD_KEY_AUTHENTICATION:
+        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_METHOD_KEY_AUTHENTICATION\n"));
+        status = AJ_PeerHandleKeyAuthentication(msg, &reply);
         break;
 
     case AJ_REPLY_ID(AJ_METHOD_EXCHANGE_GUIDS):
@@ -472,9 +482,19 @@ AJ_Status AJ_BusHandleBusMessage(AJ_Message* msg)
         status = AJ_PeerHandleExchangeGUIDsReply(msg);
         break;
 
-    case AJ_REPLY_ID(AJ_METHOD_AUTH_CHALLENGE):
-        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_REPLY_ID(AJ_METHOD_AUTH_CHALLENGE)\n"));
-        status = AJ_PeerHandleAuthChallengeReply(msg);
+    case AJ_REPLY_ID(AJ_METHOD_EXCHANGE_SUITES):
+        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_REPLY_ID(AJ_METHOD_EXCHANGE_SUITES)\n"));
+        status = AJ_PeerHandleExchangeSuitesReply(msg);
+        break;
+
+    case AJ_REPLY_ID(AJ_METHOD_KEY_EXCHANGE):
+        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_REPLY_ID(AJ_METHOD_KEY_EXCHANGE)\n"));
+        status = AJ_PeerHandleKeyExchangeReply(msg);
+        break;
+
+    case AJ_REPLY_ID(AJ_METHOD_KEY_AUTHENTICATION):
+        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_REPLY_ID(AJ_METHOD_KEY_AUTHENTICATION)\n"));
+        status = AJ_PeerHandleKeyAuthenticationReply(msg);
         break;
 
     case AJ_REPLY_ID(AJ_METHOD_GEN_SESSION_KEY):
@@ -563,12 +583,51 @@ AJ_Status AJ_BusHandleBusMessage(AJ_Message* msg)
     return status;
 }
 
+static uint8_t IsSuiteAvailable(AJ_BusAttachment* bus, uint32_t suite)
+{
+    size_t i;
+    if (!bus->suites) {
+        return 0;
+    }
+    for (i = 0; i < bus->numsuites; i++) {
+        if (suite == bus->suites[i]) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static AJ_Status AddSuite(AJ_BusAttachment* bus, uint32_t suite) {
+    if (!IsSuiteAvailable(bus, suite)) {
+        bus->suites = (uint32_t*) AJ_Realloc(bus->suites, (bus->numsuites + 1) * sizeof (uint32_t));
+        if (!bus->suites) {
+            return AJ_ERR_RESOURCES;
+        }
+        bus->suites[bus->numsuites] = suite;
+        bus->numsuites++;
+    }
+    return AJ_OK;
+}
+
 void AJ_BusSetPasswordCallback(AJ_BusAttachment* bus, AJ_AuthPwdFunc pwdCallback)
 {
 #ifndef NO_AUTH_PIN_KEYX
     AJ_InfoPrintf(("AJ_BusSetPasswordCallback(bus=0x%p, pwdCallback=0x%p)\n", bus, pwdCallback));
     bus->pwdCallback = pwdCallback;
+    AddSuite(bus, AUTH_SUITE_ECDHE_PSK);
 #endif
+}
+
+/**
+ * Set a callback for auth listener
+ * until a password callback function has been set.
+ *
+ * @param bus          The bus attachment struct
+ * @param authListenerCallback  The auth listener callback function.
+ */
+void AJ_BusSetAuthListenerCallback(AJ_BusAttachment* bus, AJ_AuthListenerFunc authListenerCallback) {
+    AJ_InfoPrintf(("AJ_BusSetAuthListenerCallback(bus=0x%p, authListenerCallback=0x%p)\n", bus, authListenerCallback));
+    bus->authListenerCallback = authListenerCallback;
 }
 
 AJ_Status AJ_BusAuthenticatePeer(AJ_BusAttachment* bus, const char* peerName, AJ_BusAuthPeerCallback callback, void* cbContext)
@@ -646,4 +705,21 @@ AJ_Status AJ_BusPropSet(AJ_Message* msg, AJ_BusPropSetCallback callback, void* c
     cb.context = context;
     cb.Set = callback;
     return PropAccess(msg, &cb, AJ_PROP_SET);
+}
+
+AJ_Status AJ_BusEnableSecurity(AJ_BusAttachment* bus, const uint32_t* suites, size_t numsuites)
+{
+    AJ_Status status;
+    size_t i;
+
+    AJ_InfoPrintf(("AJ_BusEnableSecurity(bus=0x%p, suites=0x%p)\n", bus, suites));
+
+    for (i = 0; i < numsuites; i++) {
+        status = AddSuite(bus, suites[i]);
+        if (AJ_OK != status) {
+            return status;
+        }
+    }
+
+    return AJ_OK;
 }

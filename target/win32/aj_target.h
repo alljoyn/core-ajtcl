@@ -53,6 +53,8 @@ typedef unsigned long long uint64_t;  /** 64-bit unsigned integer */
 #define min(x, y) ((x) < (y) ? (x) : (y))
 #endif
 
+
+#define WORD_ALIGN(x) ((x & 0x3) ? ((x >> 2) + 1) << 2 : x)
 #define HOST_IS_LITTLE_ENDIAN  TRUE
 #define HOST_IS_BIG_ENDIAN     FALSE
 
@@ -79,5 +81,10 @@ extern uint8_t dbgTARGET_UTIL;
 #define AJ_EXPORT  __declspec(dllexport)
 
 #define inline __inline
+
+/*
+ * Main method allows argc, argv
+ */
+#define MAIN_ALLOWS_ARGS
 
 #endif

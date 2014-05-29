@@ -6,7 +6,7 @@
  * @{
  */
 /******************************************************************************
- * Copyright (c) 2012-2013, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2012-2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -25,6 +25,7 @@
 #include "aj_net.h"
 #include "aj_status.h"
 #include "aj_util.h"
+#include "aj_auth_listener.h"
 
 /**
  * Forward declarations
@@ -44,6 +45,17 @@ typedef struct _AJ_Arg AJ_Arg;
 typedef uint32_t (*AJ_AuthPwdFunc)(uint8_t* buffer, uint32_t bufLen);
 
 /**
+ * Callback function prototype for authentication listener
+ *
+ * @param authmechansim The authentication mechanism used
+ * @param command The listener command
+ * @param creds The credentials
+ *
+ * @return  Returns true if authorized; false otherwise.
+ */
+typedef AJ_Status (*AJ_AuthListenerFunc)(uint32_t authmechanism, uint32_t command, AJ_Credential* creds);
+
+/**
  * Type for a bus attachment
  */
 typedef struct _AJ_BusAttachment {
@@ -51,6 +63,9 @@ typedef struct _AJ_BusAttachment {
     AJ_NetSocket sock;           /**< Abstracts a network socket */
     uint32_t serial;             /**< Next outgoing message serial number */
     AJ_AuthPwdFunc pwdCallback;  /**< Callback for obtaining passwords */
+    AJ_AuthListenerFunc authListenerCallback;  /**< Callback for obtaining passwords */
+    uint32_t* suites;              /**< Supported cipher suites */
+    size_t numsuites;             /**< Number of supported cipher suites */
 } AJ_BusAttachment;
 
 /**
@@ -394,6 +409,15 @@ AJ_EXPORT
 void AJ_BusSetPasswordCallback(AJ_BusAttachment* bus, AJ_AuthPwdFunc pwdCallback);
 
 /**
+ * Set a callback for auth listener
+ * until a password callback function has been set.
+ *
+ * @param bus          The bus attachment struct
+ * @param authListenerCallback  The auth listener callback function.
+ */
+void AJ_BusSetAuthListenerCallback(AJ_BusAttachment* bus, AJ_AuthListenerFunc authListenerCallback);
+
+/**
  * Callback function prototype for the function called when an authentication completes or fails.
  *
  * @param context   The context provided when AJ_PeerAuthenticate() was called.
@@ -471,6 +495,17 @@ typedef AJ_Status (*AJ_BusPropSetCallback)(AJ_Message* replyMsg, uint32_t propId
  */
 AJ_EXPORT
 AJ_Status AJ_BusPropSet(AJ_Message* msg, AJ_BusPropSetCallback callback, void* context);
+
+/**
+ * Function to specify which authentication suites are available.
+ *
+ * @param bus       The bus attachment struct
+ * @param suites    The authentication suites to enable
+ * @param numsuites The number of authentication suites
+ *
+ * @return  Return AJ_Status
+ */
+AJ_Status AJ_BusEnableSecurity(AJ_BusAttachment* bus, const uint32_t* suites, size_t numsuites);
 
 /**
  * @}

@@ -83,6 +83,9 @@
 #define AJ_METHOD_GEN_SESSION_KEY      AJ_BUS_MESSAGE_ID(2, 1, 1)    /**< method for generate session key */
 #define AJ_METHOD_EXCHANGE_GROUP_KEYS  AJ_BUS_MESSAGE_ID(2, 1, 2)    /**< method for exchange group keys */
 #define AJ_METHOD_AUTH_CHALLENGE       AJ_BUS_MESSAGE_ID(2, 1, 3)    /**< method for auth challenge */
+#define AJ_METHOD_EXCHANGE_SUITES      AJ_BUS_MESSAGE_ID(2, 1, 4)    /**< method for exchange suites*/
+#define AJ_METHOD_KEY_EXCHANGE         AJ_BUS_MESSAGE_ID(2, 1, 5)    /**< method for key exchange*/
+#define AJ_METHOD_KEY_AUTHENTICATION   AJ_BUS_MESSAGE_ID(2, 1, 6)    /**< method for authenticating key exchange*/
 
 /*
  * Members of interface org.freedesktop.DBus.Introspectable
@@ -158,9 +161,10 @@ extern const char AJ_BusDestination[16];
 /*
  * Error message strings
  */
-extern const char AJ_ErrSecurityViolation[35];    /**< Error security violation string */
-extern const char AJ_ErrTimeout[25];              /**< Error timeout string */
-extern const char AJ_ErrRejected[26];             /**< Error rejected string */
+extern const char AJ_ErrSecurityViolation[34];    /**< Error security violation string */
+extern const char AJ_ErrTimeout[24];              /**< Error timeout string */
+extern const char AJ_ErrRejected[25];             /**< Error rejected string */
+extern const char AJ_ErrResources[26];            /**< Error resource string */
 extern const char AJ_ErrServiceUnknown[42];       /**< Error service unknown string */
 
 extern const char AJ_ErrUpdateNotAllowed[35];     /**< Error update not allowed string */

@@ -39,7 +39,6 @@
 AJ_EXPORT uint8_t dbgNETBUSSAMPLE = 0;
 #endif
 
-
 static const char* const testInterface[] = {
     "org.alljoyn.alljoyn_test",
     "?my_ping inStr<s outStr>s",

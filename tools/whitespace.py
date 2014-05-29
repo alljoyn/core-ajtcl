@@ -25,7 +25,7 @@ from subprocess import Popen, STDOUT, PIPE
 
 def main(argv=None):
     start_time = time.clock()
-    dir_ignore = ["stlport", "build", ".git", ".repo", "alljoyn_objc", "win8_apps",]
+    dir_ignore = ["stlport", "build", ".git", ".repo", "alljoyn_objc", "win8_apps", "external"]
     file_ignore_patterns = ['\.#.*', 'alljoyn_java\.h', 'Status\.h', 'Status_CPP0x\.h', 'Internal\.h']
     file_patterns = ['*.c', '*.h', '*.cpp', '*.cc']
     valid_commands = ["check", "detail", "fix", "off"]
