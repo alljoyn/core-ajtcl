@@ -65,6 +65,8 @@ void ram_diag();
 
 // End Memory Diagnostics
 
+#define WORD_ALIGN(x) ((x & 0x3) ? ((x >> 2) + 1) << 2 : x)
+
 #define HOST_IS_LITTLE_ENDIAN  TRUE
 #define HOST_IS_BIG_ENDIAN     FALSE
 
