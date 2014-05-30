@@ -34,7 +34,7 @@
  * (usually in debugger).
  */
 #ifndef NDEBUG
-uint8_t dbgCERTIFICATE = 1;
+uint8_t dbgCERTIFICATE = 0;
 #endif
 
 void U32ToU8(uint32_t* u32, size_t len, uint8_t* u8)
