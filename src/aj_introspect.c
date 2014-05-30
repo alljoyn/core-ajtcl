@@ -494,7 +494,9 @@ static AJ_Status GenXML(XMLWriterFunc XMLWriter, void* context, const AJ_ObjectI
             XMLWriter(context, annotateSecure, 51);
             XMLWriter(context, secureTrue, 8);
         }
-        description = GetDescription(descLookup, (objIter->n - 1) << 24, languageTag);
+        if (objIter != NULL) {
+            description = GetDescription(descLookup, (objIter->n - 1) << 24, languageTag);
+        }
         if (description != NULL) {
             XMLWriteDescription(XMLWriter, context, 0, description, languageTag);
         }
