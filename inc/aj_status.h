@@ -62,13 +62,13 @@ typedef enum {
     AJ_ERR_RANGE        = 33, /**< Value provided was out of range */
     AJ_ERR_ACCESS_ROUTING_NODE = 34, /**< Access defined by routing node */
     AJ_ERR_KEY_EXPIRED  = 35, /**< The key has expired */
+    AJ_ERR_SPI_NO_SPACE = 36, /**< Out of space error */
+    AJ_ERR_SPI_READ     = 37, /**< Read error */
+    AJ_ERR_SPI_WRITE    = 38, /**< Write error */
     /*
      * REMINDER: Update AJ_StatusText in aj_debug.c if adding a new status code.
      */
-    AJ_ERR_SPI_NO_SPACE = 0x100, /**< out of space error */
-    AJ_ERR_SPI_READ = 0x101, /**< out of space error */
-    AJ_ERR_SPI_WRITE = 0x102, /**< out of space error */
-    AJ_STATUS_LAST      = 0x102  /**< The last error status code */
+    AJ_STATUS_LAST      = 38  /**< The last error status code */
 
 } AJ_Status;
 

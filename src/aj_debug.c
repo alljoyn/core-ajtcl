@@ -179,6 +179,9 @@ const char* AJ_StatusText(AJ_Status status)
         AJ_CASE(AJ_ERR_RANGE);
         AJ_CASE(AJ_ERR_ACCESS_ROUTING_NODE);
         AJ_CASE(AJ_ERR_KEY_EXPIRED);
+        AJ_CASE(AJ_ERR_SPI_NO_SPACE);
+        AJ_CASE(AJ_ERR_SPI_READ);
+        AJ_CASE(AJ_ERR_SPI_WRITE);
 
     default:
         return "<unknown>";
