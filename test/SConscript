@@ -31,7 +31,6 @@ if env['TARG'] == 'win32' or env['TARG'] == 'linux' or env['TARG'] == 'linux-uar
     env.Program('certificate', ['certificate.c'] + env['aj_obj'])
     env.Program('base64', ['base64.c'] + env['aj_obj'])
 
-
     if env['TARG'] == 'linux-uart':
         env.Program('timertest', ['timertest.c'] + env['aj_obj'])
         env.Program('semaphoretest', ['semaphoretest.c'] + env['aj_obj'])
@@ -56,4 +55,11 @@ if env['TARG'] == 'win32' or env['TARG'] == 'linux' or env['TARG'] == 'linux-uar
         uartEnv.Program('uarttest1Receiver', ['uarttest1Receiver.o'] + uartEnv['aj_obj'])
         uartEnv.Object('echoReceiver.o', ['echo.c'])
         uartEnv.Program('echoReceiver', ['echoReceiver.o'] + uartEnv['aj_obj'])
+
+if env['AJWSL'] == 'on':
+    env.Program('wsltest', ['WSL/unit_test.c'] + env['aj_obj'])
+    env.Program('bufferlisttest', ['WSL/bufferlisttest.c'] + env['aj_obj'])
+    env.Program('spi_test', ['WSL/spi_test.c'] + env['aj_obj'])
+    env.Program('unmarshal_test', ['WSL/unmarshal_test.c'] + env['aj_obj'])
+
 

@@ -26,12 +26,16 @@ elif platform.system() == 'Windows':
 vars = Variables()
 
 # Common build variables
-vars.Add(EnumVariable('TARG', 'Target platform variant', default_target, allowed_values=('win32', 'linux', 'arduino')))
+vars.Add(EnumVariable('TARG', 'Target platform variant', default_target, allowed_values=('win32', 'linux', 'arduino', 'bsp')))
 vars.Add(EnumVariable('VARIANT', 'Build variant', 'debug', allowed_values=('debug', 'release')))
 vars.Add(PathVariable('GTEST_DIR', 'The path to googletest sources', os.environ.get('GTEST_DIR'), PathVariable.PathIsDir))
 vars.Add(EnumVariable('WS', 'Whitespace Policy Checker', 'check', allowed_values=('check', 'detail', 'fix', 'off')))
 vars.Add(EnumVariable('FORCE32', 'Force building 32 bit on 64 bit architecture', 'false', allowed_values=('false', 'true')))
 vars.Add(EnumVariable('NO_AUTH', 'Compile in authentication mechanism\'s to the code base', 'no', allowed_values=('no', 'yes')))
+vars.Add(EnumVariable('AJWSL', 'Compile driver for the QCA4004 for a specific platform', 'off', allowed_values=('due', 'off')))
+vars.Add(PathVariable('ATMEL_DIR', 'Directory for ATMEL source code', os.environ.get('ATMEL_DIR'), PathVariable.PathIsDir))
+vars.Add(PathVariable('FREE_RTOS_DIR','Directory to FreeRTOS source code', os.environ.get('FREE_RTOS_DIR'), PathVariable.PathIsDir))
+vars.Add(PathVariable('ARM_TOOLCHAIN_DIR', 'Path to the GNU ARM toolchain bin folder', os.environ.get('ARM_TOOLCHAIN_DIR'), PathVariable.PathIsDir))
 
 if default_msvc_version:
     vars.Add(EnumVariable('MSVC_VERSION', 'MSVC compiler version - Windows', default_msvc_version, allowed_values=('8.0', '9.0', '10.0', '11.0', '11.0Exp')))
@@ -54,7 +58,7 @@ for key, value in ARGLIST:
 
 env.Append(CPPDEFINES=cppdefines)
 
-# Define if compiling to use authenticaiton
+# Define if compiling to use authentication
 if env['NO_AUTH'] == 'no':
     auth = ''
 else:
@@ -86,6 +90,11 @@ if env['TARG'] == 'win32':
         env.Append(LINKFLAGS=['/opt:ref'])
         env.Append(LFLAGS=['/NODEFAULTLIB:libcmt.lib'])
         env.Append(LINKFLAGS=['/NODEFAULTLIB:libcmt.lib'])
+    # Include paths
+    env['includes'] = [ os.getcwd() + '/inc', os.getcwd() + '/target/${TARG}']
+    # Target-specific headers and sources
+    env['aj_targ_headers'] = [Glob('target/' + env['TARG'] + '/*.h')]
+    env['aj_targ_srcs'] = [Glob('target/' + env['TARG'] + '/*.c')]
 elif env['TARG'] in [ 'linux' ]:
     if os.environ.has_key('CROSS_PREFIX'):
         env.Replace(CC = os.environ['CROSS_PREFIX'] + 'gcc')
@@ -121,13 +130,143 @@ elif env['TARG'] in [ 'linux' ]:
     if env['FORCE32'] == 'true':
         env.Append(CFLAGS='-m32')
         env.Append(LINKFLAGS='-m32')
+    # Include paths
+    env['includes'] = [ os.getcwd() + '/inc', os.getcwd() + '/target/${TARG}']
+    # Target-specific headers and sources
+    env['aj_targ_headers'] = [Glob('target/' + env['TARG'] + '/*.h')]
+    env['aj_targ_srcs'] = [Glob('target/' + env['TARG'] + '/*.c')]
+
+elif env['TARG'] == 'arduino':
+    # Include paths
+    env['includes'] = [ os.getcwd() + '/inc', os.getcwd() + '/target/${TARG}']
+
+    # Target-specific headers and sources
+    env['aj_targ_headers'] = [Glob('target/' + env['TARG'] + '/*.h')]
+    env['aj_targ_srcs'] = [Glob('target/' + env['TARG'] + '/*.c')]
+
+# Board support package target
+elif env['TARG'] == 'bsp':
+    print "You are building for the bsp target"
+    if env['AJWSL'] == 'off':
+        print "AJWSL must be set to a platform to build for the bsp target"
+        Exit(2)
+    
+    # Set the compiler
+    env.Replace(CC = env.File('${ARM_TOOLCHAIN_DIR}/arm-none-eabi-gcc'))
+    env.Replace(CXX = env.File('${ARM_TOOLCHAIN_DIR}/arm-none-eabi-g++'))
+    env.Replace(LINK = env.File('${ARM_TOOLCHAIN_DIR}/arm-none-eabi-gcc'))
+    env.Replace(AR = env.File('${ARM_TOOLCHAIN_DIR}/arm-none-eabi-ar')) 
+
+    
+    # Override any prefix or suffix's that are specific to the GNU ARM compiler
+    env['CPPDEFPREFIX']     = '-D'
+    env['OBJSUFFIX']        = '.o'
+    env['SHOBJSUFFIX']      = '.os'
+    env['CCCOM']            = '$CC -o $TARGET -c $CFLAGS $CCFLAGS $_CCCOMCOM $SOURCES' 
+    env['INCPREFIX']        = '-I'
+    env['CCFLAGS']          = ''
+    env['PROGSUFFIX']       = '.elf'
+    env['PROGPREFIX']       = ''
+    env['LDMODULEPREFIX']   = ''
+    env['LDMODULESUFFIX']   = ''
+    env['LIBLINKPREFIX']    = ''
+    env['LIBPREFIX']        = ''
+    env['OBJPREFIX']        = ''
+    env['LINKFLAGS']        = '-Xlinker -Map -Xlinker '
+    env['LINKCOM']          = '$LINK -o $TARGET $LINKFLAGS $__RPATH $SOURCES $_LIBDIRFLAGS $_LIBFLAGS'
+    env['LINK']             = '$CC'
+    # This was done because scons creates a link file to feed into the linker
+    # and arm-none-eabi removes '\' when interpreting a linker file. This
+    # prevents scons from creating a link file and just feeding the command line
+    # options directly to the compiler/linker 
+    env['MAXLINELENGTH'] = 10000
+    
+    # Set the compiler flags
+    env['CFLAGS'] = ['-mthumb', '-fdata-sections', '-ffunction-sections', '-mlong-calls',
+                    '-g3', '-Wall', '-mcpu=cortex-m3', '-c', '-pipe', '-fno-strict-aliasing',
+                    '-Wmissing-prototypes', '-Wpointer-arith', '-std=gnu99', '-Wchar-subscripts',
+                    '-Wcomment', '-Wformat=2', '-Wimplicit-int', '-Wmain', '-Wparentheses',
+                    '-Wsequence-point', '-Wreturn-type', '-Wswitch', '-Wtrigraphs', '-Wunused',
+                    '-Wuninitialized', '-Wfloat-equal', '-Wundef', '-Wshadow', '-Wbad-function-cast',
+                    '-Wwrite-strings', '-Wsign-compare', '-Waggregate-return', '-Wmissing-declarations',
+                    '-Wformat', '-Wmissing-format-attribute', '-Wno-deprecated-declarations', 
+                    '-Wpacked', '-Wlong-long', '-Wunreachable-code', '-Wcast-align', '-MD', '-MP']
+    
+    # Add platform independent source files
+    rtos_src = [Glob('RTOS/*.c') + Glob('RTOS/FreeRTOS/*.c') + Glob(env['FREE_RTOS_DIR'] + '/Source/*.c') +
+                [env['FREE_RTOS_DIR'] + '/Source/portable/MemMang/heap_3.c', 
+                 env['FREE_RTOS_DIR'] + '/Source/portable/GCC/ARM_CM3/port.c']]
+    
+    if env['AJWSL'] == 'due':
+        # Add platform dependent sources
+        due_src = [Glob('bsp/due/*.c') + [env['ATMEL_DIR'] + '/common/services/clock/sam3x/sysclk.c',
+                                          env['ATMEL_DIR'] + '/common/services/spi/sam_spi/spi_master.c',
+                                          env['ATMEL_DIR'] + '/common/services/freertos/sam/freertos_peripheral_control.c',
+                                          env['ATMEL_DIR'] + '/common/services/freertos/sam/freertos_usart_serial.c',
+                                          env['ATMEL_DIR'] + '/common/utils/interrupt/interrupt_sam_nvic.c',
+                                          env['ATMEL_DIR'] + '/common/utils/stdio/read.c',
+                                          env['ATMEL_DIR'] + '/common/utils/stdio/write.c',
+                                          env['ATMEL_DIR'] + '/common/drivers/nvm/sam/sam_nvm.c',
+                                          env['ATMEL_DIR'] + '/sam/boards/arduino_due_x/init.c',
+                                          env['ATMEL_DIR'] + '/sam/boards/arduino_due_x/led.c',
+                                          env['ATMEL_DIR'] + '/sam/drivers/pdc/pdc.c',
+                                          env['ATMEL_DIR'] + '/sam/drivers/pio/pio.c',
+                                          env['ATMEL_DIR'] + '/sam/drivers/pio/pio_handler.c',
+                                          env['ATMEL_DIR'] + '/sam/drivers/pmc/pmc.c',
+                                          env['ATMEL_DIR'] + '/sam/drivers/pmc/sleep.c',
+                                          env['ATMEL_DIR'] + '/sam/drivers/uart/uart.c',
+                                          env['ATMEL_DIR'] + '/sam/drivers/usart/usart.c',
+                                          env['ATMEL_DIR'] + '/sam/drivers/spi/spi.c',
+                                          env['ATMEL_DIR'] + '/sam/drivers/efc/efc.c',
+                                          env['ATMEL_DIR'] + '/sam/drivers/tc/tc.c',
+                                          env['ATMEL_DIR'] + '/sam/drivers/trng/trng.c',
+                                          env['ATMEL_DIR'] + '/sam/utils/cmsis/sam3x/source/templates/exceptions.c',
+                                          env['ATMEL_DIR'] + '/sam/utils/cmsis/sam3x/source/templates/system_sam3x.c',
+                                          env['ATMEL_DIR'] + '/sam/utils/cmsis/sam3x/source/templates/gcc/startup_sam3x.c',
+                                          env['ATMEL_DIR'] + '/sam/services/flash_efc/flash_efc.c',
+                                          env['ATMEL_DIR'] + '/sam/utils/syscalls/gcc/syscalls.c']]
         
+        # Add platform dependent linker flags
+        env['LINKFLAGS'] = ['-mthumb', '-Wl,--start-group', '-larm_cortexM3l_math', '-lm',
+                            '-Wl,--end-group', '-L"' + env['ATMEL_DIR'] + '/thirdparty/CMSIS/Lib/GCC"', '-Wl,--gc-sections', '-Wl,-Map,${TARGET.base}.map',
+                            '-mcpu=cortex-m3', '-Wl,--entry=Reset_Handler', '-T' + env['ATMEL_DIR'] + '/sam/utils/linker_scripts/sam3x/sam3x8/gcc/flash.ld']
+        # Add platform dependent defines
+        env.Append(CPPDEFINES = ['__SAM3X8E__', 'ARM_MATH_CM3=true', 'BOARD=ARDUINO_DUE_X', 'printf=iprintf'])
+
+        if env['VARIANT'] == 'release':
+            env.Append(CPPDEFINES = ['NDEBUG'])
+        # Add platform dependent include paths
+        env['CPPPATH'] = [os.getcwd() + '/bsp', os.getcwd() + '/bsp/due', os.getcwd() + '/bsp/due/config',           env['FREE_RTOS_DIR'] + '/Source/include', os.getcwd() + '/RTOS/FreeRTOS',
+                          env['FREE_RTOS_DIR'] + '/Source/portable/GCC/ARM_CM3',  env['ATMEL_DIR'] + '/common/boards',
+                          env['ATMEL_DIR'] + '/common/services/clock',          env['ATMEL_DIR'] + '/common/services/clock/sam3x',
+                          env['ATMEL_DIR'] + '/common/services/gpio',           env['ATMEL_DIR'] + '/common/services/ioport',
+                          env['ATMEL_DIR'] + '/common/services/freertos/sam',   env['ATMEL_DIR'] + '/common/services/serial/sam_uart',
+                          env['ATMEL_DIR'] + '/common/services/serial',         env['ATMEL_DIR'] + '/common/services/spi', 
+                          env['ATMEL_DIR'] + '/common/services/sam_spi',        env['ATMEL_DIR'] + '/common/services/spi/sam_spi/module_config',
+                          env['ATMEL_DIR'] + '/common/utils',                   env['ATMEL_DIR'] + '/common/utils/stdio/stdio_serial',
+                          env['ATMEL_DIR'] + '/common/drivers/nvm',             env['ATMEL_DIR'] + '/common/nvm/sam/module_config',
+                          env['ATMEL_DIR'] + '/sam/boards',                     env['ATMEL_DIR'] + '/sam/boards/arduino_due_x', 
+                          env['ATMEL_DIR'] + '/sam/drivers/pio',                env['ATMEL_DIR'] + '/sam/drivers/pmc', 
+                          env['ATMEL_DIR'] + '/sam/drivers/tc',                 env['ATMEL_DIR'] + '/sam/drivers/trng',
+                          env['ATMEL_DIR'] + '/sam/drivers/pdc',                env['ATMEL_DIR'] + '/sam/drivers/uart', 
+                          env['ATMEL_DIR'] + '/sam/drivers/usart',              env['ATMEL_DIR'] + '/sam/drivers/spi',
+                          env['ATMEL_DIR'] + '/sam/drivers/efc',                env['ATMEL_DIR'] + '/sam/utils', 
+                          env['ATMEL_DIR'] + '/sam/utils/cmsis/sam3x/include',  env['ATMEL_DIR'] + '/sam/utils/cmsis/sam3x/source/templates', 
+                          env['ATMEL_DIR'] + '/sam/utils/cmsis/sam3x/include/component', env['ATMEL_DIR'] + '/sam/utils/header_files', 
+                          env['ATMEL_DIR'] + '/sam/utils/preprocessor',         env['ATMEL_DIR'] + '/sam/services/flash_efc',
+                          env['ATMEL_DIR'] + '/thirdparty/CMSIS/Include',       env['ATMEL_DIR'] + '/thirdparty/CMSIS/Lib/GCC',
+                          env['ATMEL_DIR'] + '/sam/boards/arduino_due_x/board_config', env['ATMEL_DIR'] + '/config',
+                          env['ATMEL_DIR'] + '/common/services/clock/sam3x/module_config', env['ATMEL_DIR'] + '/common/services/clock/sam3x', 
+                          env['ATMEL_DIR'] + '/thirdparty/freertos/freertos-7.3.0/module_config',
+                          os.getcwd() + '/RTOS', os.getcwd() + '/crypto', os.getcwd() + '/crypto/ecc', os.getcwd() + '/external/sha2', os.getcwd() + '/malloc', os.getcwd() + '/inc', os.getcwd() + '/WSL']
+
 # Include paths
 env['includes'] = [ os.getcwd() + '/inc', os.getcwd() + '/target/${TARG}', os.getcwd() + '/crypto/ecc', os.getcwd() + '/external/sha2']
 
 # Target-specific headers and sources
 env['aj_targ_headers'] = [Glob('target/' + env['TARG'] + '/*.h')]
 env['aj_targ_srcs'] = [Glob('target/' + env['TARG'] + '/*.c')]
+
 
 # AllJoyn Thin Client headers and sources (target independent)
 env['aj_headers'] = [Glob('inc/*.h') + Glob('external/*/*.h')]
@@ -136,6 +275,7 @@ env['aj_sw_crypto'] = [Glob('crypto/*.c')]
 env['aj_malloc'] = [Glob('malloc/*.c')]
 env['aj_crypto_ecc'] = [Glob('crypto/ecc/*.c')]
 env['aj_external_sha2'] = [Glob('external/sha2/*.c')]
+wsl = [Glob('WSL/*.c')]
 
 # Set-up the environment for Win/Linux
 if env['TARG'] in [ 'win32', 'linux' ]:
@@ -165,6 +305,21 @@ elif env['TARG'] in [ 'linux' ]:
     env.StaticLibrary('ajtcl', env['aj_obj'])
     env.SharedLibrary('ajtcl', env['aj_shobj'])
 
+if env['AJWSL'] == 'due':
+    env['aj_obj'] = env.Object(env['aj_srcs'] + env['aj_sw_crypto'] + env['aj_malloc'] + env['aj_crypto_ecc'] + env['aj_external_sha2'])
+    env['aj_obj'] += env.Object(wsl)
+    env['aj_obj'] += env.Object(due_src)
+    env['aj_obj'] += env.Object(rtos_src)
+
+    # Build standard ajtcl test programs
+    env.Program('test/svclite', ['test/svclite.c'] + env['aj_obj'])
+    env.Program('test/clientlite', ['test/clientlite.c'] + env['aj_obj'])
+    env.Program('test/siglite', ['test/siglite.c'] + env['aj_obj'])
+    env.Program('test/nvramtest', ['test/nvramtest.c'] + env['aj_obj'])
+    env.Program('test/sessionslite', ['test/sessionslite.c'] + env['aj_obj'])
+    # Build the WSL test programs
+    env.Program('test/WSL/initial_bring_up', ['test/WSL/initial_bring_up.c'] + env['aj_obj'])
+    
 Export('env')
 
 if env['WS'] != 'off' and not env.GetOption('clean') and not env.GetOption('help'):

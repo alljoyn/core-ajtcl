@@ -64,7 +64,7 @@
  * begin logging debug messages to the device console formatted as:
  *
  * @code
- *     seconds.milliseconds filename:line-number messsage
+ *     seconds.milliseconds filename:line-number message
  * @endcode
  *
  * If you find the logging from all modules to be too verbose, you can enable
@@ -190,21 +190,21 @@ void _AJ_DumpMsg(const char* tag, AJ_Message* msg, uint8_t body);
  * Dump raw (byte) data in a convenient format.
  *
  * @param tag       tag name of message
- * @param data      start addres to dump
+ * @param data      start address to dump
  * @param len       length to dump
  */
 void _AJ_DumpBytes(const char* tag, const uint8_t* data, uint32_t len);
 
 /*
- * Threshold level for debug ouput.  When used with AJ_DbgLevel the setting
+ * Threshold level for debug output.  When used with AJ_DbgLevel the setting
  * controls which debug messages are actually printed.  These values are also
  * used in the AJ_DEBUG_RESTRICT mechanism to control which log messages are
  * actually compiled into the code.
  */
-#define AJ_DEBUG_OFF   0  /**< Supresses all debug output */
+#define AJ_DEBUG_OFF   0  /**< Suppresses all debug output */
 #define AJ_DEBUG_ERROR 1  /**< Indicates a log message conveying an error condition */
 #define AJ_DEBUG_WARN  2  /**< Indicates a log message corresponding to a warning */
-#define AJ_DEBUG_INFO  3  /**< Incicates a log message with general information */
+#define AJ_DEBUG_INFO  3  /**< Indicates a log message with general information */
 #define AJ_DEBUG_DUMP  4  /**< Indicates a message with a detailed, possibly byte-by-byte dump */
 #define AJ_DEBUG_ALL   5  /**< A placeholder level above other levels */
 
@@ -215,20 +215,20 @@ void _AJ_DumpBytes(const char* tag, const uint8_t* data, uint32_t len);
 typedef uint32_t AJ_DebugLevel;
 
 /**
- * We allow the verbosity of debug output to be controlled programatically using
+ * We allow the verbosity of debug output to be controlled programmatically using
  * predefined AJ_DEBUG_* threshold levels.  The macro AJ_DEBUG_RESTRICT is used
  * in the sense of restricting (not compiling in) messages with verbosity levels
  * greater than the given level.
  *
  * By default, all messages of all verbosity at info level and above are not
- * compiled into the code (by definining AJ_DEBUG_RESTRICT to be AJ_DEBUG_WARN).
+ * compiled into the code (by defining AJ_DEBUG_RESTRICT to be AJ_DEBUG_WARN).
  */
 #ifndef AJ_DEBUG_RESTRICT
 #define AJ_DEBUG_RESTRICT AJ_DEBUG_WARN
 #endif
 
 /**
- * Set this value to control the debug ouput threshold level. The default is AJ_DEBUG_ERROR
+ * Set this value to control the debug output threshold level. The default is AJ_DEBUG_ERROR
  */
 AJ_EXPORT extern AJ_DebugLevel AJ_DbgLevel;
 AJ_EXPORT extern uint8_t dbgALL;
@@ -253,7 +253,7 @@ int _AJ_DbgHeader(AJ_DebugLevel level, const char* file, int line);
 
 #if AJ_DEBUG_RESTRICT >= AJ_DEBUG_ERROR
 /**
- * Print an error message.  Error messages may be supressed by AJ_DEBUG_RESTRICT
+ * Print an error message.  Error messages may be suppressed by AJ_DEBUG_RESTRICT
  *
  * @param msg  A format string and arguments
  */

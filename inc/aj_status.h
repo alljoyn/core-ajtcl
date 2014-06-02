@@ -65,7 +65,11 @@ typedef enum {
     /*
      * REMINDER: Update AJ_StatusText in aj_debug.c if adding a new status code.
      */
-    AJ_STATUS_LAST      = 35  /**< The last error status code */
+    AJ_ERR_SPI_NO_SPACE = 0x100, /**< out of space error */
+    AJ_ERR_SPI_READ = 0x101, /**< out of space error */
+    AJ_ERR_SPI_WRITE = 0x102, /**< out of space error */
+    AJ_STATUS_LAST      = 0x102  /**< The last error status code */
+
 } AJ_Status;
 
 /**

@@ -140,7 +140,7 @@ void Do_Connect()
         connected = TRUE;
         AJ_InfoPrintf(("AllJoyn service connected to bus\n"));
         AJ_InfoPrintf(("Connected to Daemon:%s\n", AJ_GetUniqueName(&bus)));
-        AJ_BusSetSignalRule2(&bus, "NameOwnerChanged", "org.freedesktop.DBus", AJ_BUS_SIGNAL_ALLOW);
+        AJ_BusSetSignalRule(&bus, "type='signal',member='NameOwnerChanged',interface='org.freedesktop.DBus'", AJ_BUS_SIGNAL_ALLOW);
     }
 }
 /*
@@ -321,7 +321,7 @@ int AJ_Main()
                     opts.transports = 0xFFFF;
                 }
 
-                status = AJ_StartService2(&bus, NULL, CONNECT_TIMEOUT, TRUE, port, name, AJ_NAME_REQ_DO_NOT_QUEUE, &opts);
+                status = AJ_StartService(&bus, NULL, CONNECT_TIMEOUT, TRUE, port, name, AJ_NAME_REQ_DO_NOT_QUEUE, &opts);
             } else if (0 == strcmp("find", command)) {
                 char* namePrefix = aj_strtok(NULL, " \r\n");
                 if (!namePrefix) {
@@ -386,7 +386,7 @@ int AJ_Main()
                 if (token) {
                     transport = (uint16_t)atoi(token);
                 }
-                status = AJ_BusAdvertiseName(&bus, name, transport, AJ_BUS_START_ADVERTISING);
+                status = AJ_BusAdvertiseName(&bus, name, transport, AJ_BUS_START_ADVERTISING, 0);
             } else if (0 == strcmp("canceladvertise", command)) {
                 uint16_t transport = 0xFFFF;
                 char* token = NULL;
@@ -400,7 +400,7 @@ int AJ_Main()
                 if (token) {
                     transport = (uint16_t)atoi(token);
                 }
-                status = AJ_BusAdvertiseName(&bus, name, transport, AJ_BUS_STOP_ADVERTISING);
+                status = AJ_BusAdvertiseName(&bus, name, transport, AJ_BUS_STOP_ADVERTISING, 0);
             } else if (0 == strcmp("bind", command)) {
                 AJ_SessionOpts opts;
                 uint16_t port = 0;
@@ -440,7 +440,7 @@ int AJ_Main()
                     opts.transports = 0xFFFF;
                 }
 
-                status = AJ_BusBindSessionPort(&bus, port, &opts);
+                status = AJ_BusBindSessionPort(&bus, port, &opts, 0);
             } else if (0 == strcmp("unbind", command)) {
                 uint16_t port = 0;
                 char* token = aj_strtok(NULL, " \r\n");
