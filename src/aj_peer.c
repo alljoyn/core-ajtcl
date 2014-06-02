@@ -45,7 +45,7 @@
  * (usually in debugger).
  */
 #ifndef NDEBUG
-uint8_t dbgPEER = 1;
+uint8_t dbgPEER = 0;
 #endif
 
 /*

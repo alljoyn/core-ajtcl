@@ -36,7 +36,7 @@
  * (usually in debugger).
  */
 #ifndef NDEBUG
-uint8_t dbgCREDS = 1;
+uint8_t dbgCREDS = 0;
 #endif
 
 static AJ_Status FreeCredentialContent(AJ_PeerCred* cred)

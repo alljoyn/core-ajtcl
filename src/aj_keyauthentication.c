@@ -36,7 +36,7 @@
  * (usually in debugger).
  */
 #ifndef NDEBUG
-uint8_t dbgKEYAUTHENTICATION = 1;
+uint8_t dbgKEYAUTHENTICATION = 0;
 #endif
 
 static AJ_Status ComputeVerifier(const char* label, uint8_t* buffer, size_t bufferlen);

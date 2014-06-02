@@ -34,7 +34,7 @@
  * (usually in debugger).
  */
 #ifndef NDEBUG
-uint8_t dbgKEYEXCHANGE = 1;
+uint8_t dbgKEYEXCHANGE = 0;
 #endif
 
 static AJ_Status ECDHE_Init(AJ_SHA256_Context* hash);
