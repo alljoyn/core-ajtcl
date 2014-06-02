@@ -7,7 +7,7 @@
  * @file
  */
 /******************************************************************************
- * Copyright (c) 2012-2013, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2012-2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -175,7 +175,7 @@ AJ_Status AJ_StartService(AJ_BusAttachment* bus,
  * @param connected      Whether the bus attachment is already connected to the daemon bus
  * @param name           The name of the service to connect to.
  * @param port           The service port to connect to.
- * @param[out] sessionId The session id returned if the service connection was succesfully
+ * @param[out] sessionId The session id returned if the connection was successful
  * @param opts           The session option setting.
  *
  * @return AJ_OK if connection was successfully established
@@ -189,6 +189,30 @@ AJ_Status AJ_StartClient(AJ_BusAttachment* bus,
                          uint16_t port,
                          uint32_t* sessionId,
                          const AJ_SessionOpts* opts);
+
+/**
+ * Initialize an AllJoyn client, discover service by interface name, and connect.
+ *
+ * @param bus            The bus attachment
+ * @param daemonName     Name of a specific daemon service to connect to, NULL for the default name.
+ * @param timeout        How long to spend attempting to find a remote service to connect to.
+ * @param connected      Whether the bus attachment is already connected to the daemon bus
+ * @param interfaces     Find service that implements these interface(s)
+ * @param[out] sessionId The session id if the connection was successful
+ * @param[out] serviceName The service name if the connection was successful (supply array of size AJ_MAX_NAME_SIZE+1)
+ * @param opts           The session option setting.
+ *
+ * @return AJ_OK if connection was successfully established
+ */
+AJ_EXPORT
+AJ_Status AJ_StartClientByInterface(AJ_BusAttachment* bus,
+                                    const char* daemonName,
+                                    uint32_t timeout,
+                                    uint8_t connected,
+                                    const char** interfaces,
+                                    uint32_t* sessionId,
+                                    char* serviceName,
+                                    const AJ_SessionOpts* opts);
 
 /**
  * @}

@@ -360,29 +360,39 @@ AJ_Status AJ_StartService(AJ_BusAttachment* bus,
     return status;
 }
 
-AJ_Status AJ_StartClient(AJ_BusAttachment* bus,
-                         const char* daemonName,
-                         uint32_t timeout,
-                         uint8_t connected,
-                         const char* name,
-                         uint16_t port,
-                         uint32_t* sessionId,
-                         const AJ_SessionOpts* opts)
+static
+AJ_Status StartClient(AJ_BusAttachment* bus,
+                      const char* daemonName,
+                      uint32_t timeout,
+                      uint8_t connected,
+                      const char* name,
+                      uint16_t port,
+                      const char** interfaces,
+                      uint32_t* sessionId,
+                      char* serviceName,
+                      const AJ_SessionOpts* opts)
 {
     AJ_Status status = AJ_OK;
     AJ_Time timer;
-    uint8_t foundName = FALSE;
+    uint8_t found = FALSE;
     uint8_t clientStarted = FALSE;
     uint32_t elapsed = 0;
+    char* rule;
+    const char* base = "interface='org.alljoyn.About',sessionless='t'";
+    const char* impl = ",implements='";
 
-    AJ_InfoPrintf(("AJ_StartClient(bus=0x%p, daemonName=\"%s\", timeout=%d., connected=%d., name=\"%s\", port=%d., sessionId=0x%p, opts=0x%p)\n",
-                   bus, daemonName, timeout, connected, name, port, sessionId, opts));
+    AJ_InfoPrintf(("AJ_StartClient(bus=0x%p, daemonName=\"%s\", timeout=%d., connected=%d., interface=\"%p\", sessionId=0x%p, serviceName=0x%p, opts=0x%p)\n",
+                   bus, daemonName, timeout, connected, interfaces, sessionId, serviceName, opts));
 
     AJ_InitTimer(&timer);
 
+    if ((name == NULL && interfaces == NULL) ||
+        (name != NULL && interfaces != NULL)) {
+        return AJ_ERR_INVALID;
+    }
+
     while (elapsed < timeout) {
         if (!connected) {
-            AJ_InfoPrintf(("AJ_StartClient(): AJ_FindBusAndConnect()\n"));
             status = AJ_FindBusAndConnect(bus, daemonName, AJ_CONNECT_TIMEOUT);
             elapsed = AJ_GetElapsedTime(&timer, TRUE);
             if (status != AJ_OK) {
@@ -390,38 +400,60 @@ AJ_Status AJ_StartClient(AJ_BusAttachment* bus,
                 if (elapsed > timeout) {
                     break;
                 }
-                AJ_WarnPrintf(("Failed to connect to bus sleeping for %d seconds\n", AJ_CONNECT_PAUSE / 1000));
+                AJ_WarnPrintf(("AJ_StartClient(): Failed to connect to bus, sleeping for %d seconds\n", AJ_CONNECT_PAUSE / 1000));
                 AJ_Sleep(AJ_CONNECT_PAUSE);
                 continue;
             }
-            AJ_InfoPrintf(("AllJoyn client connected to bus\n"));
+            AJ_InfoPrintf(("AJ_StartClient(): AllJoyn client connected to bus\n"));
         }
-        /*
-         * Kick things off by finding the service names
-         */
-        AJ_InfoPrintf(("AJ_StartClient(): AJ_BusFindAdvertisedName()\n"));
-        status = AJ_BusFindAdvertisedName(bus, name, AJ_BUS_START_FINDING);
+        if (name != NULL) {
+            /*
+             * Kick things off by finding the service names
+             */
+            AJ_InfoPrintf(("AJ_StartClient(): AJ_BusFindAdvertisedName()\n"));
+            status = AJ_BusFindAdvertisedName(bus, name, AJ_BUS_START_FINDING);
+        } else {
+            /*
+             * Kick things off by finding all services that implement the interface
+             */
+            rule = (char*) AJ_Malloc(strlen(base) + 1);
+            strcpy(rule, base);
+            while (*interfaces != NULL) {
+                rule = (char*) AJ_Realloc(rule, strlen(rule) + strlen(impl) + strlen(*interfaces) + 1 + 1);
+                strcat(rule, impl);
+                strcat(rule, *interfaces);
+                strcat(rule, "'");
+                interfaces++;
+            }
+            status = AJ_BusSetSignalRule(bus, rule, AJ_BUS_SIGNAL_ALLOW);
+            AJ_InfoPrintf(("AJ_StartClient(): Client SetSignalRule: %s\n", rule));
+            AJ_Free(rule);
+        }
         if (status == AJ_OK) {
             break;
         }
         if (!connected) {
-            AJ_WarnPrintf(("AjStartClient2(): AJ_Disconnect(): status=%s.\n", AJ_StatusText(status)));
+            AJ_WarnPrintf(("AJ_StartClient(): Client disconnecting from bus: status=%s.\n", AJ_StatusText(status)));
             AJ_Disconnect(bus);
         }
     }
     if (elapsed > timeout) {
+        AJ_WarnPrintf(("AJ_StartClient(): Client timed-out trying to connect to bus: status=%s.\n", AJ_StatusText(status)));
         return AJ_ERR_TIMEOUT;
     }
     timeout -= elapsed;
 
     *sessionId = 0;
+    if (serviceName != NULL) {
+        *serviceName = '\0';
+    }
 
     while (!clientStarted && (status == AJ_OK)) {
         AJ_Message msg;
         status = AJ_UnmarshalMsg(bus, &msg, AJ_UNMARSHAL_TIMEOUT);
-        if ((status == AJ_ERR_TIMEOUT) && !foundName) {
+        if ((status == AJ_ERR_TIMEOUT) && !found) {
             /*
-             * Timeouts are expected until we find a name
+             * Timeouts are expected until we find a name or service
              */
             if (timeout < AJ_UNMARSHAL_TIMEOUT) {
                 return status;
@@ -451,14 +483,30 @@ AJ_Status AJ_StartClient(AJ_BusAttachment* bus,
             }
             break;
 
-
         case AJ_SIGNAL_FOUND_ADV_NAME:
             {
                 AJ_Arg arg;
                 AJ_UnmarshalArg(&msg, &arg);
                 AJ_InfoPrintf(("FoundAdvertisedName(%s)\n", arg.val.v_string));
-                foundName = TRUE;
+                found = TRUE;
                 status = AJ_BusJoinSession(bus, arg.val.v_string, port, opts);
+            }
+            break;
+
+        case AJ_SIGNAL_ABOUT_ANNOUNCE:
+            {
+                uint16_t version, port;
+                AJ_InfoPrintf(("AJ_StartClient(): AboutAnnounce from (%s)\n", msg.sender));
+                if (!found) {
+                    found = TRUE;
+                    AJ_UnmarshalArgs(&msg, "qq", &version, &port);
+                    status = AJ_BusJoinSession(bus, msg.sender, port, opts);
+                    strncpy(serviceName, msg.sender, AJ_MAX_NAME_SIZE);
+                    serviceName[AJ_MAX_NAME_SIZE] = '\0';
+                    if (status != AJ_OK) {
+                        AJ_ErrPrintf(("AJ_StartClient(): BusJoinSession failed (%s)\n", AJ_StatusText(status)));
+                    }
+                }
             }
             break;
 
@@ -474,7 +522,7 @@ AJ_Status AJ_StartClient(AJ_BusAttachment* bus,
                     if (replyCode == AJ_JOINSESSION_REPLY_SUCCESS) {
                         clientStarted = TRUE;
                     } else {
-                        AJ_ErrPrintf(("AJ_StartClient(): AJ_ERR_FAILURE\n"));
+                        AJ_ErrPrintf(("AJ_StartClient(): AJ_METHOD_JOIN_SESSION reply (%d)\n", replyCode));
                         status = AJ_ERR_FAILURE;
                     }
                 }
@@ -505,9 +553,32 @@ AJ_Status AJ_StartClient(AJ_BusAttachment* bus,
         AJ_CloseMsg(&msg);
     }
     if (status != AJ_OK) {
-        AJ_WarnPrintf(("AJ_StartClient(): AJ_Disconnect(): status=%s\n", AJ_StatusText(status)));
+        AJ_WarnPrintf(("AJ_StartClient(): Client disconnecting from bus: status=%s\n", AJ_StatusText(status)));
         AJ_Disconnect(bus);
     }
     return status;
 }
 
+AJ_Status AJ_StartClient(AJ_BusAttachment* bus,
+                         const char* daemonName,
+                         uint32_t timeout,
+                         uint8_t connected,
+                         const char* name,
+                         uint16_t port,
+                         uint32_t* sessionId,
+                         const AJ_SessionOpts* opts)
+{
+    return StartClient(bus, daemonName, timeout, connected, name, port, NULL, sessionId, NULL, opts);
+}
+
+AJ_Status AJ_StartClientByInterface(AJ_BusAttachment* bus,
+                                    const char* daemonName,
+                                    uint32_t timeout,
+                                    uint8_t connected,
+                                    const char** interfaces,
+                                    uint32_t* sessionId,
+                                    char* serviceName,
+                                    const AJ_SessionOpts* opts)
+{
+    return StartClient(bus, daemonName, timeout, connected, NULL, 0, interfaces, sessionId, serviceName, opts);
+}

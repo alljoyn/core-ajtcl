@@ -401,6 +401,23 @@ AJ_Status AJ_BusRemoveSessionMember(AJ_BusAttachment* bus, uint32_t sessionId, c
 
 }
 
+AJ_Status AJ_BusPing(AJ_BusAttachment* bus, const char* name, uint32_t timeout)
+{
+    AJ_Status status;
+    AJ_Message msg;
+
+    AJ_InfoPrintf(("AJ_BusPing(bus=0x%p, name=%s, timeout=%d)\n", bus, name, timeout));
+    status = AJ_MarshalMethodCall(bus, &msg, AJ_METHOD_BUS_PING, AJ_BusDestination, 0, 0, AJ_METHOD_TIMEOUT);
+    if (status == AJ_OK) {
+        AJ_MarshalArgs(&msg, "su", name, timeout);
+    }
+    if (status == AJ_OK) {
+        status = AJ_DeliverMsg(&msg);
+    }
+    return status;
+
+}
+
 AJ_Status AJ_BusHandleBusMessage(AJ_Message* msg)
 {
     AJ_Status status = AJ_OK;
