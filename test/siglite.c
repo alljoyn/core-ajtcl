@@ -20,11 +20,21 @@
 
 #include <aj_target.h>
 #include <alljoyn.h>
+#include "aj_config.h"
 
-static const char ServiceName[] = "org.alljoyn.svclite";
-static const uint16_t ServicePort = 24;
+static const char testInterfaceName[] = "org.alljoyn.alljoyn_test";
+
+#ifndef NGNS
+static const char testServiceName[] = "org.alljoyn.svclite";
+static const uint16_t testServicePort = 24;
+#else
+static const char* testInterfaceNames[] = {
+    testInterfaceName,
+    NULL
+};
+static char testServiceName[AJ_MAX_NAME_SIZE + 1];
+#endif
 static const uint32_t NumPings = 10;
-
 
 /*
  * The app should authenticate the peer if one or more interfaces are secure
@@ -33,7 +43,7 @@ static const uint32_t NumPings = 10;
 static uint8_t authPeer = FALSE;
 
 static const char* const testInterface[] = {
-    "org.alljoyn.alljoyn_test",
+    testInterfaceName,
     "?my_ping inStr<s outStr>s",
     "?delayed_ping inStr<s delay<u outStr>s",
     "?time_ping <u <q >u >q",
@@ -61,7 +71,7 @@ static const AJ_Object ProxyObjects[] = {
 #define PRX_TIME_PING       AJ_PRX_MESSAGE_ID(0, 0, 2)
 #define PRX_MY_SIGNAL       AJ_PRX_MESSAGE_ID(0, 0, 3)
 
-static AJ_Status SendSignal(AJ_BusAttachment* bus, uint32_t sessionId);
+static AJ_Status SendSignal(AJ_BusAttachment* bus, uint32_t sessionId, const char* serviceName);
 
 /*
  * Let the application do some work
@@ -69,14 +79,14 @@ static AJ_Status SendSignal(AJ_BusAttachment* bus, uint32_t sessionId);
 
 #define PINGS_PER_CALL 10
 
-static AJ_Status AppDoWork(AJ_BusAttachment* bus, uint32_t sessionId)
+static AJ_Status AppDoWork(AJ_BusAttachment* bus, uint32_t sessionId, const char* serviceName)
 {
     static uint32_t pings_sent = 0;
     uint32_t pings = 0;
     AJ_Status status = AJ_OK;
 
     while (pings_sent < NumPings && pings++ < PINGS_PER_CALL && status == AJ_OK) {
-        status = SendSignal(bus, sessionId);
+        status = SendSignal(bus, sessionId, serviceName);
         ++pings_sent;
     }
 
@@ -96,13 +106,13 @@ static uint32_t PasswordCallback(uint8_t* buffer, uint32_t bufLen)
 #define METHOD_TIMEOUT     (100 * 10)
 
 
-static AJ_Status SendSignal(AJ_BusAttachment* bus, uint32_t sessionId)
+static AJ_Status SendSignal(AJ_BusAttachment* bus, uint32_t sessionId, const char* serviceName)
 {
     AJ_Status status;
     AJ_Message msg;
 
 
-    status = AJ_MarshalSignal(bus, &msg, PRX_MY_SIGNAL, ServiceName, sessionId, 0, 0);
+    status = AJ_MarshalSignal(bus, &msg, PRX_MY_SIGNAL, serviceName, sessionId, 0, 0);
     if (status == AJ_OK) {
         AJ_Arg arg;
         status = AJ_MarshalContainer(&msg, &arg, AJ_ARG_ARRAY);
@@ -140,14 +150,18 @@ int AJ_Main(void)
         AJ_Message msg;
 
         if (!connected) {
-            status = AJ_StartClient(&bus, NULL, CONNECT_TIMEOUT, FALSE, ServiceName, ServicePort, &sessionId, NULL);
+#ifndef NGNS
+            status = AJ_StartClient(&bus, NULL, CONNECT_TIMEOUT, FALSE, testServiceName, testServicePort, &sessionId, NULL);
+#else
+            status = AJ_StartClientByInterface(&bus, NULL, CONNECT_TIMEOUT, FALSE, testInterfaceNames, &sessionId, testServiceName, NULL);
+#endif
             if (status == AJ_OK) {
-                AJ_Printf("StartClient returned %d, sessionId=%u\n", status, sessionId);
+                AJ_Printf("StartClient returned %d, sessionId=%u, serviceName=%s\n", status, sessionId, testServiceName);
                 AJ_Printf("Connected to Daemon:%s\n", AJ_GetUniqueName(&bus));
                 connected = TRUE;
                 if (authPeer) {
                     AJ_BusSetPasswordCallback(&bus, PasswordCallback);
-                    status = AJ_BusAuthenticatePeer(&bus, ServiceName, AuthCallback, &authStatus);
+                    status = AJ_BusAuthenticatePeer(&bus, testServiceName, AuthCallback, &authStatus);
                     if (status != AJ_OK) {
                         AJ_Printf("AJ_BusAuthenticatePeer returned %d\n", status);
                     }
@@ -170,7 +184,7 @@ int AJ_Main(void)
 
         status = AJ_UnmarshalMsg(&bus, &msg, UNMARSHAL_TIMEOUT);
         if (status == AJ_ERR_TIMEOUT) {
-            status = AppDoWork(&bus, sessionId);
+            status = AppDoWork(&bus, sessionId, testServiceName);
             continue;
         }
 

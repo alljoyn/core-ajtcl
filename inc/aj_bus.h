@@ -6,7 +6,7 @@
  * @{
  */
 /******************************************************************************
- * Copyright (c) 2012-2013, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2012-2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -360,6 +360,24 @@ AJ_Status AJ_BusSetLinkTimeout(AJ_BusAttachment* bus, uint32_t sessionId, uint32
  */
 AJ_EXPORT
 AJ_Status AJ_BusRemoveSessionMember(AJ_BusAttachment* bus, uint32_t sessionId, const char* member);
+/*
+ * Is the bus name reachable?
+ *
+ * @param bus           The bus attachment
+ * @param name          The unique or well-known name of the object to ping
+ * @param timeout       Timeout (in milliseconds) to wait for a reply
+ *
+ * @return  Return AJ_Status
+ *          - AJ_OK if ping was sent
+ *          - An error status otherwise
+ */
+AJ_EXPORT
+AJ_Status AJ_BusPing(AJ_BusAttachment* bus, const char* name, uint32_t timeout);
+
+#define AJ_PING_SUCCESS                    1   /**< Ping reply: Success */
+#define AJ_PING_FAILED                     2   /**< Ping reply: Failed */
+#define AJ_PING_TIMEOUT                    3   /**< Ping reply: Timed out */
+
 /**
  * Invoke a built-in handler for standard bus messages. Signals passed to this function that are
  * not bus messages are silently ignored. Method calls passed to this function that are not

@@ -69,6 +69,7 @@
 #define AJ_METHOD_SET_LINK_TIMEOUT              AJ_BUS_MESSAGE_ID(1, 0, 15)   /**< method for setting the link timeout for a session */
 #define AJ_METHOD_REMOVE_SESSION_MEMBER         AJ_BUS_MESSAGE_ID(1, 0, 16)   /**< method for removing a member in a session */
 #define AJ_SIGNAL_SESSION_LOST_WITH_REASON      AJ_BUS_MESSAGE_ID(1, 0, 17)   /**< signal for session lost with a reason */
+#define AJ_METHOD_BUS_PING                      AJ_BUS_MESSAGE_ID(1, 0, 18)   /**< method for ping */
 
 /*
  * Members of /org/alljoyn/Bus/Peer interface org.alljoyn.Bus.Peer.Session
