@@ -289,21 +289,14 @@ if env['TARG'] in [ 'win32', 'linux' ]:
     env.Append(CPPDEFINES = ['AJ_MAIN', auth])
 
     # Produce shared libraries for these platforms
-    srcs = env['aj_srcs'] + env['aj_targ_srcs']
+    srcs = env['aj_srcs'] + env['aj_targ_srcs'] + env['aj_crypto_ecc'] + env['aj_malloc'] + env['aj_external_sha2']
     if env['TARG'] == 'win32':
-        srcs += env['aj_sw_crypto'] + env['aj_crypto_ecc'] + env['aj_malloc'] + env['aj_external_sha2']
+        srcs += env['aj_sw_crypto']
 
     env.SharedLibrary('ajtcl', srcs)
     env.StaticLibrary('ajtcl_st', srcs)
-
-# Build objects for the target-specific sources and AllJoyn Thin Client sources
-if env['TARG'] == 'win32':
-    env['aj_obj'] = env.Object(env['aj_srcs'] + env['aj_targ_srcs'] + env['aj_sw_crypto'] + env['aj_malloc'] + env['aj_crypto_ecc'] + env['aj_external_sha2'])
-elif env['TARG'] in [ 'linux' ]:
-    env['aj_obj'] = env.StaticObject(env['aj_srcs'] + env['aj_targ_srcs'] + env['aj_crypto_ecc'] + env['aj_external_sha2'])
-    env['aj_shobj'] = env.SharedObject(env['aj_srcs'] + env['aj_targ_srcs'])
-    env.StaticLibrary('ajtcl', env['aj_obj'])
-    env.SharedLibrary('ajtcl', env['aj_shobj'])
+    env['aj_obj'] = env.StaticObject(srcs)
+    env['aj_shobj'] = env.SharedObject(srcs)
 
 if env['AJWSL'] == 'due':
     env['aj_obj'] = env.Object(env['aj_srcs'] + env['aj_sw_crypto'] + env['aj_malloc'] + env['aj_crypto_ecc'] + env['aj_external_sha2'])
