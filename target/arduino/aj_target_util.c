@@ -110,7 +110,7 @@ uint8_t dbgTARGET_CRYPTO = 0;
 uint8_t dbgTARGET_NVRAM = 0;
 uint8_t dbgTARGET_UTIL = 0;
 
-int _AJ_DbgEnabled(char* module)
+int _AJ_DbgEnabled(const char* module)
 {
     return FALSE;
 }

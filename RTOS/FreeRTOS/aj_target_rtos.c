@@ -415,7 +415,7 @@ void vApplicationStackOverflowHook(xTaskHandle pxTask, signed char*pcTaskName)
  * This is not intended, nor required to be particularly efficient.  If you want
  * efficiency, turn of debugging.
  */
-int _AJ_DbgEnabled(char* module)
+int _AJ_DbgEnabled(const char* module)
 {
     char buffer[128];
     char* env;
