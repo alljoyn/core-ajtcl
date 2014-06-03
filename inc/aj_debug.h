@@ -233,7 +233,7 @@ typedef uint32_t AJ_DebugLevel;
 AJ_EXPORT extern AJ_DebugLevel AJ_DbgLevel;
 AJ_EXPORT extern uint8_t dbgALL;
 
-extern int _AJ_DbgEnabled(char* module);
+extern int _AJ_DbgEnabled(const char* module);
 
 /**
  * Internal debug printf function. Don't call this directly, use the AJ_*Printf() macros.
