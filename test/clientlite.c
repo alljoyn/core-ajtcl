@@ -91,15 +91,23 @@ static const AJ_InterfaceDescription testInterfaces[] = {
     NULL
 };
 
-static const char testObj[] = "/org/alljoyn/alljoyn_test";
+static char testObj[] = "/org/alljoyn/alljoyn_test";
 
 /**
  * Objects implemented by the application
  */
+
+#ifdef SECURE_OBJECT
+static AJ_Object ProxyObjects[] = {
+    { NULL, testInterfaces, AJ_OBJ_FLAG_SECURE },   /* Object path will be specified later */
+    { NULL }
+};
+#else
 static AJ_Object ProxyObjects[] = {
     { NULL, testInterfaces },    /* Object path will be specified later */
     { NULL }
 };
+#endif
 
 #define PRX_GET_PROP  AJ_PRX_MESSAGE_ID(0, 0, AJ_PROP_GET)
 #define PRX_SET_PROP  AJ_PRX_MESSAGE_ID(0, 0, AJ_PROP_SET)
@@ -134,7 +142,7 @@ static void AppDoWork(AJ_BusAttachment* bus, uint32_t sessionId, const char* ser
 
 static const char PWD[] = "123456";
 
-#ifdef SECURE_INTERFACE
+#if defined(SECURE_INTERFACE) || defined(SECURE_OBJECT)
 static uint32_t PasswordCallback(uint8_t* buffer, uint32_t bufLen)
 {
     memcpy(buffer, PWD, sizeof(PWD));
@@ -315,10 +323,12 @@ AJ_Status SendSetProp(AJ_BusAttachment* bus, uint32_t sessionId, const char* ser
     return status;
 }
 
+#if defined(SECURE_INTERFACE) || defined(SECURE_OBJECT)
 void AuthCallback(const void* context, AJ_Status status)
 {
     *((AJ_Status*)context) = status;
 }
+#endif
 
 static AJ_Status StoreIssuer()
 {
@@ -366,7 +376,7 @@ int AJ_Main()
     uint8_t enablepwd = FALSE;
 
 #ifdef MAIN_ALLOWS_ARGS
-#ifdef SECURE_INTERFACE
+#if defined(SECURE_INTERFACE) || defined(SECURE_OBJECT)
     ac--;
     av++;
     /*

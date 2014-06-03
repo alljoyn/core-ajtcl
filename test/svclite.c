@@ -98,7 +98,7 @@ static const AJ_InterfaceDescription testInterfaces[] = {
     NULL
 };
 
-static const AJ_Object AppObjects[] = {
+static AJ_Object AppObjects[] = {
     { "/org/alljoyn/alljoyn_test", testInterfaces, AJ_OBJ_FLAG_ANNOUNCED },
     { NULL }
 };
@@ -137,6 +137,7 @@ static uint32_t PasswordCallback(uint8_t* buffer, uint32_t bufLen)
     return sizeof(PWD) - 1;
 }
 
+#if defined(SECURE_INTERFACE) || defined(SECURE_OBJECT)
 //static const char psk_b64[] = "EBESExQVFhcYGRobHB0eHw==";
 //static uint8_t psk[16];
 static const char psk_hint[] = "bob";
@@ -248,6 +249,7 @@ static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, 
     }
     return status;
 }
+#endif
 
 static AJ_Status AppHandlePing(AJ_Message* msg)
 {
@@ -260,6 +262,7 @@ static AJ_Status AppHandlePing(AJ_Message* msg)
      * Just return the arg we received
      */
     AJ_MarshalArg(&reply, &arg);
+    AJ_InfoPrintf(("Handle Ping\n"));
     return AJ_DeliverMsg(&reply);
 }
 
@@ -294,6 +297,7 @@ uint32_t MyBusAuthPwdCB(uint8_t* buf, uint32_t bufLen)
     return (uint32_t)strlen(myPwd);
 }
 
+#if defined(SECURE_INTERFACE) || defined(SECURE_OBJECT)
 static AJ_Status StoreIssuer()
 {
     AJ_Status status;
@@ -322,6 +326,7 @@ static AJ_Status StoreIssuer()
 
     return AJ_OK;
 }
+#endif
 
 static const uint32_t suites[3] = { AUTH_SUITE_ECDHE_ECDSA, AUTH_SUITE_ECDHE_PSK, AUTH_SUITE_ECDHE_NULL };
 static const size_t numsuites = 3;
@@ -343,8 +348,9 @@ int AJ_Main()
 
     AJ_PrintXML(AppObjects);
     AJ_RegisterObjects(AppObjects, NULL);
-
+    #if defined(SECURE_INTERFACE) || defined(SECURE_OBJECT)
     StoreIssuer();
+    #endif
     SetBusAuthPwdCallback(MyBusAuthPwdCB);
     while (TRUE) {
         AJ_Message msg;
@@ -358,11 +364,21 @@ int AJ_Main()
             AJ_InfoPrintf(("Connected to Daemon:%s\n", AJ_GetUniqueName(&bus)));
 
             connected = TRUE;
+            #ifdef SECURE_OBJECT
+            status = AJ_SetObjectFlags("/org/alljoyn/alljoyn_test", AJ_OBJ_FLAG_SECURE, 0);
+            if (status != AJ_OK) {
+                AJ_ErrPrintf(("Error calling AJ_SetObjectFlags.. [%s] \n", AJ_StatusText(status)));
+                return -1;
+            }
+#endif
+
+#if defined(SECURE_INTERFACE) || defined(SECURE_OBJECT)
 
             /* Register a callback for providing bus authentication password */
             AJ_BusSetPasswordCallback(&bus, PasswordCallback);
             AJ_BusEnableSecurity(&bus, suites, numsuites);
             AJ_BusSetAuthListenerCallback(&bus, AuthListenerCallback);
+ #endif
 
             /* Configure timeout for the link to the daemon bus */
             AJ_SetBusLinkTimeout(&bus, 60); // 60 seconds
