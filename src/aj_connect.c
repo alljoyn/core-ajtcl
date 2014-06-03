@@ -497,6 +497,7 @@ void AJ_Disconnect(AJ_BusAttachment* bus)
      */
     if (bus->suites) {
         AJ_Free(bus->suites);
+        bus->suites = NULL;
         bus->numsuites = 0;
     }
 }
