@@ -37,6 +37,12 @@
 uint8_t dbgKEYEXCHANGE = 0;
 #endif
 
+/*
+ * ECC curve paramaters (version number)
+ * In this code, we only support NIST P256
+ */
+#define ECC_NIST_P256 0
+
 static AJ_Status ECDHE_Init(AJ_SHA256_Context* hash);
 static AJ_Status ECDHE_Marshal(AJ_Message* msg);
 static AJ_Status ECDHE_Unmarshal(AJ_Message* msg, uint8_t** secret, size_t* secretlen);
@@ -66,7 +72,7 @@ static AJ_Status ECDHE_Init(AJ_SHA256_Context* hash)
 static AJ_Status ECDHE_Marshal(AJ_Message* msg)
 {
     AJ_Status status;
-    uint8_t b8[sizeof (ecc_publickey)];
+    uint8_t b8[1 + sizeof (ecc_publickey)];
 
     AJ_InfoPrintf(("AJ_ECDHE_Marshal(msg=0x%p)\n", msg));
 
@@ -75,7 +81,8 @@ static AJ_Status ECDHE_Marshal(AJ_Message* msg)
         AJ_InfoPrintf(("AJ_ECDHE_Marshal(msg=0x%p): Marshal variant error\n", msg));
         return status;
     }
-    AJ_EncodePublicKey(&ecdhectx.publickey, b8);
+    b8[0] = ECC_NIST_P256;
+    AJ_EncodePublicKey(&ecdhectx.publickey, &b8[1]);
     status = AJ_MarshalArgs(msg, "ay", b8, sizeof (b8));
     if (AJ_OK != status) {
         AJ_InfoPrintf(("AJ_ECDHE_Marshal(msg=0x%p): Marshal key material error\n", msg));
@@ -111,13 +118,17 @@ static AJ_Status ECDHE_Unmarshal(AJ_Message* msg, uint8_t** secret, size_t* secr
         AJ_InfoPrintf(("AJ_ECDHE_Unmarshal(msg=0x%p): Unmarshal key material error\n", msg));
         return status;
     }
-    if (sizeof (ecc_publickey) != datalen) {
+    if (1 + sizeof (ecc_publickey) != datalen) {
         AJ_InfoPrintf(("AJ_ECDHE_Unmarshal(msg=0x%p): Invalid key material\n", msg));
+        return AJ_ERR_SECURITY;
+    }
+    if (ECC_NIST_P256 != data[0]) {
+        AJ_InfoPrintf(("AJ_ECDHE_Unmarshal(msg=0x%p): Invalid curve\n", msg));
         return AJ_ERR_SECURITY;
     }
     AJ_SHA256_Update(ecdhectx.hash, data, datalen);
 
-    AJ_DecodePublicKey(&publickey, data);
+    AJ_DecodePublicKey(&publickey, &data[1]);
     status = AJ_GenerateShareSecret(&publickey, &ecdhectx.privatekey, &tmp);
     if (AJ_OK != status) {
         AJ_InfoPrintf(("AJ_ECDHE_Unmarshal(msg=0x%p): Generate secret error\n", msg));
