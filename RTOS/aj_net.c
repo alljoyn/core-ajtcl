@@ -294,8 +294,8 @@ AJ_Status AJ_Net_RecvFrom(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)
  * 1500 - 8 -20 - 18 = 1454.  txData buffer size needs to be big enough to hold
  * a NS WHO-HAS for one name (4 + 2 + 256 = 262)
  */
-static uint8_t rxDataMCast[1454];
-static uint8_t txDataMCast[262];
+const uint16_t rxDataMCastSize = 1454;
+const uint16_t txDataMCastSize = 262;
 
 #ifndef SO_REUSEPORT
 #define SO_REUSEPORT SO_REUSEADDR
@@ -389,9 +389,18 @@ AJ_Status AJ_Net_MCastUp(AJ_NetSocket* netSock)
     netContext.udp6Sock = MCastUp6();
 
     if (netContext.udpSock != INVALID_SOCKET || netContext.udp6Sock != INVALID_SOCKET) {
-        AJ_IOBufInit(&netSock->rx, rxDataMCast, sizeof(rxDataMCast), AJ_IO_BUF_RX, &netContext);
+        uint8_t* rxDataMCast = NULL;
+        uint8_t* txDataMCast = NULL;
+
+        rxDataMCast = AJ_Malloc(rxDataMCastSize);
+        txDataMCast = AJ_Malloc(txDataMCastSize);
+        if (!rxDataMCast || !txDataMCast) {
+            return AJ_ERR_UNEXPECTED;
+        }
+
+        AJ_IOBufInit(&netSock->rx, rxDataMCast, rxDataMCastSize, AJ_IO_BUF_RX, &netContext);
         netSock->rx.recv = AJ_Net_RecvFrom;
-        AJ_IOBufInit(&netSock->tx, txDataMCast, sizeof(txDataMCast), AJ_IO_BUF_TX, &netContext);
+        AJ_IOBufInit(&netSock->tx, txDataMCast, txDataMCastSize, AJ_IO_BUF_TX, &netContext);
         netSock->tx.send = AJ_Net_SendTo;
         status = AJ_OK;
     }
@@ -414,8 +423,10 @@ void AJ_Net_MCastDown(AJ_NetSocket* netSock)
         if (ret < 0) {
             AJ_ErrPrintf(("MCastDown4(): setsockopt(WSL_DROP_MEMBERSHIP) failed. errno=\"%d\", status=AJ_ERR_READ\n", ret));
             AJ_WSL_NET_socket_close(context->udpSock);
-            //return INVALID_SOCKET;
         }
+        /* release the dynamically allocated buffers */
+        AJ_Free(netSock->rx.bufStart);
+        AJ_Free(netSock->tx.bufStart);
     }
     CloseNetSock(netSock);
 
