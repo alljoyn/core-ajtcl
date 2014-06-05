@@ -33,7 +33,6 @@
 #include "aj_bus.h"
 #include "aj_disco.h"
 #include "aj_wifi_ctrl.h"
-#include "aj_auth.h"
 
 #ifndef NDEBUG
 AJ_EXPORT uint8_t dbgNETBUSSAMPLE = 0;

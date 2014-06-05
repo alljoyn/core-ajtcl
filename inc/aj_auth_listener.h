@@ -27,11 +27,13 @@
 #include "aj_util.h"
 
 /*
- * Command
+ * Command for auth listener callback
  */
-#define AJ_CRED_PRV_KEY    0x00000001
-#define AJ_CRED_PUB_KEY    0x00000002
-#define AJ_CRED_CERT_CHAIN 0x00000004
+#define AJ_CRED_PRV_KEY    0x0001
+#define AJ_CRED_PUB_KEY    0x0002
+#define AJ_CRED_CERT_CHAIN 0x0003
+#define AJ_CRED_CERT_TRUST 0x0004
+#define AJ_CRED_CERT_ROOT  0x0005
 
 typedef struct _AJ_Credential {
     uint32_t mask;

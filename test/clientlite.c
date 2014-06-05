@@ -18,10 +18,6 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
-/**
- * Per-module definition of the current module for debug logging.  Must be defined
- * prior to first inclusion of aj_debug.h
- */
 #define AJ_MODULE CLIENTLITE
 #define SECURE_INTERFACE
 
@@ -33,7 +29,7 @@
 #include <aj_auth_listener.h>
 #include <aj_keyexchange.h>
 #include <aj_keyauthentication.h>
-#include "aj_config.h"
+
 
 
 uint8_t dbgCLIENTLITE = 0;
@@ -60,23 +56,12 @@ static const char testInterfaceName[] = "org.alljoyn.alljoyn_test";
 static const char testValuesInterfaceName[] = "org.alljoyn.alljoyn_test.values";
 #endif
 
-#ifndef NGNS
-static const char testServiceName[] = "org.alljoyn.svclite";
-static const uint16_t testServicePort = 24;
-#else
-static char testServiceName[AJ_MAX_NAME_SIZE + 1];
-static const char* testInterfaceNames[] = {
-    testInterfaceName,
-    testValuesInterfaceName,
-    NULL
-};
-#endif
-
 static const char* const testInterface[] = {
     testInterfaceName,
     "?my_ping inStr<s outStr>s",
     NULL
 };
+
 
 static const char* const testValuesInterface[] = {
     testValuesInterfaceName,
@@ -107,29 +92,19 @@ static AJ_Object ProxyObjects[] = {
 #define PRX_GET_INT   AJ_PRX_PROPERTY_ID(0, 2, 0)
 #define PRX_SET_INT   AJ_PRX_PROPERTY_ID(0, 2, 0)
 
-#define CONNECT_TIMEOUT    (1000 * 200)
-#define UNMARSHAL_TIMEOUT  (1000 * 5)
-#define METHOD_TIMEOUT     (1000 * 10)
-#define PING_TIMEOUT       (1000 * 10)
-
 /*
  * Let the application do some work
  */
-static AJ_Status SendPing(AJ_BusAttachment* bus, uint32_t sessionId, const char* serviceName, unsigned int num);
+static AJ_Status SendPing(AJ_BusAttachment* bus, uint32_t sessionId, unsigned int num);
 static int32_t g_iterCount = 0;
-static void AppDoWork(AJ_BusAttachment* bus, uint32_t sessionId, const char* serviceName)
+static void AppDoWork(AJ_BusAttachment* bus, uint32_t sessionId)
 {
     AJ_Printf("AppDoWork\n");
     /*
      * This function is called if there are no messages to unmarshal
-     * Alternate between alljoyn_test ping and Bus ping
      */
     g_iterCount = g_iterCount + 1;
-    if (g_iterCount & 1) {
-        SendPing(bus, sessionId, serviceName, g_iterCount);
-    } else {
-        AJ_BusPing(bus, serviceName, PING_TIMEOUT);
-    }
+    SendPing(bus, sessionId, g_iterCount);
 }
 
 static const char PWD[] = "123456";
@@ -167,10 +142,27 @@ static ecc_publickey ecc_pub;
 static ecc_privatekey ecc_prv;
 static AJ_Certificate root_cert;
 
+static const char* issuers[] = {
+    "RCf5ihem02VFXvIa8EVJ1CJcJns3el0IH+H51s07rc0AAAAAn6KJifUPH1oRmPLoyBHGCg7/NT8kW67GD8kQjZh/U/AAAAAAAAAAAA==",
+    "9RB2ExIO4VZqEwb+sWYVsozToGMgDZJzH0Yf4Q0sCC0AAAAAhuEeeMDIXKzoOg3aQqVdUKC0ekWIRizM5hcjzxAO8LUAAAAAAAAAAA=="
+};
+
+static AJ_Status IsTrustedIssuer(const char* issuer)
+{
+    size_t i;
+    for (i = 0; i < 2; i++) {
+        if (0 == strncmp(issuer, issuers[i], strlen(issuers[i]))) {
+            return AJ_OK;
+        }
+    }
+    return AJ_ERR_SECURITY;
+}
+
 static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, AJ_Credential* cred)
 {
     AJ_Status status = AJ_ERR_INVALID;
     uint8_t b8[sizeof (AJ_Certificate)];
+    char b64[400];
     AJ_Printf("AuthListenerCallback authmechanism %d command %d\n", authmechanism, command);
 
     switch (authmechanism) {
@@ -215,7 +207,7 @@ static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, 
         case AJ_CRED_PUB_KEY:
             status = AJ_B64ToRaw(ecc_pub_b64, strlen(ecc_pub_b64), b8, sizeof (b8));
             AJ_ASSERT(AJ_OK == status);
-            status = AJ_DecodePublicKey(&ecc_pub, b8);
+            status = AJ_BigEndianDecodePublicKey(&ecc_pub, b8);
             AJ_ASSERT(AJ_OK == status);
             cred->mask = AJ_CRED_PUB_KEY;
             cred->data = (uint8_t*) &ecc_pub;
@@ -226,7 +218,7 @@ static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, 
         case AJ_CRED_PRV_KEY:
             status = AJ_B64ToRaw(ecc_prv_b64, strlen(ecc_prv_b64), b8, sizeof (b8));
             AJ_ASSERT(AJ_OK == status);
-            status = AJ_DecodePrivateKey(&ecc_prv, b8);
+            status = AJ_BigEndianDecodePrivateKey(&ecc_prv, b8);
             AJ_ASSERT(AJ_OK == status);
             cred->mask = AJ_CRED_PRV_KEY;
             cred->data = (uint8_t*) &ecc_prv;
@@ -237,11 +229,25 @@ static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, 
         case AJ_CRED_CERT_CHAIN:
             status = AJ_B64ToRaw(owner_cert1_b64, strlen(owner_cert1_b64), b8, sizeof (b8));
             AJ_ASSERT(AJ_OK == status);
-            status = AJ_DecodeCertificate(&root_cert, b8, sizeof (b8));
+            status = AJ_BigEndianDecodeCertificate(&root_cert, b8, sizeof (b8));
             AJ_ASSERT(AJ_OK == status);
             cred->mask = AJ_CRED_CERT_CHAIN;
             cred->data = (uint8_t*) &root_cert;
             cred->len = sizeof (root_cert);
+            break;
+
+        case AJ_CRED_CERT_TRUST:
+            status = AJ_RawToB64(cred->data, cred->len, b64, sizeof (b64));
+            AJ_ASSERT(AJ_OK == status);
+            status = IsTrustedIssuer(b64);
+            AJ_Printf("TRUST: %s %d\n", b64, status);
+            break;
+
+        case AJ_CRED_CERT_ROOT:
+            status = AJ_RawToB64(cred->data, cred->len, b64, sizeof (b64));
+            AJ_ASSERT(AJ_OK == status);
+            AJ_Printf("ROOT: %s\n", b64);
+            status = AJ_OK;
             break;
         }
         break;
@@ -253,9 +259,13 @@ static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, 
 }
 #endif
 
+#define CONNECT_TIMEOUT    (1000 * 200)
+#define UNMARSHAL_TIMEOUT  (1000 * 5)
+#define METHOD_TIMEOUT     (100 * 10)
+
 static const char PingString[] = "Ping String";
 
-AJ_Status SendPing(AJ_BusAttachment* bus, uint32_t sessionId, const char* serviceName, unsigned int num)
+AJ_Status SendPing(AJ_BusAttachment* bus, uint32_t sessionId, unsigned int num)
 {
     AJ_Status status;
     AJ_Message msg;
@@ -266,7 +276,7 @@ AJ_Status SendPing(AJ_BusAttachment* bus, uint32_t sessionId, const char* servic
      */
     status = AJ_SetProxyObjectPath(ProxyObjects, PRX_MY_PING, testObj);
     if (status == AJ_OK) {
-        status = AJ_MarshalMethodCall(bus, &msg, PRX_MY_PING, serviceName, sessionId, 0, METHOD_TIMEOUT);
+        status = AJ_MarshalMethodCall(bus, &msg, PRX_MY_PING, ServiceName, sessionId, 0, METHOD_TIMEOUT);
     }
     if (status == AJ_OK) {
         status = AJ_MarshalArgs(&msg, "s", PingString);
@@ -277,12 +287,12 @@ AJ_Status SendPing(AJ_BusAttachment* bus, uint32_t sessionId, const char* servic
     return status;
 }
 
-AJ_Status SendGetProp(AJ_BusAttachment* bus, uint32_t sessionId, const char* serviceName)
+AJ_Status SendGetProp(AJ_BusAttachment* bus, uint32_t sessionId)
 {
     AJ_Status status;
     AJ_Message msg;
 
-    status = AJ_MarshalMethodCall(bus, &msg, PRX_GET_PROP, serviceName, sessionId, 0, METHOD_TIMEOUT);
+    status = AJ_MarshalMethodCall(bus, &msg, PRX_GET_PROP, ServiceName, sessionId, 0, METHOD_TIMEOUT);
     if (status == AJ_OK) {
         AJ_MarshalPropertyArgs(&msg, PRX_GET_INT);
         status = AJ_DeliverMsg(&msg);
@@ -290,12 +300,12 @@ AJ_Status SendGetProp(AJ_BusAttachment* bus, uint32_t sessionId, const char* ser
     return status;
 }
 
-AJ_Status SendSetProp(AJ_BusAttachment* bus, uint32_t sessionId, const char* serviceName, int val)
+AJ_Status SendSetProp(AJ_BusAttachment* bus, uint32_t sessionId, int val)
 {
     AJ_Status status;
     AJ_Message msg;
 
-    status = AJ_MarshalMethodCall(bus, &msg, PRX_SET_PROP, serviceName, sessionId, 0, METHOD_TIMEOUT);
+    status = AJ_MarshalMethodCall(bus, &msg, PRX_SET_PROP, ServiceName, sessionId, 0, METHOD_TIMEOUT);
     if (status == AJ_OK) {
         status = AJ_MarshalPropertyArgs(&msg, PRX_SET_INT);
 
@@ -318,35 +328,6 @@ AJ_Status SendSetProp(AJ_BusAttachment* bus, uint32_t sessionId, const char* ser
 void AuthCallback(const void* context, AJ_Status status)
 {
     *((AJ_Status*)context) = status;
-}
-
-static AJ_Status StoreIssuer()
-{
-    AJ_Status status;
-    AJ_PeerCred cred;
-    uint8_t b8[sizeof (ecc_publickey)];
-    uint8_t digest[SHA256_DIGEST_LENGTH];
-    AJ_SHA256_Context ctx;
-
-    status = AJ_B64ToRaw(owner_pub_b64, strlen(owner_pub_b64), b8, sizeof (b8));
-    AJ_ASSERT(AJ_OK == status);
-
-    AJ_SHA256_Init(&ctx);
-    AJ_SHA256_Update(&ctx, b8, sizeof (b8));
-    AJ_SHA256_Final(&ctx, digest);
-
-    cred.type = AJ_CRED_TYPE_DSA_PUBLIC;
-    cred.idLen = sizeof (digest);
-    cred.id = digest;
-    cred.associationLen = 0;
-    cred.data = b8;
-    cred.dataLen = sizeof (b8);
-    cred.expiration = keyexpiration;
-
-    status = AJ_StoreCredential(&cred);
-    AJ_ASSERT(AJ_OK == status);
-
-    return AJ_OK;
 }
 
 #ifdef MAIN_ALLOWS_ARGS
@@ -414,13 +395,9 @@ int AJ_Main()
         AJ_Message msg;
 
         if (!connected) {
-#ifndef NGNS
-            status = AJ_StartClient(&bus, NULL, CONNECT_TIMEOUT, FALSE, testServiceName, testServicePort, &sessionId, NULL);
-#else
-            status = AJ_StartClientByInterface(&bus, NULL, CONNECT_TIMEOUT, FALSE, testInterfaceNames, &sessionId, testServiceName, NULL);
-#endif
+            status = AJ_StartClient(&bus, NULL, CONNECT_TIMEOUT, FALSE, ServiceName, ServicePort, &sessionId, NULL);
             if (status == AJ_OK) {
-                AJ_Printf("StartClient returned %d, sessionId=%u, serviceName=%s\n", status, sessionId, testServiceName);
+                AJ_Printf("StartClient returned %d, sessionId=%u\n", status, sessionId);
                 AJ_Printf("Connected to Daemon:%s\n", AJ_GetUniqueName(&bus));
                 connected = TRUE;
 #ifdef SECURE_INTERFACE
@@ -433,8 +410,7 @@ int AJ_Main()
                     status = AJ_ClearCredentials();
                     AJ_ASSERT(AJ_OK == status);
                 }
-                StoreIssuer();
-                status = AJ_BusAuthenticatePeer(&bus, testServiceName, AuthCallback, &authStatus);
+                status = AJ_BusAuthenticatePeer(&bus, ServiceName, AuthCallback, &authStatus);
                 if (status != AJ_OK) {
                     AJ_Printf("AJ_BusAuthenticatePeer returned %d\n", status);
                 }
@@ -447,6 +423,16 @@ int AJ_Main()
             }
         }
 
+
+        AJ_Printf("Auth status %d and AllJoyn status %d\n", authStatus, status);
+
+        if (status == AJ_ERR_RESOURCES) {
+            AJ_InfoPrintf(("Peer is busy, disconnecting and retrying auth...\n"));
+            AJ_Disconnect(&bus);
+            connected = FALSE;
+            continue;
+        }
+
         if (authStatus != AJ_ERR_NULL) {
             if (authStatus != AJ_OK) {
                 AJ_Disconnect(&bus);
@@ -456,12 +442,10 @@ int AJ_Main()
             AJ_BusSetLinkTimeout(&bus, sessionId, 10 * 1000);
         }
 
-        AJ_Printf("Auth status %d and AllJoyn status %d\n", authStatus, status);
-
         status = AJ_UnmarshalMsg(&bus, &msg, UNMARSHAL_TIMEOUT);
         if (status != AJ_OK) {
             if (status == AJ_ERR_TIMEOUT) {
-                AppDoWork(&bus, sessionId, testServiceName);
+                AppDoWork(&bus, sessionId);
                 continue;
             }
         } else {
@@ -477,20 +461,7 @@ int AJ_Main()
                     } else {
                         AJ_Printf("SetLinkTimeout failed %d\n", disposition);
                     }
-                    SendPing(&bus, sessionId, testServiceName, 1);
-                }
-                break;
-
-            case AJ_REPLY_ID(AJ_METHOD_BUS_PING):
-                {
-                    uint32_t disposition;
-                    status = AJ_UnmarshalArgs(&msg, "u", &disposition);
-                    if (disposition == AJ_PING_SUCCESS) {
-                        AJ_Printf("Bus Ping reply received\n");
-                    } else {
-                        AJ_Printf("Bus Ping failed, disconnecting: %d\n", disposition);
-                        status = AJ_ERR_LINK_DEAD;
-                    }
+                    SendPing(&bus, sessionId, 1);
                 }
                 break;
 
@@ -498,9 +469,7 @@ int AJ_Main()
                 {
                     AJ_Arg arg;
                     AJ_UnmarshalArg(&msg, &arg);
-                    AJ_Printf("Got ping reply\n");
-                    AJ_InfoPrintf(("INFO Got ping reply\n"));
-                    status = SendGetProp(&bus, sessionId, testServiceName);
+                    status = SendGetProp(&bus, sessionId);
                 }
                 break;
 
@@ -514,7 +483,7 @@ int AJ_Main()
 
                         if (status == AJ_OK) {
                             g_iterCount = g_iterCount + 1;
-                            status = SendSetProp(&bus, sessionId, testServiceName, g_iterCount);
+                            status = SendSetProp(&bus, sessionId, g_iterCount);
                         }
                     }
                 }

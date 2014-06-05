@@ -70,7 +70,7 @@ int AJ_Main(int ac, char** av)
      */
     AJ_GenerateDSAKeyPair(&root_pubkey, &root_prvkey);
 
-    status = AJ_EncodePublicKey(&root_pubkey, b8);
+    status = AJ_BigEndianEncodePublicKey(&root_pubkey, b8);
     AJ_ASSERT(AJ_OK == status);
     status = AJ_RawToB64(b8, sizeof (ecc_publickey), pem, sizeof (pem));
     AJ_ASSERT(AJ_OK == status);
@@ -85,14 +85,14 @@ int AJ_Main(int ac, char** av)
     for (i = 0; i < num; i++) {
         AJ_GenerateDSAKeyPair(&peer_pubkey, &peer_prvkey);
 
-        status = AJ_EncodePublicKey(&peer_pubkey, b8);
+        status = AJ_BigEndianEncodePublicKey(&peer_pubkey, b8);
         AJ_ASSERT(AJ_OK == status);
         status = AJ_RawToB64(b8, sizeof (ecc_publickey), pem, sizeof (pem));
         AJ_ASSERT(AJ_OK == status);
         AJ_Printf("Peer Public Key\n");
         AJ_Printf("-----BEGIN PUBLIC KEY-----\n%s\n-----END PUBLIC KEY-----\n", pem);
 
-        status = AJ_EncodePrivateKey(&peer_prvkey, b8);
+        status = AJ_BigEndianEncodePrivateKey(&peer_prvkey, b8);
         AJ_ASSERT(AJ_OK == status);
         status = AJ_RawToB64(b8, sizeof (ecc_privatekey), pem, sizeof (pem));
         AJ_ASSERT(AJ_OK == status);
@@ -106,7 +106,7 @@ int AJ_Main(int ac, char** av)
         status = AJ_VerifyCertificate(&leaf);
         AJ_ASSERT(AJ_OK == status);
 
-        status = AJ_EncodeCertificate(&leaf, b8, sizeof (b8));
+        status = AJ_BigEndianEncodeCertificate(&leaf, b8, sizeof (b8));
         AJ_ASSERT(AJ_OK == status);
         status = AJ_RawToB64(b8, leaf.size, pem, sizeof (pem));
         AJ_ASSERT(AJ_OK == status);
@@ -120,7 +120,7 @@ int AJ_Main(int ac, char** av)
         status = AJ_VerifyCertificate(&root);
         AJ_ASSERT(AJ_OK == status);
 
-        status = AJ_EncodeCertificate(&root, b8, sizeof (b8));
+        status = AJ_BigEndianEncodeCertificate(&root, b8, sizeof (b8));
         AJ_ASSERT(AJ_OK == status);
         status = AJ_RawToB64(b8, root.size, pem, sizeof (pem));
         AJ_ASSERT(AJ_OK == status);
@@ -134,7 +134,7 @@ int AJ_Main(int ac, char** av)
         status = AJ_VerifyCertificate(&root);
         AJ_ASSERT(AJ_OK == status);
 
-        status = AJ_EncodeCertificate(&root, b8, sizeof (b8));
+        status = AJ_BigEndianEncodeCertificate(&root, b8, sizeof (b8));
         AJ_ASSERT(AJ_OK == status);
         status = AJ_RawToB64(b8, root.size, pem, sizeof (pem));
         AJ_ASSERT(AJ_OK == status);

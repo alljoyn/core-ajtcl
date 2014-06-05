@@ -135,34 +135,39 @@ AJ_Status TestCreds()
 
     if (0 != memcmp(peerCredRead->id, &peerGuid, peerCredRead->idLen)) {
         AJ_Printf("The retrieved credential does not match\n");
+        AJ_FreeCredential(peerCredRead);
         return AJ_ERR_FAILURE;
 
     }
     if (peerCredRead->dataLen != secretLen) {
         AJ_Printf("no match for secretLen got %d expected %d\n",
                   peerCredRead->dataLen, secretLen);
+        AJ_FreeCredential(peerCredRead);
         return AJ_ERR_FAILURE;
     }
     if (secretLen > 0) {
         if (0 != memcmp(peerCredRead->data, secret, secretLen)) {
             AJ_Printf("no match for secret\n");
+            AJ_FreeCredential(peerCredRead);
             return AJ_ERR_FAILURE;
         }
     }
     if (peerCredRead->expiration != expiration) {
         AJ_Printf("no match for expiration got %d expected %d\n",
                   peerCredRead->expiration, expiration);
+        AJ_FreeCredential(peerCredRead);
         return AJ_ERR_FAILURE;
     }
 
     status = AJ_DeletePeerCredential(&remoteGuid);
     if (AJ_OK != status) {
         AJ_Printf("AJ_DeleteCredential failed = %d\n", status);
+        AJ_FreeCredential(peerCredRead);
         return status;
     }
 
     AJ_FreeCredential(peerCredRead);
-    if (AJ_ERR_FAILURE == AJ_GetPeerCredential(&remoteGuid, &peerCredRead)) {
+    if (AJ_ERR_FAILURE == AJ_GetPeerCredential(&remoteGuid, NULL)) {
         status = AJ_OK;
     } else {
         return AJ_ERR_FAILURE;
@@ -171,7 +176,7 @@ AJ_Status TestCreds()
     AJ_NVRAM_Layout_Print();
 
     AJ_ClearCredentials();
-    if (AJ_ERR_FAILURE == AJ_GetPeerCredential(&remoteGuid, &peerCredRead)) {
+    if (AJ_ERR_FAILURE == AJ_GetPeerCredential(&remoteGuid, NULL)) {
         status = AJ_OK;
     } else {
         return AJ_ERR_FAILURE;
@@ -217,6 +222,7 @@ AJ_Status TestECCCreds()
     }
     if (privateKeyCred->dataLen != sizeof(privateKey)) {
         AJ_Printf("Retrieved private key length %d does not match the original %zu\n", privateKeyCred->dataLen, sizeof(privateKey));
+        AJ_FreeCredential(privateKeyCred);
         return AJ_ERR_FAILURE;
     }
     if (memcmp(privateKeyCred->data, &privateKey, sizeof(privateKey)) != 0) {
@@ -408,6 +414,7 @@ AJ_Status TestNvramWrite()
     }
 
     d2 = AJ_NVRAM_Open(tid2, "w", cap2);
+    AJ_ASSERT(d2);
     for (i = 0; i < AJ_NVRAM_REQUESTED / 4; i++) {
         if ((d2->capacity - d2->curPos) >= sizeof(i)) {
             bytes2 = AJ_NVRAM_Write(&i, sizeof(i), d2);
@@ -426,6 +433,7 @@ AJ_Status TestNvramWrite()
 
 
     d3 = AJ_NVRAM_Open(tid3, "w", cap3);
+    AJ_ASSERT(d3);
     for (i = 0; i < AJ_NVRAM_REQUESTED / 4; i++) {
         if ((d3->capacity - d3->curPos) >= sizeof(i)) {
             bytes3 = AJ_NVRAM_Write(&i, sizeof(i), d3);
@@ -443,6 +451,7 @@ AJ_Status TestNvramWrite()
     }
 
     d4 = AJ_NVRAM_Open(tid4, "w", cap4);
+    AJ_ASSERT(d4);
     for (i = 0; i < AJ_NVRAM_REQUESTED / 4; i++) {
         if ((d4->capacity - d4->curPos) >= sizeof(i)) {
             bytes4 = AJ_NVRAM_Write(&i, sizeof(i), d4);

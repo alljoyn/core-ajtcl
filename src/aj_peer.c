@@ -31,7 +31,6 @@
 #include "aj_guid.h"
 #include "aj_creds.h"
 #include "aj_std.h"
-#include "aj_auth.h"
 #include "aj_crypto.h"
 #include "aj_crypto_sha2.h"
 #include "aj_debug.h"
@@ -76,7 +75,6 @@ static AJ_Status ExchangeSuites(AJ_Message* msg);
 static AJ_Status KeyExchange(AJ_Message* msg);
 static AJ_Status KeyAuthentication(AJ_Message* msg);
 static AJ_Status GenSessionKey(AJ_Message* msg);
-extern void U32ToU8(uint32_t* u32, size_t len, uint8_t* u8);
 
 typedef enum {
     SASL_HANDSHAKE,
@@ -108,9 +106,7 @@ typedef struct _HandshakeContext {
     AJ_KeyAuthentication* keyauthentication;
     uint8_t mastersecret[AJ_MASTER_SECRET_LEN];
     AJ_SHA256_Context hash;
-    uint32_t* suites;
-    size_t numsuites;
-    uint32_t suite;
+    uint32_t suites;
 } HandshakeContext;
 
 typedef struct _SessionContext {
@@ -218,6 +214,10 @@ static uint32_t GetAcceptableVersion(uint32_t srcV)
     if ((authV < MIN_AUTH_VERSION) || (authV > MAX_AUTH_VERSION)) {
         return 0;
     }
+    /*
+     * MIN_KEYGEN_VERSION is 0 - so first case can't happen.
+     * Leaving in case it changes in the future.
+     */
     if ((keyV < MIN_KEYGEN_VERSION) || (keyV > MAX_KEYGEN_VERSION)) {
         return 0;
     }
@@ -250,7 +250,7 @@ static AJ_Status KeyGen(const char* peerName, uint8_t role, const char* nonce1, 
 
     status = AJ_GetPeerCredential(peerGuid, &cred);
     if (AJ_OK != status) {
-        AJ_ErrPrintf(("KeyGen(): AJ_ERR_NO_MATCH\n"));
+        AJ_WarnPrintf(("KeyGen(): AJ_ERR_NO_MATCH\n"));
         return AJ_ERR_NO_MATCH;
     }
     /* check the secret expiry */
@@ -258,7 +258,7 @@ static AJ_Status KeyGen(const char* peerName, uint8_t role, const char* nonce1, 
     if (expiryStatus == 1) {
         /* secret expired */
         AJ_DeletePeerCredential(peerGuid);
-        AJ_ErrPrintf(("KeyGen(): Secret expired\n"));
+        AJ_WarnPrintf(("KeyGen(): Secret expired\n"));
         AJ_FreeCredential(cred);
         return AJ_ERR_KEY_EXPIRED;
     }
@@ -277,7 +277,7 @@ static AJ_Status KeyGen(const char* peerName, uint8_t role, const char* nonce1, 
      * Check that there is enough space to do so.
      */
     if (len < (AES_KEY_LEN + AJ_VERIFIER_LEN)) {
-        AJ_ErrPrintf(("KeyGen(): AJ_ERR_RESOURCES\n"));
+        AJ_WarnPrintf(("KeyGen(): AJ_ERR_RESOURCES\n"));
         AJ_FreeCredential(cred);
         return AJ_ERR_RESOURCES;
     }
@@ -306,9 +306,6 @@ static void HandshakeComplete(AJ_Status status)
         authContext.callback(authContext.cbContext, status);
     }
     memset(&authContext, 0, sizeof(AuthContext));
-    if (handshakeContext.suites) {
-        AJ_Free(handshakeContext.suites);
-    }
     memset(&handshakeContext, 0, sizeof(HandshakeContext));
 }
 
@@ -344,7 +341,7 @@ static AJ_Status SaveMasterSecret(const AJ_GUID* peerGuid, uint32_t expiration)
         if (AJ_AUTH_SUCCESS == handshakeContext.state) {
             status = AJ_StorePeerSecret(peerGuid, handshakeContext.mastersecret, AJ_MASTER_SECRET_LEN, expiration);
         } else {
-            AJ_InfoPrintf(("SaveMasterSecret(peerGuid=0x%p, expiration=%d): Invalid state\n", peerGuid, expiration));
+            AJ_WarnPrintf(("SaveMasterSecret(peerGuid=0x%p, expiration=%d): Invalid state\n", peerGuid, expiration));
             status = AJ_DeletePeerCredential(peerGuid);
         }
     } else {
@@ -355,8 +352,22 @@ static AJ_Status SaveMasterSecret(const AJ_GUID* peerGuid, uint32_t expiration)
 }
 
 static AJ_Status HandshakeTimeout() {
+    uint8_t zero[sizeof (AJ_GUID)];
+    memset(zero, 0, sizeof (zero));
+    /*
+     * If handshake started, check peer is still around
+     * If peer disappeared, AJ_GUID_DeleteNameMapping writes zeros
+     */
+    if (authContext.peerGuid) {
+        if (!memcmp(authContext.peerGuid, zero, sizeof (zero))) {
+            AJ_WarnPrintf(("AJ_HandshakeTimeout(): Peer disappeared\n"));
+            authContext.peerGuid = NULL;
+            HandshakeComplete(AJ_ERR_TIMEOUT);
+            return AJ_ERR_TIMEOUT;
+        }
+    }
     if (AJ_GetElapsedTime(&authContext.timer, TRUE) >= AJ_MAX_AUTH_TIME) {
-        AJ_InfoPrintf(("AJ_HandshakeTimeout(): AJ_ERR_TIMEOUT\n"));
+        AJ_WarnPrintf(("AJ_HandshakeTimeout(): AJ_ERR_TIMEOUT\n"));
         HandshakeComplete(AJ_ERR_TIMEOUT);
         return AJ_ERR_TIMEOUT;
     }
@@ -383,7 +394,7 @@ static AJ_Status HandshakeValid(const AJ_GUID* peerGuid)
      * Handshake call from different peer
      */
     if (!peerGuid || (peerGuid != authContext.peerGuid)) {
-        AJ_InfoPrintf(("AJ_HandshakeValid(peerGuid=0x%p): Invalid peer guid\n", peerGuid));
+        AJ_WarnPrintf(("AJ_HandshakeValid(peerGuid=0x%p): Invalid peer guid\n", peerGuid));
         return AJ_ERR_RESOURCES;
     }
 
@@ -477,7 +488,7 @@ AJ_Status AJ_PeerHandleExchangeGUIDs(AJ_Message* msg, AJ_Message* reply)
     status = AJ_GUID_AddNameMapping(&remoteGuid, msg->sender, NULL);
     if (AJ_OK != status) {
         AJ_InfoPrintf(("AJ_PeerHandleExchangeGuids(msg=0x%p, reply=0x%p): Add name mapping error\n", msg, reply));
-        return AJ_MarshalErrorMsg(msg, reply, AJ_ErrSecurityViolation);
+        return AJ_MarshalErrorMsg(msg, reply, AJ_ErrResources);
     }
     authContext.peerGuid = AJ_GUID_Find(msg->sender);
     /*
@@ -511,7 +522,7 @@ AJ_Status AJ_PeerHandleExchangeGUIDsReply(AJ_Message* msg)
     AJ_InfoPrintf(("AJ_PeerHandleExchangeGUIDsReply(msg=0x%p)\n", msg));
 
     if (msg->hdr->msgType == AJ_MSG_ERROR) {
-        AJ_ErrPrintf(("AJ_PeerHandleExchangeGUIDsReply(msg=0x%p): error=%s.\n", msg, msg->error));
+        AJ_WarnPrintf(("AJ_PeerHandleExchangeGUIDsReply(msg=0x%p): error=%s.\n", msg, msg->error));
         if (0 == strncmp(msg->error, AJ_ErrResources, sizeof(AJ_ErrResources))) {
             status = AJ_ERR_RESOURCES;
         } else {
@@ -527,29 +538,29 @@ AJ_Status AJ_PeerHandleExchangeGUIDsReply(AJ_Message* msg)
     if (authContext.peerGuid) {
         status = HandshakeTimeout();
         if (AJ_ERR_TIMEOUT != status) {
-            AJ_ErrPrintf(("AJ_PeerHandleExchangeGUIDsReply(msg=0x%p): Handshake in progress\n", msg));
+            AJ_WarnPrintf(("AJ_PeerHandleExchangeGUIDsReply(msg=0x%p): Handshake in progress\n", msg));
             return AJ_ERR_RESOURCES;
         }
     }
 
     status = AJ_UnmarshalArgs(msg, "su", &guidStr, &version);
     if (status != AJ_OK) {
-        AJ_ErrPrintf(("AJ_PeerHandleExchangeGUIDsReply(msg=0x%p): Unmarshal error\n", msg));
+        AJ_WarnPrintf(("AJ_PeerHandleExchangeGUIDsReply(msg=0x%p): Unmarshal error\n", msg));
         return AJ_ERR_SECURITY;
     }
     version = GetAcceptableVersion(version);
     if (0 == version) {
-        AJ_ErrPrintf(("AJ_PeerHandleExchangeGUIDsReply(msg=0x%p): Invalid version\n", msg));
+        AJ_WarnPrintf(("AJ_PeerHandleExchangeGUIDsReply(msg=0x%p): Invalid version\n", msg));
         return AJ_ERR_SECURITY;
     }
     status = SetAuthVersion(version);
     if (AJ_OK != status) {
-        AJ_ErrPrintf(("AJ_PeerHandleExchangeGUIDsReply(msg=0x%p): Invalid version\n", msg));
+        AJ_WarnPrintf(("AJ_PeerHandleExchangeGUIDsReply(msg=0x%p): Invalid version\n", msg));
         return AJ_ERR_SECURITY;
     }
     status = AJ_GUID_FromString(&remoteGuid, guidStr);
     if (AJ_OK != status) {
-        AJ_ErrPrintf(("AJ_PeerHandleExchangeGUIDsReply(msg=0x%p): Invalid GUID\n", msg));
+        AJ_WarnPrintf(("AJ_PeerHandleExchangeGUIDsReply(msg=0x%p): Invalid GUID\n", msg));
         return AJ_ERR_SECURITY;
     }
     /*
@@ -557,8 +568,8 @@ AJ_Status AJ_PeerHandleExchangeGUIDsReply(AJ_Message* msg)
      */
     status = AJ_GUID_AddNameMapping(&remoteGuid, msg->sender, authContext.peerName);
     if (AJ_OK != status) {
-        AJ_ErrPrintf(("AJ_PeerHandleExchangeGUIDsReply(msg=0x%p): Add name mapping error\n", msg));
-        return AJ_ERR_SECURITY;
+        AJ_WarnPrintf(("AJ_PeerHandleExchangeGUIDsReply(msg=0x%p): Add name mapping error\n", msg));
+        return AJ_ERR_RESOURCES;
     }
     /*
      * Remember which peer is being authenticated
@@ -603,7 +614,7 @@ static AJ_Status ExchangeSuites(AJ_Message* msg)
     AJ_Status status;
     AJ_Message call;
 
-    AJ_InfoPrintf(("AJ_KeyExchange(msg=0x%p)\n", msg));
+    AJ_InfoPrintf(("ExchangeSuites(msg=0x%p)\n", msg));
 
     AJ_SHA256_Init(&handshakeContext.hash);
 
@@ -611,14 +622,14 @@ static AJ_Status ExchangeSuites(AJ_Message* msg)
      * Send suites
      */
     if (!msg->bus->numsuites) {
-        AJ_InfoPrintf(("AJ_KeyExchange(msg=0x%p): No suites available\n", msg));
+        AJ_WarnPrintf(("ExchangeSuites(msg=0x%p): No suites available\n", msg));
         HandshakeComplete(AJ_ERR_SECURITY);
         return AJ_ERR_SECURITY;
     }
     AJ_MarshalMethodCall(msg->bus, &call, AJ_METHOD_EXCHANGE_SUITES, msg->sender, 0, AJ_NO_FLAGS, AJ_AUTH_CALL_TIMEOUT);
     status = AJ_MarshalArgs(&call, "au", msg->bus->suites, msg->bus->numsuites * sizeof (uint32_t));
     if (AJ_OK != status) {
-        AJ_InfoPrintf(("AJ_KeyExchange(msg=0x%p): Marshal error\n", msg));
+        AJ_WarnPrintf(("ExchangeSuites(msg=0x%p): Marshal error\n", msg));
         HandshakeComplete(AJ_ERR_SECURITY);
         return AJ_ERR_SECURITY;
     }
@@ -629,11 +640,10 @@ static AJ_Status ExchangeSuites(AJ_Message* msg)
 AJ_Status AJ_PeerHandleExchangeSuites(AJ_Message* msg, AJ_Message* reply)
 {
     AJ_Status status;
+    AJ_Arg array;
     uint32_t* suites;
     size_t numsuites;
-    size_t i, j;
-    uint32_t* common;
-    size_t numcommon;
+    uint32_t i, j;
     const AJ_GUID* peerGuid = AJ_GUID_Find(msg->sender);
 
     AJ_InfoPrintf(("AJ_PeerHandleExchangeSuites(msg=0x%p, reply=0x%p)\n", msg, reply));
@@ -655,26 +665,20 @@ AJ_Status AJ_PeerHandleExchangeSuites(AJ_Message* msg, AJ_Message* reply)
         return AJ_MarshalErrorMsg(msg, reply, AJ_ErrSecurityViolation);
     }
     numsuites /= sizeof (uint32_t);
+
     /*
      * Calculate common suites
      */
-    common = (uint32_t*) AJ_Malloc(AUTH_SUITE_MAX * sizeof (uint32_t));
-    if (!common) {
-        AJ_InfoPrintf(("AJ_PeerHandleExchangeSuites(msg=0x%p, reply=0x%p): AJ_ERR_RESOURCES\n", msg, reply));
-        HandshakeComplete(AJ_ERR_SECURITY);
-        return AJ_MarshalErrorMsg(msg, reply, AJ_ErrSecurityViolation);
-    }
-    numcommon = 0;
+    handshakeContext.suites = 0;
     for (i = 0; i < msg->bus->numsuites; i++) {
         for (j = 0; j < numsuites; j++) {
             if (msg->bus->suites[i] == suites[j]) {
-                common[numcommon++] = suites[j];
+                handshakeContext.suites |= (1 << i);
             }
         }
     }
-    if (!numcommon) {
+    if (!handshakeContext.suites) {
         AJ_InfoPrintf(("AJ_PeerHandleExchangeSuites(msg=0x%p, reply=0x%p): No common suites\n", msg, reply));
-        AJ_Free(common);
         HandshakeComplete(AJ_ERR_SECURITY);
         return AJ_MarshalErrorMsg(msg, reply, AJ_ErrSecurityViolation);
     }
@@ -683,10 +687,20 @@ AJ_Status AJ_PeerHandleExchangeSuites(AJ_Message* msg, AJ_Message* reply)
      * Send common suites
      */
     AJ_MarshalReplyMsg(msg, reply);
-    status = AJ_MarshalArgs(reply, "au", common, numcommon * sizeof (uint32_t));
-    AJ_Free(common);
+    status = AJ_MarshalContainer(reply, &array, AJ_ARG_ARRAY);
+    i = handshakeContext.suites;
+    /* Iterate through the available suites.
+     * If it's enabled, marshal the suite to send to the other peer.
+     */
+    for (j = 0; i && (j < 32); j++) {
+        if (i & 1) {
+            status = AJ_MarshalArgs(reply, "u", msg->bus->suites[j]);
+        }
+        i >>= 1;
+    }
+    status = AJ_MarshalCloseContainer(reply, &array);
     if (AJ_OK != status) {
-        AJ_InfoPrintf(("AJ_PeerHandleExchangeSuites(msg=0x%p, reply=0x%p): Marshal error\n", msg, reply));
+        AJ_WarnPrintf(("AJ_PeerHandleExchangeSuites(msg=0x%p, reply=0x%p): Marshal error\n", msg, reply));
         HandshakeComplete(AJ_ERR_SECURITY);
         return AJ_MarshalErrorMsg(msg, reply, AJ_ErrSecurityViolation);
     }
@@ -705,7 +719,7 @@ AJ_Status AJ_PeerHandleExchangeSuitesReply(AJ_Message* msg)
     AJ_InfoPrintf(("AJ_PeerHandleExchangeSuitesReply(msg=0x%p)\n", msg));
 
     if (msg->hdr->msgType == AJ_MSG_ERROR) {
-        AJ_ErrPrintf(("AJ_PeerHandleExchangeSuitesReply(msg=0x%p): error=%s.\n", msg, msg->error));
+        AJ_WarnPrintf(("AJ_PeerHandleExchangeSuitesReply(msg=0x%p): error=%s.\n", msg, msg->error));
         if (0 == strncmp(msg->error, AJ_ErrResources, sizeof(AJ_ErrResources))) {
             status = AJ_ERR_RESOURCES;
         } else {
@@ -721,7 +735,7 @@ AJ_Status AJ_PeerHandleExchangeSuitesReply(AJ_Message* msg)
     }
 
     /*
-     * Receive common suites
+     * Receive suites
      */
     status = AJ_UnmarshalArgs(msg, "au", &suites, &numsuites);
     if (AJ_OK != status) {
@@ -734,42 +748,24 @@ AJ_Status AJ_PeerHandleExchangeSuitesReply(AJ_Message* msg)
     /*
      * Double check we can support (ie. that server didn't send something bogus)
      */
-    handshakeContext.numsuites = 0;
+    handshakeContext.suites = 0;
     for (i = 0; i < msg->bus->numsuites; i++) {
         for (j = 0; j < numsuites; j++) {
             if (msg->bus->suites[i] == suites[j]) {
-                handshakeContext.numsuites++;
+                handshakeContext.suites |= (1 << i);
             }
         }
     }
-
-    if ((0 == handshakeContext.numsuites) || (numsuites != handshakeContext.numsuites)) {
+    if (!handshakeContext.suites) {
         AJ_InfoPrintf(("AJ_PeerHandleExchangeSuitesReply(msg=0x%p): No common suites\n", msg));
         HandshakeComplete(AJ_ERR_SECURITY);
         return AJ_ERR_SECURITY;
     }
 
-    handshakeContext.suites = (uint32_t*) AJ_Malloc(handshakeContext.numsuites * sizeof (uint32_t));
-    if (!handshakeContext.suites) {
-        AJ_InfoPrintf(("AJ_PeerHandleExchangeSuitesReply(msg=0x%p): AJ_ERR_RESOURCES\n", msg));
-        HandshakeComplete(AJ_ERR_SECURITY);
-        return AJ_ERR_RESOURCES;
-    }
-    handshakeContext.suite = 0;
-    for (i = 0; i < msg->bus->numsuites; i++) {
-        for (j = 0; j < numsuites; j++) {
-            if (msg->bus->suites[i] == suites[j]) {
-                handshakeContext.suites[handshakeContext.suite++] = suites[j];
-            }
-        }
-    }
-
     /*
      * Exchange suites complete.
-     * Try each suite in order of preference.
      */
     AJ_InfoPrintf(("Exchange Suites Complete\n"));
-    handshakeContext.suite = 0;
     status = KeyExchange(msg);
     if (status != AJ_OK) {
         HandshakeComplete(status);
@@ -784,24 +780,35 @@ static AJ_Status KeyExchange(AJ_Message* msg)
     uint8_t suiteb8[sizeof (uint32_t)];
     AJ_Message call;
 
-    AJ_InfoPrintf(("AJ_KeyExchange(msg=0x%p)\n", msg));
+    AJ_InfoPrintf(("KeyExchange(msg=0x%p)\n", msg));
 
-    if (handshakeContext.suite >= handshakeContext.numsuites) {
-        AJ_InfoPrintf(("AJ_KeyExchange(msg=0x%p): No remaining suites\n", msg));
+    if (!handshakeContext.suites) {
+        AJ_WarnPrintf(("KeyExchange(msg=0x%p): No remaining suites\n", msg));
         HandshakeComplete(AJ_ERR_SECURITY);
         return AJ_ERR_SECURITY;
     }
-    suite = handshakeContext.suites[handshakeContext.suite++];
+    /*
+     * Choose next available suite
+     */
+    suite = 0;
+    while (!(handshakeContext.suites & (1 << suite))) {
+        suite++;
+    }
+    /*
+     * Only use this suite once - disable it for next time
+     */
+    handshakeContext.suites &= ~(1 << suite);
+    suite = msg->bus->suites[suite];
     AJ_InfoPrintf(("Authenticating using suite %x\n", suite));
     status = SetCipherSuite(msg->bus, suite);
     if (AJ_OK != status) {
-        AJ_InfoPrintf(("AJ_KeyExchange(msg=0x%p): Suite 0x%x not available\n", msg, suite));
+        AJ_WarnPrintf(("KeyExchange(msg=0x%p): Suite 0x%x not available\n", msg, suite));
         HandshakeComplete(AJ_ERR_SECURITY);
         return AJ_ERR_SECURITY;
     }
 
     if (!handshakeContext.keyexchange) {
-        AJ_InfoPrintf(("AJ_KeyExchange(msg=0x%p): Invalid key exchange\n", msg));
+        AJ_WarnPrintf(("KeyExchange(msg=0x%p): Invalid key exchange\n", msg));
         HandshakeComplete(AJ_ERR_SECURITY);
         return AJ_ERR_SECURITY;
     }
@@ -810,7 +817,7 @@ static AJ_Status KeyExchange(AJ_Message* msg)
      */
     status = handshakeContext.keyexchange->Init(&handshakeContext.hash);
     if (AJ_OK != status) {
-        AJ_InfoPrintf(("AJ_KeyExchange(msg=0x%p): Key exchange init error\n", msg));
+        AJ_WarnPrintf(("KeyExchange(msg=0x%p): Key exchange init error\n", msg));
         HandshakeComplete(AJ_ERR_SECURITY);
         return AJ_ERR_SECURITY;
     }
@@ -822,16 +829,16 @@ static AJ_Status KeyExchange(AJ_Message* msg)
     AJ_MarshalMethodCall(msg->bus, &call, AJ_METHOD_KEY_EXCHANGE, msg->sender, 0, AJ_NO_FLAGS, AJ_AUTH_CALL_TIMEOUT);
     status = AJ_MarshalArgs(&call, "u", suite);
     if (AJ_OK != status) {
-        AJ_InfoPrintf(("AJ_KeyExchange(msg=0x%p): Marshal error\n", msg));
+        AJ_WarnPrintf(("KeyExchange(msg=0x%p): Marshal error\n", msg));
         HandshakeComplete(AJ_ERR_SECURITY);
         return AJ_ERR_SECURITY;
     }
 
-    U32ToU8(&suite, sizeof (suite), suiteb8);
+    HostU32ToBigEndianU8(&suite, sizeof (suite), suiteb8);
     AJ_SHA256_Update(&handshakeContext.hash, suiteb8, sizeof (suiteb8));
     status = handshakeContext.keyexchange->Marshal(&call);
     if (AJ_OK != status) {
-        AJ_InfoPrintf(("AJ_KeyExchange(msg=0x%p): Key exchange marshal error\n", msg));
+        AJ_WarnPrintf(("KeyExchange(msg=0x%p): Key exchange marshal error\n", msg));
         HandshakeComplete(AJ_ERR_SECURITY);
         return AJ_ERR_SECURITY;
     }
@@ -861,15 +868,15 @@ AJ_Status AJ_PeerHandleKeyExchange(AJ_Message* msg, AJ_Message* reply)
     AJ_UnmarshalArgs(msg, "u", &suite);
     status = SetCipherSuite(msg->bus, suite);
     if (AJ_OK != status) {
-        AJ_InfoPrintf(("AJ_PeerHandleKeyExchange(msg=0x%p, reply=0x%p): Marshal error\n", msg, reply));
+        AJ_InfoPrintf(("AJ_PeerHandleKeyExchange(msg=0x%p, reply=0x%p): Suite 0x%x not available\n", msg, reply, suite));
         HandshakeComplete(AJ_ERR_SECURITY);
         return AJ_MarshalErrorMsg(msg, reply, AJ_ErrSecurityViolation);
     }
-    U32ToU8(&suite, sizeof (suite), suiteb8);
+    HostU32ToBigEndianU8(&suite, sizeof (suite), suiteb8);
     AJ_SHA256_Update(&handshakeContext.hash, suiteb8, sizeof (suiteb8));
 
     if (!handshakeContext.keyexchange) {
-        AJ_InfoPrintf(("AJ_PeerHandleKeyExchange(msg=0x%p, reply=0x%p): Invalid key exchange\n", msg, reply));
+        AJ_WarnPrintf(("AJ_PeerHandleKeyExchange(msg=0x%p, reply=0x%p): Invalid key exchange\n", msg, reply));
         HandshakeComplete(AJ_ERR_SECURITY);
         return AJ_MarshalErrorMsg(msg, reply, AJ_ErrSecurityViolation);
     }
@@ -878,7 +885,7 @@ AJ_Status AJ_PeerHandleKeyExchange(AJ_Message* msg, AJ_Message* reply)
      */
     status = handshakeContext.keyexchange->Init(&handshakeContext.hash);
     if (AJ_OK != status) {
-        AJ_InfoPrintf(("AJ_PeerHandleKeyExchange(msg=0x%p, reply=0x%p): Key exchange init error\n", msg, reply));
+        AJ_WarnPrintf(("AJ_PeerHandleKeyExchange(msg=0x%p, reply=0x%p): Key exchange init error\n", msg, reply));
         HandshakeComplete(AJ_ERR_SECURITY);
         return AJ_MarshalErrorMsg(msg, reply, AJ_ErrSecurityViolation);
     }
@@ -894,7 +901,7 @@ AJ_Status AJ_PeerHandleKeyExchange(AJ_Message* msg, AJ_Message* reply)
     }
     status = ComputeMasterSecret(secret, secretlen);
     if (AJ_OK != status) {
-        AJ_InfoPrintf(("AJ_PeerHandleKeyExchange(msg=0x%p, reply=0x%p): Compute master secret error\n", msg, reply));
+        AJ_WarnPrintf(("AJ_PeerHandleKeyExchange(msg=0x%p, reply=0x%p): Compute master secret error\n", msg, reply));
         HandshakeComplete(AJ_ERR_SECURITY);
         return AJ_MarshalErrorMsg(msg, reply, AJ_ErrSecurityViolation);
     }
@@ -905,14 +912,14 @@ AJ_Status AJ_PeerHandleKeyExchange(AJ_Message* msg, AJ_Message* reply)
     AJ_MarshalReplyMsg(msg, reply);
     status = AJ_MarshalArgs(reply, "u", suite);
     if (AJ_OK != status) {
-        AJ_InfoPrintf(("AJ_PeerHandleKeyExchange(msg=0x%p, reply=0x%p): Marshal error\n", msg, reply));
+        AJ_WarnPrintf(("AJ_PeerHandleKeyExchange(msg=0x%p, reply=0x%p): Marshal error\n", msg, reply));
         HandshakeComplete(AJ_ERR_SECURITY);
         return AJ_MarshalErrorMsg(msg, reply, AJ_ErrSecurityViolation);
     }
     AJ_SHA256_Update(&handshakeContext.hash, (uint8_t*) suiteb8, sizeof (suiteb8));
     status = handshakeContext.keyexchange->Marshal(reply);
     if (AJ_OK != status) {
-        AJ_InfoPrintf(("AJ_PeerHandleKeyExchange(msg=0x%p, reply=0x%p): Key exchange marshal error\n", msg, reply));
+        AJ_WarnPrintf(("AJ_PeerHandleKeyExchange(msg=0x%p, reply=0x%p): Key exchange marshal error\n", msg, reply));
         HandshakeComplete(AJ_ERR_SECURITY);
         return AJ_MarshalErrorMsg(msg, reply, AJ_ErrSecurityViolation);
     }
@@ -933,7 +940,7 @@ AJ_Status AJ_PeerHandleKeyExchangeReply(AJ_Message* msg)
     AJ_InfoPrintf(("AJ_PeerHandleKeyExchangeReply(msg=0x%p)\n", msg));
 
     if (msg->hdr->msgType == AJ_MSG_ERROR) {
-        AJ_ErrPrintf(("AJ_PeerHandleKeyExchangeReply(msg=0x%p): error=%s.\n", msg, msg->error));
+        AJ_WarnPrintf(("AJ_PeerHandleKeyExchangeReply(msg=0x%p): error=%s.\n", msg, msg->error));
         if (0 == strncmp(msg->error, AJ_ErrResources, sizeof(AJ_ErrResources))) {
             status = AJ_ERR_RESOURCES;
         } else {
@@ -949,7 +956,7 @@ AJ_Status AJ_PeerHandleKeyExchangeReply(AJ_Message* msg)
     }
 
     if (!handshakeContext.keyexchange) {
-        AJ_ErrPrintf(("AJ_PeerHandleKeyExchangeReply(msg=0x%p): Invalid key exchange\n", msg));
+        AJ_WarnPrintf(("AJ_PeerHandleKeyExchangeReply(msg=0x%p): Invalid key exchange\n", msg));
         HandshakeComplete(AJ_ERR_SECURITY);
         return AJ_ERR_SECURITY;
     }
@@ -958,21 +965,21 @@ AJ_Status AJ_PeerHandleKeyExchangeReply(AJ_Message* msg)
      */
     status = AJ_UnmarshalArgs(msg, "u", &suite);
     if (AJ_OK != status) {
-        AJ_ErrPrintf(("AJ_PeerHandleKeyExchangeReply(msg=0x%p): Unmarshal error\n", msg));
+        AJ_WarnPrintf(("AJ_PeerHandleKeyExchangeReply(msg=0x%p): Unmarshal error\n", msg));
         HandshakeComplete(AJ_ERR_SECURITY);
         return AJ_ERR_SECURITY;
     }
-    U32ToU8(&suite, sizeof (suite), suiteb8);
+    HostU32ToBigEndianU8(&suite, sizeof (suite), suiteb8);
     AJ_SHA256_Update(&handshakeContext.hash, suiteb8, sizeof (suiteb8));
     status = handshakeContext.keyexchange->Unmarshal(msg, &secret, &secretlen);
     if (AJ_OK != status) {
-        AJ_ErrPrintf(("AJ_PeerHandleKeyExchangeReply(msg=0x%p): Key exchange unmarshal error\n", msg));
+        AJ_WarnPrintf(("AJ_PeerHandleKeyExchangeReply(msg=0x%p): Key exchange unmarshal error\n", msg));
         HandshakeComplete(AJ_ERR_SECURITY);
         return AJ_ERR_SECURITY;
     }
     status = ComputeMasterSecret(secret, secretlen);
     if (AJ_OK != status) {
-        AJ_ErrPrintf(("AJ_PeerHandleKeyExchangeReply(msg=0x%p): Compute master secret error\n", msg));
+        AJ_WarnPrintf(("AJ_PeerHandleKeyExchangeReply(msg=0x%p): Compute master secret error\n", msg));
         HandshakeComplete(AJ_ERR_SECURITY);
         return AJ_ERR_SECURITY;
     }
@@ -1003,18 +1010,18 @@ static AJ_Status KeyAuthentication(AJ_Message* msg)
     }
 
     if (AJ_AUTH_EXCHANGED != handshakeContext.state) {
-        AJ_InfoPrintf(("AJ_KeyAuthentication(msg=0x%p): Invalid state\n", msg));
+        AJ_WarnPrintf(("AJ_KeyAuthentication(msg=0x%p): Invalid state\n", msg));
         HandshakeComplete(AJ_ERR_SECURITY);
         return AJ_ERR_SECURITY;
     }
     if (!handshakeContext.keyauthentication) {
-        AJ_InfoPrintf(("AJ_KeyAuthentication(msg=0x%p): Invalid key authentication\n", msg));
+        AJ_WarnPrintf(("AJ_KeyAuthentication(msg=0x%p): Invalid key authentication\n", msg));
         HandshakeComplete(AJ_ERR_SECURITY);
         return AJ_ERR_SECURITY;
     }
     status = handshakeContext.keyauthentication->Init(msg->bus->authListenerCallback, handshakeContext.mastersecret, AJ_MASTER_SECRET_LEN, &handshakeContext.hash);
     if (AJ_OK != status) {
-        AJ_InfoPrintf(("AJ_KeyAuthentication(msg=0x%p): Key authentication init error\n", msg));
+        AJ_WarnPrintf(("AJ_KeyAuthentication(msg=0x%p): Key authentication init error\n", msg));
         HandshakeComplete(AJ_ERR_SECURITY);
         return AJ_ERR_SECURITY;
     }
@@ -1025,7 +1032,7 @@ static AJ_Status KeyAuthentication(AJ_Message* msg)
     AJ_MarshalMethodCall(msg->bus, &call, AJ_METHOD_KEY_AUTHENTICATION, msg->sender, 0, AJ_NO_FLAGS, AJ_AUTH_CALL_TIMEOUT);
     status = handshakeContext.keyauthentication->Marshal(&call, AUTH_CLIENT);
     if (AJ_OK != status) {
-        AJ_InfoPrintf(("AJ_KeyAuthentication(msg=0x%p): Key authentication marshal error\n", msg));
+        AJ_WarnPrintf(("AJ_KeyAuthentication(msg=0x%p): Key authentication marshal error\n", msg));
         HandshakeComplete(AJ_ERR_SECURITY);
         return AJ_ERR_SECURITY;
     }
@@ -1052,14 +1059,14 @@ AJ_Status AJ_PeerHandleKeyAuthentication(AJ_Message* msg, AJ_Message* reply)
         return AJ_MarshalErrorMsg(msg, reply, AJ_ErrSecurityViolation);
     }
     if (!handshakeContext.keyauthentication) {
-        AJ_InfoPrintf(("AJ_PeerHandleKeyAuthentication(msg=0x%p, reply=0x%p): Invalid key authentication\n", msg, reply));
+        AJ_WarnPrintf(("AJ_PeerHandleKeyAuthentication(msg=0x%p, reply=0x%p): Invalid key authentication\n", msg, reply));
         HandshakeComplete(AJ_ERR_SECURITY);
         return AJ_MarshalErrorMsg(msg, reply, AJ_ErrSecurityViolation);
     }
 
     status = handshakeContext.keyauthentication->Init(msg->bus->authListenerCallback, handshakeContext.mastersecret, AJ_MASTER_SECRET_LEN, &handshakeContext.hash);
     if (AJ_OK != status) {
-        AJ_InfoPrintf(("AJ_PeerHandleKeyAuthentication(msg=0x%p, reply=0x%p): Key authentication init error\n", msg, reply));
+        AJ_WarnPrintf(("AJ_PeerHandleKeyAuthentication(msg=0x%p, reply=0x%p): Key authentication init error\n", msg, reply));
         HandshakeComplete(AJ_ERR_SECURITY);
         return AJ_MarshalErrorMsg(msg, reply, AJ_ErrSecurityViolation);
     }
@@ -1079,7 +1086,7 @@ AJ_Status AJ_PeerHandleKeyAuthentication(AJ_Message* msg, AJ_Message* reply)
     AJ_MarshalReplyMsg(msg, reply);
     status = handshakeContext.keyauthentication->Marshal(reply, AUTH_SERVER);
     if (AJ_OK != status) {
-        AJ_InfoPrintf(("AJ_PeerHandleKeyAuthentication(msg=0x%p, reply=0x%p): Key authentication marshal error\n", msg, reply));
+        AJ_WarnPrintf(("AJ_PeerHandleKeyAuthentication(msg=0x%p, reply=0x%p): Key authentication marshal error\n", msg, reply));
         HandshakeComplete(AJ_ERR_SECURITY);
         return AJ_MarshalErrorMsg(msg, reply, AJ_ErrSecurityViolation);
     }
@@ -1090,7 +1097,7 @@ AJ_Status AJ_PeerHandleKeyAuthentication(AJ_Message* msg, AJ_Message* reply)
 
     status = SaveMasterSecret(peerGuid, expiration);
     if (AJ_OK != status) {
-        AJ_InfoPrintf(("AJ_PeerHandleKeyAuthentication(msg=0x%p, reply=0x%p): Save master secret error\n", msg, reply));
+        AJ_WarnPrintf(("AJ_PeerHandleKeyAuthentication(msg=0x%p, reply=0x%p): Save master secret error\n", msg, reply));
         HandshakeComplete(AJ_ERR_SECURITY);
         return AJ_MarshalErrorMsg(msg, reply, AJ_ErrSecurityViolation);
     }
@@ -1107,7 +1114,7 @@ AJ_Status AJ_PeerHandleKeyAuthenticationReply(AJ_Message* msg)
     AJ_InfoPrintf(("AJ_PeerHandleKeyAuthenticationReply(msg=0x%p)\n", msg));
 
     if (msg->hdr->msgType == AJ_MSG_ERROR) {
-        AJ_ErrPrintf(("AJ_PeerHandleKeyAuthenticationReply(msg=0x%p): error=%s.\n", msg, msg->error));
+        AJ_WarnPrintf(("AJ_PeerHandleKeyAuthenticationReply(msg=0x%p): error=%s.\n", msg, msg->error));
         if (0 == strncmp(msg->error, AJ_ErrResources, sizeof(AJ_ErrResources))) {
             status = AJ_ERR_RESOURCES;
         } else {
@@ -1123,12 +1130,12 @@ AJ_Status AJ_PeerHandleKeyAuthenticationReply(AJ_Message* msg)
     }
 
     if (AJ_AUTH_EXCHANGED != handshakeContext.state) {
-        AJ_ErrPrintf(("AJ_PeerHandleKeyAuthenticationReply(msg=0x%p): Invalid state\n", msg));
+        AJ_WarnPrintf(("AJ_PeerHandleKeyAuthenticationReply(msg=0x%p): Invalid state\n", msg));
         HandshakeComplete(AJ_ERR_SECURITY);
         return AJ_ERR_SECURITY;
     }
     if (!handshakeContext.keyauthentication) {
-        AJ_ErrPrintf(("AJ_PeerHandleKeyAuthenticationReply(msg=0x%p): Invalid key authentication\n", msg));
+        AJ_WarnPrintf(("AJ_PeerHandleKeyAuthenticationReply(msg=0x%p): Invalid key authentication\n", msg));
         HandshakeComplete(AJ_ERR_SECURITY);
         return AJ_ERR_SECURITY;
     }
@@ -1137,7 +1144,7 @@ AJ_Status AJ_PeerHandleKeyAuthenticationReply(AJ_Message* msg)
      */
     status = handshakeContext.keyauthentication->Unmarshal(msg, AUTH_CLIENT);
     if (AJ_OK != status) {
-        AJ_ErrPrintf(("AJ_PeerHandleKeyAuthenticationReply(msg=0x%p): Key authentication unmarshal error\n", msg));
+        AJ_WarnPrintf(("AJ_PeerHandleKeyAuthenticationReply(msg=0x%p): Key authentication unmarshal error\n", msg));
         HandshakeComplete(AJ_ERR_SECURITY);
         return AJ_ERR_SECURITY;
     }
@@ -1152,7 +1159,7 @@ AJ_Status AJ_PeerHandleKeyAuthenticationReply(AJ_Message* msg)
     peerGuid = AJ_GUID_Find(msg->sender);
     status = SaveMasterSecret(peerGuid, expiration);
     if (AJ_OK != status) {
-        AJ_ErrPrintf(("AJ_PeerHandleKeyAuthenticationReply(msg=0x%p): Save master secret error\n", msg));
+        AJ_WarnPrintf(("AJ_PeerHandleKeyAuthenticationReply(msg=0x%p): Save master secret error\n", msg));
         HandshakeComplete(AJ_ERR_SECURITY);
         return AJ_ERR_SECURITY;
     }
@@ -1262,7 +1269,7 @@ AJ_Status AJ_PeerHandleGenSessionKeyReply(AJ_Message* msg)
     AJ_InfoPrintf(("AJ_PeerHandleGetSessionKeyReply(msg=0x%p)\n", msg));
 
     if (msg->hdr->msgType == AJ_MSG_ERROR) {
-        AJ_ErrPrintf(("AJ_PeerHandleGetSessionKeyReply(msg=0x%p): error=%s.\n", msg, msg->error));
+        AJ_WarnPrintf(("AJ_PeerHandleGetSessionKeyReply(msg=0x%p): error=%s.\n", msg, msg->error));
         if (0 == strncmp(msg->error, AJ_ErrResources, sizeof(AJ_ErrResources))) {
             status = AJ_ERR_RESOURCES;
         } else {
@@ -1284,7 +1291,7 @@ AJ_Status AJ_PeerHandleGenSessionKeyReply(AJ_Message* msg)
          * Check verifier strings match as expected
          */
         if (strcmp(remVerifier, verifier) != 0) {
-            AJ_ErrPrintf(("AJ_PeerHandleGetSessionKeyReply(): AJ_ERR_SECURITY\n"));
+            AJ_WarnPrintf(("AJ_PeerHandleGetSessionKeyReply(): AJ_ERR_SECURITY\n"));
             status = AJ_ERR_SECURITY;
         }
     }
@@ -1324,7 +1331,7 @@ AJ_Status AJ_PeerHandleExchangeGroupKeys(AJ_Message* msg, AJ_Message* reply)
      * We expect the key to be 16 bytes
      */
     if (key.len != AES_KEY_LEN) {
-        AJ_ErrPrintf(("AJ_PeerHandleExchangeGroupKeys(): AJ_ERR_INVALID\n"));
+        AJ_WarnPrintf(("AJ_PeerHandleExchangeGroupKeys(): AJ_ERR_INVALID\n"));
         status = AJ_ERR_INVALID;
     } else {
         status = AJ_SetGroupKey(msg->sender, key.val.v_byte);
@@ -1359,7 +1366,7 @@ AJ_Status AJ_PeerHandleExchangeGroupKeysReply(AJ_Message* msg)
      * We expect the key to be 16 bytes
      */
     if (arg.len != AES_KEY_LEN) {
-        AJ_ErrPrintf(("AJ_PeerHandleExchangeGroupKeysReply(msg=0x%p): AJ_ERR_INVALID\n", msg));
+        AJ_WarnPrintf(("AJ_PeerHandleExchangeGroupKeysReply(msg=0x%p): AJ_ERR_INVALID\n", msg));
         status = AJ_ERR_INVALID;
     } else {
         status = AJ_SetGroupKey(msg->sender, arg.val.v_byte);

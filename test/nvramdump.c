@@ -105,12 +105,22 @@ AJ_Status DumpNVRAM()
             continue;
         }
         localCredId = AJ_Malloc(localCredIdLen);
+        if (!localCredId) {
+            AJ_NVRAM_Close(handle);
+            return AJ_ERR_RESOURCES;
+        }
         if (localCredIdLen != AJ_NVRAM_Read(localCredId, localCredIdLen, handle)) {
+            AJ_Free(localCredId);
             AJ_NVRAM_Close(handle);
             continue;
         }
 
         cred = AJ_Malloc(sizeof(AJ_PeerCred));
+        if (!cred) {
+            AJ_Free(localCredId);
+            AJ_NVRAM_Close(handle);
+            return AJ_ERR_RESOURCES;
+        }
         cred->type = localCredType;
         cred->idLen = localCredIdLen;
         cred->id = localCredId;
@@ -132,7 +142,7 @@ AJ_Status DumpNVRAM()
         AJ_Printf("\n");
         AJ_FreeCredential(cred);
     }
-    return 0;
+    return AJ_OK;
 }
 
 

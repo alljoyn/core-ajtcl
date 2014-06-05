@@ -77,10 +77,6 @@ void AJ_SHA256_Final(AJ_SHA256_Context* context, uint8_t* digest) {
 AJ_Status AJ_HMAC_SHA256_Init(AJ_HMAC_SHA256_CTX* ctx, const uint8_t* key, size_t keyLen)
 {
     int cnt;
-
-    if (keyLen < 0) {
-        return AJ_ERR_INVALID;
-    }
     memset(ctx->ipad, 0, HMAC_SHA256_BLOCK_LENGTH);
     memset(ctx->opad, 0, HMAC_SHA256_BLOCK_LENGTH);
     /* if keyLen > 64, hash it and use it as key */
@@ -122,9 +118,6 @@ AJ_Status AJ_HMAC_SHA256_Init(AJ_HMAC_SHA256_CTX* ctx, const uint8_t* key, size_
 
 AJ_Status AJ_HMAC_SHA256_Update(AJ_HMAC_SHA256_CTX* ctx, const uint8_t* data, size_t dataLen)
 {
-    if (dataLen < 0) {
-        return AJ_ERR_INVALID;
-    }
     AJ_SHA256_Update(&ctx->hashCtx, data, dataLen);
     return AJ_OK;
 }
@@ -132,7 +125,6 @@ AJ_Status AJ_HMAC_SHA256_Update(AJ_HMAC_SHA256_CTX* ctx, const uint8_t* data, si
 AJ_Status AJ_HMAC_SHA256_Final(AJ_HMAC_SHA256_CTX* ctx, uint8_t* digest)
 {
     int cnt;
-
     /* complete inner hash SHA256(K XOR ipad, msg) */
     AJ_SHA256_Final(&ctx->hashCtx, digest);
 

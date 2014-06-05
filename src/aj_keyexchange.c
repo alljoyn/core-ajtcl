@@ -78,14 +78,14 @@ static AJ_Status ECDHE_Marshal(AJ_Message* msg)
 
     status = AJ_MarshalVariant(msg, "ay");
     if (AJ_OK != status) {
-        AJ_InfoPrintf(("AJ_ECDHE_Marshal(msg=0x%p): Marshal variant error\n", msg));
+        AJ_ErrPrintf(("AJ_ECDHE_Marshal(msg=0x%p): Marshal variant error\n", msg));
         return status;
     }
     b8[0] = ECC_NIST_P256;
-    AJ_EncodePublicKey(&ecdhectx.publickey, &b8[1]);
+    AJ_BigEndianEncodePublicKey(&ecdhectx.publickey, &b8[1]);
     status = AJ_MarshalArgs(msg, "ay", b8, sizeof (b8));
     if (AJ_OK != status) {
-        AJ_InfoPrintf(("AJ_ECDHE_Marshal(msg=0x%p): Marshal key material error\n", msg));
+        AJ_ErrPrintf(("AJ_ECDHE_Marshal(msg=0x%p): Marshal key material error\n", msg));
         return status;
     }
     AJ_SHA256_Update(ecdhectx.hash, b8, sizeof (b8));
@@ -128,13 +128,13 @@ static AJ_Status ECDHE_Unmarshal(AJ_Message* msg, uint8_t** secret, size_t* secr
     }
     AJ_SHA256_Update(ecdhectx.hash, data, datalen);
 
-    AJ_DecodePublicKey(&publickey, &data[1]);
+    AJ_BigEndianDecodePublicKey(&publickey, &data[1]);
     status = AJ_GenerateShareSecret(&publickey, &ecdhectx.privatekey, &tmp);
     if (AJ_OK != status) {
         AJ_InfoPrintf(("AJ_ECDHE_Unmarshal(msg=0x%p): Generate secret error\n", msg));
         return status;
     }
-    AJ_EncodePublicKey(&tmp, ecdhectx.secret);
+    AJ_BigEndianEncodePublicKey(&tmp, ecdhectx.secret);
     *secret = ecdhectx.secret;
     *secretlen = sizeof (ecdhectx.secret);
 

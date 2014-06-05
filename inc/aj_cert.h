@@ -50,16 +50,129 @@ typedef struct _AJ_Certificate {
     uint32_t size;
 } AJ_Certificate;
 
-void U32ToU8(uint32_t* u32, size_t len, uint8_t* u8);
-AJ_Status AJ_EncodePublicKey(ecc_publickey* publickey, uint8_t* b8);
-AJ_Status AJ_DecodePublicKey(ecc_publickey* publickey, uint8_t* b8);
-AJ_Status AJ_EncodePrivateKey(ecc_privatekey* privatekey, uint8_t* b8);
-AJ_Status AJ_DecodePrivateKey(ecc_privatekey* privatekey, uint8_t* b8);
-AJ_Status AJ_EncodeCertificate(AJ_Certificate* certificate, uint8_t* b8, size_t b8len);
-AJ_Status AJ_DecodeCertificate(AJ_Certificate* certificate, uint8_t* b8, size_t b8len);
-AJ_Status AJ_CreateCertificate(AJ_Certificate* certificate, const uint32_t version, const ecc_publickey* issuer, const ecc_publickey* subject, const AJ_GUID* guild, const uint8_t* digest, const uint8_t delegate);
+/**
+ * Convert unsigned 32-bit int array to network order (big endian) bytes.
+ *
+ * @param u32  Unsigned 32-bit array
+ * @param len  Length of 32-bit array
+ * @param u8   Unsigned 8-bit array
+ *
+ */
+void HostU32ToBigEndianU8(uint32_t* u32, size_t len, uint8_t* u8);
+
+/**
+ * Encode native public key to network order bytes.
+ *
+ * @param publickey  The ECC public key
+ * @param[out] b8    Big endian byte array
+ *
+ * @return AJ_OK
+ *
+ */
+AJ_Status AJ_BigEndianEncodePublicKey(ecc_publickey* publickey, uint8_t* b8);
+
+/**
+ * Decode network order bytes to native public key.
+ *
+ * @param[out] publickey  The ECC public key
+ * @param b8    Big endian byte array
+ *
+ * @return AJ_OK
+ *
+ */
+AJ_Status AJ_BigEndianDecodePublicKey(ecc_publickey* publickey, uint8_t* b8);
+
+/**
+ * Encode native private key to network order bytes.
+ *
+ * @param privatekey The ECC private key
+ * @param[out] b8    Big endian byte array
+ *
+ * @return AJ_OK
+ *
+ */
+AJ_Status AJ_BigEndianEncodePrivateKey(ecc_privatekey* privatekey, uint8_t* b8);
+
+/**
+ * Decode network order bytes to native private key.
+ *
+ * @param[out] privatekey The ECC private key
+ * @param b8    Big endian byte array
+ *
+ * @return AJ_OK
+ *
+ */
+AJ_Status AJ_BigEndianDecodePrivateKey(ecc_privatekey* privatekey, uint8_t* b8);
+
+/**
+ * Encode native certificate to network order bytes.
+ *
+ * @param certificate The ECDSA certificate
+ * @param[out] b8    Big endian byte array
+ * @param b8len       Byte array length
+ *
+ * @return
+ *         - AJ_OK on success
+ *         - AJ_ERR_RESOURCES if buffer not large enough
+ *
+ */
+AJ_Status AJ_BigEndianEncodeCertificate(AJ_Certificate* certificate, uint8_t* b8, size_t b8len);
+
+/**
+ * Decode network order bytes to native certificate.
+ *
+ * @param[out] certificate The ECDSA certificate
+ * @param b8    Big endian byte array
+ * @param b8len       Byte array length
+ *
+ * @return
+ *         - AJ_OK on success
+ *         - AJ_ERR_RESOURCES if buffer not large enough
+ *
+ */
+AJ_Status AJ_BigEndianDecodeCertificate(AJ_Certificate* certificate, uint8_t* b8, size_t b8len);
+
+/**
+ * Create certificate
+ *
+ * @param certificate The ECDSA certificate
+ * @param version     Certificate version
+ * @param issuer      Certificate issuer
+ * @param subject     Certificate subject
+ * @param guild       Certificate guild (optional)
+ * @param digest      Certificate digest
+ * @param delegate    Certificate delegate
+ *
+ * @return AJ_OK
+ *
+ */
+AJ_Status AJ_CreateCertificate(AJ_Certificate* certificate, const uint32_t version,
+                               const ecc_publickey* issuer, const ecc_publickey* subject,
+                               const AJ_GUID* guild, const uint8_t* digest, const uint8_t delegate);
+
+/**
+ * Sign certificate
+ *
+ * @param certificate    The ECDSA certificate
+ * @param issuer_private Private key of issuer
+ *
+ * @return
+ *         - AJ_OK on success
+ *         - AJ_ERR_SECURITY on sign error
+ *
+ */
 AJ_Status AJ_SignCertificate(AJ_Certificate* certificate, const ecc_privatekey* issuer_private);
+
+/**
+ * Verify certificate
+ *
+ * @param certificate    The ECDSA certificate
+ *
+ * @return
+ *         - AJ_OK on success
+ *         - AJ_ERR_SECURITY on verify error
+ *
+ */
 AJ_Status AJ_VerifyCertificate(AJ_Certificate* certificate);
-void AJ_PrintCertificate(AJ_Certificate* certificate);
 
 #endif

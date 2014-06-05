@@ -204,6 +204,11 @@ static uint16_t FindCredential(const uint16_t credType, const uint8_t* credId, u
             }
             /* full query */
             cred = (AJ_PeerCred*) AJ_Malloc(sizeof(AJ_PeerCred));
+            if (!cred) {
+                AJ_Free(localCredId);
+                AJ_NVRAM_Close(handle);
+                return AJ_ERR_RESOURCES;
+            }
             cred->type = localCredType;
             cred->idLen = localCredIdLen;
             cred->id = localCredId;
@@ -271,21 +276,21 @@ static AJ_Status UpdateCred(AJ_PeerCred* aCred, uint16_t slot)
     size = AJ_NVRAM_Write(&aCred->type, toWrite, handle);
     if (toWrite != size) {
         AJ_ErrPrintf(("UpdateCred(): AJ_ERR_FAILURE on write failure on type field\n"));
-        return AJ_ERR_FAILURE;
+        goto Exit;
     }
     /* Write id length and optional id */
     toWrite = sizeof(aCred->idLen);
     size = AJ_NVRAM_Write(&aCred->idLen, toWrite, handle);
     if (toWrite != size) {
         AJ_ErrPrintf(("UpdateCred(): AJ_ERR_FAILURE on write failure on idLen field\n"));
-        return AJ_ERR_FAILURE;
+        goto Exit;
     }
     if (aCred->idLen > 0) {
         toWrite = aCred->idLen;
         size = AJ_NVRAM_Write(aCred->id, toWrite, handle);
         if (toWrite != size) {
             AJ_ErrPrintf(("UpdateCred(): AJ_ERR_FAILURE on write failure on id field\n"));
-            return AJ_ERR_FAILURE;
+            goto Exit;
         }
     }
     /* Write expiration */
@@ -293,21 +298,21 @@ static AJ_Status UpdateCred(AJ_PeerCred* aCred, uint16_t slot)
     size = AJ_NVRAM_Write(&aCred->expiration, toWrite, handle);
     if (toWrite != size) {
         AJ_ErrPrintf(("UpdateCred(): AJ_ERR_FAILURE on write failure on field expiration\n"));
-        return AJ_ERR_FAILURE;
+        goto Exit;
     }
     /* Write association length and optional association */
     toWrite = sizeof(aCred->associationLen);
     size = AJ_NVRAM_Write(&aCred->associationLen, toWrite, handle);
     if (toWrite != size) {
         AJ_ErrPrintf(("UpdateCred(): AJ_ERR_FAILURE on write failure on field associationLen\n"));
-        return AJ_ERR_FAILURE;
+        goto Exit;
     }
     if (aCred->associationLen > 0) {
         toWrite = aCred->associationLen;
         size = AJ_NVRAM_Write(aCred->association, toWrite, handle);
         if (toWrite != size) {
             AJ_ErrPrintf(("UpdateCred(): AJ_ERR_FAILURE on write failure on field association\n"));
-            return AJ_ERR_FAILURE;
+            goto Exit;
         }
     }
     /* Write data length and optional data */
@@ -315,17 +320,22 @@ static AJ_Status UpdateCred(AJ_PeerCred* aCred, uint16_t slot)
     size = AJ_NVRAM_Write(&aCred->dataLen, toWrite, handle);
     if (toWrite != size) {
         AJ_ErrPrintf(("UpdateCred(): AJ_ERR_FAILURE on write failure on field dataLen\n"));
-        return AJ_ERR_FAILURE;
+        goto Exit;
     }
     if (aCred->dataLen > 0) {
         toWrite = aCred->dataLen;
         size = AJ_NVRAM_Write(aCred->data, toWrite, handle);
         if (toWrite != size) {
             AJ_ErrPrintf(("UpdateCred(): AJ_ERR_FAILURE on write failure on field data\n"));
-            return AJ_ERR_FAILURE;
+            goto Exit;
         }
     }
     status = AJ_NVRAM_Close(handle);
+    return status;
+
+Exit:
+    status = AJ_NVRAM_Close(handle);
+    status = AJ_ERR_FAILURE;
 
     return status;
 }
@@ -459,24 +469,12 @@ AJ_Status AJ_StorePeerSecret(const AJ_GUID* peerGuid, const uint8_t* secret,
 
     cred.type = AJ_CRED_TYPE_GENERIC;
     cred.idLen = sizeof(AJ_GUID);
-    cred.id = (uint8_t*) AJ_Malloc(cred.idLen);
-    if (!cred.id) {
-        AJ_ErrPrintf(("AJ_StorePeerSecret(peerGuid=0x%p, secret=0x%p, len=%d, expiration=0x%08X): AJ_ERR_RESOURCES\n", peerGuid, secret, len, expiration));
-        return AJ_ERR_RESOURCES;
-    }
-    memcpy(cred.id, peerGuid, sizeof(AJ_GUID));
+    cred.id = (uint8_t*) peerGuid;
     cred.associationLen = 0;
     cred.dataLen = len;
-    cred.data = (uint8_t*) AJ_Malloc(cred.dataLen);
-    if (!cred.data) {
-        AJ_ErrPrintf(("AJ_StorePeerSecret(peerGuid=0x%p, secret=0x%p, len=%d, expiration=0x%08X): AJ_ERR_RESOURCES\n", peerGuid, secret, len, expiration));
-        FreeCredentialContent(&cred);
-        return AJ_ERR_RESOURCES;
-    }
-    memcpy(cred.data, secret, len);
+    cred.data = (uint8_t*) secret;
     cred.expiration = expiration;
     status = AJ_StoreCredential(&cred);
-    FreeCredentialContent(&cred);
 
     return status;
 }

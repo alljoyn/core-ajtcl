@@ -141,7 +141,6 @@ static uint32_t PasswordCallback(uint8_t* buffer, uint32_t bufLen)
 //static uint8_t psk[16];
 static const char psk_hint[] = "bob";
 static const char psk_char[] = "123456";
-static const char owner_pub_b64[] = "RCf5ihem02VFXvIa8EVJ1CJcJns3el0IH+H51s07rc0AAAAAn6KJifUPH1oRmPLoyBHGCg7/NT8kW67GD8kQjZh/U/AAAAAAAAAAAA==";
 static const char ecc_pub_b64[] = "C/KGAyLE5jyVqHEipZBhPb7Ahj/MBdNLtpDvT9OJ0LYAAAAAn8QabXetJcPD7OWmEB6uXGXh+ftJOLlCTJhAHjTJsDkAAAAAAAAAAA==";
 static const char ecc_prv_b64[] = "wxieVOfgCMgys3m+V82eV/B/p0WlIMu8fizZiqMQnYsAAAAA";
 static const char owner_cert1_b64[] = "\
@@ -161,13 +160,29 @@ tj2XcycgTidW60XeVAAAAADCAWDa119gVqq2GOiteOKBaM7huRPUOl+ytTMQQpCj\
 WAAAAAA=";
 static ecc_publickey ecc_pub;
 static ecc_privatekey ecc_prv;
-//static ecc_publickey  ecc_pub;
 static AJ_Certificate root_cert;
+
+static const char* issuers[] = {
+    "RCf5ihem02VFXvIa8EVJ1CJcJns3el0IH+H51s07rc0AAAAAn6KJifUPH1oRmPLoyBHGCg7/NT8kW67GD8kQjZh/U/AAAAAAAAAAAA==",
+    "nUsoaWelVW1XhJrVNQuzEYlH0LndSrkAfd/GrEmM11gAAAAAChtt28EprD14ejHuj181s3m6y5nDxeRI9KaKmKRgI8kAAAAAAAAAAA=="
+};
+
+static AJ_Status IsTrustedIssuer(const char* issuer)
+{
+    size_t i;
+    for (i = 0; i < 2; i++) {
+        if (0 == strncmp(issuer, issuers[i], strlen(issuers[i]))) {
+            return AJ_OK;
+        }
+    }
+    return AJ_ERR_SECURITY;
+}
 
 static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, AJ_Credential*cred)
 {
     AJ_Status status = AJ_ERR_INVALID;
     uint8_t b8[sizeof (AJ_Certificate)];
+    char b64[400];
     AJ_Printf("AuthListenerCallback authmechanism %d command %d\n", authmechanism, command);
 
     switch (authmechanism) {
@@ -212,7 +227,7 @@ static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, 
         case AJ_CRED_PUB_KEY:
             status = AJ_B64ToRaw(ecc_pub_b64, strlen(ecc_pub_b64), b8, sizeof (b8));
             AJ_ASSERT(AJ_OK == status);
-            status = AJ_DecodePublicKey(&ecc_pub, b8);
+            status = AJ_BigEndianDecodePublicKey(&ecc_pub, b8);
             AJ_ASSERT(AJ_OK == status);
             cred->mask = AJ_CRED_PUB_KEY;
             cred->data = (uint8_t*) &ecc_pub;
@@ -223,7 +238,7 @@ static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, 
         case AJ_CRED_PRV_KEY:
             status = AJ_B64ToRaw(ecc_prv_b64, strlen(ecc_prv_b64), b8, sizeof (b8));
             AJ_ASSERT(AJ_OK == status);
-            status = AJ_DecodePrivateKey(&ecc_prv, b8);
+            status = AJ_BigEndianDecodePrivateKey(&ecc_prv, b8);
             AJ_ASSERT(AJ_OK == status);
             cred->mask = AJ_CRED_PRV_KEY;
             cred->data = (uint8_t*) &ecc_prv;
@@ -234,11 +249,25 @@ static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, 
         case AJ_CRED_CERT_CHAIN:
             status = AJ_B64ToRaw(owner_cert1_b64, strlen(owner_cert1_b64), b8, sizeof (b8));
             AJ_ASSERT(AJ_OK == status);
-            status = AJ_DecodeCertificate(&root_cert, b8, sizeof (b8));
+            status = AJ_BigEndianDecodeCertificate(&root_cert, b8, sizeof (b8));
             AJ_ASSERT(AJ_OK == status);
             cred->mask = AJ_CRED_CERT_CHAIN;
             cred->data = (uint8_t*) &root_cert;
             cred->len = sizeof (root_cert);
+            break;
+
+        case AJ_CRED_CERT_TRUST:
+            status = AJ_RawToB64(cred->data, cred->len, b64, sizeof (b64));
+            AJ_ASSERT(AJ_OK == status);
+            status = IsTrustedIssuer(b64);
+            AJ_Printf("TRUST: %s %d\n", b64, status);
+            break;
+
+        case AJ_CRED_CERT_ROOT:
+            status = AJ_RawToB64(cred->data, cred->len, b64, sizeof (b64));
+            AJ_ASSERT(AJ_OK == status);
+            AJ_Printf("ROOT: %s\n", b64);
+            status = AJ_OK;
             break;
         }
         break;
@@ -294,35 +323,6 @@ uint32_t MyBusAuthPwdCB(uint8_t* buf, uint32_t bufLen)
     return (uint32_t)strlen(myPwd);
 }
 
-static AJ_Status StoreIssuer()
-{
-    AJ_Status status;
-    AJ_PeerCred cred;
-    uint8_t b8[sizeof (ecc_publickey)];
-    uint8_t digest[SHA256_DIGEST_LENGTH];
-    AJ_SHA256_Context ctx;
-
-    status = AJ_B64ToRaw(owner_pub_b64, strlen(owner_pub_b64), b8, sizeof (b8));
-    AJ_ASSERT(AJ_OK == status);
-
-    AJ_SHA256_Init(&ctx);
-    AJ_SHA256_Update(&ctx, b8, sizeof (b8));
-    AJ_SHA256_Final(&ctx, digest);
-
-    cred.type = AJ_CRED_TYPE_DSA_PUBLIC;
-    cred.idLen = sizeof (digest);
-    cred.id = digest;
-    cred.associationLen = 0;
-    cred.data = b8;
-    cred.dataLen = sizeof (b8);
-    cred.expiration = keyexpiration;
-
-    status = AJ_StoreCredential(&cred);
-    AJ_ASSERT(AJ_OK == status);
-
-    return AJ_OK;
-}
-
 static const uint32_t suites[3] = { AUTH_SUITE_ECDHE_ECDSA, AUTH_SUITE_ECDHE_PSK, AUTH_SUITE_ECDHE_NULL };
 static const size_t numsuites = 3;
 
@@ -344,7 +344,6 @@ int AJ_Main()
     AJ_PrintXML(AppObjects);
     AJ_RegisterObjects(AppObjects, NULL);
 
-    StoreIssuer();
     SetBusAuthPwdCallback(MyBusAuthPwdCB);
     while (TRUE) {
         AJ_Message msg;

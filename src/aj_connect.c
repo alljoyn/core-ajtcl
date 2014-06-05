@@ -33,7 +33,6 @@
 #include "aj_bus.h"
 #include "aj_disco.h"
 #include "aj_std.h"
-#include "aj_auth.h"
 #include "aj_debug.h"
 #include "aj_config.h"
 #include "aj_creds.h"
@@ -56,48 +55,13 @@ AJ_EXPORT uint8_t dbgCONNECT = 0;
 
 static const char daemonService[] = "org.alljoyn.BusNode";
 
-static uint32_t DefaultBusAuthPwdFunc(uint8_t* buffer, uint32_t bufLen)
-{
-    const char* defaultPwd = "1234";
-
-    AJ_InfoPrintf(("DefaultBusAuthPwdFunc(buffer=0x%p, bufLen=%d.)\n", buffer, bufLen));
-
-    strcpy((char*)buffer, defaultPwd);
-    return (uint32_t)strlen(defaultPwd);
-}
-
-static BusAuthPwdFunc busAuthPwdFunc = DefaultBusAuthPwdFunc;
-
 void SetBusAuthPwdCallback(BusAuthPwdFunc callback)
 {
-    AJ_InfoPrintf(("SetBusAuthPwdCallback(callback=0x%p)\n", callback));
-    busAuthPwdFunc = callback;
+    /*
+     * This functionality is no longer provided but the function is still defined for backwards
+     * compatibility.
+     */
 }
-
-static AJ_AuthResult AnonMechAdvance(const char* inStr, char* outStr, uint32_t outLen)
-{
-    AJ_InfoPrintf(("AnonMechAdvance(instr=\"%s\", outStr=0x%p, outlen=%d.)\n", inStr, outStr, outLen));
-    return AJ_AUTH_STATUS_SUCCESS;
-}
-
-static AJ_Status AnonMechInit(uint8_t role, AJ_AuthPwdFunc pwdFunc)
-{
-    AJ_InfoPrintf(("AnonMechInit(role=%d., pwdFunc=0x%p)\n", role, pwdFunc));
-    return AJ_OK;
-}
-
-static const AJ_AuthMechanism authAnonymous = {
-    AnonMechInit,
-    AnonMechAdvance,
-    AnonMechAdvance,
-    NULL,
-    "ANONYMOUS"
-};
-
-/*
- * Authentication mechanisms in order of preference
- */
-static const AJ_AuthMechanism* const mechList[] = { &AJ_AuthPin, &authAnonymous, NULL };
 
 static AJ_Status SendHello(AJ_BusAttachment* bus)
 {
@@ -117,6 +81,7 @@ static void ResetRead(AJ_IOBuffer* rxBuf) {
     rxBuf->readPtr += AJ_IO_BUF_AVAIL(rxBuf);
     *rxBuf->writePtr = '\0';
 }
+
 static AJ_Status ReadLine(AJ_IOBuffer* rxBuf) {
     /*
      * All the authentication messages end in a CR/LF so read until we get a newline
@@ -136,6 +101,14 @@ static AJ_Status WriteLine(AJ_IOBuffer* txBuf, char* line) {
     txBuf->writePtr += strlen(line);
     return txBuf->send(txBuf);
 }
+
+/**
+ * Since the routing node expects any of its clients to use SASL with Anonymous
+ * or PINX in order to connect, this method will send the necessary SASL
+ * Anonymous exchange in order to connect.  PINX is no longer supported on the
+ * Thin Client.  All thin clients will connect as untrusted clients to the
+ * routing node.
+ */
 static AJ_Status AnonymousAuthAdvance(AJ_IOBuffer* rxBuf, AJ_IOBuffer* txBuf) {
     AJ_Status status = AJ_OK;
     AJ_GUID localGuid;
@@ -196,6 +169,8 @@ AJ_Status AJ_Authenticate(AJ_BusAttachment* bus)
         AJ_InfoPrintf(("AJ_Authenticate(): status=%s\n", AJ_StatusText(status)));
         goto ExitConnect;
     }
+
+    /* Use SASL Anonymous to connect to routing node */
     status = AnonymousAuthAdvance(&bus->sock.rx, &bus->sock.tx);
     if (status == AJ_OK) {
         status = SendHello(bus);

@@ -135,51 +135,61 @@ typedef void (*AJ_PeerAuthenticateCallback)(const void* context, AJ_Status statu
 AJ_Status AJ_PeerAuthenticate(AJ_BusAttachment* bus, const char* peerName, AJ_PeerAuthenticateCallback callback, void* cbContext);
 
 /**
- * Start the handshake
+ * Handle an exchange suites message
  *
- * @param msg    The authentication challenge message
+ * @param msg    The exchange suites message
+ * @param reply  The exchange suites reply message
  *
- * @return        Return AJ_Status
+ * @return       Return AJ_Status
  */
-AJ_Status AJ_HandshakeStart(AJ_Message* msg);
+AJ_Status AJ_PeerHandleExchangeSuites(AJ_Message* msg, AJ_Message* reply);
 
 /**
- * Handle the first message from the client
+ * Handle an exchange suites reply message
  *
- * @param msg    The authentication challenge message
- * @param reply  The authentication challenge reply message
+ * @param msg    The exchange suites reply message
  *
- * @return        Return AJ_Status
+ * @return       Return AJ_Status
  */
-AJ_Status AJ_PeerHandleHandshakeStart(AJ_Message* msg, AJ_Message* reply);
+AJ_Status AJ_PeerHandleExchangeSuitesReply(AJ_Message* msg);
 
 /**
- * Handle the reply message from the server
+ * Handle a key exchange message
  *
- * @param msg  The authentication challenge reply message
+ * @param msg    The key exchange message
+ * @param reply  The key exchange reply message
  *
- * @return        Return AJ_Status
+ * @return       Return AJ_Status
  */
-AJ_Status AJ_PeerHandleHandshakeStartReply(AJ_Message* msg);
+AJ_Status AJ_PeerHandleKeyExchange(AJ_Message* msg, AJ_Message* reply);
 
 /**
- * Handle the second message from the client
+ * Handle a key exchange reply message
  *
- * @param msg    The authentication challenge message
- * @param reply  The authentication challenge reply message
+ * @param msg    The key exchange reply message
  *
- * @return        Return AJ_Status
+ * @return       Return AJ_Status
  */
-AJ_Status AJ_PeerHandleHandshakeFinish(AJ_Message* msg, AJ_Message* reply);
+AJ_Status AJ_PeerHandleKeyExchangeReply(AJ_Message* msg);
 
 /**
- * Handle the reply message from the server
+ * Handle a key authentication message
  *
- * @param msg  The authentication challenge reply message
+ * @param msg    The key authentication message
+ * @param reply  The key authentication reply message
  *
- * @return        Return AJ_Status
+ * @return       Return AJ_Status
  */
-AJ_Status AJ_PeerHandleHandshakeFinishReply(AJ_Message* msg);
+AJ_Status AJ_PeerHandleKeyAuthentication(AJ_Message* msg, AJ_Message* reply);
+
+/**
+ * Handle a key authentication reply message
+ *
+ * @param msg    The key authentication reply message
+ *
+ * @return       Return AJ_Status
+ */
+AJ_Status AJ_PeerHandleKeyAuthenticationReply(AJ_Message* msg);
 
 /* the key exchange is in the 16 MSB */
 #define AUTH_KEYX_ANONYMOUS     0x00010000
@@ -202,15 +212,6 @@ AJ_Status AJ_PeerHandleHandshakeFinishReply(AJ_Message* msg);
 #define AUTH_SUITE_ECDHE_NULL   (AUTH_KEYX_ECDHE | 0x0001)
 #define AUTH_SUITE_ECDHE_PSK    (AUTH_KEYX_ECDHE | 0x0002)
 #define AUTH_SUITE_ECDHE_ECDSA  (AUTH_KEYX_ECDHE | 0x0004)
-
-#define AUTH_SUITE_MAX 9
-
-AJ_Status AJ_PeerHandleExchangeSuites(AJ_Message* msg, AJ_Message* reply);
-AJ_Status AJ_PeerHandleExchangeSuitesReply(AJ_Message* msg);
-AJ_Status AJ_PeerHandleKeyExchange(AJ_Message* msg, AJ_Message* reply);
-AJ_Status AJ_PeerHandleKeyExchangeReply(AJ_Message* msg);
-AJ_Status AJ_PeerHandleKeyAuthentication(AJ_Message* msg, AJ_Message* reply);
-AJ_Status AJ_PeerHandleKeyAuthenticationReply(AJ_Message* msg);
 
 /**
  * @}

@@ -37,7 +37,7 @@
 uint8_t dbgCERTIFICATE = 0;
 #endif
 
-void U32ToU8(uint32_t* u32, size_t len, uint8_t* u8)
+void HostU32ToBigEndianU8(uint32_t* u32, size_t len, uint8_t* u8)
 {
     uint32_t x;
     size_t i;
@@ -51,7 +51,7 @@ void U32ToU8(uint32_t* u32, size_t len, uint8_t* u8)
     }
 }
 
-static void U8ToU32(uint8_t* u8, uint32_t* u32, size_t len)
+static void BigEndianU8ToHostU32(uint8_t* u8, uint32_t* u32, size_t len)
 {
     uint32_t x;
     size_t i;
@@ -65,7 +65,7 @@ static void U8ToU32(uint8_t* u8, uint32_t* u32, size_t len)
     }
 }
 
-static void U64ToU8(uint64_t* u64, size_t len, uint8_t* u8)
+static void HostU64ToBigEndianU8(uint64_t* u64, size_t len, uint8_t* u8)
 {
     uint64_t x;
     size_t i;
@@ -79,7 +79,7 @@ static void U64ToU8(uint64_t* u64, size_t len, uint8_t* u8)
     }
 }
 
-static void U8ToU64(uint8_t* u8, uint64_t* u64, size_t len)
+static void BigEndianU8ToHostU64(uint8_t* u8, uint64_t* u64, size_t len)
 {
     uint64_t x;
     size_t i;
@@ -93,27 +93,27 @@ static void U8ToU64(uint8_t* u8, uint64_t* u64, size_t len)
     }
 }
 
-AJ_Status AJ_EncodePublicKey(ecc_publickey* publickey, uint8_t* b8)
+AJ_Status AJ_BigEndianEncodePublicKey(ecc_publickey* publickey, uint8_t* b8)
 {
-    U32ToU8((uint32_t*) publickey, sizeof (ecc_publickey), b8);
+    HostU32ToBigEndianU8((uint32_t*) publickey, sizeof (ecc_publickey), b8);
     return AJ_OK;
 }
 
-AJ_Status AJ_DecodePublicKey(ecc_publickey* publickey, uint8_t* b8)
+AJ_Status AJ_BigEndianDecodePublicKey(ecc_publickey* publickey, uint8_t* b8)
 {
-    U8ToU32(b8, (uint32_t*) publickey, sizeof (ecc_publickey));
+    BigEndianU8ToHostU32(b8, (uint32_t*) publickey, sizeof (ecc_publickey));
     return AJ_OK;
 }
 
-AJ_Status AJ_EncodePrivateKey(ecc_privatekey* privatekey, uint8_t* b8)
+AJ_Status AJ_BigEndianEncodePrivateKey(ecc_privatekey* privatekey, uint8_t* b8)
 {
-    U32ToU8((uint32_t*) privatekey, sizeof (ecc_privatekey), b8);
+    HostU32ToBigEndianU8((uint32_t*) privatekey, sizeof (ecc_privatekey), b8);
     return AJ_OK;
 }
 
-AJ_Status AJ_DecodePrivateKey(ecc_privatekey* privatekey, uint8_t* b8)
+AJ_Status AJ_BigEndianDecodePrivateKey(ecc_privatekey* privatekey, uint8_t* b8)
 {
-    U8ToU32(b8, (uint32_t*) privatekey, sizeof (ecc_privatekey));
+    BigEndianU8ToHostU32(b8, (uint32_t*) privatekey, sizeof (ecc_privatekey));
     return AJ_OK;
 }
 
@@ -134,28 +134,28 @@ static void CertificateSize(AJ_Certificate* certificate)
     certificate->size += sizeof (ecc_signature);
 }
 
-AJ_Status AJ_EncodeCertificate(AJ_Certificate* certificate, uint8_t* b8, size_t b8len)
+AJ_Status AJ_BigEndianEncodeCertificate(AJ_Certificate* certificate, uint8_t* b8, size_t b8len)
 {
     if (b8len < sizeof (uint32_t)) {
         /* Require at least a version */
         return AJ_ERR_RESOURCES;
     }
-    U32ToU8(&certificate->version, sizeof (uint32_t), b8);
+    HostU32ToBigEndianU8(&certificate->version, sizeof (uint32_t), b8);
     b8 += sizeof (uint32_t);
     CertificateSize(certificate);
     if (b8len < certificate->size) {
         return AJ_ERR_RESOURCES;
     }
-    AJ_EncodePublicKey(&certificate->issuer, b8);
+    AJ_BigEndianEncodePublicKey(&certificate->issuer, b8);
     b8 += sizeof (ecc_publickey);
     switch (certificate->version) {
     case 1:
     case 2:
-        AJ_EncodePublicKey(&certificate->subject, b8);
+        AJ_BigEndianEncodePublicKey(&certificate->subject, b8);
         b8 += sizeof (ecc_publickey);
-        U64ToU8(&certificate->validity.validfrom, sizeof (uint64_t), b8);
+        HostU64ToBigEndianU8(&certificate->validity.validfrom, sizeof (uint64_t), b8);
         b8 += sizeof (uint64_t);
-        U64ToU8(&certificate->validity.validto, sizeof (uint64_t), b8);
+        HostU64ToBigEndianU8(&certificate->validity.validto, sizeof (uint64_t), b8);
         b8 += sizeof (uint64_t);
         *b8 = certificate->delegate;
         b8 += sizeof (uint8_t);
@@ -169,34 +169,34 @@ AJ_Status AJ_EncodeCertificate(AJ_Certificate* certificate, uint8_t* b8, size_t 
     }
     memcpy(b8, certificate->digest, SHA256_DIGEST_LENGTH);
     b8 += SHA256_DIGEST_LENGTH;
-    U32ToU8((uint32_t*) &certificate->signature, sizeof (ecc_signature), b8);
+    HostU32ToBigEndianU8((uint32_t*) &certificate->signature, sizeof (ecc_signature), b8);
     b8 += sizeof (ecc_signature);
 
     return AJ_OK;
 }
 
-AJ_Status AJ_DecodeCertificate(AJ_Certificate* certificate, uint8_t* b8, size_t b8len)
+AJ_Status AJ_BigEndianDecodeCertificate(AJ_Certificate* certificate, uint8_t* b8, size_t b8len)
 {
     if (b8len < sizeof (uint32_t)) {
         /* Require at least a version */
         return AJ_ERR_RESOURCES;
     }
-    U8ToU32(b8, &certificate->version, sizeof (uint32_t));
+    BigEndianU8ToHostU32(b8, &certificate->version, sizeof (uint32_t));
     b8 += sizeof (uint32_t);
     CertificateSize(certificate);
     if (b8len < certificate->size) {
         return AJ_ERR_RESOURCES;
     }
-    AJ_DecodePublicKey(&certificate->issuer, b8);
+    AJ_BigEndianDecodePublicKey(&certificate->issuer, b8);
     b8 += sizeof (ecc_publickey);
     switch (certificate->version) {
     case 1:
     case 2:
-        AJ_DecodePublicKey(&certificate->subject, b8);
+        AJ_BigEndianDecodePublicKey(&certificate->subject, b8);
         b8 += sizeof (ecc_publickey);
-        U8ToU64(b8, &certificate->validity.validfrom, sizeof (uint64_t));
+        BigEndianU8ToHostU64(b8, &certificate->validity.validfrom, sizeof (uint64_t));
         b8 += sizeof (uint64_t);
-        U8ToU64(b8, &certificate->validity.validto, sizeof (uint64_t));
+        BigEndianU8ToHostU64(b8, &certificate->validity.validto, sizeof (uint64_t));
         b8 += sizeof (uint64_t);
         certificate->delegate = *b8;
         b8 += sizeof (uint8_t);
@@ -210,7 +210,7 @@ AJ_Status AJ_DecodeCertificate(AJ_Certificate* certificate, uint8_t* b8, size_t 
     }
     memcpy(certificate->digest, b8, SHA256_DIGEST_LENGTH);
     b8 += SHA256_DIGEST_LENGTH;
-    U8ToU32(b8, (uint32_t*) &certificate->signature, sizeof (ecc_signature));
+    BigEndianU8ToHostU32(b8, (uint32_t*) &certificate->signature, sizeof (ecc_signature));
     b8 += sizeof (ecc_signature);
 
     return AJ_OK;
@@ -218,8 +218,6 @@ AJ_Status AJ_DecodeCertificate(AJ_Certificate* certificate, uint8_t* b8, size_t 
 
 AJ_Status AJ_CreateCertificate(AJ_Certificate* certificate, const uint32_t version, const ecc_publickey* issuer, const ecc_publickey* subject, const AJ_GUID* guild, const uint8_t* digest, const uint8_t delegate)
 {
-    AJ_Status status = AJ_OK;
-
     certificate->version = version;
     memcpy((uint8_t*) &certificate->issuer, (uint8_t*) issuer, sizeof (ecc_publickey));
     switch (version) {
@@ -240,17 +238,15 @@ AJ_Status AJ_CreateCertificate(AJ_Certificate* certificate, const uint32_t versi
 
     CertificateSize(certificate);
 
-    return status;
+    return AJ_OK;
 }
 
 static AJ_Status CertificateDigest(AJ_Certificate* certificate, uint8_t* digest)
 {
-    AJ_Status status;
     AJ_SHA256_Context ctx;
     uint8_t buf[sizeof (AJ_Certificate)];
 
-    status = AJ_EncodeCertificate(certificate, buf, sizeof (buf));
-    AJ_ASSERT(AJ_OK == status);
+    AJ_BigEndianEncodeCertificate(certificate, buf, sizeof (buf));
     AJ_SHA256_Init(&ctx);
     AJ_SHA256_Update(&ctx, buf, certificate->size - sizeof (ecc_signature));
     AJ_SHA256_Final(&ctx, digest);
@@ -260,7 +256,7 @@ static AJ_Status CertificateDigest(AJ_Certificate* certificate, uint8_t* digest)
 
 AJ_Status AJ_SignCertificate(AJ_Certificate* certificate, const ecc_privatekey* issuer_private)
 {
-    AJ_Status status;
+    AJ_Status status = AJ_ERR_SECURITY;
     uint8_t digest[SHA256_DIGEST_LENGTH];
 
     switch (certificate->version) {
@@ -280,7 +276,7 @@ AJ_Status AJ_SignCertificate(AJ_Certificate* certificate, const ecc_privatekey* 
 
 AJ_Status AJ_VerifyCertificate(AJ_Certificate* certificate)
 {
-    AJ_Status status;
+    AJ_Status status = AJ_ERR_SECURITY;
     uint8_t digest[SHA256_DIGEST_LENGTH];
 
     switch (certificate->version) {
