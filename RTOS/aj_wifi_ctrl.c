@@ -385,6 +385,13 @@ static AJ_Status AJ_EnableSoftAPHelper(const char* ssid, uint8_t hidden, const c
     AJ_WSL_WifiConnectCallback = &SoftAPCallback;
 
     /*
+     * Set the IP range for DHCP
+     */
+    if (AJ_WSL_NET_ipconfig_dhcp_pool(&startIP, &endIP, IP_LEASE) != AJ_OK) {
+        return AJ_ERR_DRIVER;
+    }
+
+    /*
      * Set up for IPV6
      */
     if (AJ_WSL_NET_ip6config_router_prefix(IP6RoutePrefix, PREFIX_LEN, PREFIX_LIFETIME, PREFIX_LIFETIME) != AJ_OK) {

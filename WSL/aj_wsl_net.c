@@ -1110,6 +1110,20 @@ AJ_Status AJ_WSL_NET_ip6config_router_prefix(const uint8_t* ipv6addr, uint32_t p
     return AJ_OK;
 }
 
+AJ_Status AJ_WSL_NET_ipconfig_dhcp_pool(const uint32_t* startIP, const uint32_t* endIP, uint32_t leaseTime)
+{
+    AJ_InfoPrintf(("===== ipconfig dhcp pool ====\n"));
+    AJ_BufList* pool;
+    pool = AJ_BufListCreate();
+    WSL_MarshalPacket(pool, WSL_SOCKET, WSL_SOCK_IPCONFIG_DHCP_POOL, 0x0c, startIP, endIP, leaseTime);
+    WMI_MarshalHeader(pool, 1, 1);
+    AJ_WSL_WMI_PadPayload(pool);
+    //AJ_BufListPrintDumpContinuous(pool);
+    AJ_WSL_WMI_QueueWorkItem(0, AJ_WSL_WORKITEM(AJ_WSL_WORKITEM_NETWORK, WSL_SOCK_IPCONFIG_DHCP_POOL), AJ_WSL_HTC_DATA_ENDPOINT1, pool);
+    return AJ_OK;
+}
+
+
 AJ_Status AJ_WSL_NET_disconnect(void)
 {
     AJ_Status status;

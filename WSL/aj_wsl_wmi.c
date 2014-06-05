@@ -114,7 +114,7 @@ const SOCKET_SIG_MAP sock_map[] = {
     { "", 0 },
     { "", 0 },
     { "uu4446666uuuu", 104 },                //IP6_CONFIG
-    { "", 0 },
+    { "u44u", 20 },                          //IPCONFIG_DHCP_POOL
     { "u6uuu", 36 },                         //IP6_CONFIG_ROUTER_PREFIX
     { "", 0 },
     { "", 0 },

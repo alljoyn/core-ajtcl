@@ -258,5 +258,18 @@ AJ_EXPORT AJ_Status AJ_WSL_NET_set_hostname(const char* hostname);
  */
 AJ_EXPORT AJ_Status AJ_WSL_NET_ip6config_router_prefix(const uint8_t* ipv6addr, uint32_t prefix_length, uint32_t lifetimePrefix, uint32_t lifetimeValid);
 
+
+
+/**
+ * Used to configure DHCP pool address range and lease time
+ *
+ * @param startIP       first IP address to give out
+ * @param endIP         last IP address to give out
+ * @param leaseTime     amount of time a DHCP address is valid
+ *
+ * @return              success code
+ */
+AJ_EXPORT AJ_Status AJ_WSL_NET_ipconfig_dhcp_pool(const uint32_t* startIP, const uint32_t* endIP, uint32_t leaseTime);
+
 #pragma pack(pop)
 #endif /* AJ_WSL_NET_H_ */
