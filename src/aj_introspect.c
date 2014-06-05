@@ -990,7 +990,14 @@ static AJ_Status UnpackMsgId(uint32_t msgId, const char** objPath, const char** 
         }
     }
     if (member) {
-        *member = ifc[mIndex] + 1;
+        /*
+         * Skip over sessionless signal specifier if there is one
+         */
+        if (MEMBER_TYPE(ifc[mIndex][0]) == SIGNAL && IS_SESSIONLESS(ifc[mIndex][1])) {
+            *member = ifc[mIndex] + 2;
+        } else {
+            *member = ifc[mIndex] + 1;
+        }
     }
     return AJ_OK;
 }
