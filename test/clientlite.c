@@ -19,7 +19,10 @@
  ******************************************************************************/
 
 #define AJ_MODULE CLIENTLITE
+
+#ifndef NO_SECURITY
 #define SECURE_INTERFACE
+#endif
 
 #include <aj_target.h>
 #include <alljoyn.h>
@@ -29,8 +32,6 @@
 #include <aj_auth_listener.h>
 #include <aj_keyexchange.h>
 #include <aj_keyauthentication.h>
-
-
 
 uint8_t dbgCLIENTLITE = 0;
 static const char ServiceName[] = "org.alljoyn.svclite";
@@ -46,9 +47,6 @@ static const uint32_t keyexpiration = 0xFFFFFFFF;
  * To define a secure interface, prepend '$' before the interface name, eg., "$org.alljoyn.alljoyn_test"
  */
 #ifdef SECURE_INTERFACE
-#ifdef NO_AUTH_PIN_KEYX
-#error "You are defining a secure interface but not using authentication\n"
-#endif
 static const char testInterfaceName[] = "$org.alljoyn.alljoyn_test";
 static const char testValuesInterfaceName[] = "$org.alljoyn.alljoyn_test.values";
 #else
@@ -341,10 +339,13 @@ int AJ_Main()
     uint8_t connected = FALSE;
     uint32_t sessionId = 0;
     AJ_Status authStatus = AJ_ERR_NULL;
+
+#ifdef SECURE_INTERFACE
     uint32_t suites[16];
     size_t numsuites = 0;
     uint8_t clearkeys = FALSE;
     uint8_t enablepwd = FALSE;
+#endif
 
 #ifdef MAIN_ALLOWS_ARGS
 #ifdef SECURE_INTERFACE
@@ -537,7 +538,7 @@ int main(int ac, char** av)
     return AJ_Main(ac, av);
 }
 #else
-int main(int ac, char** av)
+int main()
 {
     return AJ_Main();
 }

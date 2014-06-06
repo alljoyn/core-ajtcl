@@ -23,7 +23,9 @@
  */
 #define AJ_MODULE SVCLITE
 
+#ifndef NO_SECURITY
 #define SECURE_INTERFACE
+#endif
 
 #include <aj_target.h>
 #include <aj_link_timeout.h>
@@ -65,9 +67,6 @@ static const uint32_t keyexpiration = 0xFFFFFFFF;
  */
 static const char* const testInterface[] = {
 #ifdef SECURE_INTERFACE
-#ifdef NO_AUTH_PIN_KEYX
-#error "You are defining a secure interface but not using authentication\n"
-#endif
     "$org.alljoyn.alljoyn_test",
 #else
     "org.alljoyn.alljoyn_test",

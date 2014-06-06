@@ -403,7 +403,7 @@ static AJ_Status HandshakeValid(const AJ_GUID* peerGuid)
 
 AJ_Status AJ_PeerAuthenticate(AJ_BusAttachment* bus, const char* peerName, AJ_PeerAuthenticateCallback callback, void* cbContext)
 {
-#ifndef NO_AUTH_PIN_KEYX
+#ifndef NO_SECURITY
     AJ_Status status;
     AJ_Message msg;
     char guidStr[33];
@@ -1171,7 +1171,6 @@ AJ_Status AJ_PeerHandleKeyAuthenticationReply(AJ_Message* msg)
     return status;
 }
 
-#ifndef NO_AUTH_PIN_KEYX
 static AJ_Status GenSessionKey(AJ_Message* msg)
 {
     AJ_Message call;
@@ -1198,7 +1197,6 @@ static AJ_Status GenSessionKey(AJ_Message* msg)
 
     return AJ_DeliverMsg(&call);
 }
-#endif
 
 AJ_Status AJ_PeerHandleGenSessionKey(AJ_Message* msg, AJ_Message* reply)
 {

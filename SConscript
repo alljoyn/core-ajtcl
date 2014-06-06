@@ -62,7 +62,7 @@ env.Append(CPPDEFINES=cppdefines)
 if env['NO_AUTH'] == 'no':
     auth = ''
 else:
-    auth = 'NO_AUTH_PIN_KEYX'
+    auth = 'NO_SECURITY'
 
 # Set AJ_DEBUG_RESTRICT level
 restrict = ARGUMENTS.get('DEBUG_RESTRICT', '')
