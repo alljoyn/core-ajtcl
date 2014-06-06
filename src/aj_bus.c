@@ -628,7 +628,7 @@ static AJ_Status AddSuite(AJ_BusAttachment* bus, uint32_t suite) {
 
 void AJ_BusSetPasswordCallback(AJ_BusAttachment* bus, AJ_AuthPwdFunc pwdCallback)
 {
-#ifndef NO_AUTH_PIN_KEYX
+#ifndef NO_SECURITY
     AJ_InfoPrintf(("AJ_BusSetPasswordCallback(bus=0x%p, pwdCallback=0x%p)\n", bus, pwdCallback));
     bus->pwdCallback = pwdCallback;
     AddSuite(bus, AUTH_SUITE_ECDHE_PSK);

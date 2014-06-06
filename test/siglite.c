@@ -18,7 +18,9 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
+#ifndef NO_SECURITY
 #define SECURE_INTERFACE
+#endif
 
 #include <aj_target.h>
 #include <alljoyn.h>
@@ -45,13 +47,7 @@ static const uint32_t keyexpiration = 0xFFFFFFFF;
  * The app should authenticate the peer if one or more interfaces are secure
  * To define a secure interface, prepend '$' before the interface name, eg., "$org.alljoyn.alljoyn_test"
  */
-static uint8_t authPeer = FALSE;
-
 #ifdef SECURE_INTERFACE
-#ifdef NO_AUTH_PIN_KEYX
-#error "You are defining a secure interface but not using authentication\n"
-#endif
-
 static const char testInterfaceName[] = "$org.alljoyn.alljoyn_test";
 static const char testValuesInterfaceName[] = "$org.alljoyn.alljoyn_test.values";
 #else
@@ -302,14 +298,17 @@ int AJ_Main()
     uint8_t connected = FALSE;
     uint32_t sessionId = 0;
     AJ_Status authStatus = AJ_ERR_NULL;
+
+#ifdef SECURE_INTERFACE
     uint32_t suites[16];
     size_t numsuites = 0;
     uint8_t clearkeys = FALSE;
     uint8_t enablepwd = FALSE;
+#endif
 
-
-    #ifdef MAIN_ALLOWS_ARGS
+#ifdef MAIN_ALLOWS_ARGS
 #ifdef SECURE_INTERFACE
+
     ac--;
     av++;
     /*
@@ -362,7 +361,7 @@ int AJ_Main()
                 AJ_Printf("StartClient returned %d, sessionId=%u\n", status, sessionId);
                 AJ_Printf("Connected to Daemon:%s\n", AJ_GetUniqueName(&bus));
                 connected = TRUE;
-               #ifdef SECURE_INTERFACE
+#ifdef SECURE_INTERFACE
                 if (enablepwd) {
                     AJ_BusSetPasswordCallback(&bus, PasswordCallback);
                 }
@@ -452,7 +451,7 @@ int main(int ac, char** av)
     return AJ_Main(ac, av);
 }
 #else
-int main(int ac, char** av)
+int main()
 {
     return AJ_Main();
 }
