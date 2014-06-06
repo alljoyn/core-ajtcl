@@ -311,7 +311,10 @@ static AJ_Status ExpandInterfaces(XMLWriterFunc XMLWriter, void* context, const 
                 }
                 ExpandAttribute(XMLWriter, context, &member, typeAttr, Access[acc]);
             } else {
-                if (memberType == SIGNAL) {
+                /*
+                 * If we are using the AllSeen introspection then add isSessionless
+                 */
+                if (languageTag != NULL && memberType == SIGNAL) {
                     XMLWriter(context, sessionlessAttr, sizeof(sessionlessAttr) - 1);
                     if (isSessionless) {
                         XMLWriter(context, trueVal, sizeof(trueVal) - 1);
@@ -483,13 +486,20 @@ static AJ_Status GenXML(XMLWriterFunc XMLWriter, void* context, const AJ_ObjectI
         /*
          * Find matching description lookup function. NULL indicates no descriptions
          */
-        if (objIter != NULL && languageTag != NULL) {
-            descLookup = descriptionLookups[objIter->l];
+        if (languageTag != NULL) {
+            if (objIter != NULL) {
+                descLookup = descriptionLookups[objIter->l];
+            } else {
+                /*
+                 * Try and use the global translator method that was set, if it exists
+                 */
+                descLookup = descriptionLookups[0];
+            }
         }
         /*
          * Generate object's XML
          */
-        XMLWriteTag(XMLWriter, context, nodeOpen, NULL, NULL, 0, FALSE);
+        XMLWriteTag(XMLWriter, context, nodeOpen, nameAttr, obj->path, 0, FALSE);
         if (SecurityApplies(NULL, obj)) {
             XMLWriter(context, annotateSecure, 51);
             XMLWriter(context, secureTrue, 8);
@@ -501,7 +511,11 @@ static AJ_Status GenXML(XMLWriterFunc XMLWriter, void* context, const AJ_ObjectI
             XMLWriteDescription(XMLWriter, context, 0, description, languageTag);
         }
         if (status == AJ_OK) {
-            status = ExpandInterfaces(XMLWriter, context, obj->interfaces, descLookup, (objIter->n - 1) << 24, languageTag);
+            if (objIter != NULL) {
+                status = ExpandInterfaces(XMLWriter, context, obj->interfaces, descLookup, (objIter->n - 1) << 24, languageTag);
+            } else {
+                status = ExpandInterfaces(XMLWriter, context, obj->interfaces, descLookup, 0, languageTag);
+            }
         }
         if (status == AJ_OK) {
             while (childObj != NULL) {
@@ -588,6 +602,9 @@ void AJ_PrintXMLWithDescriptions(const AJ_Object* obj, const char* languageTag)
                 if (status != AJ_OK) {
                     AJ_ErrPrintf(("\nFailed to generate XML - check interface descriptions of %s for errors\n", obj->path));
                 }
+            } else {
+                AJ_Printf("Reminder: Object not yet added to the ObjectList, do not forget to call RegisterObjects\n");
+                status = GenXML(PrintXML, NULL, NULL, obj, languageTag);
             }
         }
     }
