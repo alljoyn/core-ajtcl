@@ -67,23 +67,22 @@ static const char* const someSessionlessSignalDesc[] = { "An example sessionless
 #define SAMPLE_SOMESIGNAL_ARG_DESC          AJ_DESCRIPTION_ID(SAMPLE_OBJECT_ID, 1, 3, 1)
 #define SAMPLE_SOMESESSIONLESSSIGNAL_DESC   AJ_DESCRIPTION_ID(SAMPLE_OBJECT_ID, 1, 4, 0)
 
-static const char* const languages[] = { "en", "es", NULL };
+static const char* const languages[] = { "en", "es" };
 
 static const char* MyTranslator(uint32_t descId, const char* lang) {
     uint8_t langIndex;
     const char* const* tempLanguages;
 
     /* Compute the location of lang in our languages array */
-    tempLanguages = languages;
     langIndex = 0;
-    while (lang && tempLanguages[langIndex++]) {
-        if (strlen(lang) > 0 && strcmp(lang, tempLanguages[langIndex]) == 0) {
+    while (lang && langIndex < (sizeof(languages) / sizeof(char*))) {
+        if (strlen(lang) > 0 && strcmp(lang, languages[langIndex]) == 0) {
             break;
         }
-        ++tempLanguages;
+        ++langIndex;
     }
     /* If all languages in list did not match, then set index to 0 (default) language */
-    if (tempLanguages[langIndex] == NULL) {
+    if (langIndex < (sizeof(languages) / sizeof(char*))) {
         langIndex = 0;
     }
 
@@ -116,7 +115,6 @@ static const char* MyTranslator(uint32_t descId, const char* lang) {
         return someSessionlessSignalDesc[langIndex];
 
     }
-
     /* No description set so return NULL */
     return NULL;
 }
@@ -197,10 +195,15 @@ int AJ_Main(void)
     /* Set the languages and a lookup function so that we can print out the default descriptions in the AJ_PrintXML call */
     AJ_RegisterDescriptions(languages, MyTranslator);
 
-    /* This is for debug purposes and is optional. */
-    AJ_PrintXML(AppObjects);
-
     AJ_RegisterObjects(AppObjects, NULL);
+
+    /* This is for debug purposes and is optional. */
+    AJ_Printf("XML with no Descriptions\n");
+    AJ_PrintXML(AppObjects);
+    AJ_Printf("XML with Descriptions using language: %s\n", languages[0]);
+    AJ_PrintXMLWithDescriptions(AppObjects, languages[0]);
+    AJ_Printf("XML with Descriptions using language: %s\n", languages[1]);
+    AJ_PrintXMLWithDescriptions(AppObjects, languages[1]);
 
     while (TRUE) {
         AJ_Message msg;

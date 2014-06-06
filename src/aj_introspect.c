@@ -489,7 +489,8 @@ static AJ_Status GenXML(XMLWriterFunc XMLWriter, void* context, const AJ_ObjectI
         if (languageTag != NULL) {
             if (objIter != NULL) {
                 descLookup = descriptionLookups[objIter->l];
-            } else {
+            }
+            if (descLookup == NULL) {
                 /*
                  * Try and use the global translator method that was set, if it exists
                  */
