@@ -378,8 +378,10 @@ AJ_Status StartClient(AJ_BusAttachment* bus,
     uint8_t clientStarted = FALSE;
     uint32_t elapsed = 0;
     char* rule;
+    size_t ruleLen;
     const char* base = "interface='org.alljoyn.About',sessionless='t'";
     const char* impl = ",implements='";
+    const char** ifaces;
 
     AJ_InfoPrintf(("AJ_StartClient(bus=0x%p, daemonName=\"%s\", timeout=%d., connected=%d., interface=\"%p\", sessionId=0x%p, serviceName=0x%p, opts=0x%p)\n",
                    bus, daemonName, timeout, connected, interfaces, sessionId, serviceName, opts));
@@ -410,20 +412,30 @@ AJ_Status StartClient(AJ_BusAttachment* bus,
             /*
              * Kick things off by finding the service names
              */
-            AJ_InfoPrintf(("AJ_StartClient(): AJ_BusFindAdvertisedName()\n"));
             status = AJ_BusFindAdvertisedName(bus, name, AJ_BUS_START_FINDING);
+            AJ_InfoPrintf(("AJ_StartClient(): AJ_BusFindAdvertisedName()\n"));
         } else {
             /*
              * Kick things off by finding all services that implement the interface
              */
-            rule = (char*) AJ_Malloc(strlen(base) + 1);
+            ruleLen = strlen(base) + 1;
+            ifaces = interfaces;
+            while (*ifaces != NULL) {
+                ruleLen += strlen(impl) + strlen(*ifaces) + 1;
+                ifaces++;
+            }
+            rule = (char*) AJ_Malloc(ruleLen);
+            if (rule == NULL) {
+                status = AJ_ERR_RESOURCES;
+                break;
+            }
             strcpy(rule, base);
-            while (*interfaces != NULL) {
-                rule = (char*) AJ_Realloc(rule, strlen(rule) + strlen(impl) + strlen(*interfaces) + 1 + 1);
+            ifaces = interfaces;
+            while (*ifaces != NULL) {
                 strcat(rule, impl);
-                strcat(rule, *interfaces);
+                strcat(rule, *ifaces);
                 strcat(rule, "'");
-                interfaces++;
+                ifaces++;
             }
             status = AJ_BusSetSignalRule(bus, rule, AJ_BUS_SIGNAL_ALLOW);
             AJ_InfoPrintf(("AJ_StartClient(): Client SetSignalRule: %s\n", rule));
@@ -442,6 +454,10 @@ AJ_Status StartClient(AJ_BusAttachment* bus,
         return AJ_ERR_TIMEOUT;
     }
     timeout -= elapsed;
+
+    if (status != AJ_OK) {
+        return status;
+    }
 
     *sessionId = 0;
     if (serviceName != NULL) {
@@ -501,8 +517,10 @@ AJ_Status StartClient(AJ_BusAttachment* bus,
                     found = TRUE;
                     AJ_UnmarshalArgs(&msg, "qq", &version, &port);
                     status = AJ_BusJoinSession(bus, msg.sender, port, opts);
-                    strncpy(serviceName, msg.sender, AJ_MAX_NAME_SIZE);
-                    serviceName[AJ_MAX_NAME_SIZE] = '\0';
+                    if (serviceName != NULL) {
+                        strncpy(serviceName, msg.sender, AJ_MAX_NAME_SIZE);
+                        serviceName[AJ_MAX_NAME_SIZE] = '\0';
+                    }
                     if (status != AJ_OK) {
                         AJ_ErrPrintf(("AJ_StartClient(): BusJoinSession failed (%s)\n", AJ_StatusText(status)));
                     }
@@ -552,7 +570,7 @@ AJ_Status StartClient(AJ_BusAttachment* bus,
         }
         AJ_CloseMsg(&msg);
     }
-    if (status != AJ_OK) {
+    if (status != AJ_OK && !connected) {
         AJ_WarnPrintf(("AJ_StartClient(): Client disconnecting from bus: status=%s\n", AJ_StatusText(status)));
         AJ_Disconnect(bus);
     }
