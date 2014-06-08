@@ -254,14 +254,26 @@ AJ_Status AJ_Discover(const char* prefix, AJ_Service* service, uint32_t timeout)
         status = sock.tx.send(&sock.tx);
         AJ_InfoPrintf(("AJ_Discover(): status=%s\n", AJ_StatusText(status)));
         /*
+         * If the send failed the socket has probably gone away.
+         */
+        if (status != AJ_OK) {
+            goto _Exit;
+        }
+        /*
          * Pause between sending each WHO-HAS
          */
-
         AJ_InitTimer(&recvStopWatch);
         while (TRUE) {
             AJ_IO_BUF_RESET(&sock.rx);
             status = sock.rx.recv(&sock.rx, AJ_IO_BUF_SPACE(&sock.rx), AJ_WHO_HAS_TIMEOUT);
-            if (status == AJ_OK) {
+            if (status != AJ_OK) {
+                /*
+                 * If we got anything other than timeout we need to bail
+                 */
+                if (status != AJ_ERR_TIMEOUT) {
+                    goto _Exit;
+                }
+            } else {
                 memset(service, 0, sizeof(AJ_Service));
                 AJ_InfoPrintf(("AJ_Discover(): ParseIsAt()"));
                 status = ParseIsAt(&sock.rx, prefix, service);
