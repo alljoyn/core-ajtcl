@@ -164,7 +164,7 @@ static const char* const AboutIface[] = {
     "@Version>q",
     "?GetAboutData <s >a{sv}",
     "?GetObjectDescription >a(oas)",
-    "!Announce >q >q >a(oas) >a{sv}",
+    "!&Announce >q >q >a(oas) >a{sv}",
     NULL
 };
 
