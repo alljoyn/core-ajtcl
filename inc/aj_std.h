@@ -180,6 +180,11 @@ extern const char AJ_ErrLanguageNotSuppored[39];  /**< Error language not suppor
  */
 extern const char* const AJ_PropertiesIface[5];
 
+/**
+ * The DBUS Peer interface name
+ */
+extern const char DBusPeerInterface[27];
+
 /*
  * Constants for the various property method indices in the properties interface
  */

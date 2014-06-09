@@ -36,7 +36,7 @@ const char AJ_ErrLanguageNotSuppored[] = "org.alljoyn.Error.LanguageNotSupported
 
 static const char DBusObjectPath[] = "/org/freedesktop/DBus";
 static const char DBusInterface[] = "org.freedesktop.DBus";
-static const char DBusPeerInterface[] = "#org.freedesktop.DBus.Peer";
+const char DBusPeerInterface[] = "#org.freedesktop.DBus.Peer";
 static const char DBusPropsInterface[] = "#org.freedesktop.DBus.Properties";
 static const char DBusIntrospectableInterface[] = "#org.freedesktop.DBus.Introspectable";
 
