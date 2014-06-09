@@ -1175,7 +1175,7 @@ static ReplyContext* FindReplyContext(uint32_t serial) {
 
 AJ_Status AJ_IdentifyProperty(AJ_Message* msg, const char* iface, const char* prop, uint32_t* propId, const char** sigPtr, uint8_t* secure)
 {
-    AJ_Status status = AJ_ERR_NO_MATCH;
+    AJ_Status status = AJ_OK;
     uint8_t oIndex = (msg->msgId >> 24);
     uint8_t pIndex = (msg->msgId >> 16);
     uint8_t iIndex;
@@ -1200,8 +1200,25 @@ AJ_Status AJ_IdentifyProperty(AJ_Message* msg, const char* iface, const char* pr
          * Security is based on the interface the property is defined on.
          */
         *secure = SecurityApplies(*desc, obj);
+        if (*secure == FALSE) {
+            /*
+             * For Properties interface security is based on the interface supplied
+             */
+            if (strcmp(*desc, AJ_PropertiesIface[0]) == 0) {
+                const char* actualIface;
+                status = AJ_UnmarshalArgs(msg, "s", &actualIface);
+                if (status == AJ_OK) {
+                    *secure = SecurityApplies(actualIface, obj);
+                    status = AJ_ResetArgs(msg);
+                }
+            }
+            if (status != AJ_OK) {
+                AJ_ErrPrintf(("AJ_IdentifyProperty(): %s\n", AJ_StatusText(status)));
+                return status;
+            }
+        }
         /*
-         * Iterate over the interface members to locate the property is being accessed.
+         * Iterate over the interface members to locate the property that is being accessed.
          */
         while (*(++desc)) {
             status = MatchProp(*desc, prop, msg->msgId & 0xFF, sigPtr);
