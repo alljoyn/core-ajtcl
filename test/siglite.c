@@ -3,7 +3,7 @@
  */
 
 /******************************************************************************
- * Copyright (c) 2012-2013, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2012-2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -30,11 +30,27 @@
 #include <aj_auth_listener.h>
 #include <aj_keyexchange.h>
 #include <aj_keyauthentication.h>
+#include "aj_config.h"
 
-static const char ServiceName[] = "org.alljoyn.svclite";
-static const uint16_t ServicePort = 24;
-static const uint32_t NumPings = 10000;
+#ifdef SECURE_INTERFACE
+static const char testInterfaceName[] = "$org.alljoyn.alljoyn_test";
+static const char testValuesInterfaceName[] = "$org.alljoyn.alljoyn_test.values";
+#else
+static const char testInterfaceName[] = "org.alljoyn.alljoyn_test";
+static const char testValuesInterfaceName[] = "org.alljoyn.alljoyn_test.values";
+#endif
 
+#ifndef NGNS
+static const char testServiceName[] = "org.alljoyn.svclite";
+static const uint16_t testServicePort = 24;
+#else
+static const char* testInterfaceNames[] = {
+    testInterfaceName,
+    NULL
+};
+static char testServiceName[AJ_MAX_NAME_SIZE + 1];
+#endif
+static const uint32_t NumPings = 10;
 
 /*
  * Default key expiration
@@ -47,13 +63,6 @@ static const uint32_t keyexpiration = 0xFFFFFFFF;
  * The app should authenticate the peer if one or more interfaces are secure
  * To define a secure interface, prepend '$' before the interface name, eg., "$org.alljoyn.alljoyn_test"
  */
-#ifdef SECURE_INTERFACE
-static const char testInterfaceName[] = "$org.alljoyn.alljoyn_test";
-static const char testValuesInterfaceName[] = "$org.alljoyn.alljoyn_test.values";
-#else
-static const char testInterfaceName[] = "org.alljoyn.alljoyn_test";
-static const char testValuesInterfaceName[] = "org.alljoyn.alljoyn_test.values";
-#endif
 
 static const char* const testInterface[] = {
     testInterfaceName,
@@ -84,7 +93,7 @@ static const AJ_Object ProxyObjects[] = {
 #define PRX_TIME_PING       AJ_PRX_MESSAGE_ID(0, 0, 2)
 #define PRX_MY_SIGNAL       AJ_PRX_MESSAGE_ID(0, 0, 3)
 
-static AJ_Status SendSignal(AJ_BusAttachment* bus, uint32_t sessionId);
+static AJ_Status SendSignal(AJ_BusAttachment* bus, uint32_t sessionId, const char* serviceName);
 
 /*
  * Let the application do some work
@@ -92,14 +101,14 @@ static AJ_Status SendSignal(AJ_BusAttachment* bus, uint32_t sessionId);
 
 #define PINGS_PER_CALL 10
 
-static AJ_Status AppDoWork(AJ_BusAttachment* bus, uint32_t sessionId)
+static AJ_Status AppDoWork(AJ_BusAttachment* bus, uint32_t sessionId, const char* serviceName)
 {
     static uint32_t pings_sent = 0;
     uint32_t pings = 0;
     AJ_Status status = AJ_OK;
 
     while (pings_sent < NumPings && pings++ < PINGS_PER_CALL && status == AJ_OK) {
-        status = SendSignal(bus, sessionId);
+        status = SendSignal(bus, sessionId, serviceName);
         ++pings_sent;
     }
 
@@ -263,13 +272,13 @@ static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, 
 #define METHOD_TIMEOUT     (100 * 10)
 
 
-static AJ_Status SendSignal(AJ_BusAttachment* bus, uint32_t sessionId)
+static AJ_Status SendSignal(AJ_BusAttachment* bus, uint32_t sessionId, const char* serviceName)
 {
     AJ_Status status;
     AJ_Message msg;
 
 
-    status = AJ_MarshalSignal(bus, &msg, PRX_MY_SIGNAL, ServiceName, sessionId, 0, 0);
+    status = AJ_MarshalSignal(bus, &msg, PRX_MY_SIGNAL, serviceName, sessionId, 0, 0);
     if (status == AJ_OK) {
         AJ_Arg arg;
         status = AJ_MarshalContainer(&msg, &arg, AJ_ARG_ARRAY);
@@ -356,9 +365,13 @@ int AJ_Main()
         AJ_Message msg;
 
         if (!connected) {
-            status = AJ_StartClient(&bus, NULL, CONNECT_TIMEOUT, FALSE, ServiceName, ServicePort, &sessionId, NULL);
+#ifndef NGNS
+            status = AJ_StartClient(&bus, NULL, CONNECT_TIMEOUT, FALSE, testServiceName, testServicePort, &sessionId, NULL);
+#else
+            status = AJ_StartClientByInterface(&bus, NULL, CONNECT_TIMEOUT, FALSE, testInterfaceNames, &sessionId, testServiceName, NULL);
+#endif
             if (status == AJ_OK) {
-                AJ_Printf("StartClient returned %d, sessionId=%u\n", status, sessionId);
+                AJ_Printf("StartClient returned %d, sessionId=%u, serviceName=%s\n", status, sessionId, testServiceName);
                 AJ_Printf("Connected to Daemon:%s\n", AJ_GetUniqueName(&bus));
                 connected = TRUE;
 #ifdef SECURE_INTERFACE
@@ -371,7 +384,7 @@ int AJ_Main()
                     status = AJ_ClearCredentials();
                     AJ_ASSERT(AJ_OK == status);
                 }
-                status = AJ_BusAuthenticatePeer(&bus, ServiceName, AuthCallback, &authStatus);
+                status = AJ_BusAuthenticatePeer(&bus, testServiceName, AuthCallback, &authStatus);
                 if (status != AJ_OK) {
                     AJ_Printf("AJ_BusAuthenticatePeer returned %d\n", status);
                 }
@@ -396,7 +409,7 @@ int AJ_Main()
 
         status = AJ_UnmarshalMsg(&bus, &msg, UNMARSHAL_TIMEOUT);
         if (status == AJ_ERR_TIMEOUT) {
-            status = AppDoWork(&bus, sessionId);
+            status = AppDoWork(&bus, sessionId, testServiceName);
             continue;
         }
 
