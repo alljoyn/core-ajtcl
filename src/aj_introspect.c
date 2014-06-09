@@ -244,10 +244,10 @@ static AJ_Status ExpandInterfaces(XMLWriterFunc XMLWriter, void* context, const 
         if ((flag == SECURE_TRUE) || (flag == SECURE_OFF)) {
 
             /* If it is a common standard interface, do not add any annotations.*/
-            if ((strcmp(entries[0], "#org.freedesktop.DBus.Introspectable") == 0) ||
-                (strcmp(entries[0], "#org.freedesktop.DBus.Properties") == 0) ||
-                (strcmp(entries[0], "#org.freedesktop.DBus.Peer") == 0) ||
-                (strcmp(entries[0], "#org.allseen.Introspectable") == 0)) {
+            if ((strcmp(entries[0], AJ_IntrospectionIface[0]) == 0) ||
+                (strcmp(entries[0], AJ_PropertiesIface[0]) == 0) ||
+                (strcmp(entries[0], DBusPeerInterface) == 0) ||
+                (strcmp(entries[0], AllSeenIntrospectableInterface) == 0)) {
                 dBus_std_iface = TRUE;
             }
 
