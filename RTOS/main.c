@@ -19,14 +19,15 @@
 
 #include "aj_target_platform.h"
 #include "aj_target.h"
+#include "aj_debug.h"
 #include "aj_target_rtos.h"
 
 static void main_task(void* parameters)
 {
     AJ_PlatformInit();
-    AJ_Printf(" ==============================================\n");
-    AJ_Printf("||       Alljoyn Thin Client + FreeRTOS       ||\n");
-    AJ_Printf(" ==============================================\n");
+    AJ_AlwaysPrintf((" ==============================================\n"));
+    AJ_AlwaysPrintf(("||       Alljoyn Thin Client + FreeRTOS       ||\n"));
+    AJ_AlwaysPrintf((" ==============================================\n"));
     AllJoyn_Start();
     while (1) ;
 }

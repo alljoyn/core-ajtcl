@@ -69,7 +69,7 @@ static void AppDoWork()
     /*
      * This function is called if there are no messages to unmarshal
      */
-    AJ_Printf("do work\n");
+    AJ_AlwaysPrintf(("do work\n"));
 }
 
 static const char PWD[] = "ABCDEFGH";
@@ -85,7 +85,7 @@ static AJ_Status AppHandleFlash(AJ_Message* msg)
     AJ_Message reply;
     uint32_t timeout;
     AJ_UnmarshalArgs(msg, "u", &timeout);
-    AJ_Printf("AppHandleFlash(%u)\n", timeout);
+    AJ_AlwaysPrintf(("AppHandleFlash(%u)\n", timeout));
 
     DUE_led_timed(timeout);
 
@@ -98,7 +98,7 @@ static AJ_Status AppHandleOnOff(AJ_Message* msg, uint8_t on)
 {
     AJ_Message reply;
 
-    AJ_Printf("AppHandleOnOff(%u)\n", on);
+    AJ_AlwaysPrintf(("AppHandleOnOff(%u)\n", on));
     DUE_led(on);
 
     AJ_MarshalReplyMsg(msg, &reply);
@@ -197,7 +197,7 @@ int AJ_Main(void)
         AJ_CloseMsg(&msg);
 
         if (status == AJ_ERR_READ) {
-            AJ_Printf("AllJoyn disconnect\n");
+            AJ_AlwaysPrintf(("AllJoyn disconnect\n"));
             AJ_Disconnect(&bus);
             connected = FALSE;
             /*
@@ -206,7 +206,7 @@ int AJ_Main(void)
             AJ_Sleep(10 * 1000);
         }
     }
-    AJ_Printf("svclite EXIT %d\n", status);
+    AJ_AlwaysPrintf(("svclite EXIT %d\n", status));
 
     return status;
 }

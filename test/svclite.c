@@ -183,7 +183,7 @@ static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, 
     AJ_Status status = AJ_ERR_INVALID;
     uint8_t b8[sizeof (AJ_Certificate)];
     char b64[400];
-    AJ_Printf("AuthListenerCallback authmechanism %d command %d\n", authmechanism, command);
+    AJ_AlwaysPrintf(("AuthListenerCallback authmechanism %d command %d\n", authmechanism, command));
 
     switch (authmechanism) {
     case AUTH_SUITE_PIN_KEYX:
@@ -211,7 +211,7 @@ static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, 
 
         case AJ_CRED_PRV_KEY:
             if (AJ_CRED_PUB_KEY == cred->mask) {
-                AJ_Printf("Request Credentials for PSK ID: %s\n", cred->data);
+                AJ_AlwaysPrintf(("Request Credentials for PSK ID: %s\n", cred->data));
             }
             cred->mask = AJ_CRED_PRV_KEY;
             cred->data = (uint8_t*) psk_char;
@@ -260,13 +260,13 @@ static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, 
             status = AJ_RawToB64(cred->data, cred->len, b64, sizeof (b64));
             AJ_ASSERT(AJ_OK == status);
             status = IsTrustedIssuer(b64);
-            AJ_Printf("TRUST: %s %d\n", b64, status);
+            AJ_AlwaysPrintf(("TRUST: %s %d\n", b64, status));
             break;
 
         case AJ_CRED_CERT_ROOT:
             status = AJ_RawToB64(cred->data, cred->len, b64, sizeof (b64));
             AJ_ASSERT(AJ_OK == status);
-            AJ_Printf("ROOT: %s\n", b64);
+            AJ_AlwaysPrintf(("ROOT: %s\n", b64));
             status = AJ_OK;
             break;
         }

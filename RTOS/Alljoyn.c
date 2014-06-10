@@ -77,7 +77,7 @@ static AJ_Status ConfigureWifi()
     AJ_WSL_NET_set_hostname(deviceName);
 #endif
 
-    AJ_Printf("Trying to connect to AP %s\n", ssid);
+    AJ_AlwaysPrintf(("Trying to connect to AP %s\n", ssid));
     if (secType == AJ_WIFI_SECURITY_WEP) {
         char wepKey[11];
         WEPKey(passphrase, wepKey, sizeof(wepKey));
@@ -87,11 +87,11 @@ static AJ_Status ConfigureWifi()
     }
 
     if (status != AJ_OK) {
-        AJ_Printf("ConfigureWifi error\n");
+        AJ_AlwaysPrintf(("ConfigureWifi error\n"));
     }
 
     if (AJ_GetWifiConnectState() == AJ_WIFI_AUTH_FAILED) {
-        AJ_Printf("ConfigureWifi authentication failed\n");
+        AJ_AlwaysPrintf(("ConfigureWifi authentication failed\n"));
         status = AJ_ERR_SECURITY;
     }
     return status;
@@ -121,12 +121,12 @@ static AJ_Status ConfigureSoftAP()
 #  else
     const char* passphrase = NULL;
 #  endif
-    AJ_Printf("Configuring soft AP %s\n", ssid);
+    AJ_AlwaysPrintf(("Configuring soft AP %s\n", ssid));
     status = AJ_EnableSoftAP(ssid, FALSE, passphrase, UINT32_MAX);
     if (status == AJ_ERR_TIMEOUT) {
-        AJ_Printf("AJ_EnableSoftAP timeout\n");
+        AJ_AlwaysPrintf(("AJ_EnableSoftAP timeout\n"));
     } else if (status != AJ_OK) {
-        AJ_Printf("AJ_EnableSoftAP error\n");
+        AJ_AlwaysPrintf(("AJ_EnableSoftAP error\n"));
     }
     return status;
 }
@@ -138,16 +138,16 @@ static void ScanResult(void* context, const char* ssid, const uint8_t mac[6], ui
     static const char* const sec[] = { "OPEN", "WEP", "WPA", "WPA2" };
     static const char* const typ[] = { "", ":TKIP", ":CCMP", ":WEP" };
 
-    AJ_Printf("SSID %s [%02x:%02X:%02x:%02x:%02x:%02x] RSSI=%d security=%s%s\n", ssid, mac[0], mac[1], mac[2], mac[3], mac[4], mac[5], rssi, sec[secType], typ[cipherType]);
+    AJ_AlwaysPrintf(("SSID %s [%02x:%02X:%02x:%02x:%02x:%02x] RSSI=%d security=%s%s\n", ssid, mac[0], mac[1], mac[2], mac[3], mac[4], mac[5], rssi, sec[secType], typ[cipherType]));
 }
 #endif
 
 void AllJoyn_Start(unsigned long arg)
 {
     AJ_Status status = AJ_OK;
-    AJ_Printf("\n******************************************************");
-    AJ_Printf("\n                AllJoyn Thin-Client");
-    AJ_Printf("\n******************************************************\n");
+    AJ_AlwaysPrintf(("\n******************************************************"));
+    AJ_AlwaysPrintf(("\n                AllJoyn Thin-Client"));
+    AJ_AlwaysPrintf(("\n******************************************************\n"));
 
     AJ_PrintFWVersion();
 
@@ -156,7 +156,7 @@ void AllJoyn_Start(unsigned long arg)
 #ifdef WIFI_SCAN
     status = AJ_WiFiScan(NULL, ScanResult, 32);
     if (status != AJ_OK) {
-        AJ_Printf("WiFi scan failed\n");
+        AJ_AlwaysPrintf(("WiFi scan failed\n"));
     }
 #endif
 
@@ -170,7 +170,7 @@ void AllJoyn_Start(unsigned long arg)
             continue;
         } else {
             status = AJ_AcquireIPAddress(&ip, &mask, &gw, NET_UP_TIMEOUT);
-            AJ_Printf("Got IP %s\n", AddrStr(ip));
+            AJ_AlwaysPrintf(("Got IP %s\n", AddrStr(ip)));
             if (status != AJ_OK) {
                 AJ_InfoPrintf(("AllJoyn_Start(): AJ_AcquireIPAddress status=%s", AJ_StatusText(status)));
             }
@@ -186,7 +186,7 @@ void AllJoyn_Start(unsigned long arg)
         AJ_Main();
     }
 
-    AJ_Printf("Quitting\n");
+    AJ_AlwaysPrintf(("Quitting\n"));
     while (TRUE) {
     }
 }

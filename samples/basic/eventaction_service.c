@@ -198,11 +198,11 @@ int AJ_Main(void)
     AJ_RegisterObjects(AppObjects, NULL);
 
     /* This is for debug purposes and is optional. */
-    AJ_Printf("XML with no Descriptions\n");
+    AJ_AlwaysPrintf(("XML with no Descriptions\n"));
     AJ_PrintXML(AppObjects);
-    AJ_Printf("XML with Descriptions using language: %s\n", languages[0]);
+    AJ_AlwaysPrintf(("XML with Descriptions using language: %s\n", languages[0]));
     AJ_PrintXMLWithDescriptions(AppObjects, languages[0]);
-    AJ_Printf("XML with Descriptions using language: %s\n", languages[1]);
+    AJ_AlwaysPrintf(("XML with Descriptions using language: %s\n", languages[1]));
     AJ_PrintXMLWithDescriptions(AppObjects, languages[1]);
 
     while (TRUE) {
@@ -269,7 +269,7 @@ int AJ_Main(void)
         AJ_CloseMsg(&msg);
 
         if (status == AJ_ERR_SESSION_LOST) {
-            AJ_Printf("AllJoyn disconnect.\n");
+            AJ_AlwaysPrintf(("AllJoyn disconnect.\n"));
             AJ_Disconnect(&bus);
             connected = FALSE;
 
@@ -278,7 +278,7 @@ int AJ_Main(void)
         }
     }
 
-    AJ_Printf("Basic service exiting with status %d.\n", status);
+    AJ_AlwaysPrintf(("Basic service exiting with status %d.\n", status));
 
     return status;
 }

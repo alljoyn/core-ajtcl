@@ -1,7 +1,7 @@
 /******************************************************************************
  *
  *
- * Copyright (c) 2013, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2013-2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -51,7 +51,7 @@ class BusAttachmentTest : public testing::Test {
         "The status returned is " << AJ_StatusText(status);
 
         if (AJ_OK == status) {
-            AJ_Printf("Connected to the bus. The unique name is %s\n", AJ_GetUniqueName(&testBus));
+            AJ_AlwaysPrintf(("Connected to the bus. The unique name is %s\n", AJ_GetUniqueName(&testBus)));
         }
     }
     virtual void TearDown() {

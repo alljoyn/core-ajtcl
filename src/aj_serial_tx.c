@@ -353,7 +353,7 @@ static void QueueUnreliable(void)
      * the unreliable packet to get queued twice.
      */
     if (txQueue == txUnreliable) {
-        AJ_Printf("QueueUnreliable: type %i unreliable packet already queued! %p\n", txUnreliable->type, txUnreliable);
+        AJ_AlwaysPrintf(("QueueUnreliable: type %i unreliable packet already queued! %p\n", txUnreliable->type, txUnreliable));
     } else {
         txUnreliable->next = txQueue;
         txQueue = txUnreliable;
@@ -511,15 +511,15 @@ void ConvertPacketToBytes(AJ_SlippedBuffer volatile* slip, TxPkt volatile* txCur
          * If we have maxed the windows we need to go idle
          */
         if (txSentPending() == AJ_SerialLinkParams.windowSize) {
-            AJ_Printf("TxSend - reached window size: %u\n", txSentPending());
+            AJ_AlwaysPrintf(("TxSend - reached window size: %u\n", txSentPending()));
             AJ_ASSERT(FALSE);
         }
 
         header[0] = (txCurrent->seq << 4);
-//                AJ_Printf("Tx seq %d, ack %d\n",  txCurrent->seq, currentTxAck);
+//                AJ_AlwaysPrintf("Tx seq %d, ack %d\n",  txCurrent->seq, currentTxAck);
     } else {
         header[0] = 0;
-//                AJ_Printf("Tx %s seq %d\n", !txCurrent->type ? "ack" : "unreliable", txCurrent->seq);
+//                AJ_AlwaysPrintf("Tx %s seq %d\n", !txCurrent->type ? "ack" : "unreliable", txCurrent->seq);
     }
     /*
      * All packets except link control packets carry ACK information.
@@ -572,7 +572,7 @@ void AJ_SerialTx_ReceivedAck(uint8_t ack)
     while ((txSent != NULL) && SEQ_GT(ack, txSent->seq)) {
         ackedPkt = txSent;
         txSent = txSent->next;
-        //AJ_Printf("Releasing seq=%d (acked by %d)\n", ackedPkt->seq, ack);
+        //AJ_AlwaysPrintf("Releasing seq=%d (acked by %d)\n", ackedPkt->seq, ack);
 
         AJ_ASSERT(ackedPkt->type == AJ_SERIAL_DATA);
         /*

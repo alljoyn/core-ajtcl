@@ -2,7 +2,7 @@
  * @file
  */
 /******************************************************************************
- * Copyright (c) 2012-2013, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2012-2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -47,16 +47,16 @@ int main(void)
 
             status = AJ_Encrypt_CCM(key, msg, sizeof(msg), hdrLen, 12, (const uint8_t*) nonce, sizeof(nonce));
             if (status != AJ_OK) {
-                AJ_Printf("Encryption failed (%d) for test #%zu\n", status, i);
+                AJ_AlwaysPrintf(("Encryption failed (%d) for test #%zu\n", status, i));
                 goto ErrorExit;
             }
             status = AJ_Decrypt_CCM(key, msg, sizeof(msg), hdrLen, 12, (const uint8_t*) nonce, sizeof(nonce));
             if (status != AJ_OK) {
-                AJ_Printf("Authentication failure (%d) for test #%zu\n", status, i);
+                AJ_AlwaysPrintf(("Authentication failure (%d) for test #%zu\n", status, i));
                 goto ErrorExit;
             }
             if (memcmp(cmp, msg, sizeof(msg)) != 0) {
-                AJ_Printf("Decrypt verification failure \n");
+                AJ_AlwaysPrintf(("Decrypt verification failure \n"));
                 goto ErrorExit;
             }
             nonce[0] += 1;
@@ -66,6 +66,6 @@ int main(void)
 
 ErrorExit:
 
-    AJ_Printf("AES CCM unit test FAILED\n");
+    AJ_AlwaysPrintf(("AES CCM unit test FAILED\n"));
     return 1;
 }

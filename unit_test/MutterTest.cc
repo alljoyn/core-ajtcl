@@ -2,7 +2,7 @@
  * @file  Marhal/Unmarshal Unit Test
  */
 /******************************************************************************
- * Copyright (c) 2013, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2013-2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -209,7 +209,7 @@ TEST_F(MutterTest, ArrayofDict) {
                 EXPECT_EQ(AJ_OK, status) << "  Actual Status: " << AJ_StatusText(status);
                 status = AJ_UnmarshalArgs(&rxMsg, "us", &key, &fruit);
                 EXPECT_EQ(AJ_OK, status) << "  Actual Status: " << AJ_StatusText(status);
-                AJ_Printf("Unmarshal[%d] = %s\n", key, fruit);
+                AJ_AlwaysPrintf(("Unmarshal[%d] = %s\n", key, fruit));
                 status = AJ_UnmarshalCloseContainer(&rxMsg, &dict);
                 EXPECT_EQ(AJ_OK, status) << "  Actual Status: " << AJ_StatusText(status);
             }
@@ -414,7 +414,7 @@ TEST_F(MutterTest, ArrayOfArrayofString)
 
                     status = AJ_UnmarshalArg(&rxMsg, &arg);
                     EXPECT_EQ(AJ_OK, status) << "  Actual Status: " << AJ_StatusText(status);
-                    AJ_Printf("Unmarshal %s\n", arg.val.v_string);
+                    AJ_AlwaysPrintf(("Unmarshal %s\n", arg.val.v_string));
                 }
 
                 /*
@@ -490,11 +490,11 @@ TEST_F(MutterTest, IntegerandVariant)
             uint32_t l;
             status = AJ_UnmarshalArgs(&rxMsg, "i", &k);
             EXPECT_EQ(AJ_OK, status) << "  Actual Status: " << AJ_StatusText(status);
-            AJ_Printf("Unmarshal %d\n", k);
+            AJ_AlwaysPrintf(("Unmarshal %d\n", k));
 
             status = AJ_UnmarshalVariant(&rxMsg, (const char**)&sig);
             EXPECT_EQ(AJ_OK, status) << "  Actual Status: " << AJ_StatusText(status);
-            AJ_Printf("Unmarshal variant %s\n", sig);
+            AJ_AlwaysPrintf(("Unmarshal variant %s\n", sig));
 
             status = AJ_UnmarshalContainer(&rxMsg, &array1, AJ_ARG_ARRAY);
             EXPECT_EQ(AJ_OK, status) << "  Actual Status: " << AJ_StatusText(status);
@@ -504,7 +504,7 @@ TEST_F(MutterTest, IntegerandVariant)
                 EXPECT_EQ(AJ_OK, status) << "  Actual Status: " << AJ_StatusText(status);
                 status = AJ_UnmarshalArgs(&rxMsg, "ii", &k, &l);
                 EXPECT_EQ(AJ_OK, status) << "  Actual Status: " << AJ_StatusText(status);
-                AJ_Printf("Unmarshal[%d] %d\n", k, l);
+                AJ_AlwaysPrintf(("Unmarshal[%d] %d\n", k, l));
                 status = AJ_UnmarshalCloseContainer(&rxMsg, &struct1);
                 EXPECT_EQ(AJ_OK, status) << "  Actual Status: " << AJ_StatusText(status);
             }
@@ -519,7 +519,7 @@ TEST_F(MutterTest, IntegerandVariant)
                 EXPECT_EQ(AJ_OK, status) << "  Actual Status: " << AJ_StatusText(status);
                 status = AJ_UnmarshalArgs(&rxMsg, "i", &k);
                 EXPECT_EQ(AJ_OK, status) << "  Actual Status: " << AJ_StatusText(status);
-                AJ_Printf("Unmarshal %d\n", k);
+                AJ_AlwaysPrintf(("Unmarshal %d\n", k));
             }
             status = AJ_CloseMsg(&rxMsg);
             EXPECT_EQ(AJ_OK, status) << "  Actual Status: " << AJ_StatusText(status);
@@ -561,24 +561,24 @@ TEST_F(MutterTest, StructofInteger_VariantandInteger)
         if (AJ_OK == status) {
             status = AJ_UnmarshalVariant(&rxMsg, (const char**)&sig);
             EXPECT_EQ(AJ_OK, status) << "  Actual Status: " << AJ_StatusText(status);
-            AJ_Printf("Unmarshal variant %s\n", sig);
+            AJ_AlwaysPrintf(("Unmarshal variant %s\n", sig));
             status = AJ_UnmarshalContainer(&rxMsg, &struct1, AJ_ARG_STRUCT);
             EXPECT_EQ(AJ_OK, status) << "  Actual Status: " << AJ_StatusText(status);
             status = AJ_UnmarshalArgs(&rxMsg, "i", &j);
             EXPECT_EQ(AJ_OK, status) << "  Actual Status: " << AJ_StatusText(status);
-            AJ_Printf("Unmarshal %d\n", j);
+            AJ_AlwaysPrintf(("Unmarshal %d\n", j));
 
             status = AJ_UnmarshalVariant(&rxMsg, (const char**)&sig);
             EXPECT_EQ(AJ_OK, status) << "  Actual Status: " << AJ_StatusText(status);
-            AJ_Printf("Unmarshal variant %s\n", sig);
+            AJ_AlwaysPrintf(("Unmarshal variant %s\n", sig));
 
             status = AJ_UnmarshalArgs(&rxMsg, "s", &str);
             EXPECT_EQ(AJ_OK, status) << "  Actual Status: " << AJ_StatusText(status);
-            AJ_Printf("Unmarshal %s\n", str);
+            AJ_AlwaysPrintf(("Unmarshal %s\n", str));
 
             status = AJ_UnmarshalArgs(&rxMsg, "i", &j);
             EXPECT_EQ(AJ_OK, status) << "  Actual Status: " << AJ_StatusText(status);
-            AJ_Printf("Unmarshal %d\n", j);
+            AJ_AlwaysPrintf(("Unmarshal %d\n", j));
 
             status = AJ_UnmarshalCloseContainer(&rxMsg, &struct1);
             EXPECT_EQ(AJ_OK, status) << "  Actual Status: " << AJ_StatusText(status);
@@ -620,27 +620,27 @@ TEST_F(MutterTest, DeepVariant)
         if (AJ_OK == status) {
             status = AJ_UnmarshalVariant(&rxMsg, (const char**)&sig);
             EXPECT_EQ(AJ_OK, status) << "  Actual Status: " << AJ_StatusText(status);
-            AJ_Printf("Unmarshal variant %s\n", sig);
+            AJ_AlwaysPrintf(("Unmarshal variant %s\n", sig));
 
             status = AJ_UnmarshalVariant(&rxMsg, (const char**)&sig);
             EXPECT_EQ(AJ_OK, status) << "  Actual Status: " << AJ_StatusText(status);
-            AJ_Printf("Unmarshal variant %s\n", sig);
+            AJ_AlwaysPrintf(("Unmarshal variant %s\n", sig));
 
             status = AJ_UnmarshalVariant(&rxMsg, (const char**)&sig);
             EXPECT_EQ(AJ_OK, status) << "  Actual Status: " << AJ_StatusText(status);
-            AJ_Printf("Unmarshal variant %s\n", sig);
+            AJ_AlwaysPrintf(("Unmarshal variant %s\n", sig));
 
             status = AJ_UnmarshalVariant(&rxMsg, (const char**)&sig);
             EXPECT_EQ(AJ_OK, status) << "  Actual Status: " << AJ_StatusText(status);
-            AJ_Printf("Unmarshal variant %s\n", sig);
+            AJ_AlwaysPrintf(("Unmarshal variant %s\n", sig));
 
             status = AJ_UnmarshalVariant(&rxMsg, (const char**)&sig);
             EXPECT_EQ(AJ_OK, status) << "  Actual Status: " << AJ_StatusText(status);
-            AJ_Printf("Unmarshal variant %s\n", sig);
+            AJ_AlwaysPrintf(("Unmarshal variant %s\n", sig));
 
             status = AJ_UnmarshalArgs(&rxMsg, "s", &str);
             EXPECT_EQ(AJ_OK, status) << "  Actual Status: " << AJ_StatusText(status);
-            AJ_Printf("Unmarshal %s\n", str);
+            AJ_AlwaysPrintf(("Unmarshal %s\n", str));
 
             status = AJ_CloseMsg(&rxMsg);
             EXPECT_EQ(AJ_OK, status) << "  Actual Status: " << AJ_StatusText(status);
@@ -691,27 +691,27 @@ TEST_F(MutterTest, StructofVariants)
             EXPECT_EQ(AJ_OK, status) << "  Actual Status: " << AJ_StatusText(status);
             status = AJ_UnmarshalVariant(&rxMsg, (const char**)&sig);
             EXPECT_EQ(AJ_OK, status) << "  Actual Status: " << AJ_StatusText(status);
-            AJ_Printf("Unmarshal variant %s\n", sig);
+            AJ_AlwaysPrintf(("Unmarshal variant %s\n", sig));
 
             status = AJ_UnmarshalArgs(&rxMsg, "i", &j);
             EXPECT_EQ(AJ_OK, status) << "  Actual Status: " << AJ_StatusText(status);
-            AJ_Printf("Unmarshal %d\n", j);
+            AJ_AlwaysPrintf(("Unmarshal %d\n", j));
 
             status = AJ_UnmarshalVariant(&rxMsg, (const char**)&sig);
             EXPECT_EQ(AJ_OK, status) << "  Actual Status: " << AJ_StatusText(status);
-            AJ_Printf("Unmarshal variant %s\n", sig);
+            AJ_AlwaysPrintf(("Unmarshal variant %s\n", sig));
 
             status = AJ_UnmarshalArgs(&rxMsg, "s", &str);
             EXPECT_EQ(AJ_OK, status) << "  Actual Status: " << AJ_StatusText(status);
             status = AJ_UnmarshalVariant(&rxMsg, (const char**)&sig);
             EXPECT_EQ(AJ_OK, status) << "  Actual Status: " << AJ_StatusText(status);
-            AJ_Printf("Unmarshal variant %s\n", sig);
+            AJ_AlwaysPrintf(("Unmarshal variant %s\n", sig));
 
             status = AJ_UnmarshalArg(&rxMsg, &arg);
             EXPECT_EQ(AJ_OK, status) << "  Actual Status: " << AJ_StatusText(status);
             status = AJ_UnmarshalVariant(&rxMsg, (const char**)&sig);
             EXPECT_EQ(AJ_OK, status) << "  Actual Status: " << AJ_StatusText(status);
-            AJ_Printf("Unmarshal variant %s\n", sig);
+            AJ_AlwaysPrintf(("Unmarshal variant %s\n", sig));
 
             status = AJ_UnmarshalArg(&rxMsg, &arg);
             EXPECT_EQ(AJ_OK, status) << "  Actual Status: " << AJ_StatusText(status);

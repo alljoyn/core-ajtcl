@@ -1,4 +1,4 @@
-# Copyright (c) 2013, AllSeen Alliance. All rights reserved.
+# Copyright (c) 2013 - 2014, AllSeen Alliance. All rights reserved.
 #
 #    Permission to use, copy, modify, and/or distribute this software for any
 #    purpose with or without fee is hereby granted, provided that the above
@@ -310,9 +310,7 @@ if env['AJWSL'] == 'due':
     env.Program('test/siglite', ['test/siglite.c'] + env['aj_obj'])
     env.Program('test/nvramtest', ['test/nvramtest.c'] + env['aj_obj'])
     env.Program('test/sessionslite', ['test/sessionslite.c'] + env['aj_obj'])
-    # Build the WSL test programs
-    env.Program('test/WSL/initial_bring_up', ['test/WSL/initial_bring_up.c'] + env['aj_obj'])
-    
+
 Export('env')
 
 if env['WS'] != 'off' and not env.GetOption('clean') and not env.GetOption('help'):

@@ -2,7 +2,7 @@
  * @file  UART transport Tester
  */
 /******************************************************************************
- * Copyright (c) 2013, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2013-2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -35,13 +35,13 @@ static uint8_t rxBuffer[1600];
 
 void TimerCallbackEndProc(uint32_t timerId, void* context)
 {
-    AJ_Printf("TimerCallbackEndProc %.6d \n", timerId);
+    AJ_AlwaysPrintf(("TimerCallbackEndProc %.6d \n", timerId));
 
 #ifdef READTEST
     if (0 == memcmp(txBuffer, rxBuffer, sizeof(rxBuffer))) {
-        AJ_Printf("Passed: buffers match.\n");
+        AJ_AlwaysPrintf(("Passed: buffers match.\n"));
     } else {
-        AJ_Printf("FAILED: buffers mismatch.\n");
+        AJ_AlwaysPrintf(("FAILED: buffers mismatch.\n"));
         exit(-1);
     }
 #endif
@@ -68,11 +68,11 @@ int main()
     status = AJ_SerialInit("/dev/ttyUSB1", BITRATE, AJ_SERIAL_WINDOW_SIZE, AJ_SERIAL_ENABLE_CRC, AJ_SERIAL_PACKET_SIZE);
 #endif
 
-    AJ_Printf("serial init was %u\n", status);
+    AJ_AlwaysPrintf(("serial init was %u\n", status));
 
     uint32_t timerEndProc = 9999;
     status = AJ_TimerRegister(20000, &TimerCallbackEndProc, NULL, &timerEndProc);
-    AJ_Printf("Added id %u\n", timerEndProc);
+    AJ_AlwaysPrintf(("Added id %u\n", timerEndProc));
 
 
 #ifdef READTEST
@@ -93,7 +93,7 @@ int main()
 //    for (blocks = 0 ; blocks < 16; blocks++) {
 //        AJ_SerialSend(txBuffer+(blocks*blocksize), blocksize);
 //    }
-    AJ_Printf("post serial send\n");
+    AJ_AlwaysPrintf(("post serial send\n"));
 #endif
 
 

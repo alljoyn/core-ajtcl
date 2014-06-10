@@ -2,7 +2,7 @@
  * @file
  */
 /******************************************************************************
- * Copyright (c) 2013, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2013-2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -64,7 +64,7 @@ static const AJ_Object AppObjects[] = {
  */
 void AppDoWork()
 {
-    AJ_Printf("AppDoWork\n");
+    AJ_AlwaysPrintf(("AppDoWork\n"));
 }
 
 
@@ -89,7 +89,7 @@ AJ_Status AppHandleCat(AJ_Message* msg)
     char* partA;
     char* partB;
     char* totalString;
-    AJ_Printf("%s:%d:%s %d\n", __FILE__, __LINE__, __FUNCTION__, 0);
+    AJ_AlwaysPrintf(("%s:%d:%s %d\n", __FILE__, __LINE__, __FUNCTION__, 0));
 
     AJ_UnmarshalArgs(msg, "ss", &partA, &partB);
 
@@ -111,7 +111,7 @@ AJ_Status AppHandleCat(AJ_Message* msg)
 int AJ_Main()
 {
     // you're connected now, so print out the data:
-    AJ_Printf("You're connected to the network\n");
+    AJ_AlwaysPrintf(("You're connected to the network\n"));
     AJ_Initialize();
     AJ_PrintXML(AppObjects);
     AJ_RegisterObjects(AppObjects, NULL);
@@ -122,7 +122,7 @@ int AJ_Main()
         if (!connected) {
             status = AJ_StartService(&bus, NULL, CONNECT_TIMEOUT, FALSE, ServicePort, ServiceName, AJ_NAME_REQ_DO_NOT_QUEUE, NULL);
             if (status == AJ_OK) {
-                AJ_Printf("StartService returned %d\n", status);
+                AJ_AlwaysPrintf(("StartService returned %d\n", status));
                 connected = TRUE;
                 if (authenticate) {
                     AJ_BusSetPasswordCallback(&bus, PasswordCallback);
@@ -130,7 +130,7 @@ int AJ_Main()
                     authStatus = AJ_OK;
                 }
             } else {
-                AJ_Printf("StartClient returned %d\n", status);
+                AJ_AlwaysPrintf(("StartClient returned %d\n", status));
                 continue;
             }
         }
@@ -150,13 +150,13 @@ int AJ_Main()
                 {
                     uint16_t port;
                     char* joiner;
-                    AJ_Printf("Accepting...\n");
+                    AJ_AlwaysPrintf(("Accepting...\n"));
                     AJ_UnmarshalArgs(&msg, "qus", &port, &sessionId, &joiner);
                     status = AJ_BusReplyAcceptSession(&msg, TRUE);
                     if (status == AJ_OK) {
-                        AJ_Printf("Accepted session session_id=%u joiner=%s\n", sessionId, joiner);
+                        AJ_AlwaysPrintf(("Accepted session session_id=%u joiner=%s\n", sessionId, joiner));
                     } else {
-                        AJ_Printf("AJ_BusReplyAcceptSession: error %d\n", status);
+                        AJ_AlwaysPrintf(("AJ_BusReplyAcceptSession: error %d\n", status));
                     }
                 }
                 break;
@@ -172,7 +172,7 @@ int AJ_Main()
                 {
                     uint32_t id, reason;
                     AJ_UnmarshalArgs(&msg, "uu", &id, &reason);
-                    AJ_Printf("Session lost. ID = %u, reason = %d", id, reason);
+                    AJ_AlwaysPrintf(("Session lost. ID = %u, reason = %d", id, reason));
                 }
                 break;
 
@@ -190,7 +190,7 @@ int AJ_Main()
         AJ_CloseMsg(&msg);
 
         if ((status == AJ_ERR_READ) || (status == AJ_ERR_LINK_DEAD)) {
-            AJ_Printf("AllJoyn disconnect\n");
+            AJ_AlwaysPrintf(("AllJoyn disconnect\n"));
             AJ_Disconnect(&bus);
             connected = FALSE;
             /*

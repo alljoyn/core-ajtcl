@@ -153,10 +153,10 @@ int main(int argc, char*argv[])
                 switch (msg.msgId) {
                 case AJ_REPLY_ID(PRX_SET_PROP):
                     done = TRUE;
-                    AJ_Printf("Name on the interface '%s' at service '%s' was set to '%s'.\n",
-                              InterfaceName,
-                              ServiceName,
-                              newName);
+                    AJ_AlwaysPrintf(("Name on the interface '%s' at service '%s' was set to '%s'.\n",
+                                     InterfaceName,
+                                     ServiceName,
+                                     newName));
                     break;
 
                 case AJ_SIGNAL_SESSION_LOST_WITH_REASON:
@@ -180,7 +180,7 @@ int main(int argc, char*argv[])
             AJ_CloseMsg(&msg);
 
             if (status == AJ_ERR_SESSION_LOST) {
-                AJ_Printf("AllJoyn disconnect.\n");
+                AJ_AlwaysPrintf(("AllJoyn disconnect.\n"));
                 AJ_Disconnect(&bus);
                 exit(0);
             }
@@ -189,7 +189,7 @@ int main(int argc, char*argv[])
         AJ_ErrPrintf(("Error. New name not given: nameChange_client [new name].\n"));
     }
 
-    AJ_Printf("nameChange_Client exiting with status 0x%04x.\n", status);
+    AJ_AlwaysPrintf(("nameChange_Client exiting with status 0x%04x.\n", status));
 
     return status;
 }

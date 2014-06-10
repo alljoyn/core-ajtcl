@@ -86,7 +86,7 @@ void AJ_NVRAM_Init()
 {
     nvm_init(INT_FLASH);
     if (*((uint32_t*)AJ_NVRAM_BASE_ADDRESS) != AJ_NV_SENTINEL) {
-        AJ_Printf("Sentinel has not been set, clearing NVRAM\n");
+        AJ_AlwaysPrintf(("Sentinel has not been set, clearing NVRAM\n"));
         _AJ_NVRAM_Clear();
     }
 }

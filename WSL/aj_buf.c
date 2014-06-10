@@ -265,7 +265,7 @@ void AJ_BufListWriteToWire_Simulated(AJ_BufNode* node, AJ_BUF_WIREBUFFER* target
 #ifndef NDEBUG
     if (AJ_DbgLevel > AJ_DEBUG_INFO) {
         while (iter < node->length) {
-            AJ_Printf("%02x ", node->buffer[iter]);
+            AJ_AlwaysPrintf(("%02x ", node->buffer[iter]));
             iter++;
         }
     }
@@ -279,7 +279,7 @@ uint8_t AJ_BufListReadByteFromWire_Simulated(AJ_BUF_WIREBUFFER* source)
     uint8_t byteRead = *source->fakeWireRead;
     source->fakeWireRead++;
 
-//    AJ_Printf("Byte Read %02x ", byteRead);
+//    AJ_AlwaysPrintf(("Byte Read %02x ", byteRead));
     return byteRead;
 }
 
@@ -299,7 +299,7 @@ void AJ_BufListReadBytesFromWire_Simulated(uint16_t numberToRead, uint8_t* outpu
 //DEBUG function: print node header info
 void AJ_BufListNodePrint(AJ_BufNode* node, void* context)
 {
-    AJ_Printf("BufList node %p, flags %x length %d, buffer %p, bufferStart %p\n", node, node->flags, node->length, node->buffer, node->bufferStart);
+    AJ_AlwaysPrintf(("BufList node %p, flags %x length %d, buffer %p, bufferStart %p\n", node, node->flags, node->length, node->buffer, node->bufferStart));
 }
 
 //DEBUG function: print node contents
@@ -308,10 +308,10 @@ void AJ_BufListNodePrintDump(AJ_BufNode* node, void* context)
     uint16_t iter = 0;
     AJ_BufListNodePrint(node, NULL);
     while (iter < node->length) {
-        AJ_Printf("%02x ", node->buffer[iter]);
+        AJ_AlwaysPrintf(("%02x ", node->buffer[iter]));
         iter++;
     }
-    AJ_Printf("%s", "\n");
+    AJ_AlwaysPrintf(("%s", "\n"));
 }
 
 // deprecate, perhaps
@@ -355,12 +355,12 @@ void AJ_BufListPrintDumpContinuous(AJ_BufList* list)
     AJ_BufNode* node = list->head;
     while (node != NULL) {
         for (i = 0; i < node->length; i++) {
-            AJ_Printf("%02x ", *(node->buffer + i));
+            AJ_AlwaysPrintf(("%02x ", *(node->buffer + i)));
         }
         //AJ_BufListNodePrintDump(node, NULL);
         node = node->next;
     }
-    AJ_Printf("\n");
+    AJ_AlwaysPrintf(("\n"));
 }
 #ifndef NDEBUG
 //DEBUG function: print node header info
