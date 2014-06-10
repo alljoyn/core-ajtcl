@@ -253,16 +253,6 @@ AJ_EXPORT
 void AJ_RegisterObjects(const AJ_Object* localObjects, const AJ_Object* proxyObjects);
 
 /**
- * Register a local array of languages that will allow for a description to be supplied and
- * a lookup function to return the description for local objects registered using AJ_RegisterObjects.
- *
- * @param languages The list of languages that are supported for descriptions.
- * @param descLookup A lookup function for the descriptions of the describable items namely the objects, interfaces, members and arguments.
- */
-AJ_EXPORT
-void AJ_RegisterDescriptions(const char* const* languages, AJ_DescriptionLookupFunc descLookup);
-
-/**
  * Object iterator type - treat as opaque
  */
 typedef struct {
