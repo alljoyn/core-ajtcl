@@ -82,7 +82,7 @@ static const char* MyTranslator(uint32_t descId, const char* lang) {
         ++langIndex;
     }
     /* If all languages in list did not match, then set index to 0 (default) language */
-    if (langIndex < (sizeof(languages) / sizeof(char*))) {
+    if (langIndex >= (sizeof(languages) / sizeof(char*))) {
         langIndex = 0;
     }
 
@@ -193,9 +193,9 @@ int AJ_Main(void)
     AJ_Initialize();
 
     /* Set the languages and a lookup function so that we can print out the default descriptions in the AJ_PrintXML call */
-    AJ_RegisterDescriptions(languages, MyTranslator);
+    AJ_RegisterDescriptionLanguages(languages);
 
-    AJ_RegisterObjects(AppObjects, NULL);
+    AJ_RegisterObjectListWithDescriptions(AppObjects, 1, MyTranslator);
 
     /* This is for debug purposes and is optional. */
     AJ_Printf("XML with no Descriptions\n");
@@ -278,7 +278,7 @@ int AJ_Main(void)
         }
     }
 
-    AJ_Printf("Basic service exiting with status %d.\n", status);
+    AJ_Printf("Basic eventaction_service exiting with status %d.\n", status);
 
     return status;
 }
