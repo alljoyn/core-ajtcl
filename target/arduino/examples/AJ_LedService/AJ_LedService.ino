@@ -2,7 +2,7 @@
  * @file
  */
 /******************************************************************************
- * Copyright (c) 2013, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2013-2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -41,7 +41,7 @@ int status = WL_IDLE_STATUS;     // the Wifi radio's status
 
 void DUE_led_timed(uint32_t msec)
 {
-    AJ_Printf("DUE_led_timed\n");
+    AJ_AlwaysPrintf(("DUE_led_timed\n"));
     digitalWrite(led, HIGH); // turn the LED on (HIGH is the voltage level)
     delay(msec);             // wait for a second
     digitalWrite(led, LOW);  // turn the LED off by making the voltage LOW
@@ -50,7 +50,7 @@ void DUE_led_timed(uint32_t msec)
 
 void DUE_led(uint8_t on)
 {
-    AJ_Printf("DUE_led(%u)\n", on);
+    AJ_AlwaysPrintf(("DUE_led(%u)\n", on));
     digitalWrite(led, on ? HIGH : LOW); // turn the LED on (HIGH is the voltage level)
 }
 
@@ -69,7 +69,7 @@ void setup() {
 #ifdef WIFI_UDP_WORKING
     // check for the presence of the shield:
     if (WiFi.status() == WL_NO_SHIELD) {
-        AJ_Printf("WiFi shield not present\n");
+        AJ_AlwaysPrintf(("WiFi shield not present\n"));
         // don't continue:
         while (true) ;
     }
@@ -91,7 +91,7 @@ void setup() {
     byte mac[] = { 0x00, 0xAA, 0xBB, 0xCC, 0xDE, 0x02 };
     // start the Ethernet connection:
     if (Ethernet.begin(mac) == 0) {
-        AJ_Printf("Failed to configure Ethernet using DHCP\n");
+        AJ_AlwaysPrintf(("Failed to configure Ethernet using DHCP\n"));
         // no point in carrying on, so do nothing forevermore:
         for (;;)
             ;
@@ -101,7 +101,7 @@ void setup() {
 
 // the loop routine runs over and over again forever:
 void loop() {
-    AJ_Printf("Hello\n");
+    AJ_AlwaysPrintf(("Hello\n"));
     AJ_Main();
 }
 

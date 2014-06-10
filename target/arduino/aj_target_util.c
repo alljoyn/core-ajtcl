@@ -20,6 +20,7 @@
 #include "Arduino.h"
 #include "aj_target.h"
 #include "aj_util.h"
+#include "aj_debug.h"
 
 typedef struct time_struct {
 
@@ -73,10 +74,10 @@ void AJ_Free(void* mem)
 
 void ram_diag()
 {
-    AJ_Printf("SRAM usage (stack, heap, static): %d, %d, %d\n",
-              stack_used(),
-              heap_used(),
-              static_used());
+    AJ_AlwaysPrintf(("SRAM usage (stack, heap, static): %d, %d, %d\n",
+                     stack_used(),
+                     heap_used(),
+                     static_used()));
 }
 
 uint8_t AJ_StartReadFromStdIn()

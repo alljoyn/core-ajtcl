@@ -148,8 +148,8 @@ int AJ_Main(void)
                     status = AJ_UnmarshalArg(&msg, &arg);
 
                     if (AJ_OK == status) {
-                        AJ_Printf("'%s.%s' (path='%s') returned '%s'.\n", ServiceName, "cat",
-                                  ServicePath, arg.val.v_string);
+                        AJ_AlwaysPrintf(("'%s.%s' (path='%s') returned '%s'.\n", ServiceName, "cat",
+                                         ServicePath, arg.val.v_string));
                         done = TRUE;
                     } else {
                         AJ_InfoPrintf(("AJ_UnmarshalArg() returned status %d.\n", status));
@@ -180,13 +180,13 @@ int AJ_Main(void)
         AJ_CloseMsg(&msg);
 
         if (status == AJ_ERR_SESSION_LOST) {
-            AJ_Printf("AllJoyn disconnect.\n");
+            AJ_AlwaysPrintf(("AllJoyn disconnect.\n"));
             AJ_Disconnect(&bus);
             exit(0);
         }
     }
 
-    AJ_Printf("Basic client exiting with status %d.\n", status);
+    AJ_AlwaysPrintf(("Basic client exiting with status %d.\n", status));
 
     return status;
 }

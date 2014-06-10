@@ -2,7 +2,7 @@
  * @file
  */
 /******************************************************************************
- * Copyright (c) 2012-2013, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2012-2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -247,13 +247,13 @@ void AJ_PoolDump(void)
     size_t memTotal = 0;
     Pool* p = heapPools;
 
-    AJ_Printf("======= dump of %d heap pools ======\n", numPools);
+    AJ_AlwaysPrintf(("======= dump of %d heap pools ======\n", numPools));
     for (i = 0; i < numPools; ++i, ++p) {
-        AJ_Printf("pool[%d] used=%d free=%d high-water=%d max-alloc=%d\n", heapConfig[i].size, p->use, heapConfig[i].entries - p->use, p->hwm, p->max);
+        AJ_AlwaysPrintf(("pool[%d] used=%d free=%d high-water=%d max-alloc=%d\n", heapConfig[i].size, p->use, heapConfig[i].entries - p->use, p->hwm, p->max));
         memUse += p->use * heapConfig[i].size;
         memHigh += p->hwm * heapConfig[i].size;
         memTotal += p->hwm * p->max;
     }
-    AJ_Printf("======= heap hwm = %d use = %d waste = %d ======\n", (int)memHigh, (int)memUse, (int)(memHigh - memTotal));
+    AJ_AlwaysPrintf(("======= heap hwm = %d use = %d waste = %d ======\n", (int)memHigh, (int)memUse, (int)(memHigh - memTotal)));
 }
 #endif

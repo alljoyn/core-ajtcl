@@ -52,7 +52,7 @@ static void run_fill_mbox(const struct test_case* test)
     AJ_BufNode* pNode1;
     AJ_BufNode* pNode2;
 
-    AJ_Printf("\n\n**************\nTEST:  %s\n\n", __FUNCTION__);
+    AJ_AlwaysPrintf(("\n\n**************\nTEST:  %s\n\n", __FUNCTION__));
     AJ_WSL_SPI_RegisterRead(AJ_WSL_SPI_REG_WRBUF_SPC_AVA, &MBoxSpaceAvailable);
 
     // fill up a mailbox with 'Z'
@@ -78,7 +78,7 @@ static void run_read_from_mbox(const struct test_case* test)
 
     uint8_t* rawMboxMessage;
     uint16_t MBoxSpaceAvailable = 0;
-    AJ_Printf("\n\n**************\nTEST:  %s\n\n", __FUNCTION__);
+    AJ_AlwaysPrintf(("\n\n**************\nTEST:  %s\n\n", __FUNCTION__));
 
     AJ_WSL_ReadFromMBox(0, &MBoxSpaceAvailable, &rawMboxMessage);
 

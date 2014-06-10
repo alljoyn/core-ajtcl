@@ -2,7 +2,7 @@
  * @file  Marhal/Unmarshal Tester
  */
 /******************************************************************************
- * Copyright (c) 2012-2013, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2012-2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -174,7 +174,7 @@ int AJ_Main()
 #ifndef NDEBUG
     MutterHook = MsgInit;
 #else
-    AJ_Printf("mutter only works in DEBUG builds\n");
+    AJ_AlwaysPrintf(("mutter only works in DEBUG builds\n"));
     return -1;
 #endif
 
@@ -768,11 +768,11 @@ int AJ_Main()
             break;
         }
         if (status != AJ_OK) {
-            AJ_Printf("Failed %d\n", test);
+            AJ_AlwaysPrintf(("Failed %d\n", test));
             break;
         }
 
-        AJ_Printf("deliver\n");
+        AJ_AlwaysPrintf(("deliver\n"));
         AJ_DeliverMsg(&txMsg);
 
         status = AJ_UnmarshalMsg(&bus, &rxMsg, 0);
@@ -798,7 +798,7 @@ int AJ_Main()
             }
             for (j = 0; j >= 0; ++j) {
                 if (j & 1) {
-                    AJ_Printf("Skipping dict entry %d\n", j);
+                    AJ_AlwaysPrintf(("Skipping dict entry %d\n", j));
                     status = AJ_SkipArg(&rxMsg);
                     if (status != AJ_OK) {
                         break;
@@ -814,7 +814,7 @@ int AJ_Main()
                     if (status != AJ_OK) {
                         break;
                     }
-                    AJ_Printf("Unmarshal[%d] = %s\n", key, fruit);
+                    AJ_AlwaysPrintf(("Unmarshal[%d] = %s\n", key, fruit));
                     status = AJ_UnmarshalCloseContainer(&rxMsg, &dict);
                     if (status != AJ_OK) {
                         break;
@@ -837,7 +837,7 @@ int AJ_Main()
             if (status != AJ_OK) {
                 break;
             }
-            AJ_Printf("Unmarshal %u\n", u);
+            AJ_AlwaysPrintf(("Unmarshal %u\n", u));
             status = AJ_UnmarshalContainer(&rxMsg, &struct1, AJ_ARG_STRUCT);
             if (status != AJ_OK) {
                 break;
@@ -846,7 +846,7 @@ int AJ_Main()
             if (status != AJ_OK) {
                 break;
             }
-            AJ_Printf("Unmarshal %u %s %u\n", u, str, v);
+            AJ_AlwaysPrintf(("Unmarshal %u %s %u\n", u, str, v));
             status = AJ_UnmarshalContainer(&rxMsg, &struct2, AJ_ARG_STRUCT);
             if (status != AJ_OK) {
                 break;
@@ -855,7 +855,7 @@ int AJ_Main()
             if (status != AJ_OK) {
                 break;
             }
-            AJ_Printf("Unmarshal %d %d\n", n, m);
+            AJ_AlwaysPrintf(("Unmarshal %d %d\n", n, m));
             status = AJ_UnmarshalCloseContainer(&rxMsg, &struct2);
             if (status != AJ_OK) {
                 break;
@@ -864,7 +864,7 @@ int AJ_Main()
             if (status != AJ_OK) {
                 break;
             }
-            AJ_Printf("Unmarshal %u %s %u\n", q, str, r);
+            AJ_AlwaysPrintf(("Unmarshal %u %s %u\n", q, str, r));
             status = AJ_UnmarshalCloseContainer(&rxMsg, &struct1);
             if (status != AJ_OK) {
                 break;
@@ -873,17 +873,17 @@ int AJ_Main()
             if (status != AJ_OK) {
                 break;
             }
-            AJ_Printf("Unmarshal %d\n", y);
+            AJ_AlwaysPrintf(("Unmarshal %d\n", y));
             status = AJ_UnmarshalArgs(&rxMsg, "y", &y);
             if (status != AJ_OK) {
                 break;
             }
-            AJ_Printf("Unmarshal %d\n", y);
+            AJ_AlwaysPrintf(("Unmarshal %d\n", y));
             status = AJ_UnmarshalArgs(&rxMsg, "y", &y);
             if (status != AJ_OK) {
                 break;
             }
-            AJ_Printf("Unmarshal %d\n", y);
+            AJ_AlwaysPrintf(("Unmarshal %d\n", y));
             break;
 
         case 3:
@@ -917,7 +917,7 @@ int AJ_Main()
                     break;
                 }
 #endif
-                AJ_Printf("Unmarshal %d %s\n", u, str);
+                AJ_AlwaysPrintf(("Unmarshal %d %s\n", u, str));
             }
             /*
              * We expect AJ_ERR_NO_MORE
@@ -945,7 +945,7 @@ int AJ_Main()
                     if (status != AJ_OK) {
                         break;
                     }
-                    AJ_Printf("Unmarshal %s\n", arg.val.v_string);
+                    AJ_AlwaysPrintf(("Unmarshal %s\n", arg.val.v_string));
                 }
                 /*
                  * We expect AJ_ERR_NO_MORE
@@ -973,12 +973,12 @@ int AJ_Main()
             if (status != AJ_OK) {
                 break;
             }
-            AJ_Printf("Unmarshal %d\n", j);
+            AJ_AlwaysPrintf(("Unmarshal %d\n", j));
             status = AJ_UnmarshalVariant(&rxMsg, (const char**)&sig);
             if (status != AJ_OK) {
                 break;
             }
-            AJ_Printf("Unmarshal variant %s\n", sig);
+            AJ_AlwaysPrintf(("Unmarshal variant %s\n", sig));
             status = AJ_UnmarshalContainer(&rxMsg, &array1, AJ_ARG_ARRAY);
             if (status != AJ_OK) {
                 break;
@@ -992,7 +992,7 @@ int AJ_Main()
                 if (status != AJ_OK) {
                     break;
                 }
-                AJ_Printf("Unmarshal[%d] %d\n", j, k);
+                AJ_AlwaysPrintf(("Unmarshal[%d] %d\n", j, k));
                 status = AJ_UnmarshalCloseContainer(&rxMsg, &struct1);
                 if (status != AJ_OK) {
                     break;
@@ -1012,7 +1012,7 @@ int AJ_Main()
             if (status != AJ_OK) {
                 break;
             }
-            AJ_Printf("Unmarshal %d\n", j);
+            AJ_AlwaysPrintf(("Unmarshal %d\n", j));
             break;
 
         case 6:
@@ -1021,7 +1021,7 @@ int AJ_Main()
             if (status != AJ_OK) {
                 break;
             }
-            AJ_Printf("Unmarshal variant %s\n", sig);
+            AJ_AlwaysPrintf(("Unmarshal variant %s\n", sig));
             status = AJ_UnmarshalContainer(&rxMsg, &struct1, AJ_ARG_STRUCT);
             if (status != AJ_OK) {
                 break;
@@ -1030,22 +1030,22 @@ int AJ_Main()
             if (status != AJ_OK) {
                 break;
             }
-            AJ_Printf("Unmarshal %d\n", j);
+            AJ_AlwaysPrintf(("Unmarshal %d\n", j));
             status = AJ_UnmarshalVariant(&rxMsg, (const char**)&sig);
             if (status != AJ_OK) {
                 break;
             }
-            AJ_Printf("Unmarshal variant %s\n", sig);
+            AJ_AlwaysPrintf(("Unmarshal variant %s\n", sig));
             status = AJ_UnmarshalArgs(&rxMsg, "s", &str);
             if (status != AJ_OK) {
                 break;
             }
-            AJ_Printf("Unmarshal %s\n", str);
+            AJ_AlwaysPrintf(("Unmarshal %s\n", str));
             status = AJ_UnmarshalArgs(&rxMsg, "i", &j);
             if (status != AJ_OK) {
                 break;
             }
-            AJ_Printf("Unmarshal %d\n", j);
+            AJ_AlwaysPrintf(("Unmarshal %d\n", j));
             status = AJ_UnmarshalCloseContainer(&rxMsg, &struct1);
             if (status != AJ_OK) {
                 break;
@@ -1063,32 +1063,32 @@ int AJ_Main()
             if (status != AJ_OK) {
                 break;
             }
-            AJ_Printf("Unmarshal variant %s\n", sig);
+            AJ_AlwaysPrintf(("Unmarshal variant %s\n", sig));
             status = AJ_UnmarshalVariant(&rxMsg, (const char**)&sig);
             if (status != AJ_OK) {
                 break;
             }
-            AJ_Printf("Unmarshal variant %s\n", sig);
+            AJ_AlwaysPrintf(("Unmarshal variant %s\n", sig));
             status = AJ_UnmarshalVariant(&rxMsg, (const char**)&sig);
             if (status != AJ_OK) {
                 break;
             }
-            AJ_Printf("Unmarshal variant %s\n", sig);
+            AJ_AlwaysPrintf(("Unmarshal variant %s\n", sig));
             status = AJ_UnmarshalVariant(&rxMsg, (const char**)&sig);
             if (status != AJ_OK) {
                 break;
             }
-            AJ_Printf("Unmarshal variant %s\n", sig);
+            AJ_AlwaysPrintf(("Unmarshal variant %s\n", sig));
             status = AJ_UnmarshalVariant(&rxMsg, (const char**)&sig);
             if (status != AJ_OK) {
                 break;
             }
-            AJ_Printf("Unmarshal variant %s\n", sig);
+            AJ_AlwaysPrintf(("Unmarshal variant %s\n", sig));
             status = AJ_UnmarshalArgs(&rxMsg, "s", &str);
             if (status != AJ_OK) {
                 break;
             }
-            AJ_Printf("Unmarshal %s\n", str);
+            AJ_AlwaysPrintf(("Unmarshal %s\n", str));
             break;
 
         case 8:
@@ -1100,17 +1100,17 @@ int AJ_Main()
             if (status != AJ_OK) {
                 break;
             }
-            AJ_Printf("Unmarshal variant %s\n", sig);
+            AJ_AlwaysPrintf(("Unmarshal variant %s\n", sig));
             status = AJ_UnmarshalArgs(&rxMsg, "i", &j);
             if (status != AJ_OK) {
                 break;
             }
-            AJ_Printf("Unmarshal %d\n", j);
+            AJ_AlwaysPrintf(("Unmarshal %d\n", j));
             status = AJ_UnmarshalVariant(&rxMsg, (const char**)&sig);
             if (status != AJ_OK) {
                 break;
             }
-            AJ_Printf("Unmarshal variant %s\n", sig);
+            AJ_AlwaysPrintf(("Unmarshal variant %s\n", sig));
             status = AJ_UnmarshalArgs(&rxMsg, "s", &str);
             if (status != AJ_OK) {
                 break;
@@ -1119,12 +1119,12 @@ int AJ_Main()
             if (status != AJ_OK) {
                 break;
             }
-            AJ_Printf("Unmarshal variant %s\n", sig);
+            AJ_AlwaysPrintf(("Unmarshal variant %s\n", sig));
             status = AJ_UnmarshalArg(&rxMsg, &arg);
             if (status != AJ_OK) {
                 break;
             }
-            AJ_Printf("Skipping variant\n");
+            AJ_AlwaysPrintf(("Skipping variant\n"));
             status = AJ_SkipArg(&rxMsg);
             if (status != AJ_OK) {
                 break;
@@ -1133,12 +1133,12 @@ int AJ_Main()
             if (status != AJ_OK) {
                 break;
             }
-            AJ_Printf("Unmarshal variant %s\n", sig);
+            AJ_AlwaysPrintf(("Unmarshal variant %s\n", sig));
             status = AJ_UnmarshalArg(&rxMsg, &arg);
             if (status != AJ_OK) {
                 break;
             }
-            AJ_Printf("Skipping variant\n");
+            AJ_AlwaysPrintf(("Skipping variant\n"));
             status = AJ_SkipArg(&rxMsg);
             if (status != AJ_OK) {
                 break;
@@ -1154,14 +1154,14 @@ int AJ_Main()
             if (status != AJ_OK) {
                 break;
             }
-            AJ_Printf("Unmarshal %x\n", j);
-            AJ_Printf("Unmarshal %x\n", q);
+            AJ_AlwaysPrintf(("Unmarshal %x\n", j));
+            AJ_AlwaysPrintf(("Unmarshal %x\n", q));
             status = AJ_UnmarshalRaw(&rxMsg, (const void**)&raw, sizeof(len), &sz);
             if (status != AJ_OK) {
                 break;
             }
             len = *((uint32_t*)raw);
-            AJ_Printf("UnmarshalRaw %d\n", len);
+            AJ_AlwaysPrintf(("UnmarshalRaw %d\n", len));
             for (j = 0; j < len; ++j) {
                 uint8_t v;
                 status = AJ_UnmarshalRaw(&rxMsg, (const void**)&raw, 1, &sz);
@@ -1240,7 +1240,7 @@ int AJ_Main()
                 if (status != AJ_OK) {
                     break;
                 }
-                AJ_Printf("Unmarshal[%s] = %s\n", color, fruit);
+                AJ_AlwaysPrintf(("Unmarshal[%s] = %s\n", color, fruit));
                 status = AJ_UnmarshalCloseContainer(&rxMsg, &dict);
                 if (status != AJ_OK) {
                     break;
@@ -1294,7 +1294,7 @@ int AJ_Main()
                 if (status != AJ_OK) {
                     break;
                 }
-                AJ_Printf("Unmarshal[%d] = %s\n", y, color);
+                AJ_AlwaysPrintf(("Unmarshal[%d] = %s\n", y, color));
                 status = AJ_UnmarshalCloseContainer(&rxMsg, &dict);
                 if (status != AJ_OK) {
                     break;
@@ -1304,7 +1304,7 @@ int AJ_Main()
                 if (status != AJ_OK) {
                     break;
                 }
-                AJ_Printf("Unmarshal[%d] = %s\n", y, color);
+                AJ_AlwaysPrintf(("Unmarshal[%d] = %s\n", y, color));
 #endif
             }
             /*
@@ -1335,7 +1335,7 @@ int AJ_Main()
             }
             for (j = 0; j < arg.len; ++j) {
                 uint8_t val = arg.val.v_byte[j];
-                AJ_Printf("Unmarhsalled array1[%u] = %u\n", j, val);
+                AJ_AlwaysPrintf(("Unmarhsalled array1[%u] = %u\n", j, val));
                 AJ_ASSERT(val == Data8[j]);
             }
 
@@ -1370,13 +1370,13 @@ int AJ_Main()
                     if (status != AJ_OK) {
                         break;
                     }
-                    AJ_Printf("Unmarshal dict entry key=%d variant %s\n", key, sig);
+                    AJ_AlwaysPrintf(("Unmarshal dict entry key=%d variant %s\n", key, sig));
                     status = AJ_UnmarshalArgs(&rxMsg, sig, &str);
                     if (status != AJ_OK) {
                         break;
                     }
                 } else {
-                    AJ_Printf("Skipping dict entry key=%d\n", key);
+                    AJ_AlwaysPrintf(("Skipping dict entry key=%d\n", key));
                     status = AJ_SkipArg(&rxMsg);
                     if (status != AJ_OK) {
                         break;
@@ -1423,14 +1423,14 @@ int AJ_Main()
         }
 
         if (status != AJ_OK) {
-            AJ_Printf("Failed %d\n", test);
+            AJ_AlwaysPrintf(("Failed %d\n", test));
             break;
         }
         AJ_CloseMsg(&rxMsg);
-        AJ_Printf("Passed %d \"%s\"\n", test, testSignature[test]);
+        AJ_AlwaysPrintf(("Passed %d \"%s\"\n", test, testSignature[test]));
     }
     if (status != AJ_OK) {
-        AJ_Printf("Marshal/Unmarshal unit test[%d] failed %d\n", test, status);
+        AJ_AlwaysPrintf(("Marshal/Unmarshal unit test[%d] failed %d\n", test, status));
     }
 
     return status;

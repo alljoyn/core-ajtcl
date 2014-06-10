@@ -19,9 +19,12 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
+#define AJ_EXPORT
+
 #include <stdio.h>
 #include <stdint.h>
 #include <stddef.h>
+
 typedef signed char int8_t;           /** 8-bit signed integer */
 typedef unsigned char uint8_t;        /** 8-bit unsigned integer */
 typedef signed long long int64_t;     /** 64-bit signed integer */
@@ -99,7 +102,5 @@ extern uint8_t dbgTARGET_UTIL;
  * AJ_Reboot() is a NOOP on this platform
  */
 #define AJ_Reboot()
-
-#define AJ_EXPORT
 
 #endif

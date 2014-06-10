@@ -307,7 +307,7 @@ AJ_Status AJ_ConnectWiFi(const char* ssid, AJ_WiFiSecurityType secType, AJ_WiFiC
         status = AJ_AcquireIPAddress(&ip, &mask, &gateway, DHCP_TIMEOUT);
         AJ_InfoPrintf(("AJ_ConnectWiFi(): AJ_AcquireIPAddress status=%s\n", AJ_StatusText(status)));
         if (status == AJ_OK) {
-            AJ_Printf("Got IP %s\n", AddrStr(ip));
+            AJ_AlwaysPrintf(("Got IP %s\n", AddrStr(ip)));
         }
     } else if (connectState == AJ_WIFI_CONNECT_FAILED) {
         AJ_ErrPrintf(("ConnectWiFi failed to connect\n"));

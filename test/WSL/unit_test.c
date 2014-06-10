@@ -70,7 +70,7 @@ static void run_wsl_htc_parsing(const struct test_case* test)
     AJ_BufNode* pNodeHTCHeader;
     wsl_htc_hdr* msgHdr;
 
-    AJ_Printf("\n\n**************\nTEST:  %s\n\n", __FUNCTION__);
+    AJ_AlwaysPrintf(("\n\n**************\nTEST:  %s\n\n", __FUNCTION__));
 
 
     strcpy((char*)pNodeAppData->buffer, "AppData string");
@@ -121,13 +121,13 @@ static void run_wsl_htc_parsing(const struct test_case* test)
     msgHdr->payloadLength = AJ_BufListLengthOnWire(list2);
     AJ_WSL_HTC_HDR_TO_WIRE(msgHdr);
 
-    AJ_Printf("\n\nPayload size would be: %d\n\n", AJ_BufListLengthOnWire(list2));
+    AJ_AlwaysPrintf(("\n\nPayload size would be: %d\n\n", AJ_BufListLengthOnWire(list2)));
     AJ_BufListPushHead(list2, pNodeHTCHeader);
 
 
-    AJ_Printf("%s", "write this to the wire\n\n");
+    AJ_AlwaysPrintf(("%s", "write this to the wire\n\n"));
     AJ_BufListIterateOnWire(AJ_BufListWriteToWire_Simulated, list2, &toTarget);
-    AJ_Printf("\n\nDone wire write, length on wire: %d\n\n", AJ_BufListLengthOnWire(list2));
+    AJ_AlwaysPrintf(("\n\nDone wire write, length on wire: %d\n\n", AJ_BufListLengthOnWire(list2)));
 
     AJ_BufListFree(list2, 1);
 
@@ -137,10 +137,10 @@ static void run_wsl_htc_parsing(const struct test_case* test)
         fakeWireRead = fakeWireBuffer;
         uint16_t readBufferSize = sizeof(fakeWireBuffer);
 
-        AJ_Printf("%s", "Wire Bufer\n");
+        AJ_AlwaysPrintf(("%s", "Wire Bufer\n"));
         while (readBufferSize > 0) {
             uint8_t byteRead  = AJ_BufListReadByteFromWire_Simulated();
-            AJ_Printf("%02X ", byteRead);
+            AJ_AlwaysPrintf(("%02X ", byteRead));
             readBufferSize--;
         }
     }
@@ -153,14 +153,14 @@ static void run_wsl_htc_parsing(const struct test_case* test)
         AJ_BufNode* pNodeHTCBody;
         wsl_htc_msg* htcMsg1;
 
-        AJ_Printf("%s", "Read HTC header from wire buffer\n");
+        AJ_AlwaysPrintf(("%s", "Read HTC header from wire buffer\n"));
         AJ_BufListReadBytesFromWire_Simulated(sizeof(htcHdr1), (uint8_t*)&htcHdr1, &toTarget);
 
         // convert the fields to the correct endianness
         AJ_WSL_HTC_HDR_FROM_WIRE(&htcHdr1);
-        AJ_Printf("\n HTC Hdr payload length 0x%04x\n\n", htcHdr1.payloadLength);
+        AJ_AlwaysPrintf(("\n HTC Hdr payload length 0x%04x\n\n", htcHdr1.payloadLength));
 
-        AJ_Printf("%s", "Read HTC from wire buffer\n");
+        AJ_AlwaysPrintf(("%s", "Read HTC from wire buffer\n"));
         pNodeHTCBody = AJ_BufListCreateNode(htcHdr1.payloadLength /*+ sizeof(wsl_htc_msg)*/);
         htcMsg1 = (wsl_htc_msg*)pNodeHTCBody->buffer;
 
@@ -168,20 +168,20 @@ static void run_wsl_htc_parsing(const struct test_case* test)
 
         switch (htcHdr1.endpointID) {
         case AJ_WSL_HTC_CONTROL_ENDPOINT:
-            AJ_Printf("%s", "Read HTC control endpoint\n");
+            AJ_AlwaysPrintf(("%s", "Read HTC control endpoint\n"));
 
 //                break;
         case AJ_WSL_HTC_DATA_ENDPOINT1:
         case AJ_WSL_HTC_DATA_ENDPOINT2:
         case AJ_WSL_HTC_DATA_ENDPOINT3:
         case AJ_WSL_HTC_DATA_ENDPOINT4:
-            AJ_Printf("\n%s %d\n", "Read HTC data endpoint", htcHdr1.endpointID);
+            AJ_AlwaysPrintf(("\n%s %d\n", "Read HTC data endpoint", htcHdr1.endpointID));
             // TODO send the data up to the next API level
             AJ_WSL_WMI_PrintMessage(pNodeHTCBody);
             break;
 
         default:
-            AJ_Printf("%s %d", "UNKNOWN Endpoint", htcHdr1.endpointID);
+            AJ_AlwaysPrintf(("%s %d", "UNKNOWN Endpoint", htcHdr1.endpointID));
             break;
 
         }
@@ -193,35 +193,35 @@ static void run_wsl_htc_parsing(const struct test_case* test)
         switch (htcMsg1->messageID) {
         case AJ_WSL_HTC_MSG_READY_ID: {
                 wsl_htc_msg_ready* htcMsgReady1 = (wsl_htc_msg_ready*)pNodeHTCBody->buffer;
-                AJ_Printf("%s", "Read HTC msg AJ_WSL_HTC_MSG_READY_ID \n");
+                AJ_AlwaysPrintf(("%s", "Read HTC msg AJ_WSL_HTC_MSG_READY_ID \n"));
                 AJ_WSL_HTC_MSG_READY_FROM_WIRE(htcMsgReady1);
-                AJ_Printf("\n HTC connect service message 0x%04x, CreditCount 0x%04X CreditSize 0x%04X\n\n", htcMsgReady1->msg.messageID, htcMsgReady1->creditCount, htcMsgReady1->creditSize);
+                AJ_AlwaysPrintf(("\n HTC connect service message 0x%04x, CreditCount 0x%04X CreditSize 0x%04X\n\n", htcMsgReady1->msg.messageID, htcMsgReady1->creditCount, htcMsgReady1->creditSize));
                 break;
             }
 
         case AJ_WSL_HTC_CONNECT_SERVICE_ID: {
                 wsl_htc_msg_connect_service* htcMsgCS1 = (wsl_htc_msg_connect_service*) pNodeHTCBody->buffer;
-                AJ_Printf("%s", "Read HTC msg AJ_WSL_HTC_CONNECT_SERVICE_ID \n");
+                AJ_AlwaysPrintf(("%s", "Read HTC msg AJ_WSL_HTC_CONNECT_SERVICE_ID \n"));
                 AJ_WSL_HTC_MSG_CONNECT_FROM_WIRE(htcMsgCS1);
-                AJ_Printf("\n HTC connect service message 0x%04x, serviceID 0x%04X \n\n", htcMsgCS1->msg.messageID, htcMsgCS1->serviceID);
+                AJ_AlwaysPrintf(("\n HTC connect service message 0x%04x, serviceID 0x%04X \n\n", htcMsgCS1->msg.messageID, htcMsgCS1->serviceID));
                 break;
             }
 
         case AJ_WSL_HTC_SERVICE_CONNECT_RESPONSE_ID: {
                 wsl_htc_msg_service_connect_response* htcServiceConnectResponse1 = (wsl_htc_msg_service_connect_response*)pNodeHTCBody->buffer;
-                AJ_Printf("%s", "Read HTC msg AJ_WSL_HTC_SERVICE_CONNECT_RESPONSE_ID \n");
+                AJ_AlwaysPrintf(("%s", "Read HTC msg AJ_WSL_HTC_SERVICE_CONNECT_RESPONSE_ID \n"));
                 AJ_WSL_HTC_MSG_SERVICE_CONNECT_RESPONSE_FROM_WIRE(htcServiceConnectResponse1);
-                AJ_Printf("\n HTC service connect response 0x%04x, serviceID 0x%04X metadatalength 0x%04X\n\n", htcServiceConnectResponse1->msg.messageID, htcServiceConnectResponse1->serviceID, htcServiceConnectResponse1->serviceMetadataLength);
+                AJ_AlwaysPrintf(("\n HTC service connect response 0x%04x, serviceID 0x%04X metadatalength 0x%04X\n\n", htcServiceConnectResponse1->msg.messageID, htcServiceConnectResponse1->serviceID, htcServiceConnectResponse1->serviceMetadataLength));
                 break;
             }
 
         case AJ_WSL_HTC_SETUP_COMPLETE_ID: {
-                AJ_Printf("%s", "Read HTC msg AJ_WSL_HTC_SETUP_COMPLETE_ID \n");
+                AJ_AlwaysPrintf(("%s", "Read HTC msg AJ_WSL_HTC_SETUP_COMPLETE_ID \n"));
                 break;
             }
 
         case AJ_WSL_HTC_HOST_READY_ID: {
-                AJ_Printf("%s", "Read HTC msg AJ_WSL_HTC_HOST_READY_ID \n");
+                AJ_AlwaysPrintf(("%s", "Read HTC msg AJ_WSL_HTC_HOST_READY_ID \n"));
                 break;
             }
 
@@ -252,14 +252,14 @@ static void AJ_WSL_HTCProcessControlMessage_Fake(AJ_BufNode* pNodeHTCBody)
             case WSL_SOCK_OPEN: {
                     wsl_wmi_sock_open* open = (wsl_wmi_sock_open*)pNodeHTCBody->buffer;
                     AJ_WSL_WMI_SOCK_OPEN_FROM_WIRE(open);
-                    AJ_Printf("OPEN call was received over the wire: domain 0x%x, type 0x%x protocol 0x%x\n\n", open->domain, open->protocol, open->type);
+                    AJ_AlwaysPrintf(("OPEN call was received over the wire: domain 0x%x, type 0x%x protocol 0x%x\n\n", open->domain, open->protocol, open->type));
                     break;
                 }
 
             case WSL_SOCK_PING: {
                     wsl_wmi_sock_ping* ping = (wsl_wmi_sock_ping*)pNodeHTCBody->buffer;
                     AJ_WSL_WMI_SOCK_PING_FROM_WIRE(ping);
-                    AJ_Printf("PING call was received over the wire: addr 0x%x, size 0x%x\n\n", ping->ip_addr, ping->size);
+                    AJ_AlwaysPrintf(("PING call was received over the wire: addr 0x%x, size 0x%x\n\n", ping->ip_addr, ping->size));
                     break;
                 }
 
@@ -285,16 +285,16 @@ static void AJ_WSL_HTCProcessControlMessageResponse_Fake(AJ_BufNode* pNodeHTCBod
 
         switch (pSocketResp->responseType) {
         case WSL_SOCK_OPEN: {
-                //AJ_Printf("PING response was received over the wire: addr 0x%x, size 0x%x\n\n", ping->ip_addr, ping->size);
-                AJ_Printf("OPEN response was received over the wire, Handle is %x\n\n", pSocketResp->socketHandle);
+                //AJ_AlwaysPrintf(("PING response was received over the wire: addr 0x%x, size 0x%x\n\n", ping->ip_addr, ping->size));
+                AJ_AlwaysPrintf(("OPEN response was received over the wire, Handle is %x\n\n", pSocketResp->socketHandle));
                 break;
             }
 
         case WSL_SOCK_PING: {
                 //wsl_wmi_sock_ping* ping = (wsl_wmi_sock_ping*)pNodeHTCBody->buffer;
                 //AJ_WSL_WMI_SOCK_PING_FROM_WIRE(ping);
-                //AJ_Printf("PING response was received over the wire: addr 0x%x, size 0x%x\n\n", ping->ip_addr, ping->size);
-                AJ_Printf("PING response was received over the wire, Handle is %x\n\n", pSocketResp->socketHandle);
+                //AJ_AlwaysPrintf(("PING response was received over the wire: addr 0x%x, size 0x%x\n\n", ping->ip_addr, ping->size));
+                AJ_AlwaysPrintf(("PING response was received over the wire, Handle is %x\n\n", pSocketResp->socketHandle));
                 break;
             }
 
@@ -313,7 +313,7 @@ static void run_wsl_simulate_ping(const struct test_case* test)
     AJ_BufNode* pNodeHTCBody;
     wsl_htc_hdr htcHdr1;
 
-    AJ_Printf("\n\n**************\nTEST:  %s\n\n", __FUNCTION__);
+    AJ_AlwaysPrintf(("\n\n**************\nTEST:  %s\n\n", __FUNCTION__));
 
 
     toTarget.fakeWireWrite = toTarget.fakeWireBuffer; // reset the write pointer to the start of our buffer
@@ -326,14 +326,14 @@ static void run_wsl_simulate_ping(const struct test_case* test)
 
     // now, try to receive a command from the target (we should really try to receive a response and event id)
 
-    AJ_Printf("%s", "Read HTC header from wire buffer\n");
+    AJ_AlwaysPrintf(("%s", "Read HTC header from wire buffer\n"));
     AJ_BufListReadBytesFromWire_Simulated(sizeof(htcHdr1), (uint8_t*)&htcHdr1, &toTarget);
 
     // convert the fields to the correct endianness
     AJ_WSL_HTC_HDR_FROM_WIRE(&htcHdr1);
-    AJ_Printf("\n HTC Hdr payload length 0x%04x\n\n", htcHdr1.payloadLength);
+    AJ_AlwaysPrintf(("\n HTC Hdr payload length 0x%04x\n\n", htcHdr1.payloadLength));
 
-    AJ_Printf("%s", "Read HTC from wire buffer\n");
+    AJ_AlwaysPrintf(("%s", "Read HTC from wire buffer\n"));
     pNodeHTCBody = AJ_BufListCreateNode(htcHdr1.payloadLength);
 
     AJ_BufListReadBytesFromWire_Simulated(pNodeHTCBody->length, pNodeHTCBody->buffer, &toTarget);
@@ -342,7 +342,7 @@ static void run_wsl_simulate_ping(const struct test_case* test)
     /* examine the endpoint of the HTC message*/
     switch (htcHdr1.endpointID) {
     case AJ_WSL_HTC_CONTROL_ENDPOINT: {
-            AJ_Printf("%s", "Read HTC control endpoint\n");
+            AJ_AlwaysPrintf(("%s", "Read HTC control endpoint\n"));
 
             /* For this test, we know this is a control endpoint */
             AJ_WSL_HTCProcessControlMessage_Fake(pNodeHTCBody);
@@ -354,13 +354,13 @@ static void run_wsl_simulate_ping(const struct test_case* test)
     case AJ_WSL_HTC_DATA_ENDPOINT2:
     case AJ_WSL_HTC_DATA_ENDPOINT3:
     case AJ_WSL_HTC_DATA_ENDPOINT4:
-        AJ_Printf("\n%s %d\n", "Read HTC data endpoint", htcHdr1.endpointID);
+        AJ_AlwaysPrintf(("\n%s %d\n", "Read HTC data endpoint", htcHdr1.endpointID));
         // TODO send the data up to the next API level
         AJ_WSL_WMI_PrintMessage(pNodeHTCBody);
         break;
 
     default:
-        AJ_Printf("%s %d", "UNKNOWN Endpoint", htcHdr1.endpointID);
+        AJ_AlwaysPrintf(("%s %d", "UNKNOWN Endpoint", htcHdr1.endpointID));
         break;
     }
 
@@ -375,7 +375,7 @@ static void run_wsl_simulate_ping(const struct test_case* test)
  */
 static void run_wsl_simulate_ping_recv(const struct test_case* test)
 {
-    AJ_Printf("\n\n**************\nTEST:  %s\n\n", __FUNCTION__);
+    AJ_AlwaysPrintf(("\n\n**************\nTEST:  %s\n\n", __FUNCTION__));
     ResetFakeWireBuffers();
     AJ_WSL_NET_ping_FAKERESPONSE();
     AJ_WSL_HTC_ProcessIncoming();
@@ -388,7 +388,7 @@ static void run_wsl_simulate_ping_recv(const struct test_case* test)
  */
 static void run_wsl_simulate_socket_open_recv(const struct test_case* test)
 {
-    AJ_Printf("\n\n**************\nTEST:  %s\n\n", __FUNCTION__);
+    AJ_AlwaysPrintf(("\n\n**************\nTEST:  %s\n\n", __FUNCTION__));
     ResetFakeWireBuffers();
     AJ_WSL_NET_socket_open_FAKERESPONSE();
     AJ_WSL_HTC_ProcessIncoming();
@@ -403,7 +403,7 @@ static void run_wsl_simulate_socket_open_recv(const struct test_case* test)
  */
 static void run_wsl_simulate_socket_close_recv(const struct test_case* test)
 {
-    AJ_Printf("\n\n**************\nTEST:  %s\n\n", __FUNCTION__);
+    AJ_AlwaysPrintf(("\n\n**************\nTEST:  %s\n\n", __FUNCTION__));
 
     ResetFakeWireBuffers();
     AJ_WSL_NET_socket_close_FAKERESPONSE();
@@ -419,7 +419,7 @@ static void run_wsl_simulate_state_machine(const struct test_case* test)
     AJ_Status status = AJ_OK;
     uint16_t i;
 
-    AJ_Printf("\n\n**************\nTEST:  %s\n\n", __FUNCTION__);
+    AJ_AlwaysPrintf(("\n\n**************\nTEST:  %s\n\n", __FUNCTION__));
 
     /*
      * reset the state of the simulated wire buffers
@@ -511,7 +511,7 @@ static void run_wsl_open_and_close(const struct test_case* test)
     AJ_Status status = AJ_OK;
     AJ_WSL_SOCKNUM sockNum;
 
-    AJ_Printf("\n\n**************\nTEST:  %s\n\n", __FUNCTION__);
+    AJ_AlwaysPrintf(("\n\n**************\nTEST:  %s\n\n", __FUNCTION__));
 
 
     // 2 = AF_INET
@@ -530,7 +530,7 @@ static void run_wsl_send_small(const struct test_case* test)
     AJ_WSL_SOCKNUM sockNum;
     char* hello = "Hello, World.\0";
 
-    AJ_Printf("\n\n**************\nTEST:  %s\n\n", __FUNCTION__);
+    AJ_AlwaysPrintf(("\n\n**************\nTEST:  %s\n\n", __FUNCTION__));
 
     // 2 = AF_INET
     // 1 = SOCK_STREAM

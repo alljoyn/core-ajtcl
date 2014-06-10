@@ -66,19 +66,19 @@ void AJ_NVRAM_Layout_Print()
     uint16_t* data = (uint16_t*)(AJ_NVRAM_BASE_ADDRESS + SENTINEL_OFFSET);
     uint16_t entryId = 0;
     uint16_t capacity = 0;
-    AJ_Printf("============ AJ NVRAM Map ===========\n");
+    AJ_AlwaysPrintf(("============ AJ NVRAM Map ===========\n"));
     for (i = 0; i < SENTINEL_OFFSET; i++) {
-        AJ_Printf("%c", *((uint8_t*)(AJ_NVRAM_BASE_ADDRESS + i)));
+        AJ_AlwaysPrintf(("%c", *((uint8_t*)(AJ_NVRAM_BASE_ADDRESS + i))));
     }
-    AJ_Printf("\n");
+    AJ_AlwaysPrintf(("\n"));
 
     while ((uint8_t*)data < (uint8_t*)AJ_NVRAM_END_ADDRESS && *data != INVALID_DATA) {
         entryId = *data;
         capacity = *(data + 1);
-        AJ_Printf("ID = %d, capacity = %d\n", entryId, capacity);
+        AJ_AlwaysPrintf(("ID = %d, capacity = %d\n", entryId, capacity));
         data += (ENTRY_HEADER_SIZE + capacity) >> 1;
     }
-    AJ_Printf("============ End ===========\n");
+    AJ_AlwaysPrintf(("============ End ===========\n"));
 }
 
 /**
@@ -248,7 +248,7 @@ size_t AJ_NVRAM_Write(void* ptr, uint16_t size, AJ_NV_DATASET* handle)
     AJ_InfoPrintf(("AJ_NVRAM_Write(ptr=0x%p, size=%d., handle=0x%p)\n", ptr, size, handle));
 
     if (header->capacity <= handle->curPos) {
-        AJ_Printf("AJ_NVRAM_Write(): AJ_ERR_RESOURCES\n");
+        AJ_AlwaysPrintf(("AJ_NVRAM_Write(): AJ_ERR_RESOURCES\n"));
         return -1;
     }
 

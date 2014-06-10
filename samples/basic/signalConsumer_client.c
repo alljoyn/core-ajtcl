@@ -83,8 +83,8 @@ AJ_Status ReceiveNewName(AJ_Message*msg)
     AJ_Status status = AJ_UnmarshalArg(msg, &arg);
 
     if (status == AJ_OK) {
-        AJ_Printf("--==## signalConsumer: Name Changed signal Received ##==--\n");
-        AJ_Printf("\tNew name: '%s'.\n", arg.val.v_string);
+        AJ_AlwaysPrintf(("--==## signalConsumer: Name Changed signal Received ##==--\n"));
+        AJ_AlwaysPrintf(("\tNew name: '%s'.\n", arg.val.v_string));
     }
 
     return status;
@@ -262,13 +262,13 @@ int AJ_Main(void)
         AJ_CloseMsg(&msg);
 
         if (status == AJ_ERR_SESSION_LOST) {
-            AJ_Printf("AllJoyn disconnect.\n");
+            AJ_AlwaysPrintf(("AllJoyn disconnect.\n"));
             AJ_Disconnect(&bus);
             exit(0);
         }
     }
 
-    AJ_Printf("signalConsumer_Client exiting with status 0x%04x.\n", status);
+    AJ_AlwaysPrintf(("signalConsumer_Client exiting with status 0x%04x.\n", status));
 
     return status;
 }

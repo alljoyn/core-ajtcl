@@ -2,7 +2,7 @@
  * @file  UART transport Tester
  */
 /******************************************************************************
- * Copyright (c) 2013, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2013-2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -35,7 +35,7 @@ static uint8_t rxBuffer[32];
 
 void TimerCallbackEndProc(uint32_t timerId, void* context)
 {
-    AJ_Printf("TimerCallback %.6d \n", timerId);
+    AJ_AlwaysPrintf(("TimerCallback %.6d \n", timerId));
     exit(0);
 }
 
@@ -52,11 +52,11 @@ int main()
     status = AJ_SerialInit("/dev/ttyUSB1", BITRATE, AJ_SERIAL_WINDOW_SIZE, AJ_SERIAL_ENABLE_CRC, AJ_SERIAL_PACKET_SIZE);
 #endif
 
-    AJ_Printf("serial init was %u\n", status);
+    AJ_AlwaysPrintf(("serial init was %u\n", status));
 
     uint32_t timerEndProc = 9999;
     status = AJ_TimerRegister(10000, &TimerCallbackEndProc, NULL, &timerEndProc);
-    AJ_Printf("Added id %u\n", timerEndProc);
+    AJ_AlwaysPrintf(("Added id %u\n", timerEndProc));
 
 
 
@@ -73,7 +73,7 @@ int main()
 #else
         AJ_Sleep(500);
         AJ_SerialSend(txBuffer, sizeof(txBuffer));
-        AJ_Printf("post serial send\n");
+        AJ_AlwaysPrintf(("post serial send\n"));
 #endif
 
         AJ_Sleep(400);

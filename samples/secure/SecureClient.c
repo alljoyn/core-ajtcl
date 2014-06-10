@@ -118,7 +118,7 @@ static uint32_t PasswordCallback(uint8_t* buffer, uint32_t bufLen)
     memcpy(inputBuffer, password, maxCopyLength);
 #else
     /* Take input from stdin and send it. */
-    AJ_Printf("Please enter one time password : ");
+    AJ_AlwaysPrintf(("Please enter one time password : "));
 
     /* Use 'bufSize - 1' to allow for '\0' termination. */
     maxCopyLength = get_line(inputBuffer, bufSize - 1, stdin);
@@ -131,7 +131,7 @@ static uint32_t PasswordCallback(uint8_t* buffer, uint32_t bufLen)
     /* Always terminated with a '\0' for following AJ_Printf(). */
     inputBuffer[maxCopyLength] = '\0';
     memcpy(buffer, inputBuffer, maxCopyLength);
-    AJ_Printf("Responding with password of '%s' length %u.\n", inputBuffer, maxCopyLength);
+    AJ_AlwaysPrintf(("Responding with password of '%s' length %u.\n", inputBuffer, maxCopyLength));
 
     return maxCopyLength;
 }
@@ -147,7 +147,7 @@ AJ_Status SendPing(AJ_BusAttachment* bus, uint32_t sessionId)
     AJ_Status status;
     AJ_Message msg;
 
-    AJ_Printf("Sending ping request '%s'.\n", pingString);
+    AJ_AlwaysPrintf(("Sending ping request '%s'.\n", pingString));
 
     status = AJ_MarshalMethodCall(bus,
                                   &msg,
@@ -242,8 +242,8 @@ int AJ_Main(void)
                     AJ_Arg arg;
 
                     if (AJ_OK == AJ_UnmarshalArg(&msg, &arg)) {
-                        AJ_Printf("%s.Ping (path=%s) returned \"%s\".\n", InterfaceName,
-                                  ServicePath, arg.val.v_string);
+                        AJ_AlwaysPrintf(("%s.Ping (path=%s) returned \"%s\".\n", InterfaceName,
+                                         ServicePath, arg.val.v_string));
 
                         if (strcmp(arg.val.v_string, pingString) == 0) {
                             AJ_InfoPrintf(("Ping was successful.\n"));
@@ -285,13 +285,13 @@ int AJ_Main(void)
         AJ_CloseMsg(&msg);
 
         if (status == AJ_ERR_READ) {
-            AJ_Printf("AllJoyn disconnect.\n");
+            AJ_AlwaysPrintf(("AllJoyn disconnect.\n"));
             AJ_Disconnect(&bus);
             exit(0);
         }
     }
 
-    AJ_Printf("SecureClient EXIT %d.\n", status);
+    AJ_AlwaysPrintf(("SecureClient EXIT %d.\n", status));
 
     return status;
 }

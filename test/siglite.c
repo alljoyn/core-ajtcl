@@ -168,11 +168,12 @@ static AJ_Status IsTrustedIssuer(const char* issuer)
 static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, AJ_Credential* cred)
 {
     AJ_Status status = AJ_ERR_INVALID;
+
     uint8_t* b8;
     size_t b8len;
     char* b64;
     size_t b64len;
-    AJ_Printf("AuthListenerCallback authmechanism %d command %d\n", authmechanism, command);
+    AJ_AlwaysPrintf(("AuthListenerCallback authmechanism %d command %d\n", authmechanism, command));
 
     switch (authmechanism) {
     case AUTH_SUITE_ECDHE_NULL:
@@ -192,7 +193,7 @@ static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, 
 
         case AJ_CRED_PRV_KEY:
             if (AJ_CRED_PUB_KEY == cred->mask) {
-                AJ_Printf("Request Credentials for PSK ID: %s\n", cred->data);
+                AJ_AlwaysPrintf(("Request Credentials for PSK ID: %s\n", cred->data));
             }
             cred->mask = AJ_CRED_PRV_KEY;
             cred->data = (uint8_t*) psk_char;
@@ -256,8 +257,9 @@ static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, 
             status = AJ_RawToB64(cred->data, cred->len, b64, b64len);
             AJ_ASSERT(AJ_OK == status);
             status = IsTrustedIssuer(b64);
-            AJ_Printf("TRUST: %s %d\n", b64, status);
+            AJ_AlwaysPrintf(("TRUST: %s %d\n", b64, status));
             AJ_Free(b64);
+
             break;
 
         case AJ_CRED_CERT_ROOT:
@@ -266,7 +268,7 @@ static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, 
             AJ_ASSERT(b64);
             status = AJ_RawToB64(cred->data, cred->len, b64, b64len);
             AJ_ASSERT(AJ_OK == status);
-            AJ_Printf("ROOT: %s\n", b64);
+            AJ_AlwaysPrintf(("ROOT: %s\n", b64));
             status = AJ_OK;
             AJ_Free(b64);
             break;
@@ -347,7 +349,7 @@ int AJ_Main()
             av++;
         }
         if (!ac) {
-            AJ_Printf("-e(k) requires an auth mechanism.\n");
+            AJ_AlwaysPrintf(("-e(k) requires an auth mechanism.\n"));
             return 1;
         }
         while (ac) {
@@ -385,8 +387,8 @@ int AJ_Main()
             status = AJ_StartClientByInterface(&bus, NULL, CONNECT_TIMEOUT, FALSE, testInterfaceNames, &sessionId, testServiceName, NULL);
 #endif
             if (status == AJ_OK) {
-                AJ_Printf("StartClient returned %d, sessionId=%u, serviceName=%s\n", status, sessionId, testServiceName);
-                AJ_Printf("Connected to Daemon:%s\n", AJ_GetUniqueName(&bus));
+                AJ_AlwaysPrintf(("StartClient returned %d, sessionId=%u, serviceName=%s\n", status, sessionId, testServiceName));
+                AJ_AlwaysPrintf(("Connected to Daemon:%s\n", AJ_GetUniqueName(&bus)));
                 connected = TRUE;
 #ifdef SECURE_INTERFACE
                 if (enablepwd) {
@@ -400,7 +402,7 @@ int AJ_Main()
                 }
                 status = AJ_BusAuthenticatePeer(&bus, testServiceName, AuthCallback, &authStatus);
                 if (status != AJ_OK) {
-                    AJ_Printf("AJ_BusAuthenticatePeer returned %d\n", status);
+                    AJ_AlwaysPrintf(("AJ_BusAuthenticatePeer returned %d\n", status));
                 }
 #else
                 authStatus = AJ_OK;
@@ -408,7 +410,7 @@ int AJ_Main()
 
 
             } else {
-                AJ_Printf("StartClient returned %d\n", status);
+                AJ_AlwaysPrintf(("StartClient returned %d\n", status));
                 break;
             }
         }
@@ -430,7 +432,7 @@ int AJ_Main()
         if (status == AJ_OK) {
             switch (msg.msgId) {
             case PRX_MY_SIGNAL:
-                AJ_Printf("Received my_signal\n");
+                AJ_AlwaysPrintf(("Received my_signal\n"));
                 status = AJ_OK;
                 break;
 
@@ -441,7 +443,7 @@ int AJ_Main()
                 {
                     uint32_t id, reason;
                     AJ_UnmarshalArgs(&msg, "uu", &id, &reason);
-                    AJ_Printf("Session lost. ID = %u, reason = %u", id, reason);
+                    AJ_AlwaysPrintf(("Session lost. ID = %u, reason = %u", id, reason));
                 }
                 status = AJ_ERR_SESSION_LOST;
                 break;
@@ -460,13 +462,13 @@ int AJ_Main()
         AJ_CloseMsg(&msg);
 
         if ((status == AJ_ERR_SESSION_LOST) || (status == AJ_ERR_READ) || (status == AJ_ERR_LINK_DEAD)) {
-            AJ_Printf("AllJoyn disconnect\n");
-            AJ_Printf("Disconnected from Daemon:%s\n", AJ_GetUniqueName(&bus));
+            AJ_AlwaysPrintf(("AllJoyn disconnect\n"));
+            AJ_AlwaysPrintf(("Disconnected from Daemon:%s\n", AJ_GetUniqueName(&bus)));
             AJ_Disconnect(&bus);
             connected = FALSE;
         }
     }
-    AJ_Printf("clientlite EXIT %d\n", status);
+    AJ_AlwaysPrintf(("clientlite EXIT %d\n", status));
 
     return status;
 }

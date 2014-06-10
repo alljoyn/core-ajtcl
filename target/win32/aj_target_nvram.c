@@ -73,7 +73,7 @@ static AJ_Status _AJ_LoadNVFromFile()
 {
     FILE* f = fopen("ajlite.nvram", "r");
     if (f == NULL) {
-        AJ_Printf("Error: LoadNVFromFile() failed\n");
+        AJ_AlwaysPrintf(("Error: LoadNVFromFile() failed\n"));
         return AJ_ERR_FAILURE;
     }
 
@@ -87,7 +87,7 @@ AJ_Status _AJ_StoreNVToFile()
 {
     FILE* f = fopen("ajlite.nvram", "w");
     if (!f) {
-        AJ_Printf("Error: StoreNVToFile() failed\n");
+        AJ_AlwaysPrintf(("Error: StoreNVToFile() failed\n"));
         return AJ_ERR_FAILURE;
     }
 

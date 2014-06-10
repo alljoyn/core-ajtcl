@@ -2,7 +2,7 @@
  * @file
  */
 /******************************************************************************
- * Copyright (c) 2012-2013, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2012-2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -29,7 +29,7 @@ void printhex(uint8_t*x, size_t n)
 {
     size_t i;
     for (i = 0; i < n; i++) {
-        AJ_Printf("%02X", x[i]);
+        AJ_AlwaysPrintf(("%02X", x[i]));
     }
 }
 
@@ -85,9 +85,9 @@ AJ_Status DumpNVRAM()
     AJ_Status status;
 
     AJ_NVRAM_Layout_Print();
-    AJ_Printf("Remaining Size %d\n", AJ_NVRAM_GetSizeRemaining());
+    AJ_AlwaysPrintf(("Remaining Size %d\n", AJ_NVRAM_GetSizeRemaining()));
 
-    AJ_Printf("SLOT | TYPE | ID | EXPIRATION | ASSOCIATION | DATA\n");
+    AJ_AlwaysPrintf(("SLOT | TYPE | ID | EXPIRATION | ASSOCIATION | DATA\n"));
     for (; slot < AJ_CREDS_NV_ID_END; slot++) {
         if (!AJ_NVRAM_Exist(slot)) {
             continue;
@@ -133,13 +133,13 @@ AJ_Status DumpNVRAM()
             continue;
         }
 
-        AJ_Printf("%04X | %04X | ", slot, cred->type);
+        AJ_AlwaysPrintf(("%04X | %04X | ", slot, cred->type));
         printhex(cred->id, cred->idLen);
-        AJ_Printf(" | %08X | ", cred->expiration);
+        AJ_AlwaysPrintf((" | %08X | ", cred->expiration));
         printhex(cred->association, cred->associationLen);
-        AJ_Printf(" | ");
+        AJ_AlwaysPrintf((" | "));
         printhex(cred->data, cred->dataLen);
-        AJ_Printf("\n");
+        AJ_AlwaysPrintf(("\n"));
         AJ_FreeCredential(cred);
     }
     return AJ_OK;
@@ -151,7 +151,7 @@ int AJ_Main()
     AJ_Status status = AJ_OK;
     AJ_Initialize();
     //AJ_NVRAM_Clear();
-    //AJ_Printf("Clearing NVRAM\n");
+    //AJ_AlwaysPrintf(("Clearing NVRAM\n"));
     status = DumpNVRAM();
     AJ_ASSERT(status == AJ_OK);
     return 0;

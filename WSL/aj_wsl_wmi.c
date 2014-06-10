@@ -233,7 +233,7 @@ void AJ_WSL_WMI_ModuleInit()
 
 void AJ_WSL_WMI_PrintMessage(AJ_BufNode* pNodeWMIPacket)
 {
-    AJ_Printf("WMI_PrintMessage node %p, length %d, buffer %p\n", pNodeWMIPacket, pNodeWMIPacket->length, pNodeWMIPacket->buffer);
+    AJ_AlwaysPrintf(("WMI_PrintMessage node %p, length %d, buffer %p\n", pNodeWMIPacket, pNodeWMIPacket->length, pNodeWMIPacket->buffer));
 }
 
 /**
