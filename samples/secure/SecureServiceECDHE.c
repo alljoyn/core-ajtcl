@@ -23,13 +23,26 @@
 #include <time.h>
 #include <aj_debug.h>
 #include "alljoyn.h"
+#include "aj_crypto_ecc.h"
+#include "aj_cert.h"
+#include "aj_peer.h"
+#include "aj_creds.h"
+#include "aj_auth_listener.h"
+#include "aj_util.h"
 
-uint8_t dbgSECURE_SERVICE = 0;
+uint8_t dbgSECURE_SERVICE = 1;
+
+/*
+ * Default key expiration
+ */
+static const uint32_t keyexpiration = 0xFFFFFFFF;
 
 #define CONNECT_ATTEMPTS   10
 static const char ServiceName[] = "org.alljoyn.bus.samples.secure";
+static const char InterfaceName[] = "org.alljoyn.bus.samples.secure.SecureInterface";
 static const char ServicePath[] = "/SecureService";
 static const uint16_t ServicePort = 42;
+
 
 /**
  * The interface name followed by the method signatures.
@@ -104,55 +117,148 @@ static AJ_Status AppHandlePing(AJ_Message* msg)
     return status;
 }
 
-static char pinStr[16];
-static uint32_t pinLength = 0;
-static void PasswordGenerate()
+//static const char psk_b64[] = "EBESExQVFhcYGRobHB0eHw==";
+//static uint8_t psk[16];
+static const char psk_hint[] = "bob";
+static const char psk_char[] = "123456";
+static const char ecc_pub_b64[] = "C/KGAyLE5jyVqHEipZBhPb7Ahj/MBdNLtpDvT9OJ0LYAAAAAn8QabXetJcPD7OWmEB6uXGXh+ftJOLlCTJhAHjTJsDkAAAAAAAAAAA==";
+static const char ecc_prv_b64[] = "wxieVOfgCMgys3m+V82eV/B/p0WlIMu8fizZiqMQnYsAAAAA";
+static const char owner_cert1_b64[] = "\
+AAAAAUQn+YoXptNlRV7yGvBFSdQiXCZ7N3pdCB/h+dbNO63NAAAAAJ+iiYn1Dx9a\
+EZjy6MgRxgoO/zU/JFuuxg/JEI2Yf1PwAAAAAAAAAAAL8oYDIsTmPJWocSKlkGE9\
+vsCGP8wF00u2kO9P04nQtgAAAACfxBptd60lw8Ps5aYQHq5cZeH5+0k4uUJMmEAe\
+NMmwOQAAAAAAAAAAAAAAAAAAAAAAAAAA/////wBOnWRZjvJdd9adaDleMIDQJOJC\
+OuSepUTdfamDakEy/s6dN/ePP+iDV96kBT0XkQfNKiyfGbPf+ux6a2mx48/rAAAA\
+AGfrER3HqAGYic+k8B/iIWUyJy414G+4+tTklxFAatmmAAAAAA==";
+static const char owner_cert2_b64[] = "\
+AAAAAkQn+YoXptNlRV7yGvBFSdQiXCZ7N3pdCB/h+dbNO63NAAAAAJ+iiYn1Dx9a\
+EZjy6MgRxgoO/zU/JFuuxg/JEI2Yf1PwAAAAAAAAAAAL8oYDIsTmPJWocSKlkGE9\
+vsCGP8wF00u2kO9P04nQtgAAAACfxBptd60lw8Ps5aYQHq5cZeH5+0k4uUJMmEAe\
+NMmwOQAAAAAAAAAAAAAAAAAAAAAAAAAA/////wD5/PM2YlgaDcbxM2GD2BntTp1k\
+WY7yXXfWnWg5XjCA0CTiQjrknqVE3X2pg2pBMv7ZCwVue216z7QXomTSt4nPyFum\
+tj2XcycgTidW60XeVAAAAADCAWDa119gVqq2GOiteOKBaM7huRPUOl+ytTMQQpCj\
+WAAAAAA=";
+static ecc_publickey ecc_pub;
+static ecc_privatekey ecc_prv;
+static AJ_Certificate root_cert;
+
+static const char* issuers[] = {
+    "RCf5ihem02VFXvIa8EVJ1CJcJns3el0IH+H51s07rc0AAAAAn6KJifUPH1oRmPLoyBHGCg7/NT8kW67GD8kQjZh/U/AAAAAAAAAAAA==",
+    "nUsoaWelVW1XhJrVNQuzEYlH0LndSrkAfd/GrEmM11gAAAAAChtt28EprD14ejHuj181s3m6y5nDxeRI9KaKmKRgI8kAAAAAAAAAAA=="
+};
+
+static AJ_Status IsTrustedIssuer(const char* issuer)
 {
-#ifdef AJ_NO_CONSOLE                    /* If there is no console to read/write from/to. */
-    const char password[] = "107734";   /* Upside down this can be read as 'hELLO!'. */
-    const int maxPinSize = sizeof(pinStr) / sizeof(pinStr[0]) - 1;
-
-    pinLength = sizeof(password) - 1;
-
-    if (pinLength > maxPinSize) {
-        pinLength = maxPinSize;
+    size_t i;
+    for (i = 0; i < 2; i++) {
+        if (0 == strncmp(issuer, issuers[i], strlen(issuers[i]))) {
+            return AJ_OK;
+        }
     }
-
-    memcpy(pinStr, password, pinLength);
-    pinStr[pinLength] = '\0';
-#else
-    int pin;
-
-    /* seed the random number */
-    srand((unsigned int) time(NULL));
-    pin = 1000 * (rand() % 1000) + (rand() % 1000);
-
-    sprintf(pinStr, "%06d", pin);
-    AJ_Printf("One Time Password : '%s'.\n", pinStr);
-
-    pinLength = (uint32_t)strlen(pinStr);
-#endif
+    return AJ_ERR_SECURITY;
 }
 
-static uint32_t PasswordCallback(uint8_t* buffer, uint32_t bufLen)
+static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, AJ_Credential*cred)
 {
-    if (pinLength > bufLen) {
-        pinLength = bufLen;
-    }
-    /* Always terminated with a '\0' for following AJ_Printf(). */
-    pinStr[pinLength] = '\0';
-    memcpy(buffer, pinStr, pinLength);
-    AJ_Printf("Need password of '%s' length %u.\n", pinStr, pinLength);
+    AJ_Status status = AJ_ERR_INVALID;
+    uint8_t b8[sizeof (AJ_Certificate)];
+    char b64[400];
+    AJ_Printf("AuthListenerCallback authmechanism %d command %d\n", authmechanism, command);
 
-    return pinLength;
+    switch (authmechanism) {
+    case AUTH_SUITE_ECDHE_NULL:
+        cred->expiration = keyexpiration;
+        status = AJ_OK;
+        break;
+
+    case AUTH_SUITE_ECDHE_PSK:
+        switch (command) {
+        case AJ_CRED_PUB_KEY:
+            break; // Don't use username - use anon
+            cred->mask = AJ_CRED_PUB_KEY;
+            cred->data = (uint8_t*) psk_hint;
+            cred->len = strlen(psk_hint);
+            status = AJ_OK;
+            break;
+
+        case AJ_CRED_PRV_KEY:
+            if (AJ_CRED_PUB_KEY == cred->mask) {
+                AJ_Printf("Request Credentials for PSK ID: %s\n", cred->data);
+            }
+            cred->mask = AJ_CRED_PRV_KEY;
+            cred->data = (uint8_t*) psk_char;
+            cred->len = strlen(psk_char);
+            cred->expiration = keyexpiration;
+            status = AJ_OK;
+            break;
+        }
+        break;
+
+    case AUTH_SUITE_ECDHE_ECDSA:
+        switch (command) {
+        case AJ_CRED_PUB_KEY:
+            status = AJ_B64ToRaw(ecc_pub_b64, strlen(ecc_pub_b64), b8, sizeof (b8));
+            AJ_ASSERT(AJ_OK == status);
+            status = AJ_BigEndianDecodePublicKey(&ecc_pub, b8);
+            AJ_ASSERT(AJ_OK == status);
+            cred->mask = AJ_CRED_PUB_KEY;
+            cred->data = (uint8_t*) &ecc_pub;
+            cred->len = sizeof (ecc_pub);
+            cred->expiration = keyexpiration;
+            break;
+
+        case AJ_CRED_PRV_KEY:
+            status = AJ_B64ToRaw(ecc_prv_b64, strlen(ecc_prv_b64), b8, sizeof (b8));
+            AJ_ASSERT(AJ_OK == status);
+            status = AJ_BigEndianDecodePrivateKey(&ecc_prv, b8);
+            AJ_ASSERT(AJ_OK == status);
+            cred->mask = AJ_CRED_PRV_KEY;
+            cred->data = (uint8_t*) &ecc_prv;
+            cred->len = sizeof (ecc_prv);
+            cred->expiration = keyexpiration;
+            break;
+
+        case AJ_CRED_CERT_CHAIN:
+            status = AJ_B64ToRaw(owner_cert1_b64, strlen(owner_cert1_b64), b8, sizeof (b8));
+            AJ_ASSERT(AJ_OK == status);
+            status = AJ_BigEndianDecodeCertificate(&root_cert, b8, sizeof (b8));
+            AJ_ASSERT(AJ_OK == status);
+            cred->mask = AJ_CRED_CERT_CHAIN;
+            cred->data = (uint8_t*) &root_cert;
+            cred->len = sizeof (root_cert);
+            break;
+
+        case AJ_CRED_CERT_TRUST:
+            status = AJ_RawToB64(cred->data, cred->len, b64, sizeof (b64));
+            AJ_ASSERT(AJ_OK == status);
+            status = IsTrustedIssuer(b64);
+            AJ_Printf("TRUST: %s %d\n", b64, status);
+            break;
+
+        case AJ_CRED_CERT_ROOT:
+            status = AJ_RawToB64(cred->data, cred->len, b64, sizeof (b64));
+            AJ_ASSERT(AJ_OK == status);
+            AJ_Printf("ROOT: %s\n", b64);
+            status = AJ_OK;
+            break;
+        }
+        break;
+
+    default:
+        break;
+    }
+    return status;
 }
+
+static const uint32_t suites[3] = { AUTH_SUITE_ECDHE_ECDSA, AUTH_SUITE_ECDHE_PSK, AUTH_SUITE_ECDHE_NULL };
+static const size_t numsuites = 3;
 
 /* All times are expressed in milliseconds. */
 #define CONNECT_TIMEOUT     (1000 * 60)
 #define UNMARSHAL_TIMEOUT   (1000 * 5)
 #define SLEEP_TIME          (1000 * 2)
 
-int AJ_Main(void)
+int AJ_Main(int argc, char** argv)
 {
     AJ_Status status = AJ_OK;
     AJ_BusAttachment bus;
@@ -186,8 +292,8 @@ int AJ_Main(void)
             AJ_InfoPrintf(("StartService returned %d, session_id=%u\n", status, sessionId));
             connected = TRUE;
 
-            PasswordGenerate();
-            AJ_BusSetPasswordCallback(&bus, PasswordCallback);
+            AJ_BusEnableSecurity(&bus, suites, numsuites);
+            AJ_BusSetAuthListenerCallback(&bus, AuthListenerCallback);
         }
 
         status = AJ_UnmarshalMsg(&bus, &msg, UNMARSHAL_TIMEOUT);
@@ -242,12 +348,14 @@ int AJ_Main(void)
         }
     }
 
+    AJ_Printf("Secure service exiting with status 0x%04x.\n", status);
+
     return status;
 }
 
 #ifdef AJ_MAIN
-int main()
+int main(int argc, char** argv)
 {
-    return AJ_Main();
+    return AJ_Main(argc, argv);
 }
 #endif

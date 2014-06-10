@@ -17,65 +17,42 @@
  *    ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
+#define AJ_MODULE SECURE_CLIENT
 
-#ifndef NO_SECURITY
-#define SECURE_INTERFACE
-#endif
+#include <stdio.h>
+#include <stdlib.h>
+#include <assert.h>
 
-#include <aj_target.h>
-#include <alljoyn.h>
-#include <aj_cert.h>
-#include <aj_peer.h>
-#include <aj_creds.h>
-#include <aj_auth_listener.h>
-#include <aj_keyexchange.h>
-#include <aj_keyauthentication.h>
-#include "aj_config.h"
+#include "alljoyn.h"
+#include "aj_debug.h"
+#include "aj_crypto.h"
+#include "aj_crypto_ecc.h"
+#include "aj_creds.h"
+#include "aj_cert.h"
+#include "aj_peer.h"
+#include "aj_auth_listener.h"
+#include "aj_util.h"
 
-#ifdef SECURE_INTERFACE
-static const char testInterfaceName[] = "$org.alljoyn.alljoyn_test";
-static const char testValuesInterfaceName[] = "$org.alljoyn.alljoyn_test.values";
-#else
-static const char testInterfaceName[] = "org.alljoyn.alljoyn_test";
-static const char testValuesInterfaceName[] = "org.alljoyn.alljoyn_test.values";
-#endif
-
-#ifndef NGNS
-static const char testServiceName[] = "org.alljoyn.svclite";
-static const uint16_t testServicePort = 24;
-#else
-static const char* testInterfaceNames[] = {
-    testInterfaceName,
-    NULL
-};
-static char testServiceName[AJ_MAX_NAME_SIZE + 1];
-#endif
-static const uint32_t NumPings = 10;
+uint8_t dbgSECURE_CLIENT = 0;
 
 /*
  * Default key expiration
  */
 static const uint32_t keyexpiration = 0xFFFFFFFF;
 
+static const char ServiceName[] = "org.alljoyn.bus.samples.secure";
+static const char InterfaceName[] = "org.alljoyn.bus.samples.secure.SecureInterface";
+static const char ServicePath[] = "/SecureService";
+static const uint16_t ServicePort = 42;
 
-
-/*
- * The app should authenticate the peer if one or more interfaces are secure
- * To define a secure interface, prepend '$' before the interface name, eg., "$org.alljoyn.alljoyn_test"
- */
-
-static const char* const testInterface[] = {
-    testInterfaceName,
-    "?my_ping inStr<s outStr>s",
-    "?delayed_ping inStr<s delay<u outStr>s",
-    "?time_ping <u <q >u >q",
-    "!my_signal >a{ys}",
+static const char* const secureInterface[] = {
+    "$org.alljoyn.bus.samples.secure.SecureInterface",
+    "?Ping inStr<s outStr>s",
     NULL
 };
 
-
-static const AJ_InterfaceDescription testInterfaces[] = {
-    testInterface,
+static const AJ_InterfaceDescription secureInterfaces[] = {
+    secureInterface,
     NULL
 };
 
@@ -83,48 +60,93 @@ static const AJ_InterfaceDescription testInterfaces[] = {
  * Objects implemented by the application
  */
 static const AJ_Object ProxyObjects[] = {
-    { "/org/alljoyn/alljoyn_test", testInterfaces },
+    { ServicePath, secureInterfaces },
     { NULL }
 };
 
-
-#define PRX_MY_PING         AJ_PRX_MESSAGE_ID(0, 0, 0)
-#define PRX_DELAYED_PING    AJ_PRX_MESSAGE_ID(0, 0, 1)
-#define PRX_TIME_PING       AJ_PRX_MESSAGE_ID(0, 0, 2)
-#define PRX_MY_SIGNAL       AJ_PRX_MESSAGE_ID(0, 0, 3)
-
-static AJ_Status SendSignal(AJ_BusAttachment* bus, uint32_t sessionId, const char* serviceName);
+#define PRX_PING   AJ_PRX_MESSAGE_ID(0, 0, 0)
 
 /*
  * Let the application do some work
  */
-
-#define PINGS_PER_CALL 10
-
-static AJ_Status AppDoWork(AJ_BusAttachment* bus, uint32_t sessionId, const char* serviceName)
+static void AppDoWork()
 {
-    static uint32_t pings_sent = 0;
-    uint32_t pings = 0;
-    AJ_Status status = AJ_OK;
+}
 
-    while (pings_sent < NumPings && pings++ < PINGS_PER_CALL && status == AJ_OK) {
-        status = SendSignal(bus, sessionId, serviceName);
-        ++pings_sent;
+/*
+ * get a line of input from the file pointer (most likely stdin).
+ * This will capture the the num-1 characters or till a newline character is
+ * entered.
+ *
+ * @param[out] str a pointer to a character array that will hold the user input
+ * @param[in]  num the size of the character array 'str'
+ * @param[in]  fp the file pointer the sting will be read from. (most likely stdin)
+ *
+ * @return returns the length of the string received from the file.
+ */
+uint32_t get_line(char*str, int num, FILE*fp)
+{
+    uint32_t stringLength = 0;
+    char*p = fgets(str, num, fp);
+
+    // fgets will capture the '\n' character if the string entered is shorter than
+    // num. Remove the '\n' from the end of the line and replace it with nul '\0'.
+    if (p != NULL) {
+        stringLength = (uint32_t)strlen(str) - 1;
+        if (str[stringLength] == '\n') {
+            str[stringLength] = '\0';
+        }
+    }
+
+    return stringLength;
+}
+
+static uint32_t PasswordCallback(uint8_t* buffer, uint32_t bufLen)
+{
+    return 0;
+}
+
+#define CONNECT_TIMEOUT    (1000 * 200)
+#define UNMARSHAL_TIMEOUT  (1000 * 5)
+#define METHOD_TIMEOUT     (100 * 10)
+
+static char pingString[] = "Client AllJoyn Lite says Hello AllJoyn!";
+
+AJ_Status SendPing(AJ_BusAttachment* bus, uint32_t sessionId)
+{
+    AJ_Status status;
+    AJ_Message msg;
+
+    AJ_Printf("Sending ping request '%s'.\n", pingString);
+
+    status = AJ_MarshalMethodCall(bus,
+                                  &msg,
+                                  PRX_PING,
+                                  ServiceName,
+                                  sessionId,
+                                  AJ_FLAG_ENCRYPTED,
+                                  METHOD_TIMEOUT);
+    if (AJ_OK == status) {
+        status = AJ_MarshalArgs(&msg, "s", pingString);
+    } else {
+        AJ_InfoPrintf(("In SendPing() AJ_MarshalMethodCall() status = %d.\n", status));
+    }
+
+    if (AJ_OK == status) {
+        status = AJ_DeliverMsg(&msg);
+    } else {
+        AJ_InfoPrintf(("In SendPing() AJ_MarshalArgs() status = %d.\n", status));
+    }
+
+    if (AJ_OK != status) {
+        AJ_InfoPrintf(("In SendPing() AJ_DeliverMsg() status = %d.\n", status));
     }
 
     return status;
 }
 
-static const char PWD[] = "123456";
-
-#ifdef SECURE_INTERFACE
-static uint32_t PasswordCallback(uint8_t* buffer, uint32_t bufLen)
-{
-    memcpy(buffer, PWD, sizeof(PWD));
-    return sizeof(PWD) - 1;
-}
-
-
+//static const char psk_b64[] = "EBESExQVFhcYGRobHB0eHw==";
+//static uint8_t psk[16];
 static const char psk_hint[] = "bob";
 static const char psk_char[] = "123456";
 static const char owner_pub_b64[] = "RCf5ihem02VFXvIa8EVJ1CJcJns3el0IH+H51s07rc0AAAAAn6KJifUPH1oRmPLoyBHGCg7/NT8kW67GD8kQjZh/U/AAAAAAAAAAAA==";
@@ -151,13 +173,13 @@ static AJ_Certificate root_cert;
 
 static const char* issuers[] = {
     "RCf5ihem02VFXvIa8EVJ1CJcJns3el0IH+H51s07rc0AAAAAn6KJifUPH1oRmPLoyBHGCg7/NT8kW67GD8kQjZh/U/AAAAAAAAAAAA==",
-    "nUsoaWelVW1XhJrVNQuzEYlH0LndSrkAfd/GrEmM11gAAAAAChtt28EprD14ejHuj181s3m6y5nDxeRI9KaKmKRgI8kAAAAAAAAAAA=="
+    "9RB2ExIO4VZqEwb+sWYVsozToGMgDZJzH0Yf4Q0sCC0AAAAAhuEeeMDIXKzoOg3aQqVdUKC0ekWIRizM5hcjzxAO8LUAAAAAAAAAAA=="
 };
 
 static AJ_Status IsTrustedIssuer(const char* issuer)
 {
     size_t i;
-    for (i = 0; i < ArraySize(issuers); i++) {
+    for (i = 0; i < 2; i++) {
         if (0 == strncmp(issuer, issuers[i], strlen(issuers[i]))) {
             return AJ_OK;
         }
@@ -168,10 +190,8 @@ static AJ_Status IsTrustedIssuer(const char* issuer)
 static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, AJ_Credential* cred)
 {
     AJ_Status status = AJ_ERR_INVALID;
-    uint8_t* b8;
-    size_t b8len;
-    char* b64;
-    size_t b64len;
+    uint8_t b8[sizeof (AJ_Certificate)];
+    char b64[400];
     AJ_Printf("AuthListenerCallback authmechanism %d command %d\n", authmechanism, command);
 
     switch (authmechanism) {
@@ -206,10 +226,7 @@ static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, 
     case AUTH_SUITE_ECDHE_ECDSA:
         switch (command) {
         case AJ_CRED_PUB_KEY:
-            b8len = 3 * strlen(ecc_pub_b64) / 4;
-            b8 = (uint8_t*) AJ_Malloc(b8len);
-            AJ_ASSERT(b8);
-            status = AJ_B64ToRaw(ecc_pub_b64, strlen(ecc_pub_b64), b8, b8len);
+            status = AJ_B64ToRaw(ecc_pub_b64, strlen(ecc_pub_b64), b8, sizeof (b8));
             AJ_ASSERT(AJ_OK == status);
             status = AJ_BigEndianDecodePublicKey(&ecc_pub, b8);
             AJ_ASSERT(AJ_OK == status);
@@ -217,14 +234,10 @@ static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, 
             cred->data = (uint8_t*) &ecc_pub;
             cred->len = sizeof (ecc_pub);
             cred->expiration = keyexpiration;
-            AJ_Free(b8);
             break;
 
         case AJ_CRED_PRV_KEY:
-            b8len = 3 * strlen(ecc_prv_b64) / 4;
-            b8 = (uint8_t*) AJ_Malloc(b8len);
-            AJ_ASSERT(b8);
-            status = AJ_B64ToRaw(ecc_prv_b64, strlen(ecc_prv_b64), b8, b8len);
+            status = AJ_B64ToRaw(ecc_prv_b64, strlen(ecc_prv_b64), b8, sizeof (b8));
             AJ_ASSERT(AJ_OK == status);
             status = AJ_BigEndianDecodePrivateKey(&ecc_prv, b8);
             AJ_ASSERT(AJ_OK == status);
@@ -232,43 +245,30 @@ static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, 
             cred->data = (uint8_t*) &ecc_prv;
             cred->len = sizeof (ecc_prv);
             cred->expiration = keyexpiration;
-            AJ_Free(b8);
             break;
 
         case AJ_CRED_CERT_CHAIN:
-            b8len = sizeof (AJ_Certificate);
-            b8 = (uint8_t*) AJ_Malloc(b8len);
-            AJ_ASSERT(b8);
-            status = AJ_B64ToRaw(owner_cert1_b64, strlen(owner_cert1_b64), b8, b8len);
+            status = AJ_B64ToRaw(owner_cert1_b64, strlen(owner_cert1_b64), b8, sizeof (b8));
             AJ_ASSERT(AJ_OK == status);
-            status = AJ_BigEndianDecodeCertificate(&root_cert, b8, b8len);
+            status = AJ_BigEndianDecodeCertificate(&root_cert, b8, sizeof (b8));
             AJ_ASSERT(AJ_OK == status);
             cred->mask = AJ_CRED_CERT_CHAIN;
             cred->data = (uint8_t*) &root_cert;
             cred->len = sizeof (root_cert);
-            AJ_Free(b8);
             break;
 
         case AJ_CRED_CERT_TRUST:
-            b64len = 4 * ((cred->len + 2) / 3) + 1;
-            b64 = (char*) AJ_Malloc(b64len);
-            AJ_ASSERT(b64);
-            status = AJ_RawToB64(cred->data, cred->len, b64, b64len);
+            status = AJ_RawToB64(cred->data, cred->len, b64, sizeof (b64));
             AJ_ASSERT(AJ_OK == status);
             status = IsTrustedIssuer(b64);
             AJ_Printf("TRUST: %s %d\n", b64, status);
-            AJ_Free(b64);
             break;
 
         case AJ_CRED_CERT_ROOT:
-            b64len = 4 * ((cred->len + 2) / 3) + 1;
-            b64 = (char*) AJ_Malloc(b64len);
-            AJ_ASSERT(b64);
-            status = AJ_RawToB64(cred->data, cred->len, b64, b64len);
+            status = AJ_RawToB64(cred->data, cred->len, b64, sizeof (b64));
             AJ_ASSERT(AJ_OK == status);
             AJ_Printf("ROOT: %s\n", b64);
             status = AJ_OK;
-            AJ_Free(b64);
             break;
         }
         break;
@@ -278,59 +278,24 @@ static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, 
     }
     return status;
 }
-#endif
-
-
-#define CONNECT_TIMEOUT    (1000 * 200)
-#define UNMARSHAL_TIMEOUT  (1000 * 5)
-#define METHOD_TIMEOUT     (100 * 10)
-
-
-static AJ_Status SendSignal(AJ_BusAttachment* bus, uint32_t sessionId, const char* serviceName)
-{
-    AJ_Status status;
-    AJ_Message msg;
-
-
-    status = AJ_MarshalSignal(bus, &msg, PRX_MY_SIGNAL, serviceName, sessionId, 0, 0);
-    if (status == AJ_OK) {
-        AJ_Arg arg;
-        status = AJ_MarshalContainer(&msg, &arg, AJ_ARG_ARRAY);
-        status = AJ_MarshalCloseContainer(&msg, &arg);
-    }
-    if (status == AJ_OK) {
-        status = AJ_DeliverMsg(&msg);
-    }
-    return status;
-}
-
 
 void AuthCallback(const void* context, AJ_Status status)
 {
     *((AJ_Status*)context) = status;
 }
 
-#ifdef MAIN_ALLOWS_ARGS
 int AJ_Main(int ac, char** av)
-#else
-int AJ_Main()
-#endif
 {
+    int done = FALSE;
     AJ_Status status = AJ_OK;
     AJ_BusAttachment bus;
     uint8_t connected = FALSE;
     uint32_t sessionId = 0;
     AJ_Status authStatus = AJ_ERR_NULL;
 
-#ifdef SECURE_INTERFACE
     uint32_t suites[16];
     size_t numsuites = 0;
     uint8_t clearkeys = FALSE;
-    uint8_t enablepwd = FALSE;
-#endif
-
-#ifdef MAIN_ALLOWS_ARGS
-#ifdef SECURE_INTERFACE
 
     ac--;
     av++;
@@ -357,15 +322,11 @@ int AJ_Main()
                 suites[numsuites++] = AUTH_SUITE_ECDHE_PSK;
             } else if (0 == strncmp(*av, "ECDHE_NULL", 10)) {
                 suites[numsuites++] = AUTH_SUITE_ECDHE_NULL;
-            } else if (0 == strncmp(*av, "PIN", 3)) {
-                enablepwd = TRUE;
             }
             ac--;
             av++;
         }
     }
-#endif
-#endif
 
     /*
      * One time initialization before calling any other AllJoyn APIs
@@ -375,39 +336,24 @@ int AJ_Main()
     AJ_PrintXML(ProxyObjects);
     AJ_RegisterObjects(NULL, ProxyObjects);
 
-    while (TRUE) {
+    while (!done) {
         AJ_Message msg;
 
         if (!connected) {
-#ifndef NGNS
-            status = AJ_StartClient(&bus, NULL, CONNECT_TIMEOUT, FALSE, testServiceName, testServicePort, &sessionId, NULL);
-#else
-            status = AJ_StartClientByInterface(&bus, NULL, CONNECT_TIMEOUT, FALSE, testInterfaceNames, &sessionId, testServiceName, NULL);
-#endif
+            status = AJ_StartClient(&bus, NULL, CONNECT_TIMEOUT, FALSE, ServiceName, ServicePort, &sessionId, NULL);
             if (status == AJ_OK) {
-                AJ_Printf("StartClient returned %d, sessionId=%u, serviceName=%s\n", status, sessionId, testServiceName);
-                AJ_Printf("Connected to Daemon:%s\n", AJ_GetUniqueName(&bus));
+                AJ_InfoPrintf(("StartClient returned %d, sessionId=%u\n", status, sessionId));
+                AJ_Printf("StartClient returned %d, sessionId=%u\n", status, sessionId);
                 connected = TRUE;
-#ifdef SECURE_INTERFACE
-                if (enablepwd) {
-                    AJ_BusSetPasswordCallback(&bus, PasswordCallback);
-                }
                 AJ_BusEnableSecurity(&bus, suites, numsuites);
                 AJ_BusSetAuthListenerCallback(&bus, AuthListenerCallback);
                 if (clearkeys) {
                     status = AJ_ClearCredentials();
                     AJ_ASSERT(AJ_OK == status);
                 }
-                status = AJ_BusAuthenticatePeer(&bus, testServiceName, AuthCallback, &authStatus);
-                if (status != AJ_OK) {
-                    AJ_Printf("AJ_BusAuthenticatePeer returned %d\n", status);
-                }
-#else
-                authStatus = AJ_OK;
-#endif
-
-
+                authStatus = AJ_BusAuthenticatePeer(&bus, ServiceName, AuthCallback, &authStatus);
             } else {
+                AJ_InfoPrintf(("StartClient returned %d\n", status));
                 AJ_Printf("StartClient returned %d\n", status);
                 break;
             }
@@ -419,19 +365,37 @@ int AJ_Main()
                 break;
             }
             authStatus = AJ_ERR_NULL;
+            SendPing(&bus, sessionId);
         }
 
         status = AJ_UnmarshalMsg(&bus, &msg, UNMARSHAL_TIMEOUT);
-        if (status == AJ_ERR_TIMEOUT) {
-            status = AppDoWork(&bus, sessionId, testServiceName);
+
+        if (AJ_ERR_TIMEOUT == status) {
+            AppDoWork();
             continue;
         }
 
-        if (status == AJ_OK) {
+        if (AJ_OK == status) {
             switch (msg.msgId) {
-            case PRX_MY_SIGNAL:
-                AJ_Printf("Received my_signal\n");
-                status = AJ_OK;
+            case AJ_REPLY_ID(PRX_PING):
+                {
+                    AJ_Arg arg;
+
+                    if (AJ_OK == AJ_UnmarshalArg(&msg, &arg)) {
+                        AJ_Printf("%s.Ping (path=%s) returned \"%s\".\n", InterfaceName,
+                                  ServicePath, arg.val.v_string);
+
+                        if (strcmp(arg.val.v_string, pingString) == 0) {
+                            AJ_InfoPrintf(("Ping was successful.\n"));
+                        } else {
+                            AJ_InfoPrintf(("Ping returned different string.\n"));
+                        }
+                    } else {
+                        AJ_ErrPrintf(("Bad ping response.\n"));
+                    }
+
+                    done = TRUE;
+                }
                 break;
 
             case AJ_SIGNAL_SESSION_LOST_WITH_REASON:
@@ -441,7 +405,7 @@ int AJ_Main()
                 {
                     uint32_t id, reason;
                     AJ_UnmarshalArgs(&msg, "uu", &id, &reason);
-                    AJ_Printf("Session lost. ID = %u, reason = %u", id, reason);
+                    AJ_AlwaysPrintf(("Session lost. ID = %u, reason = %u", id, reason));
                 }
                 status = AJ_ERR_SESSION_LOST;
                 break;
@@ -454,33 +418,28 @@ int AJ_Main()
                 break;
             }
         }
+
         /*
          * Messages must be closed to free resources
          */
         AJ_CloseMsg(&msg);
 
-        if ((status == AJ_ERR_SESSION_LOST) || (status == AJ_ERR_READ) || (status == AJ_ERR_LINK_DEAD)) {
-            AJ_Printf("AllJoyn disconnect\n");
-            AJ_Printf("Disconnected from Daemon:%s\n", AJ_GetUniqueName(&bus));
+        if (status == AJ_ERR_READ) {
+            AJ_Printf("AllJoyn disconnect.\n");
             AJ_Disconnect(&bus);
-            connected = FALSE;
+            exit(0);
         }
     }
-    AJ_Printf("clientlite EXIT %d\n", status);
+
+    AJ_Printf("SecureClient EXIT %d.\n", status);
 
     return status;
 }
 
 #ifdef AJ_MAIN
-#ifdef MAIN_ALLOWS_ARGS
-int main(int ac, char** av)
+int main(int argc, char** argv)
 {
-    return AJ_Main(ac, av);
+    return AJ_Main(argc, argv);
 }
-#else
-int main()
-{
-    return AJ_Main();
-}
-#endif
+
 #endif

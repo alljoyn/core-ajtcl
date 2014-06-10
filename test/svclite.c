@@ -181,19 +181,13 @@ static AJ_Status IsTrustedIssuer(const char* issuer)
 static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, AJ_Credential*cred)
 {
     AJ_Status status = AJ_ERR_INVALID;
-    uint8_t b8[sizeof (AJ_Certificate)];
-    char b64[400];
+    uint8_t* b8;
+    size_t b8len;
+    char* b64;
+    size_t b64len;
     AJ_Printf("AuthListenerCallback authmechanism %d command %d\n", authmechanism, command);
 
     switch (authmechanism) {
-    case AUTH_SUITE_PIN_KEYX:
-        cred->mask = AJ_CRED_PRV_KEY;
-        cred->data = (uint8_t*) PWD;
-        cred->len = sizeof (PWD) - 1;
-        cred->expiration = keyexpiration;
-        status = AJ_OK;
-        break;
-
     case AUTH_SUITE_ECDHE_NULL:
         cred->expiration = keyexpiration;
         status = AJ_OK;
@@ -225,7 +219,10 @@ static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, 
     case AUTH_SUITE_ECDHE_ECDSA:
         switch (command) {
         case AJ_CRED_PUB_KEY:
-            status = AJ_B64ToRaw(ecc_pub_b64, strlen(ecc_pub_b64), b8, sizeof (b8));
+            b8len = 3 * strlen(ecc_pub_b64) / 4;
+            b8 = (uint8_t*) AJ_Malloc(b8len);
+            AJ_ASSERT(b8);
+            status = AJ_B64ToRaw(ecc_pub_b64, strlen(ecc_pub_b64), b8, b8len);
             AJ_ASSERT(AJ_OK == status);
             status = AJ_BigEndianDecodePublicKey(&ecc_pub, b8);
             AJ_ASSERT(AJ_OK == status);
@@ -233,10 +230,14 @@ static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, 
             cred->data = (uint8_t*) &ecc_pub;
             cred->len = sizeof (ecc_pub);
             cred->expiration = keyexpiration;
+            AJ_Free(b8);
             break;
 
         case AJ_CRED_PRV_KEY:
-            status = AJ_B64ToRaw(ecc_prv_b64, strlen(ecc_prv_b64), b8, sizeof (b8));
+            b8len = 3 * strlen(ecc_prv_b64) / 4;
+            b8 = (uint8_t*) AJ_Malloc(b8len);
+            AJ_ASSERT(b8);
+            status = AJ_B64ToRaw(ecc_prv_b64, strlen(ecc_prv_b64), b8, b8len);
             AJ_ASSERT(AJ_OK == status);
             status = AJ_BigEndianDecodePrivateKey(&ecc_prv, b8);
             AJ_ASSERT(AJ_OK == status);
@@ -244,30 +245,43 @@ static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, 
             cred->data = (uint8_t*) &ecc_prv;
             cred->len = sizeof (ecc_prv);
             cred->expiration = keyexpiration;
+            AJ_Free(b8);
             break;
 
         case AJ_CRED_CERT_CHAIN:
-            status = AJ_B64ToRaw(owner_cert1_b64, strlen(owner_cert1_b64), b8, sizeof (b8));
+            b8len = sizeof (AJ_Certificate);
+            b8 = (uint8_t*) AJ_Malloc(b8len);
+            AJ_ASSERT(b8);
+            status = AJ_B64ToRaw(owner_cert1_b64, strlen(owner_cert1_b64), b8, b8len);
             AJ_ASSERT(AJ_OK == status);
-            status = AJ_BigEndianDecodeCertificate(&root_cert, b8, sizeof (b8));
+            status = AJ_BigEndianDecodeCertificate(&root_cert, b8, b8len);
             AJ_ASSERT(AJ_OK == status);
             cred->mask = AJ_CRED_CERT_CHAIN;
             cred->data = (uint8_t*) &root_cert;
             cred->len = sizeof (root_cert);
+            AJ_Free(b8);
             break;
 
         case AJ_CRED_CERT_TRUST:
-            status = AJ_RawToB64(cred->data, cred->len, b64, sizeof (b64));
+            b64len = 4 * ((cred->len + 2) / 3) + 1;
+            b64 = (char*) AJ_Malloc(b64len);
+            AJ_ASSERT(b64);
+            status = AJ_RawToB64(cred->data, cred->len, b64, b64len);
             AJ_ASSERT(AJ_OK == status);
             status = IsTrustedIssuer(b64);
             AJ_Printf("TRUST: %s %d\n", b64, status);
+            AJ_Free(b64);
             break;
 
         case AJ_CRED_CERT_ROOT:
-            status = AJ_RawToB64(cred->data, cred->len, b64, sizeof (b64));
+            b64len = 4 * ((cred->len + 2) / 3) + 1;
+            b64 = (char*) AJ_Malloc(b64len);
+            AJ_ASSERT(b64);
+            status = AJ_RawToB64(cred->data, cred->len, b64, b64len);
             AJ_ASSERT(AJ_OK == status);
             AJ_Printf("ROOT: %s\n", b64);
             status = AJ_OK;
+            AJ_Free(b64);
             break;
         }
         break;

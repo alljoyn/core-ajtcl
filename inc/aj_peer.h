@@ -53,25 +53,6 @@ AJ_Status AJ_PeerHandleExchangeGUIDs(AJ_Message* msg, AJ_Message* reply);
 AJ_Status AJ_PeerHandleExchangeGUIDsReply(AJ_Message* msg);
 
 /**
- * Handle an authentication challenge message
- *
- * @param msg    The authentication challenge message
- * @param reply  The authentication challenge reply message
- *
- * @return        Return AJ_Status
- */
-AJ_Status AJ_PeerHandleAuthChallenge(AJ_Message* msg, AJ_Message* reply);
-
-/**
- * Handle an authentication challenge reply message
- *
- * @param msg  The authentication challenge reply message
- *
- * @return        Return AJ_Status
- */
-AJ_Status AJ_PeerHandleAuthChallengeReply(AJ_Message* msg);
-
-/**
  * Handle a gen session key message
  *
  * @param msg    The gen session key message
@@ -140,7 +121,10 @@ AJ_Status AJ_PeerAuthenticate(AJ_BusAttachment* bus, const char* peerName, AJ_Pe
  * @param msg    The exchange suites message
  * @param reply  The exchange suites reply message
  *
- * @return       Return AJ_Status
+ * @return   Return AJ_Status
+ *         - AJ_OK if successful
+ *         - AJ_ERR_RESOURCES if resource error or authentication in progress
+ *         - AJ_ERR_SECURITY if generic security violation
  */
 AJ_Status AJ_PeerHandleExchangeSuites(AJ_Message* msg, AJ_Message* reply);
 
@@ -149,7 +133,10 @@ AJ_Status AJ_PeerHandleExchangeSuites(AJ_Message* msg, AJ_Message* reply);
  *
  * @param msg    The exchange suites reply message
  *
- * @return       Return AJ_Status
+ * @return   Return AJ_Status
+ *         - AJ_OK if successful
+ *         - AJ_ERR_RESOURCES if resource error or authentication in progress
+ *         - AJ_ERR_SECURITY if generic security violation
  */
 AJ_Status AJ_PeerHandleExchangeSuitesReply(AJ_Message* msg);
 
@@ -159,7 +146,10 @@ AJ_Status AJ_PeerHandleExchangeSuitesReply(AJ_Message* msg);
  * @param msg    The key exchange message
  * @param reply  The key exchange reply message
  *
- * @return       Return AJ_Status
+ * @return   Return AJ_Status
+ *         - AJ_OK if successful
+ *         - AJ_ERR_RESOURCES if resource error or authentication in progress
+ *         - AJ_ERR_SECURITY if generic security violation
  */
 AJ_Status AJ_PeerHandleKeyExchange(AJ_Message* msg, AJ_Message* reply);
 
@@ -168,7 +158,10 @@ AJ_Status AJ_PeerHandleKeyExchange(AJ_Message* msg, AJ_Message* reply);
  *
  * @param msg    The key exchange reply message
  *
- * @return       Return AJ_Status
+ * @return   Return AJ_Status
+ *         - AJ_OK if successful
+ *         - AJ_ERR_RESOURCES if resource error or authentication in progress
+ *         - AJ_ERR_SECURITY if generic security violation
  */
 AJ_Status AJ_PeerHandleKeyExchangeReply(AJ_Message* msg);
 
@@ -178,7 +171,10 @@ AJ_Status AJ_PeerHandleKeyExchangeReply(AJ_Message* msg);
  * @param msg    The key authentication message
  * @param reply  The key authentication reply message
  *
- * @return       Return AJ_Status
+ * @return   Return AJ_Status
+ *         - AJ_OK if successful
+ *         - AJ_ERR_RESOURCES if resource error or authentication in progress
+ *         - AJ_ERR_SECURITY if generic security violation
  */
 AJ_Status AJ_PeerHandleKeyAuthentication(AJ_Message* msg, AJ_Message* reply);
 
@@ -187,9 +183,17 @@ AJ_Status AJ_PeerHandleKeyAuthentication(AJ_Message* msg, AJ_Message* reply);
  *
  * @param msg    The key authentication reply message
  *
- * @return       Return AJ_Status
+ * @return   Return AJ_Status
+ *         - AJ_OK if successful
+ *         - AJ_ERR_RESOURCES if resource error or authentication in progress
+ *         - AJ_ERR_SECURITY if generic security violation
  */
 AJ_Status AJ_PeerHandleKeyAuthenticationReply(AJ_Message* msg);
+
+/**
+ * Clear the authentication handshake context
+ */
+void AJ_ClearAuthContext();
 
 /* the key exchange is in the 16 MSB */
 #define AUTH_KEYX_ANONYMOUS     0x00010000

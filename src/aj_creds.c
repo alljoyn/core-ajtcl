@@ -470,10 +470,11 @@ AJ_Status AJ_StorePeerSecret(const AJ_GUID* peerGuid, const uint8_t* secret,
     cred.type = AJ_CRED_TYPE_GENERIC;
     cred.idLen = sizeof(AJ_GUID);
     cred.id = (uint8_t*) peerGuid;
+    cred.expiration = expiration;
     cred.associationLen = 0;
+    cred.association = NULL;
     cred.dataLen = len;
     cred.data = (uint8_t*) secret;
-    cred.expiration = expiration;
     status = AJ_StoreCredential(&cred);
 
     return status;
@@ -586,3 +587,24 @@ AJ_Status AJ_GetLocalCredential(const uint16_t credType, const uint16_t id, AJ_P
     return AJ_GetCredential(credType, (const uint8_t*) &id, sizeof(id), credHolder);
 }
 
+AJ_Status AJ_DeleteLocalCredential(const uint16_t credType, const uint16_t id)
+{
+    return AJ_DeleteCredential(credType, (const uint8_t*) &id, sizeof(id));
+}
+
+AJ_Status AJ_CredentialExpired(AJ_PeerCred* cred)
+{
+    AJ_Time now;
+
+    AJ_InitTimer(&now);
+    if (now.seconds == 0) {
+        /* don't know the current time so can't check the credential expriy */
+        return AJ_ERR_INVALID;
+    }
+
+    if (cred->expiration > now.seconds) {
+        return AJ_OK;
+    }
+
+    return AJ_ERR_KEY_EXPIRED; /* expires */
+}

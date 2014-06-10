@@ -16,3 +16,5 @@ Import('env')
 
 env.Program('SecureClient', ['SecureClient.c'] + env['aj_obj'])
 env.Program('SecureService', ['SecureService.c'] + env['aj_obj'])
+env.Program('SecureClientECDHE', ['SecureClientECDHE.c'] + env['aj_obj'])
+env.Program('SecureServiceECDHE', ['SecureServiceECDHE.c'] + env['aj_obj'])

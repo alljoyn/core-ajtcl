@@ -182,30 +182,6 @@ static AJ_Status SetCipherSuite(AJ_BusAttachment* bus, uint32_t suite)
     return AJ_OK;
 }
 
-/**
- * check the credential's expiry
- * @return 1 when the credential expires
- *         0 when the credential do not expire
- *         2 when it can't be determine whether the credential expires because
- *              no clock is available
- */
-static uint8_t checkCredExpiration(AJ_PeerCred* cred)
-{
-    AJ_Time now;
-
-    AJ_InitTimer(&now);
-    if (now.seconds == 0) {
-        /* don't know the current time so can't check the credential expriy */
-        return 2;
-    }
-
-    if (cred->expiration > now.seconds) {
-        return 0;
-    }
-
-    return 1; /* expires */
-}
-
 static uint32_t GetAcceptableVersion(uint32_t srcV)
 {
     uint16_t authV = srcV >> 16;
@@ -238,7 +214,6 @@ static AJ_Status KeyGen(const char* peerName, uint8_t role, const char* nonce1, 
     uint8_t lens[4];
     AJ_PeerCred* cred;
     const AJ_GUID* peerGuid = AJ_GUID_Find(peerName);
-    uint8_t expiryStatus;
 
     AJ_InfoPrintf(("KeyGen(peerName=\"%s\", role=%d., nonce1=\"%s\", nonce2=\"%s\", outbuf=0x%p, len=%d.)\n",
                    peerName, role, nonce1, nonce2, outBuf, len));
@@ -254,8 +229,8 @@ static AJ_Status KeyGen(const char* peerName, uint8_t role, const char* nonce1, 
         return AJ_ERR_NO_MATCH;
     }
     /* check the secret expiry */
-    expiryStatus = checkCredExpiration(cred);
-    if (expiryStatus == 1) {
+    status = AJ_CredentialExpired(cred);
+    if (AJ_ERR_KEY_EXPIRED == status) {
         /* secret expired */
         AJ_DeletePeerCredential(peerGuid);
         AJ_WarnPrintf(("KeyGen(): Secret expired\n"));
@@ -298,6 +273,12 @@ static AJ_Status KeyGen(const char* peerName, uint8_t role, const char* nonce1, 
     return status;
 }
 
+void AJ_ClearAuthContext()
+{
+    memset(&authContext, 0, sizeof(AuthContext));
+    memset(&handshakeContext, 0, sizeof(HandshakeContext));
+}
+
 static void HandshakeComplete(AJ_Status status)
 {
     AJ_InfoPrintf(("HandshakeComplete(status=%d.)\n", status));
@@ -305,8 +286,7 @@ static void HandshakeComplete(AJ_Status status)
     if (authContext.callback) {
         authContext.callback(authContext.cbContext, status);
     }
-    memset(&authContext, 0, sizeof(AuthContext));
-    memset(&handshakeContext, 0, sizeof(HandshakeContext));
+    AJ_ClearAuthContext();
 }
 
 static AJ_Status ComputeMasterSecret(uint8_t* secret, size_t secretlen)
@@ -427,8 +407,7 @@ AJ_Status AJ_PeerAuthenticate(AJ_BusAttachment* bus, const char* peerName, AJ_Pe
     /*
      * No handshake in progress or previous timed-out
      */
-    memset(&authContext, 0, sizeof(AuthContext));
-    memset(&handshakeContext, 0, sizeof(HandshakeContext));
+    AJ_ClearAuthContext();
     authContext.callback = callback;
     authContext.cbContext = cbContext;
     authContext.peerName = peerName;
@@ -471,23 +450,25 @@ AJ_Status AJ_PeerHandleExchangeGUIDs(AJ_Message* msg, AJ_Message* reply)
     /*
      * No handshake in progress or previous timed-out
      */
-    memset(&authContext, 0, sizeof(AuthContext));
-    memset(&handshakeContext, 0, sizeof(HandshakeContext));
+    AJ_ClearAuthContext();
     AJ_InitTimer(&authContext.timer);
 
     status = AJ_UnmarshalArgs(msg, "su", &str, &version);
     if (AJ_OK != status) {
         AJ_InfoPrintf(("AJ_PeerHandleExchangeGuids(msg=0x%p, reply=0x%p): Unmarshal error\n", msg, reply));
+        HandshakeComplete(AJ_ERR_SECURITY);
         return AJ_MarshalErrorMsg(msg, reply, AJ_ErrSecurityViolation);
     }
     status = AJ_GUID_FromString(&remoteGuid, str);
     if (AJ_OK != status) {
         AJ_InfoPrintf(("AJ_PeerHandleExchangeGuids(msg=0x%p, reply=0x%p): Invalid GUID\n", msg, reply));
+        HandshakeComplete(AJ_ERR_SECURITY);
         return AJ_MarshalErrorMsg(msg, reply, AJ_ErrSecurityViolation);
     }
     status = AJ_GUID_AddNameMapping(&remoteGuid, msg->sender, NULL);
     if (AJ_OK != status) {
         AJ_InfoPrintf(("AJ_PeerHandleExchangeGuids(msg=0x%p, reply=0x%p): Add name mapping error\n", msg, reply));
+        HandshakeComplete(AJ_ERR_RESOURCES);
         return AJ_MarshalErrorMsg(msg, reply, AJ_ErrResources);
     }
     authContext.peerGuid = AJ_GUID_Find(msg->sender);
@@ -502,6 +483,7 @@ AJ_Status AJ_PeerHandleExchangeGUIDs(AJ_Message* msg, AJ_Message* reply)
     status = SetAuthVersion(version);
     if (AJ_OK != status) {
         AJ_InfoPrintf(("AJ_PeerHandleExchangeGuids(msg=0x%p, reply=0x%p): Invalid version\n", msg, reply));
+        HandshakeComplete(AJ_ERR_SECURITY);
         return AJ_MarshalErrorMsg(msg, reply, AJ_ErrSecurityViolation);
     }
 
@@ -546,21 +528,25 @@ AJ_Status AJ_PeerHandleExchangeGUIDsReply(AJ_Message* msg)
     status = AJ_UnmarshalArgs(msg, "su", &guidStr, &version);
     if (status != AJ_OK) {
         AJ_WarnPrintf(("AJ_PeerHandleExchangeGUIDsReply(msg=0x%p): Unmarshal error\n", msg));
+        HandshakeComplete(AJ_ERR_SECURITY);
         return AJ_ERR_SECURITY;
     }
     version = GetAcceptableVersion(version);
     if (0 == version) {
         AJ_WarnPrintf(("AJ_PeerHandleExchangeGUIDsReply(msg=0x%p): Invalid version\n", msg));
+        HandshakeComplete(AJ_ERR_SECURITY);
         return AJ_ERR_SECURITY;
     }
     status = SetAuthVersion(version);
     if (AJ_OK != status) {
         AJ_WarnPrintf(("AJ_PeerHandleExchangeGUIDsReply(msg=0x%p): Invalid version\n", msg));
+        HandshakeComplete(AJ_ERR_SECURITY);
         return AJ_ERR_SECURITY;
     }
     status = AJ_GUID_FromString(&remoteGuid, guidStr);
     if (AJ_OK != status) {
         AJ_WarnPrintf(("AJ_PeerHandleExchangeGUIDsReply(msg=0x%p): Invalid GUID\n", msg));
+        HandshakeComplete(AJ_ERR_SECURITY);
         return AJ_ERR_SECURITY;
     }
     /*
@@ -569,6 +555,7 @@ AJ_Status AJ_PeerHandleExchangeGUIDsReply(AJ_Message* msg)
     status = AJ_GUID_AddNameMapping(&remoteGuid, msg->sender, authContext.peerName);
     if (AJ_OK != status) {
         AJ_WarnPrintf(("AJ_PeerHandleExchangeGUIDsReply(msg=0x%p): Add name mapping error\n", msg));
+        HandshakeComplete(AJ_ERR_RESOURCES);
         return AJ_ERR_RESOURCES;
     }
     /*
@@ -581,8 +568,8 @@ AJ_Status AJ_PeerHandleExchangeGUIDsReply(AJ_Message* msg)
      */
     status = AJ_GetPeerCredential(authContext.peerGuid, &cred);
     if (AJ_OK == status) {
-        uint8_t expiryStatus = checkCredExpiration(cred);
-        if ((expiryStatus == 0)  || (expiryStatus == 2)) {
+        status = AJ_CredentialExpired(cred);
+        if (AJ_ERR_KEY_EXPIRED != status) {
             /* secret not expired or time unknown */
             handshakeContext.state = AJ_AUTH_SUCCESS;
             status = GenSessionKey(msg);
@@ -1236,6 +1223,7 @@ AJ_Status AJ_PeerHandleGenSessionKey(AJ_Message* msg, AJ_Message* reply)
         status = AJ_GetLocalGUID(&localGuid);
     }
     if ((status != AJ_OK) || (memcmp(&guid, &localGuid, sizeof(AJ_GUID)) != 0)) {
+        HandshakeComplete(AJ_ERR_SECURITY);
         return AJ_MarshalErrorMsg(msg, reply, AJ_ErrSecurityViolation);
     }
     AJ_RandHex(sessionContext.nonce, sizeof(sessionContext.nonce), AJ_NONCE_LEN);
@@ -1244,6 +1232,7 @@ AJ_Status AJ_PeerHandleGenSessionKey(AJ_Message* msg, AJ_Message* reply)
         AJ_MarshalReplyMsg(msg, reply);
         status = AJ_MarshalArgs(reply, "ss", sessionContext.nonce, verifier);
     } else {
+        HandshakeComplete(AJ_ERR_SECURITY);
         status = AJ_MarshalErrorMsg(msg, reply, AJ_ErrSecurityViolation);
     }
     return status;
@@ -1308,7 +1297,7 @@ AJ_Status AJ_PeerHandleGenSessionKeyReply(AJ_Message* msg)
     if (status != AJ_OK) {
         HandshakeComplete(status);
     }
-    return AJ_OK;
+    return status;
 }
 
 AJ_Status AJ_PeerHandleExchangeGroupKeys(AJ_Message* msg, AJ_Message* reply)
