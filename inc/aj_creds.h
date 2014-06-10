@@ -183,6 +183,27 @@ AJ_Status AJ_GetLocalCredential(const uint16_t credType, const uint16_t id, AJ_P
 AJ_Status AJ_StoreLocalCredential(const uint16_t credType, const uint16_t id, const uint8_t* data, const uint8_t len, uint32_t expiration);
 
 /**
+ * Delete the local credentials for a specific id from NVRAM
+ *
+ * @param credType  the credential type to delete
+ * @param id        the credential id to delete
+ *
+ * @return
+ *      - AJ_OK if the credential is deleted
+ *      - AJ_ERR_FAILURE otherwise.
+ */
+AJ_Status AJ_DeleteLocalCredential(const uint16_t credType, const uint16_t id);
+
+/**
+ * Checks a credential's expiry
+ * @return
+ *      - AJ_OK if the credential has not expired
+ *      - AJ_ERR_KEY_EXPIRED if the credential has expired
+ *      - AJ_ERR_INVALID if not clock is available
+ */
+AJ_Status AJ_CredentialExpired(AJ_PeerCred* cred);
+
+/**
  * @}
  */
 #endif

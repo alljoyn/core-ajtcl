@@ -36,6 +36,7 @@
 #include "aj_debug.h"
 #include "aj_config.h"
 #include "aj_creds.h"
+#include "aj_peer.h"
 
 #if !(defined(ARDUINO) || defined(__linux) || defined(_WIN32))
 #include "aj_wifi_ctrl.h"
@@ -468,11 +469,12 @@ void AJ_Disconnect(AJ_BusAttachment* bus)
 #endif
 
     /*
-     * Free cipher suite memory
+     * Free cipher suite memory and clear auth context
      */
     if (bus->suites) {
         AJ_Free(bus->suites);
         bus->suites = NULL;
         bus->numsuites = 0;
     }
+    AJ_ClearAuthContext();
 }
