@@ -1218,7 +1218,7 @@ AJ_Status AJ_UnmarshalArg(AJ_Message* msg, AJ_Arg* arg)
     return status;
 }
 
-static AJ_Status VUnmarshalArgs(AJ_Message* msg, const char* sig, va_list* argpp)
+static AJ_Status VUnmarshalArgs(AJ_Message* msg, const char** sig, va_list* argpp)
 {
     AJ_Status status = AJ_OK;
     AJ_Arg arg;
@@ -1229,23 +1229,37 @@ static AJ_Status VUnmarshalArgs(AJ_Message* msg, const char* sig, va_list* argpp
 
     container.typeId = AJ_ARG_INVALID;
 
-    while (*sig) {
-        uint8_t typeId = (uint8_t)*sig++;
+    while (**sig) {
+        uint8_t typeId = (uint8_t)**sig++;
         void* val;
 
         if (!IsBasicType(typeId)) {
             if ((typeId == AJ_ARG_STRUCT) || (typeId == AJ_ARG_DICT_ENTRY)) {
                 /*
-                 * This API does not support unmarshalling nested structs
+                 * This function supports unmarshaling of a single level structs.
                  */
                 if (container.typeId != AJ_ARG_INVALID) {
-                    status = AJ_ERR_MARSHAL;
-                    break;
+                    /*
+                     * Rewind the signature pointer and recusively call this function
+                     * in order to marshal a nested struct.
+                     */
+                    **sig--;
+                    status = VUnmarshalArgs(msg, sig, argpp);
+                    /*
+                     * Upon successful return from a nested call, continue from
+                     * where the inner call advanced in the signature.
+                     */
+                    if (status == AJ_OK) {
+                        continue;
+                    } else {
+                        status = AJ_ERR_MARSHAL;
+                        break;
+                    }
                 }
                 AJ_UnmarshalContainer(msg, &container, typeId);
                 continue;
             }
-            if ((typeId == AJ_ARG_ARRAY) && IsBasicType(*sig)) {
+            if ((typeId == AJ_ARG_ARRAY) && IsBasicType(**sig)) {
                 const void** ptr = va_arg(argp, const void**);
                 size_t* len = va_arg(argp, size_t*);
                 sig++;
@@ -1271,7 +1285,7 @@ static AJ_Status VUnmarshalArgs(AJ_Message* msg, const char* sig, va_list* argpp
                         status = AJ_ERR_SIGNATURE;
                         break;
                     }
-                    status = VUnmarshalArgs(msg, vsig, &argp);
+                    status = VUnmarshalArgs(msg, &vsig, &argp);
                 }
                 if (status == AJ_OK) {
                     continue;
@@ -1323,7 +1337,7 @@ AJ_Status AJ_UnmarshalArgs(AJ_Message* msg, const char* sig, ...)
     va_list argp;
 
     va_start(argp, sig);
-    status = VUnmarshalArgs(msg, sig, &argp);
+    status = VUnmarshalArgs(msg, &sig, &argp);
     va_end(argp);
 
     return status;
@@ -1805,7 +1819,7 @@ AJ_Arg* AJ_InitArg(AJ_Arg* arg, uint8_t typeId, uint8_t flags, const void* val, 
     }
 }
 
-static AJ_Status VMarshalArgs(AJ_Message* msg, const char* sig, va_list* argpp)
+static AJ_Status VMarshalArgs(AJ_Message* msg, const char** sig, va_list* argpp)
 {
     AJ_Status status = AJ_OK;
     AJ_Arg arg;
@@ -1816,31 +1830,46 @@ static AJ_Status VMarshalArgs(AJ_Message* msg, const char* sig, va_list* argpp)
 
     container.typeId = AJ_ARG_INVALID;
 
-    while (*sig) {
+    while (**sig) {
         uint8_t u8;
         uint16_t u16;
         uint32_t u32;
         uint64_t u64;
-        uint8_t typeId = (uint8_t)*sig++;
+        uint8_t typeId = (uint8_t)**sig++;
         void* val;
 
         if (!IsBasicType(typeId)) {
             if ((typeId == AJ_ARG_STRUCT) || (typeId == AJ_ARG_DICT_ENTRY)) {
                 /*
-                 * This API does not support marshalling nested structs
+                 * This function supports marshaling of a single level structs.
                  */
                 if (container.typeId != AJ_ARG_INVALID) {
-                    status = AJ_ERR_MARSHAL;
-                    break;
+                    /*
+                     * Rewind the signature pointer and recusively call this function
+                     * in order to marshal a nested struct.
+                     */
+                    **sig--;
+                    status = VMarshalArgs(msg, sig, &argp);
+                    /*
+                     * Upon successful return from a nested call, continue from
+                     * where the inner call advanced in the signature.
+                     */
+                    if (status == AJ_OK) {
+                        continue;
+                    } else {
+                        status = AJ_ERR_MARSHAL;
+                        break;
+                    }
+                } else {
+                    AJ_MarshalContainer(msg, &container, typeId);
+                    continue;
                 }
-                AJ_MarshalContainer(msg, &container, typeId);
-                continue;
             }
-            if ((typeId == AJ_ARG_ARRAY) && IsBasicType(*sig)) {
+            if ((typeId == AJ_ARG_ARRAY) && IsBasicType(**sig)) {
                 const void* aval = va_arg(argp, const void*);
                 size_t len = va_arg(argp, size_t);
 
-                AJ_InitArg(&arg, *sig++, AJ_ARRAY_FLAG, aval, len);
+                AJ_InitArg(&arg, **sig++, AJ_ARRAY_FLAG, aval, len);
                 status = AJ_MarshalArg(msg, &arg);
                 continue;
             }
@@ -1853,7 +1882,7 @@ static AJ_Status VMarshalArgs(AJ_Message* msg, const char* sig, va_list* argpp)
                 const char* vsig = va_arg(argp, const char*);
                 status = AJ_MarshalVariant(msg, vsig);
                 if (status == AJ_OK) {
-                    status = VMarshalArgs(msg, vsig, &argp);
+                    status = VMarshalArgs(msg, &vsig, &argp);
                 }
                 if (status == AJ_OK) {
                     continue;
@@ -1897,7 +1926,7 @@ AJ_Status AJ_MarshalArgs(AJ_Message* msg, const char* sig, ...)
     va_list argp;
 
     va_start(argp, sig);
-    status = VMarshalArgs(msg, sig, &argp);
+    status = VMarshalArgs(msg, &sig, &argp);
     va_end(argp);
 
     return status;
