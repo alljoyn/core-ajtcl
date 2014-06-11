@@ -31,6 +31,7 @@
 #include <mach/mach_time.h>
 #include <mach/clock.h>
 #include <mach/mach.h>
+#include <libkern/OSByteOrder.h>
 
 uint8_t dbgTARGET_UTIL = 0;
 
@@ -128,6 +129,11 @@ int8_t AJ_CompareTime(AJ_Time timerA, AJ_Time timerB)
 void* AJ_Malloc(size_t sz)
 {
     return malloc(sz);
+}
+
+void* AJ_Realloc(void* ptr, size_t size)
+{
+    return realloc(ptr, size);
 }
 
 void AJ_Free(void* mem)
@@ -243,3 +249,18 @@ int _AJ_DbgEnabled(const char* module)
 }
 
 #endif
+
+uint16_t AJ_ByteSwap16(uint16_t x)
+{
+    return OSSwapInt16(x);
+}
+
+uint32_t AJ_ByteSwap32(uint32_t x)
+{
+    return OSSwapInt32(x);
+}
+
+uint64_t AJ_ByteSwap64(uint64_t x)
+{
+    return OSSwapInt64(x);
+}
