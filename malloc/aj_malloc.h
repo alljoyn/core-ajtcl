@@ -2,7 +2,7 @@
  * @file  A pool based memory allocator designed for embedded systemms.
  */
 /******************************************************************************
- * Copyright (c) 2012-2013, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2012-2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -110,7 +110,7 @@ void AJ_PoolFree(void* mem);
  * contents of the old block are copied over and the old block is freed.
  *
  * @param mem   Pointer to the memory block to reallocate, can be NULL which case this is equivalent
- *              to calling AJ_PoolMalloc.
+ *              to calling AJ_PoolAlloc.
  * @param newSz The size of the new memory block
  *
  * @return A pointer to the allocated memory block or NULL if the request could not be satisfied.
