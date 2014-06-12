@@ -1183,7 +1183,7 @@ AJ_Status AJ_IdentifyProperty(AJ_Message* msg, const char* iface, const char* pr
     AJ_InterfaceDescription desc;
 
 #ifndef NDEBUG
-    if ((oIndex > ArraySize(objectLists)) || !CheckIndex(objectLists[oIndex], pIndex, sizeof(AJ_Object))) {
+    if ((oIndex >= ArraySize(objectLists)) || !CheckIndex(objectLists[oIndex], pIndex, sizeof(AJ_Object))) {
         status = AJ_ERR_INVALID;
         AJ_ErrPrintf(("AJ_IdentifyProperty(): %s\n", AJ_StatusText(status)));
         return status;
