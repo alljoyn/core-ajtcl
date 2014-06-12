@@ -33,7 +33,6 @@ uint8_t dbgABOUT = 0;
 
 static const uint8_t aboutVersion = 1;
 static const uint8_t aboutIconVersion = 1;
-static uint16_t aboutPort = 0;
 
 /*
  * Registered by the Property Store implementation
@@ -77,7 +76,7 @@ static AJ_Status MarshalDefaultProps(AJ_Message* msg)
 
 AJ_Status AJ_AboutInit(AJ_BusAttachment* bus, uint16_t boundPort)
 {
-    aboutPort = boundPort;
+    bus->aboutPort = boundPort;
     doAnnounce = TRUE;
     return AJ_AboutAnnounce(bus);
 }
@@ -212,17 +211,20 @@ ErrorExit:
 
 AJ_Status AJ_AboutAnnounce(AJ_BusAttachment* bus)
 {
-    AJ_Status status;
+    AJ_Status status = AJ_OK;
     AJ_Message announcement;
 
-    if (!doAnnounce || !aboutPort) {
-        AJ_InfoPrintf(("AJ_AboutAnnounce - nothing to announce port=%d\n", aboutPort));
-        return AJ_OK;
+    if (!doAnnounce) {
+        return status;
+    }
+    doAnnounce = FALSE;
+    if (!bus->aboutPort) {
+        AJ_InfoPrintf(("AJ_AboutAnnounce - nothing to announce\n"));
+        return status;
     }
 
-    AJ_InfoPrintf(("AJ_AboutAnnounce - announcing\n"));
+    AJ_InfoPrintf(("AJ_AboutAnnounce - announcing port=%d\n", bus->aboutPort));
 
-    doAnnounce = FALSE;
     status = AJ_MarshalSignal(bus, &announcement, AJ_SIGNAL_ABOUT_ANNOUNCE, NULL, 0, ALLJOYN_FLAG_SESSIONLESS, 0);
     if (status != AJ_OK) {
         goto ErrorExit;
@@ -231,7 +233,7 @@ AJ_Status AJ_AboutAnnounce(AJ_BusAttachment* bus)
     if (status != AJ_OK) {
         goto ErrorExit;
     }
-    status = AJ_MarshalArgs(&announcement, "q", aboutPort);
+    status = AJ_MarshalArgs(&announcement, "q", bus->aboutPort);
     if (status != AJ_OK) {
         goto ErrorExit;
     }
