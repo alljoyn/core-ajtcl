@@ -676,7 +676,7 @@ static AJ_Status Unmarshal(AJ_Message* msg, const char** sig, AJ_Arg* arg)
         arg->val.v_byte = ioBuf->readPtr;
         arg->len = 0;
         ioBuf->readPtr += sz;
-        EndianSwap(msg, typeId, (void*)arg->val.v_data, 1);
+        EndianSwap(msg, typeId, (void*)arg->val.v_byte, 1);
     } else if (TYPE_FLAG(typeId) & (AJ_STRING | AJ_VARIANT)) {
         /*
          * Length field for a signature is 1 byte, for regular strings its 4 bytes
