@@ -967,7 +967,7 @@ static AJ_Status UnpackMsgId(uint32_t msgId, const char** objPath, const char** 
     AJ_InterfaceDescription ifc;
 
 #ifndef NDEBUG
-    if ((oIndex > ArraySize(objectLists)) || !CheckIndex(objectLists[oIndex], pIndex, sizeof(AJ_Object))) {
+    if ((oIndex >= ArraySize(objectLists)) || !CheckIndex(objectLists[oIndex], pIndex, sizeof(AJ_Object))) {
         AJ_ErrPrintf(("UnpackMsgId(): AJ_ERR_INVALID\n"));
         return AJ_ERR_INVALID;
     }
