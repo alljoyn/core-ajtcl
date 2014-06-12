@@ -297,8 +297,10 @@ AJ_Status AJ_Net_SendTo(AJ_IOBuffer* buf)
 
             if (inet_pton(AF_INET, AJ_IPV4_MULTICAST_GROUP, &sin.sin_addr) == 1) {
                 ret = sendto(context->udpSock, buf->readPtr, tx, 0, (struct sockaddr*)&sin, sizeof(sin));
+            } else {
+                AJ_ErrPrintf(("AJ_Net_SendTo(): Invalid address IP address. errno=\"%s\"", strerror(errno)));
+                return AJ_ERR_WRITE;
             }
-
 
             sendToBroadcast(context->udpSock, buf->readPtr, tx);
         }
@@ -313,6 +315,9 @@ AJ_Status AJ_Net_SendTo(AJ_IOBuffer* buf)
             sin6.sin6_port = htons(AJ_UDP_PORT);
             if (inet_pton(AF_INET6, AJ_IPV6_MULTICAST_GROUP, &sin6.sin6_addr) == 1) {
                 ret = sendto(context->udp6Sock, buf->readPtr, tx, 0, (struct sockaddr*) &sin6, sizeof(sin6));
+            } else {
+                AJ_ErrPrintf(("AJ_Net_SendTo(): Invalid address IP address. errno=\"%s\"", strerror(errno)));
+                return AJ_ERR_WRITE;
             }
         }
 
