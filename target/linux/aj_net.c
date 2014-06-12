@@ -115,7 +115,7 @@ AJ_Status AJ_Net_Send(AJ_IOBuffer* buf)
     assert(buf->direction == AJ_IO_BUF_TX);
 
     if (tx > 0) {
-        ret = send(context->tcpSock, buf->readPtr, tx, 0);
+        ret = send(context->tcpSock, buf->readPtr, tx, MSG_NOSIGNAL);
         if (ret == -1) {
             AJ_ErrPrintf(("AJ_Net_Send(): send() failed. errno=\"%s\", status=AJ_ERR_WRITE\n", strerror(errno)));
             return AJ_ERR_WRITE;
@@ -273,7 +273,7 @@ static void sendToBroadcast(int sock, void* ptr, size_t tx)
             sin_bcast->sin_port = htons(AJ_UDP_PORT);
             inet_ntop(AF_INET, &(sin_bcast->sin_addr), buf, sizeof(buf));
             AJ_InfoPrintf(("sendToBroadcast: sending to bcast addr %s\n", buf));
-            sendto(sock, ptr, tx, 0, (struct sockaddr*) sin_bcast, sizeof(struct sockaddr_in));
+            sendto(sock, ptr, tx, MSG_NOSIGNAL, (struct sockaddr*) sin_bcast, sizeof(struct sockaddr_in));
         }
 
         addr = addr->ifa_next;
@@ -296,7 +296,7 @@ AJ_Status AJ_Net_SendTo(AJ_IOBuffer* buf)
             sin.sin_port = htons(AJ_UDP_PORT);
 
             if (inet_pton(AF_INET, AJ_IPV4_MULTICAST_GROUP, &sin.sin_addr) == 1) {
-                ret = sendto(context->udpSock, buf->readPtr, tx, 0, (struct sockaddr*)&sin, sizeof(sin));
+                ret = sendto(context->udpSock, buf->readPtr, tx, MSG_NOSIGNAL, (struct sockaddr*)&sin, sizeof(sin));
             }
 
 
@@ -312,7 +312,7 @@ AJ_Status AJ_Net_SendTo(AJ_IOBuffer* buf)
             sin6.sin6_scope_id = 0;
             sin6.sin6_port = htons(AJ_UDP_PORT);
             if (inet_pton(AF_INET6, AJ_IPV6_MULTICAST_GROUP, &sin6.sin6_addr) == 1) {
-                ret = sendto(context->udp6Sock, buf->readPtr, tx, 0, (struct sockaddr*) &sin6, sizeof(sin6));
+                ret = sendto(context->udp6Sock, buf->readPtr, tx, MSG_NOSIGNAL, (struct sockaddr*) &sin6, sizeof(sin6));
             }
         }
 
