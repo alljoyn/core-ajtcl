@@ -1143,6 +1143,7 @@ AJ_Status AJ_SkipArg(AJ_Message* msg)
         if (status == AJ_OK) {
             status = AJ_UnmarshalCloseContainer(msg, &skippy);
         }
+        msg->outer = skippy.container;
     }
     return status;
 }
