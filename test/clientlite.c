@@ -122,7 +122,7 @@ static AJ_Status SendPing(AJ_BusAttachment* bus, uint32_t sessionId, const char*
 static int32_t g_iterCount = 0;
 static void AppDoWork(AJ_BusAttachment* bus, uint32_t sessionId, const char* serviceName)
 {
-    AJ_Printf("AppDoWork\n");
+    AJ_AlwaysPrintf(("AppDoWork\n"));
     /*
      * This function is called if there are no messages to unmarshal
      * Alternate between alljoyn_test ping and Bus ping
@@ -189,11 +189,12 @@ static AJ_Status IsTrustedIssuer(const char* issuer)
 static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, AJ_Credential* cred)
 {
     AJ_Status status = AJ_ERR_INVALID;
+
     uint8_t* b8;
     size_t b8len;
     char* b64;
     size_t b64len;
-    AJ_Printf("AuthListenerCallback authmechanism %d command %d\n", authmechanism, command);
+    AJ_AlwaysPrintf(("AuthListenerCallback authmechanism %d command %d\n", authmechanism, command));
 
     switch (authmechanism) {
     case AUTH_SUITE_ECDHE_NULL:
@@ -213,7 +214,7 @@ static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, 
 
         case AJ_CRED_PRV_KEY:
             if (AJ_CRED_PUB_KEY == cred->mask) {
-                AJ_Printf("Request Credentials for PSK ID: %s\n", cred->data);
+                AJ_AlwaysPrintf(("Request Credentials for PSK ID: %s\n", cred->data));
             }
             cred->mask = AJ_CRED_PRV_KEY;
             cred->data = (uint8_t*) psk_char;
@@ -277,8 +278,9 @@ static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, 
             status = AJ_RawToB64(cred->data, cred->len, b64, b64len);
             AJ_ASSERT(AJ_OK == status);
             status = IsTrustedIssuer(b64);
-            AJ_Printf("TRUST: %s %d\n", b64, status);
+            AJ_AlwaysPrintf(("TRUST: %s %d\n", b64, status));
             AJ_Free(b64);
+
             break;
 
         case AJ_CRED_CERT_ROOT:
@@ -287,7 +289,7 @@ static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, 
             AJ_ASSERT(b64);
             status = AJ_RawToB64(cred->data, cred->len, b64, b64len);
             AJ_ASSERT(AJ_OK == status);
-            AJ_Printf("ROOT: %s\n", b64);
+            AJ_AlwaysPrintf(("ROOT: %s\n", b64));
             status = AJ_OK;
             AJ_Free(b64);
             break;
@@ -350,13 +352,13 @@ AJ_Status SendSetProp(AJ_BusAttachment* bus, uint32_t sessionId, const char* ser
         if (status == AJ_OK) {
             status = AJ_MarshalArgs(&msg, "i", val);
         } else {
-            AJ_Printf(">>>>>>>>In SendSetProp() AJ_MarshalPropertyArgs() returned status = 0x%04x\n", status);
+            AJ_AlwaysPrintf((">>>>>>>>In SendSetProp() AJ_MarshalPropertyArgs() returned status = 0x%04x\n", status));
         }
 
         if (status == AJ_OK) {
             status = AJ_DeliverMsg(&msg);
         } else {
-            AJ_Printf(">>>>>>>>In SendSetProp() AJ_MarshalArgs() returned status = 0x%04x\n", status);
+            AJ_AlwaysPrintf((">>>>>>>>In SendSetProp() AJ_MarshalArgs() returned status = 0x%04x\n", status));
         }
     }
 
@@ -407,7 +409,7 @@ int AJ_Main()
             av++;
         }
         if (!ac) {
-            AJ_Printf("-e(k) requires an auth mechanism.\n");
+            AJ_AlwaysPrintf(("-e(k) requires an auth mechanism.\n"));
             return 1;
         }
         while (ac) {
@@ -445,8 +447,8 @@ int AJ_Main()
             status = AJ_StartClientByInterface(&bus, NULL, CONNECT_TIMEOUT, FALSE, testInterfaceNames, &sessionId, testServiceName, NULL);
 #endif
             if (status == AJ_OK) {
-                AJ_Printf("StartClient returned %d, sessionId=%u, serviceName=%s\n", status, sessionId, testServiceName);
-                AJ_Printf("Connected to Daemon:%s\n", AJ_GetUniqueName(&bus));
+                AJ_AlwaysPrintf(("StartClient returned %d, sessionId=%u, serviceName=%s\n", status, sessionId, testServiceName));
+                AJ_AlwaysPrintf(("Connected to Daemon:%s\n", AJ_GetUniqueName(&bus)));
                 connected = TRUE;
 #if defined(SECURE_INTERFACE) || defined(SECURE_OBJECT)
                 if (enablepwd) {
@@ -460,19 +462,19 @@ int AJ_Main()
                 }
                 status = AJ_BusAuthenticatePeer(&bus, testServiceName, AuthCallback, &authStatus);
                 if (status != AJ_OK) {
-                    AJ_Printf("AJ_BusAuthenticatePeer returned %d\n", status);
+                    AJ_AlwaysPrintf(("AJ_BusAuthenticatePeer returned %d\n", status));
                 }
 #else
                 authStatus = AJ_OK;
 #endif
             } else {
-                AJ_Printf("StartClient returned %d\n", status);
+                AJ_AlwaysPrintf(("StartClient returned %d\n", status));
                 break;
             }
         }
 
 
-        AJ_Printf("Auth status %d and AllJoyn status %d\n", authStatus, status);
+        AJ_AlwaysPrintf(("Auth status %d and AllJoyn status %d\n", authStatus, status));
 
         if (status == AJ_ERR_RESOURCES) {
             AJ_InfoPrintf(("Peer is busy, disconnecting and retrying auth...\n"));
@@ -505,9 +507,9 @@ int AJ_Main()
                     uint32_t timeout;
                     status = AJ_UnmarshalArgs(&msg, "uu", &disposition, &timeout);
                     if (disposition == AJ_SETLINKTIMEOUT_SUCCESS) {
-                        AJ_Printf("Link timeout set to %d\n", timeout);
+                        AJ_AlwaysPrintf(("Link timeout set to %d\n", timeout));
                     } else {
-                        AJ_Printf("SetLinkTimeout failed %d\n", disposition);
+                        AJ_AlwaysPrintf(("SetLinkTimeout failed %d\n", disposition));
                     }
                     SendPing(&bus, sessionId, testServiceName, 1);
                 }
@@ -518,9 +520,9 @@ int AJ_Main()
                     uint32_t disposition;
                     status = AJ_UnmarshalArgs(&msg, "u", &disposition);
                     if (disposition == AJ_PING_SUCCESS) {
-                        AJ_Printf("Bus Ping reply received\n");
+                        AJ_AlwaysPrintf(("Bus Ping reply received\n"));
                     } else {
-                        AJ_Printf("Bus Ping failed, disconnecting: %d\n", disposition);
+                        AJ_AlwaysPrintf(("Bus Ping failed, disconnecting: %d\n", disposition));
                         status = AJ_ERR_LINK_DEAD;
                     }
                 }
@@ -530,7 +532,7 @@ int AJ_Main()
                 {
                     AJ_Arg arg;
                     AJ_UnmarshalArg(&msg, &arg);
-                    AJ_Printf("Got ping reply\n");
+                    AJ_AlwaysPrintf(("Got ping reply\n"));
                     AJ_InfoPrintf(("INFO Got ping reply\n"));
                     status = SendGetProp(&bus, sessionId, testServiceName);
                 }
@@ -542,7 +544,7 @@ int AJ_Main()
                     status = AJ_UnmarshalVariant(&msg, &sig);
                     if (status == AJ_OK) {
                         status = AJ_UnmarshalArgs(&msg, sig, &g_iterCount);
-                        AJ_Printf("Get prop reply %d\n", g_iterCount);
+                        AJ_AlwaysPrintf(("Get prop reply %d\n", g_iterCount));
 
                         if (status == AJ_OK) {
                             g_iterCount = g_iterCount + 1;
@@ -553,7 +555,7 @@ int AJ_Main()
                 break;
 
             case AJ_REPLY_ID(PRX_SET_PROP):
-                AJ_Printf("Set prop reply\n");
+                AJ_AlwaysPrintf(("Set prop reply\n"));
                 break;
 
             case AJ_SIGNAL_SESSION_LOST_WITH_REASON:
@@ -563,7 +565,7 @@ int AJ_Main()
                 {
                     uint32_t id, reason;
                     AJ_UnmarshalArgs(&msg, "uu", &id, &reason);
-                    AJ_Printf("Session lost. ID = %u, reason = %u\n", id, reason);
+                    AJ_AlwaysPrintf(("Session lost. ID = %u, reason = %u\n", id, reason));
                 }
                 status = AJ_ERR_SESSION_LOST;
                 break;
@@ -582,13 +584,13 @@ int AJ_Main()
         AJ_CloseMsg(&msg);
 
         if ((status == AJ_ERR_SESSION_LOST) || (status == AJ_ERR_READ) || (status == AJ_ERR_LINK_DEAD)) {
-            AJ_Printf("AllJoyn disconnect\n");
-            AJ_Printf("Disconnected from Daemon:%s\n", AJ_GetUniqueName(&bus));
+            AJ_AlwaysPrintf(("AllJoyn disconnect\n"));
+            AJ_AlwaysPrintf(("Disconnected from Daemon:%s\n", AJ_GetUniqueName(&bus)));
             AJ_Disconnect(&bus);
             return status;
         }
     }
-    AJ_Printf("clientlite EXIT %d\n", status);
+    AJ_AlwaysPrintf(("clientlite EXIT %d\n", status));
 
     return status;
 }

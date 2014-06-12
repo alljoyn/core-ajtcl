@@ -2,7 +2,7 @@
  * @file
  */
 /******************************************************************************
- * Copyright (c) 2012-2013, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2012-2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -325,12 +325,12 @@ int AJ_Main(void)
 
         status = AJ_Encrypt_CCM(key, msg, mlen, testVector[i].hdrLen, testVector[i].authLen, nonce, nlen);
         if (status != AJ_OK) {
-            AJ_Printf("Encryption failed (%d) for test #%zu\n", status, i);
+            AJ_AlwaysPrintf(("Encryption failed (%d) for test #%zu\n", status, i));
             goto ErrorExit;
         }
         AJ_RawToHex(msg, mlen + testVector[i].authLen, out, sizeof(out), FALSE);
         if (strcmp(out, testVector[i].output) != 0) {
-            AJ_Printf("Encrypt verification failure for test #%zu\n%s\n", i, out);
+            AJ_AlwaysPrintf(("Encrypt verification failure for test #%zu\n%s\n", i, out));
             goto ErrorExit;
         }
         /*
@@ -338,18 +338,18 @@ int AJ_Main(void)
          */
         status = AJ_Decrypt_CCM(key, msg, mlen, testVector[i].hdrLen, testVector[i].authLen, nonce, nlen);
         if (status != AJ_OK) {
-            AJ_Printf("Authentication failure (%d) for test #%zu\n", status, i);
+            AJ_AlwaysPrintf(("Authentication failure (%d) for test #%zu\n", status, i));
             goto ErrorExit;
         }
         AJ_RawToHex(msg, mlen, out, sizeof(out), FALSE);
         if (strcmp(out, testVector[i].input) != 0) {
-            AJ_Printf("Decrypt verification failure for test #%zu\n%s\n", i, out);
+            AJ_AlwaysPrintf(("Decrypt verification failure for test #%zu\n%s\n", i, out));
             goto ErrorExit;
         }
-        AJ_Printf("Passed and verified test #%zu\n", i);
+        AJ_AlwaysPrintf(("Passed and verified test #%zu\n", i));
     }
 
-    AJ_Printf("AES CCM unit test PASSED\n");
+    AJ_AlwaysPrintf(("AES CCM unit test PASSED\n"));
 
     {
         static const char expect[] = "F19787716404918CA20F174CFF2E165F21B17A70C472480AE91891B5BB8DD261CBD4273612D41BC6";
@@ -368,22 +368,22 @@ int AJ_Main(void)
 
         status = AJ_Crypto_PRF((const uint8_t**)inputs, length, ArraySize(inputs), key, sizeof(key));
         if (status != AJ_OK) {
-            AJ_Printf("AJ_Crypto_PRF %d\n", status);
+            AJ_AlwaysPrintf(("AJ_Crypto_PRF %d\n", status));
             goto ErrorExit;
         }
         AJ_RawToHex(key, sizeof(key), out, sizeof(out), FALSE);
         if (strcmp(out, expect) != 0) {
-            AJ_Printf("AJ_Crypto_PRF failed: %d\n", status);
+            AJ_AlwaysPrintf(("AJ_Crypto_PRF failed: %d\n", status));
             goto ErrorExit;
         }
-        AJ_Printf("AJ_Crypto_PRF test PASSED: %d\n", status);
+        AJ_AlwaysPrintf(("AJ_Crypto_PRF test PASSED: %d\n", status));
     }
 
     return 0;
 
 ErrorExit:
 
-    AJ_Printf("AES CCM unit test FAILED\n");
+    AJ_AlwaysPrintf(("AES CCM unit test FAILED\n"));
     return 1;
 }
 

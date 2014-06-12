@@ -55,7 +55,7 @@ static void run_buflist_external(const struct test_case* test)
     AJ_BufNode* pNode1 = AJ_BufListCreateNodeExternalBuffer((uint8_t*)&externA, sizeof(externA));
     AJ_BufNode* pNode2 = AJ_BufListCreateNodeExternalBuffer((uint8_t*)&externB, sizeof(externB));
 
-    AJ_Printf("\n\n**************\nTEST:  %s\n\n", __FUNCTION__);
+    AJ_AlwaysPrintf(("\n\n**************\nTEST:  %s\n\n", __FUNCTION__));
 
     memset(pNode1->buffer, 0x1, pNode1->length);
     memset(pNode2->buffer, 0x2, pNode2->length);
@@ -82,7 +82,7 @@ static void run_buflist_coalesce(const struct test_case* test)
     AJ_BufNode* pNode1 = AJ_BufListCreateNode(100);
     AJ_BufNode* pNode2 = AJ_BufListCreateNode(200);
 
-    AJ_Printf("\n\n**************\nTEST:  %s\n\n", __FUNCTION__);
+    AJ_AlwaysPrintf(("\n\n**************\nTEST:  %s\n\n", __FUNCTION__));
 
     memset(pNode1->buffer, 0x1, pNode1->length);
     memset(pNode2->buffer, 0x2, pNode2->length);
@@ -98,7 +98,7 @@ static void run_buflist_coalesce(const struct test_case* test)
 
 
     // Test squeezing together a few buffer nodes in a list.
-    AJ_Printf("%s", "\n\nTEST: Coalesce Start\n");
+    AJ_AlwaysPrintf(("%s", "\n\nTEST: Coalesce Start\n"));
     {
         AJ_BufList* list3 = AJ_BufListCreate();
 
@@ -118,23 +118,23 @@ static void run_buflist_coalesce(const struct test_case* test)
 
         AJ_BufNodeIterate(AJ_BufListNodePrintDump, list3, NULL);
 
-        AJ_Printf("%s", "\n\nTEST: coalesce the head twice, then dump\n");
+        AJ_AlwaysPrintf(("%s", "\n\nTEST: coalesce the head twice, then dump\n"));
         AJ_BufListCoalesce(list3->head);
         AJ_BufListCoalesce(list3->head);
         AJ_BufNodeIterate(AJ_BufListNodePrintDump, list3, NULL);
 
 
-        AJ_Printf("%s", "\n\nTEST: Next pull 16 bytes then dump\n");
+        AJ_AlwaysPrintf(("%s", "\n\nTEST: Next pull 16 bytes then dump\n"));
 
         AJ_BufListPullBytes(list3, 4);
         AJ_BufListPullBytes(list3, 4);
         AJ_BufListPullBytes(list3, 8);
         AJ_BufNodeIterate(AJ_BufListNodePrintDump, list3, NULL);
-        AJ_Printf("%s", "\n\nTEST: PULL BYTES 16 end\n");
+        AJ_AlwaysPrintf(("%s", "\n\nTEST: PULL BYTES 16 end\n"));
 
         AJ_BufListFree(list3, 1);
     }
-    AJ_Printf("%s", "\nTEST: Coalesce End\n");
+    AJ_AlwaysPrintf(("%s", "\nTEST: Coalesce End\n"));
 }
 
 

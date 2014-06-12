@@ -40,21 +40,21 @@ static int test(char* input, char* output)
 
     status = AJ_RawToB64((uint8_t*) input, inputlen, encode, sizeof (encode));
     if (AJ_OK != status) {
-        AJ_Printf("FAILED STATUS\n");
+        AJ_AlwaysPrintf(("FAILED STATUS\n"));
         return 1;
     }
     if (0 != strncmp(output, encode, outputlen)) {
-        AJ_Printf("FAILED ENCODE\n");
+        AJ_AlwaysPrintf(("FAILED ENCODE\n"));
         return 1;
     }
 
     status = AJ_B64ToRaw(output, outputlen, (uint8_t*) decode, sizeof (decode));
     if (AJ_OK != status) {
-        AJ_Printf("FAILED STATUS\n");
+        AJ_AlwaysPrintf(("FAILED STATUS\n"));
         return 1;
     }
     if (0 != strncmp(input, decode, inputlen)) {
-        AJ_Printf("FAILED DECODE\n");
+        AJ_AlwaysPrintf(("FAILED DECODE\n"));
         return 1;
     }
 
@@ -68,9 +68,9 @@ int AJ_Main(void)
      */
 
     if (test("This is a test.", "VGhpcyBpcyBhIHRlc3Qu")) {
-        AJ_Printf("FAILED\n");
+        AJ_AlwaysPrintf(("FAILED\n"));
     } else {
-        AJ_Printf("PASSED\n");
+        AJ_AlwaysPrintf(("PASSED\n"));
     }
 
     return 0;

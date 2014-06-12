@@ -2,7 +2,7 @@
  * @file  UART transport Tester
  */
 /******************************************************************************
- * Copyright (c) 2013, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2013-2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -111,9 +111,9 @@ void FuzzBuffer(uint8_t* buf, uint32_t len)
     PacketHeader* ph = (PacketHeader*)buf;
 
     uint16_t packetLen = (ps->len[0] << 8) | ps->len[1];
-    AJ_Printf("FuzzBuffer: Before case %i Tag:%c%c%c%c Ack:%i Seq:%i Type:%X Len:%i\n"
-              , test, ph->tag[0], ph->tag[1], ph->tag[2], ph->tag[3],
-              ps->ack, ps->seq, ps->type, packetLen);
+    AJ_AlwaysPrintf(("FuzzBuffer: Before case %i Tag:%c%c%c%c Ack:%i Seq:%i Type:%X Len:%i\n"
+                     , test, ph->tag[0], ph->tag[1], ph->tag[2], ph->tag[3],
+                     ps->ack, ps->seq, ps->type, packetLen));
 
     switch (test) {
     case 0:
@@ -185,9 +185,9 @@ void FuzzBuffer(uint8_t* buf, uint32_t len)
          */
         break;
     }
-    AJ_Printf("FuzzBuffer: After  case %i Tag:%c%c%c%c Ack:%i Seq:%i Type:%X Len:%i\n"
-              , test, ph->tag[0], ph->tag[1], ph->tag[2], ph->tag[3],
-              ps->ack, ps->seq, ps->type, packetLen);
+    AJ_AlwaysPrintf(("FuzzBuffer: After  case %i Tag:%c%c%c%c Ack:%i Seq:%i Type:%X Len:%i\n"
+                     , test, ph->tag[0], ph->tag[1], ph->tag[2], ph->tag[3],
+                     ps->ack, ps->seq, ps->type, packetLen));
 
     AJ_DebugDumpSerialTX("FuzzBuffer", buf, len);
     __AJ_TX(buf, len);
@@ -200,7 +200,7 @@ int AJ_Main()
     while (1) {
         int windows = 1 << (rand() % 3); // randomize window width 1,2,4
         int blocksize = 50 + (rand() % 1000); // randomize packet size 50 - 1050
-        AJ_Printf("Windows:%i Blocksize:%i\n", windows, blocksize);
+        AJ_AlwaysPrintf(("Windows:%i Blocksize:%i\n", windows, blocksize));
         txBuffer = (uint8_t*) AJ_Malloc(blocksize);
         rxBuffer = (uint8_t*) AJ_Malloc(blocksize);
         memset(txBuffer, 0x41,  blocksize);
@@ -212,7 +212,7 @@ int AJ_Main()
         status = AJ_SerialInit("/dev/ttyUSB1", BITRATE, windows, blocksize);
 #endif
 
-        AJ_Printf("serial init was %u\n", status);
+        AJ_AlwaysPrintf(("serial init was %u\n", status));
         if (status != AJ_OK) {
             continue; // init failed perhaps from bad parameters, start the loop again
         }
@@ -244,13 +244,13 @@ int AJ_Main()
             AJ_SerialSend(txBuffer, blocksize);
             ++i;
             if (i % 20 == 0) {
-                AJ_Printf("Hit iteration %d\n", i);
+                AJ_AlwaysPrintf(("Hit iteration %d\n", i));
                 break;
             }
             AJ_SerialRecv(rxBuffer, blocksize, 5000, NULL);
         }
 
-        AJ_Printf("post serial send\n");
+        AJ_AlwaysPrintf(("post serial send\n"));
 #endif
 
         // clean up and start again

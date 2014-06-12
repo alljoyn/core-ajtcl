@@ -560,10 +560,10 @@ static void PrintXML(void* context, const char* str, uint32_t len)
 {
     if (len) {
         while (len--) {
-            AJ_Printf("%c", *str++);
+            AJ_AlwaysPrintf(("%c", *str++));
         }
     } else {
-        AJ_Printf("%s", str);
+        AJ_AlwaysPrintf(("%s", str));
     }
 }
 
@@ -598,6 +598,7 @@ void AJ_PrintXMLWithDescriptions(const AJ_Object* obj, const char* languageTag)
                     AJ_ErrPrintf(("\nFailed to generate XML - check interface descriptions of %s for errors\n", obj->path));
                 }
             } else {
+                AJ_AlwaysPrintf(("Reminder: Object not yet added to the ObjectList, do not forget to call RegisterObjects\n"));
                 status = GenXML(PrintXML, NULL, NULL, obj, languageTag);
             }
         }

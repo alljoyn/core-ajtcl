@@ -109,12 +109,12 @@ static const uint8_t unknown2[] = {
 int AJ_Main(void)
 {
     WMI_Unmarshal2(fishing2);
-    AJ_Printf("==============================\n");
+    AJ_AlwaysPrintf(("==============================\n"));
     WMI_Unmarshal2(SEAQUICAP1);
-    AJ_Printf("==============================\n");
+    AJ_AlwaysPrintf(("==============================\n"));
     WMI_Unmarshal2(unknown);
-    AJ_Printf("==============================\n");
+    AJ_AlwaysPrintf(("==============================\n"));
     WMI_Unmarshal2(unknown2);
-    AJ_Printf("==============================\n");
+    AJ_AlwaysPrintf(("==============================\n"));
     return 1;
 }

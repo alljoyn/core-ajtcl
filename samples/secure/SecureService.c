@@ -82,9 +82,9 @@ static AJ_Status AppHandlePing(AJ_Message* msg)
     if (AJ_OK == status) {
 
         if (arg.typeId == AJ_ARG_STRING) {
-            AJ_Printf("Received ping request '%s'.\n", arg.val.v_string);
+            AJ_AlwaysPrintf(("Received ping request '%s'.\n", arg.val.v_string));
         } else {
-            AJ_Printf("Unexpected arg type '%d' in ping request.\n", arg.typeId);
+            AJ_AlwaysPrintf(("Unexpected arg type '%d' in ping request.\n", arg.typeId));
         }
 
         status = AJ_MarshalReplyMsg(msg, &reply);
@@ -128,7 +128,7 @@ static void PasswordGenerate()
     pin = 1000 * (rand() % 1000) + (rand() % 1000);
 
     sprintf(pinStr, "%06d", pin);
-    AJ_Printf("One Time Password : '%s'.\n", pinStr);
+    AJ_AlwaysPrintf(("One Time Password : '%s'.\n", pinStr));
 
     pinLength = (uint32_t)strlen(pinStr);
 #endif
@@ -142,7 +142,7 @@ static uint32_t PasswordCallback(uint8_t* buffer, uint32_t bufLen)
     /* Always terminated with a '\0' for following AJ_Printf(). */
     pinStr[pinLength] = '\0';
     memcpy(buffer, pinStr, pinLength);
-    AJ_Printf("Need password of '%s' length %u.\n", pinStr, pinLength);
+    AJ_AlwaysPrintf(("Need password of '%s' length %u.\n", pinStr, pinLength));
 
     return pinLength;
 }
@@ -233,7 +233,7 @@ int AJ_Main(void)
         AJ_CloseMsg(&msg);
 
         if (status == AJ_ERR_READ) {
-            AJ_Printf("AllJoyn disconnect.\n");
+            AJ_AlwaysPrintf(("AllJoyn disconnect.\n"));
             AJ_Disconnect(&bus);
             connected = FALSE;
 

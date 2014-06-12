@@ -116,15 +116,15 @@ void WSL_PrintScan(void)
 {
     int i;
     for (i = 0; i < list.size; i++) {
-        AJ_Printf("%-17.17s ", list.list[i].ssid);
-        AJ_Printf("RSSI: %u ", list.list[i].rssi);
-        AJ_Printf("BSSID: %02x:%02x:%02x:%02x:%02x:%02x\n",
-                  list.list[i].bssid[0],
-                  list.list[i].bssid[1],
-                  list.list[i].bssid[2],
-                  list.list[i].bssid[3],
-                  list.list[i].bssid[4],
-                  list.list[i].bssid[5]);
+        AJ_AlwaysPrintf(("%-17.17s ", list.list[i].ssid));
+        AJ_AlwaysPrintf(("RSSI: %u ", list.list[i].rssi));
+        AJ_AlwaysPrintf(("BSSID: %02x:%02x:%02x:%02x:%02x:%02x\n",
+                         list.list[i].bssid[0],
+                         list.list[i].bssid[1],
+                         list.list[i].bssid[2],
+                         list.list[i].bssid[3],
+                         list.list[i].bssid[4],
+                         list.list[i].bssid[5]));
     }
 }
 void WSL_PrintScanSorted(void)
@@ -199,7 +199,7 @@ AJ_Status AJ_WSL_NET_scan(void)
 
     AJ_WSL_NET_set_scan_params();
 
-    AJ_Printf(("AJ_WSL_NET_scan(): START_SCAN\n"));
+    AJ_AlwaysPrintf((("AJ_WSL_NET_scan(): START_SCAN\n")));
     start_scan = AJ_BufListCreate();
     WSL_MarshalPacket(start_scan, WSL_START_SCAN, 0, 0, 0, 0, 0, 0, 0, 0);
     WMI_MarshalHeader(start_scan, 1, 1);
@@ -334,7 +334,7 @@ AJ_EXPORT AJ_Status AJ_WSL_NET_connect(const char* SSID, const char* passphrase,
                     AJ_WSL_NET_scan_stop();
                     list = (wsl_scan_list*)AJ_WSL_GetScanList();
                     if (list->size == 0) {
-                        AJ_Printf("Could not find access point %s\n", SSID);
+                        AJ_AlwaysPrintf(("Could not find access point %s\n", SSID));
                         WSL_ClearScanList(list);
                         AJ_Sleep(AJ_WSL_CONNECT_WAIT);
                         continue;
@@ -386,7 +386,7 @@ AJ_EXPORT AJ_Status AJ_WSL_NET_connect(const char* SSID, const char* passphrase,
         AJ_WSL_WMI_QueueWorkItem(0, AJ_WSL_WORKITEM(AJ_WSL_WORKITEM_NETWORK, WSL_NET_CONNECT), AJ_WSL_HTC_DATA_ENDPOINT1, connectOut);
 
         if (softAP) {
-            AJ_Printf("Waiting for a connection to the softAP %s\n", SSID);
+            AJ_AlwaysPrintf(("Waiting for a connection to the softAP %s\n", SSID));
             memcpy(&connect_mac, (uint8_t*)getDeviceMac(), sizeof(connect_mac));
             while (WSL_MacsAreEqual((uint8_t*)&connect_mac, (uint8_t*)getDeviceMac()) == TRUE) {
 
@@ -420,7 +420,7 @@ void AJ_WSL_PrintIP(uint32_t ip)
 {
     uint8_t* ptr;
     ptr = (uint8_t*)&ip;
-    AJ_Printf("%i.%i.%i.%i\n", *(ptr + 3), *(ptr + 2), *(ptr + 1), *(ptr));
+    AJ_AlwaysPrintf(("%i.%i.%i.%i\n", *(ptr + 3), *(ptr + 2), *(ptr + 1), *(ptr)));
 }
 AJ_Status AJ_WSL_ip6config(uint32_t mode, uint8_t* globalAddr, uint8_t* localAddr, uint8_t* gateway, uint8_t* exAddr, uint32_t linkPrefix, uint32_t globalPrefix, uint32_t gwPrefix, uint32_t glbPrefixExt)
 {
@@ -746,7 +746,7 @@ int16_t AJ_WSL_NET_socket_select(AJ_WSL_SOCKNUM sock, uint32_t timeout)
     // 5. If the timeout has expired
     while (1) {
         status = AJ_QueuePeek(AJ_WSL_SOCKET_CONTEXT[sock].workRxQueue, &peek);
-        //AJ_Printf("Item type = %u\n", peek->itemType);
+        //AJ_AlwaysPrintf(("Item type = %u\n", peek->itemType));
         if ((status == AJ_OK) && (peek->itemType == WSL_NET_INTERUPT)) {
             // Pull the interrupted item off because we dont need it anymore
             AJ_QueuePull(AJ_WSL_SOCKET_CONTEXT[sock].workRxQueue, &peek, 0);
@@ -1129,7 +1129,7 @@ AJ_Status AJ_WSL_NET_disconnect(void)
     AJ_Status status;
     AJ_BufList* disconnect;
     wsl_work_item* item;
-    AJ_Printf(("AJ_WSL_NET_disconnect(): DISCONNECT\n"));
+    AJ_AlwaysPrintf((("AJ_WSL_NET_disconnect(): DISCONNECT\n")));
     disconnect = AJ_BufListCreate();
     WSL_MarshalPacket(disconnect, WSL_DISCONNECT, 0, 0, 0, 0, 0, 0, 0, 0);
     WMI_MarshalHeader(disconnect, 1, 1);

@@ -123,11 +123,11 @@ void _AJ_DebugCheckPacketList(RX_PKT volatile* list, char* listName)
 {
     // BUGBUG take a lock
     RX_PKT volatile* iter = list;
-    AJ_Printf("%s list %p\n", listName, list);
+    AJ_AlwaysPrintf(("%s list %p\n", listName, list));
 
     while (iter) {
         AJ_ASSERT(iter != iter->next);  //check for a single loop
-        AJ_Printf("%s list %p, iter %p next %p\n", listName, list, iter, iter->next);
+        AJ_AlwaysPrintf(("%s list %p, iter %p next %p\n", listName, list, iter, iter->next));
         iter = iter->next;
     }
 }
@@ -369,7 +369,7 @@ static void CompletePacket()
         /*
          * Packet is too small.
          */
-        AJ_Printf("Short packet %d\n", pkt->len);
+        AJ_AlwaysPrintf(("Short packet %d\n", pkt->len));
         return;
     }
 
@@ -383,9 +383,9 @@ static void CompletePacket()
      * Check the computed and received CRC's match.
      */
     if ((rcvdCrc[0] != checkCrc[0]) || (rcvdCrc[1] != checkCrc[1])) {
-        AJ_Printf("Data integrity error - discarding packet\n");
-        AJ_Printf("rcvdCrc = %u %u\n", rcvdCrc[0], rcvdCrc[1]);
-        AJ_Printf("checkCrc = %u %u\n", checkCrc[0], checkCrc[1]);
+        AJ_AlwaysPrintf(("Data integrity error - discarding packet\n"));
+        AJ_AlwaysPrintf(("rcvdCrc = %u %u\n", rcvdCrc[0], rcvdCrc[1]));
+        AJ_AlwaysPrintf(("checkCrc = %u %u\n", checkCrc[0], checkCrc[1]));
         return;
     }
 
@@ -401,12 +401,12 @@ static void CompletePacket()
     expectedLen = ((uint16_t) pkt->buffer[2]) << 8;
     expectedLen |= (pkt->buffer[3]);
     if (expectedLen != (pkt->len - AJ_SERIAL_HDR_LEN - 2)) {
-        AJ_Printf("Wrong packet length header says %d read %d bytes\n", expectedLen, pkt->len - AJ_SERIAL_HDR_LEN - 2);
+        AJ_AlwaysPrintf(("Wrong packet length header says %d read %d bytes\n", expectedLen, pkt->len - AJ_SERIAL_HDR_LEN - 2));
         return;
     }
 
 
-    //AJ_Printf("Rx %d, seq=%d, ack=%d\n", pktType, seq, ack);
+    //AJ_AlwaysPrintf("Rx %d, seq=%d, ack=%d\n", pktType, seq, ack);
 
     /*
      * Handle link control packets.
@@ -419,7 +419,7 @@ static void CompletePacket()
      * If the link is not active non-link packets are discarded.
      */
     if (AJ_SerialLinkParams.linkState != AJ_LINK_ACTIVE) {
-        AJ_Printf("Link not up - discarding data packet\n");
+        AJ_AlwaysPrintf(("Link not up - discarding data packet\n"));
         return;
     }
 
@@ -437,9 +437,9 @@ static void CompletePacket()
          */
         if (seq != expectedSeq) {
             if (SEQ_GT(seq, expectedSeq)) {
-                AJ_Printf("Missing packet - expected = %d, got %d\n", expectedSeq, seq);
+                AJ_AlwaysPrintf(("Missing packet - expected = %d, got %d\n", expectedSeq, seq));
             } else {
-                AJ_Printf("Repeated packet seq = %d, expected %d\n", seq, expectedSeq);
+                AJ_AlwaysPrintf(("Repeated packet seq = %d, expected %d\n", seq, expectedSeq));
                 AJ_SerialTx_ReceivedSeq(seq);
             }
         } else {
@@ -504,7 +504,7 @@ static uint32_t UART_RxComplete(uint8_t* buffer, uint16_t bytes)
                 RxPacket->state = PACKET_OPEN;
             } else {
                 RxPacket->state = PACKET_FLUSH;
-                AJ_Printf("AJ_SerialRx_Receive: Flushing input at %2x\n", rx);
+                AJ_AlwaysPrintf(("AJ_SerialRx_Receive: Flushing input at %2x\n", rx));
             }
             RxPacket->len = 0;
             break;
@@ -522,7 +522,7 @@ static uint32_t UART_RxComplete(uint8_t* buffer, uint16_t bytes)
                 RxPacket->buffer[RxPacket->len++] = ESCAPE_BYTE;
                 break;
             }
-            AJ_Printf("AJ_SerialRx_Receive: Bad escape sequence %2x\n", rx);
+            AJ_AlwaysPrintf(("AJ_SerialRx_Receive: Bad escape sequence %2x\n", rx));
             /*
              * Bad escape sequence: discard everything up to the current
              * byte. This means that we need to restore the current byte.
@@ -554,7 +554,7 @@ static uint32_t UART_RxComplete(uint8_t* buffer, uint16_t bytes)
                  * Packet overrun: discard the packet.
                  */
                 RxPacket->state = PACKET_NEW;
-                AJ_Printf("AJ_SerialRx_Receive: Packet overrun %d\n", RxPacket->len);
+                AJ_AlwaysPrintf(("AJ_SerialRx_Receive: Packet overrun %d\n", RxPacket->len));
                 break;
             }
             RxPacket->buffer[RxPacket->len++] = rx;

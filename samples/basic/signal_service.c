@@ -94,7 +94,7 @@ static AJ_Status SendSignal()
 {
     AJ_Message msg;
 
-    AJ_Printf("Emitting Name Changed Signal. New value for property 'name' is '%s'.\n", propertyName);
+    AJ_AlwaysPrintf(("Emitting Name Changed Signal. New value for property 'name' is '%s'.\n", propertyName));
 
     /* For the signal to transmit outside of the current process the session ID must be 0. */
     AJ_MarshalSignal(&busAttachment, &msg, BASIC_SIGNAL_SERVICE_SIGNAL, NULL, 0, AJ_FLAG_GLOBAL_BROADCAST, 0);
@@ -123,7 +123,7 @@ static AJ_Status SetName(AJ_Message* replyMsg, uint32_t propId, void* context)
         AJ_UnmarshalArgs(replyMsg, "s", &string);
         strncpy(propertyName, string, propertyNameSize);
         propertyName[propertyNameSize - 1] = '\0';
-        AJ_Printf("Set 'name' property was called changing name to '%s'.\n", propertyName);
+        AJ_AlwaysPrintf(("Set 'name' property was called changing name to '%s'.\n", propertyName));
         status = AJ_OK;
     }
 
@@ -225,7 +225,7 @@ int AJ_Main(void)
         AJ_CloseMsg(&msg);
 
         if (status == AJ_ERR_SESSION_LOST) {
-            AJ_Printf("AllJoyn disconnect.\n");
+            AJ_AlwaysPrintf(("AllJoyn disconnect.\n"));
             AJ_Disconnect(&busAttachment);
             connected = FALSE;
 
@@ -234,7 +234,7 @@ int AJ_Main(void)
         }
     }
 
-    AJ_Printf("Basic service exiting with status 0x%04x.\n", status);
+    AJ_AlwaysPrintf(("Basic service exiting with status 0x%04x.\n", status));
 
     return status;
 }

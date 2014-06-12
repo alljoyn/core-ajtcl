@@ -1,7 +1,7 @@
 /******************************************************************************
  *
  *
- * Copyright (c) 2013, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2013-2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -18,6 +18,7 @@
 
 #include <gtest/gtest.h>
 #include <aj_target.h>
+#include "aj_debug.h"
 /** Main entry point */
 int main(int argc, char**argv, char**envArg)
 {
@@ -25,11 +26,11 @@ int main(int argc, char**argv, char**envArg)
     setvbuf(stdout, NULL, _IONBF, 0);
     setvbuf(stderr, NULL, _IONBF, 0);
 
-    AJ_Printf("\n Running ajtcl unit test\n");
+    AJ_AlwaysPrintf(("\n Running ajtcl unit test\n"));
     testing::InitGoogleTest(&argc, argv);
     status = RUN_ALL_TESTS();
 
-    AJ_Printf("%s exiting with status %d \n", argv[0], status);
+    AJ_AlwaysPrintf(("%s exiting with status %d \n", argv[0], status));
 
     return (int) status;
 }

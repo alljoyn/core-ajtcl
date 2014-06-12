@@ -353,12 +353,12 @@ static int MCastUp6()
      * We pass the current global IPv6 address into the sockopt for joining the multicast group.
      */
     AJ_WSL_ip6config(IPCONFIG_QUERY, &gblAddr, &locAddr, &gwAddr, &gblExtAddr, linkPrefix, glbPrefix, gwPrefix, glbExtPrefix);
-    AJ_Printf("Global Address:\n");
-    AJ_Printf("%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x\n",
-              gblAddr[0], gblAddr[1], gblAddr[2], gblAddr[3],
-              gblAddr[4], gblAddr[5], gblAddr[6], gblAddr[7],
-              gblAddr[8], gblAddr[9], gblAddr[10], gblAddr[11],
-              gblAddr[12], gblAddr[13], gblAddr[14], gblAddr[15]);
+    AJ_InfoPrintf(("Global Address:\n"));
+    AJ_InfoPrintf(("%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x\n",
+                   gblAddr[0], gblAddr[1], gblAddr[2], gblAddr[3],
+                   gblAddr[4], gblAddr[5], gblAddr[6], gblAddr[7],
+                   gblAddr[8], gblAddr[9], gblAddr[10], gblAddr[11],
+                   gblAddr[12], gblAddr[13], gblAddr[14], gblAddr[15]));
 
     mcastSock = AJ_WSL_NET_socket_open(WSL_AF_INET6, WSL_SOCK_DGRAM, 0);
 

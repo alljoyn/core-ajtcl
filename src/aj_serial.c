@@ -131,11 +131,11 @@ static void ProcessNegoPacket(const uint8_t* buffer)
     uint8_t window_size;
 
     max_payload = (((uint16_t) buffer[4]) << 8) | ((uint16_t) buffer[5]);
-    AJ_Printf("Read max payload: %u\n", max_payload);
+    AJ_AlwaysPrintf(("Read max payload: %u\n", max_payload));
     AJ_SerialLinkParams.packetSize = min(AJ_SerialLinkParams.packetSize, max_payload);
 
     proto_version = (buffer[6] >> 2) & 0x003F;
-    AJ_Printf("Read protocol version: %u\n", proto_version);
+    AJ_AlwaysPrintf(("Read protocol version: %u\n", proto_version));
     AJ_SerialLinkParams.protoVersion = min(AJ_SerialLinkParams.protoVersion, proto_version);
 
     // last two bits
@@ -159,12 +159,12 @@ static void ProcessNegoPacket(const uint8_t* buffer)
         break;
 
     default:
-        AJ_Printf("Invalid window size: %u\n", window_size);
+        AJ_AlwaysPrintf(("Invalid window size: %u\n", window_size));
         break;
     }
 
 
-    AJ_Printf("Read max window size: %u\n", window_size);
+    AJ_AlwaysPrintf(("Read max window size: %u\n", window_size));
     AJ_SerialLinkParams.windowSize = min(AJ_SerialLinkParams.maxWindowSize, window_size);
 }
 
@@ -219,7 +219,7 @@ static void SendLinkPacket()
          * Send a sync packet.
          */
         AJ_SerialTX_EnqueueCtrl((uint8_t*) ConnPkt, sizeof(ConnPkt), AJ_SERIAL_CTRL);
-        AJ_Printf("Send CONN\n");
+        AJ_AlwaysPrintf(("Send CONN\n"));
         ScheduleLinkControlPacket(CONN_TIMEOUT);
         break;
 
@@ -228,7 +228,7 @@ static void SendLinkPacket()
          * Send a conf packet.
          */
         SendNegotiationPacket(NegoPkt);
-        AJ_Printf("Send NEGO\n");
+        AJ_AlwaysPrintf(("Send NEGO\n"));
         ScheduleLinkControlPacket(NEGO_TIMEOUT);
         break;
 
@@ -395,7 +395,7 @@ AJ_Status AJ_SerialInit(const char* ttyName,
         return AJ_ERR_INVALID;
     }
 
-    AJ_Printf("Initializing serial transport\n");
+    AJ_AlwaysPrintf(("Initializing serial transport\n"));
 
     /** Initialize protocol default values */
     AJ_SerialLinkParams.protoVersion = SLAP_VERSION;
