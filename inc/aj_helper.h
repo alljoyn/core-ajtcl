@@ -172,7 +172,7 @@ AJ_Status AJ_StartService(AJ_BusAttachment* bus,
  * @param bus            The bus attachment
  * @param daemonName     Name of a specific daemon service to connect to, NULL for the default name.
  * @param timeout        How long to spend attempting to find a remote service to connect to.
- * @param connected      Whether the bus attachment is already connected to the daemon bus
+ * @param connected      Whether the bus attachment is already connected to the daemon bus.
  * @param name           The name of the service to connect to.
  * @param port           The service port to connect to.
  * @param[out] sessionId The session id returned if the connection was successful
@@ -196,8 +196,8 @@ AJ_Status AJ_StartClient(AJ_BusAttachment* bus,
  * @param bus            The bus attachment
  * @param daemonName     Name of a specific daemon service to connect to, NULL for the default name.
  * @param timeout        How long to spend attempting to find a remote service to connect to.
- * @param connected      Whether the bus attachment is already connected to the daemon bus
- * @param interfaces     Find service that implements these interface(s)
+ * @param connected      Whether the bus attachment is already connected to the daemon bus.
+ * @param interfaces     Find a service that implements these interface(s) (NULL-terminated list of names)
  * @param[out] sessionId The session id if the connection was successful
  * @param[out] serviceName The service name if the connection was successful (supply array of size AJ_MAX_NAME_SIZE+1)
  * @param opts           The session option setting.
