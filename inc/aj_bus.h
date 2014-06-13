@@ -59,6 +59,7 @@ typedef AJ_Status (*AJ_AuthListenerFunc)(uint32_t authmechanism, uint32_t comman
  * Type for a bus attachment
  */
 typedef struct _AJ_BusAttachment {
+    uint16_t aboutPort;          /**< The port to use in announcements */
     char uniqueName[16];         /**< The unique name returned by the hello message */
     AJ_NetSocket sock;           /**< Abstracts a network socket */
     uint32_t serial;             /**< Next outgoing message serial number */
