@@ -19,7 +19,7 @@
 
 /******************************************************************************
  * Any time in this file there is a comment including:
-    ioport_***, pio_***, pmc_***, spi_***, sysclk_***
+    ioport_***, pio_***, pmc_***, spi_***, sysclk_***, dmac_***
 
  * note that the API associated with it may be subject to this Atmel license:
  * (information about it is also at www.atmel.com/asf)
@@ -52,6 +52,66 @@
 #include "aj_wsl_htc.h"
 #include "aj_buf.h"
 #include "aj_wsl_tasks.h"
+#include "dmac.h"
+
+/** DMAC receive channel of master. */
+#define AJ_DMA_RX_CHANNEL       0
+#define AJ_DMA_TX_CHANNEL       1
+
+/** SPI DMA Operation type, receive or send */
+#define AJ_DMA_RX       0
+#define AJ_DMA_TX       1
+
+
+/** DMAC Channel HW Interface Number for SPI. */
+#define AJ_SPI_TX_INDEX         1
+#define AJ_SPI_RX_INDEX         2
+
+/** Address that can enable an interrupt in the system, from the datasheet */
+#define AJ_SPI_ISER1_IEN_ADDR 0xE000E104
+/** Bit value that will enable the DMAC interrupt, from the datasheet */
+#define AJ_SPI_DMAC_IEN_BIT (1 << 7)
+
+/**
+ * Two-dimensional array of structures the control how the DMA controller
+ * writes and reads data between RAM and the SPI hardware.
+ * The structures contain source then destination address, control register
+ * settings, followed by an empty field that would allow linking larger requests
+ */
+static const dma_transfer_descriptor_t transfer_descriptors[2][2] = {
+    { /* AJ_DMA_RX descriptors */
+        { /* AJ_DMA_RX_CHANNEL */
+            (uint32_t) &SPI0->SPI_RDR,
+            (uint32_t) NULL,
+            DMAC_CTRLA_SRC_WIDTH_BYTE | DMAC_CTRLA_DST_WIDTH_BYTE,
+            DMAC_CTRLB_SRC_DSCR | DMAC_CTRLB_DST_DSCR | DMAC_CTRLB_FC_PER2MEM_DMA_FC | DMAC_CTRLB_SRC_INCR_FIXED | DMAC_CTRLB_DST_INCR_INCREMENTING,
+            (uint32_t) NULL
+        },
+        { /* AJ_DMA_TX_CHANNEL */
+            (uint32_t) NULL,
+            (uint32_t) &SPI0->SPI_TDR,
+            DMAC_CTRLA_SRC_WIDTH_BYTE | DMAC_CTRLA_DST_WIDTH_BYTE,
+            DMAC_CTRLB_SRC_DSCR | DMAC_CTRLB_DST_DSCR | DMAC_CTRLB_FC_MEM2PER_DMA_FC | DMAC_CTRLB_SRC_INCR_FIXED | DMAC_CTRLB_DST_INCR_FIXED,
+            (uint32_t) NULL
+        }
+    },
+    { /* AJ_DMA_TX descriptors */
+        { /* AJ_DMA_RX_CHANNEL */
+            (uint32_t) &SPI0->SPI_RDR,
+            (uint32_t) NULL,
+            DMAC_CTRLA_SRC_WIDTH_BYTE | DMAC_CTRLA_DST_WIDTH_BYTE,
+            DMAC_CTRLB_SRC_DSCR | DMAC_CTRLB_DST_DSCR | DMAC_CTRLB_FC_PER2MEM_DMA_FC | DMAC_CTRLB_SRC_INCR_FIXED | DMAC_CTRLB_DST_INCR_FIXED,
+            (uint32_t) NULL
+        },
+        { /* AJ_DMA_TX_CHANNEL */
+            (uint32_t) NULL,
+            (uint32_t) &SPI0->SPI_TDR,
+            DMAC_CTRLA_SRC_WIDTH_BYTE | DMAC_CTRLA_DST_WIDTH_BYTE,
+            DMAC_CTRLB_SRC_DSCR | DMAC_CTRLB_DST_DSCR | DMAC_CTRLB_FC_MEM2PER_DMA_FC | DMAC_CTRLB_SRC_INCR_INCREMENTING | DMAC_CTRLB_DST_INCR_FIXED,
+            (uint32_t) NULL
+        }
+    }
+};
 
 
 
@@ -63,6 +123,38 @@ void AJ_WSL_SPI_CHIP_SPI_ISR(uint32_t id, uint32_t mask);
  */
 void AJ_WSL_SPI_InitializeSPIController(void)
 {
+    uint32_t config;
+
+    /* Initialize and enable DMA controller. */
+    pmc_enable_periph_clk(ID_DMAC);
+    dmac_init(DMAC);
+    dmac_set_priority_mode(DMAC, DMAC_PRIORITY_ROUND_ROBIN);
+    dmac_enable(DMAC);
+
+    /* Configure DMA TX channel. */
+    config = 0;
+    config |= DMAC_CFG_DST_PER(AJ_SPI_TX_INDEX) |
+              DMAC_CFG_DST_H2SEL |
+              DMAC_CFG_SOD | DMAC_CFG_FIFOCFG_ALAP_CFG;
+    dmac_channel_set_configuration(DMAC, AJ_DMA_TX_CHANNEL, config);
+
+    /* Configure DMA RX channel. */
+    config = 0;
+    config |= DMAC_CFG_SRC_PER(AJ_SPI_RX_INDEX) |
+              DMAC_CFG_SRC_H2SEL |
+              DMAC_CFG_SOD | DMAC_CFG_FIFOCFG_ALAP_CFG;
+    dmac_channel_set_configuration(DMAC, AJ_DMA_RX_CHANNEL, config);
+
+    /* Enable receive channel interrupt for DMAC. */
+    uint8_t* interruptEnableAddress = AJ_SPI_ISER1_IEN_ADDR;
+    *interruptEnableAddress = AJ_SPI_DMAC_IEN_BIT;
+
+    dmac_enable_interrupt(DMAC, (1 << AJ_DMA_RX_CHANNEL));
+    dmac_enable_interrupt(DMAC, (1 << AJ_DMA_TX_CHANNEL));
+    //AJ_WSL_DMA_Setup();
+    dmac_channel_disable(DMAC, AJ_DMA_TX_CHANNEL);
+    dmac_channel_disable(DMAC, AJ_DMA_RX_CHANNEL);
+
     /*
      * Configure the hardware to enable SPI and some output pins
      */
@@ -122,6 +214,82 @@ void AJ_WSL_SPI_InitializeSPIController(void)
 
     spi_enable_interrupt(AJ_WSL_SPI_DEVICE, SPI_IER_TDRE | SPI_IER_RDRF);
     spi_enable(AJ_WSL_SPI_DEVICE);
+}
+
+
+/**
+ * send_done is set to non-zero when a DMA operation completes,
+ * This allows AJ_WSL_SPI_DMATransfer to finish
+ */
+volatile uint32_t AJ_WSL_DMA_send_done = 0;
+
+/**
+ * This interrupt handler is called when a DMA operation completes and clears the waiting code
+ * (via send_done) The handler overrides the weak reference to the default interrupt handler.
+ */
+void DMAC_Handler(void)
+{
+    uint32_t ret;
+
+    ret = dmac_get_status(DMAC);
+
+    if (ret & (1 << AJ_DMA_TX_CHANNEL)) {
+        AJ_WSL_DMA_send_done = 1;
+    }
+}
+
+void AJ_WSL_SPI_DMATransfer(void* buffer, uint32_t size, uint8_t direction)
+{
+    dma_transfer_descriptor_t transfer;
+
+    AJ_ASSERT(AJ_WSL_DMA_send_done == 0);
+
+    /* Disable both channels before parameters are set */
+    dmac_channel_disable(DMAC, AJ_DMA_TX_CHANNEL);
+    dmac_channel_disable(DMAC, AJ_DMA_RX_CHANNEL);
+    if (direction == AJ_DMA_TX) {
+        /* Direction is TX so set the destination to the SPI hardware */
+        transfer = transfer_descriptors[AJ_DMA_TX][AJ_DMA_TX_CHANNEL];
+        /* Set the source to the buffer your sending */
+        transfer.ul_source_addr = (uint32_t) buffer;
+        transfer.ul_ctrlA |= size;
+        dmac_channel_single_buf_transfer_init(DMAC, AJ_DMA_TX_CHANNEL, (dma_transfer_descriptor_t*) &transfer);
+        /* Enable the channel to start DMA */
+        dmac_channel_enable(DMAC, AJ_DMA_TX_CHANNEL);
+
+        /* Setup RX direction as NULL destination and SPI0 as source */
+        transfer = transfer_descriptors[AJ_DMA_TX][AJ_DMA_RX_CHANNEL];
+        transfer.ul_ctrlA |= size;
+
+        dmac_channel_single_buf_transfer_init(DMAC, AJ_DMA_RX_CHANNEL, &transfer);
+        /* Enable the channel to start DMA */
+        dmac_channel_enable(DMAC, AJ_DMA_RX_CHANNEL);
+        /* Wait for the transfer to complete */
+        while (!AJ_WSL_DMA_send_done) ;
+    } else {
+        /* We are transferring in the RX direction */
+        /* Set up the destination address */
+        transfer = transfer_descriptors[AJ_DMA_RX][AJ_DMA_RX_CHANNEL];
+        transfer.ul_destination_addr = (uint32_t) buffer;
+        transfer.ul_ctrlA |= size;
+
+
+        dmac_channel_single_buf_transfer_init(DMAC, AJ_DMA_RX_CHANNEL, &transfer);
+        dmac_channel_enable(DMAC, AJ_DMA_RX_CHANNEL);
+        /* Setup the TX channel to transfer from a NULL pointer
+         * This must be done in order for the transfer to start
+         */
+        transfer = transfer_descriptors[AJ_DMA_RX][AJ_DMA_TX_CHANNEL];
+        transfer.ul_ctrlA |= size;
+
+        dmac_channel_single_buf_transfer_init(DMAC, AJ_DMA_TX_CHANNEL, (dma_transfer_descriptor_t*) &transfer);
+        dmac_channel_enable(DMAC, AJ_DMA_TX_CHANNEL);
+        while (!AJ_WSL_DMA_send_done) ;
+    }
+    /* reset the DMA completed indicator */
+    AJ_WSL_DMA_send_done = 0;
+    dmac_channel_disable(DMAC, AJ_DMA_TX_CHANNEL);
+    dmac_channel_disable(DMAC, AJ_DMA_RX_CHANNEL);
 }
 
 void AJ_WSL_SPI_ShutdownSPIController(void)

@@ -77,6 +77,7 @@ INCLUDES = 	-I. \
 			-I$(ATMEL_DIR)/common/drivers/nvm/sam/module_config \
 			-I$(ATMEL_DIR)/sam/boards \
 			-I$(ATMEL_DIR)/sam/boards/arduino_due_x \
+			-I$(ATMEL_DIR)/sam/drivers/dmac \
 			-I$(ATMEL_DIR)/sam/drivers/pio \
 			-I$(ATMEL_DIR)/sam/drivers/pmc \
 			-I$(ATMEL_DIR)/sam/drivers/pdc \
@@ -178,6 +179,7 @@ SOURCE_FILES :=	$(FREE_RTOS_DIR)/Source/croutine.c \
 				$(ATMEL_DIR)/common/drivers/nvm/sam/sam_nvm.c \
 				$(ATMEL_DIR)/sam/boards/arduino_due_x/init.c \
 				$(ATMEL_DIR)/sam/boards/arduino_due_x/led.c \
+				$(ATMEL_DIR)/sam/drivers/dmac/dmac.c \
 				$(ATMEL_DIR)/sam/drivers/pdc/pdc.c \
 				$(ATMEL_DIR)/sam/drivers/pio/pio.c \
 				$(ATMEL_DIR)/sam/drivers/pio/pio_handler.c \
@@ -197,7 +199,6 @@ SOURCE_FILES :=	$(FREE_RTOS_DIR)/Source/croutine.c \
 				crypto/ecc/aj_crypto_ecc.c \
 				crypto/ecc/aj_crypto_sha2.c \
 				src/aj_about.c \
-				src/aj_auth.c \
 				src/aj_bufio.c \
 				src/aj_bus.c \
 				src/aj_connect.c \
@@ -261,8 +262,8 @@ OBJECTS = $(SOURCE_FILES:.c=.o)
 TEST_OBJECTS = $(TEST_FILES:.c=.o)
 SAMPLE_OBJECTS = $(SAMPLE_FILES:.c=.o)
 DFILES = $(SOURCE_FILES:.c=.d)
-EXECUTABLES = $(TEST_FILES:.c=.elf)	
-	
+EXECUTABLES = $(TEST_FILES:.c=.elf)
+
 test: $(TEST_FILES) $(TEST_OBJECTS) $(OBJECTS)
 sample: $(SAMPLE_FILES) $(SAMPLE_OBJECTS) $(OBJECTS)
 

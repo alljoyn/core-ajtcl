@@ -224,7 +224,8 @@ elif env['TARG'] == 'bsp':
                                           env['ATMEL_DIR'] + '/sam/utils/cmsis/sam3x/source/templates/system_sam3x.c',
                                           env['ATMEL_DIR'] + '/sam/utils/cmsis/sam3x/source/templates/gcc/startup_sam3x.c',
                                           env['ATMEL_DIR'] + '/sam/services/flash_efc/flash_efc.c',
-                                          env['ATMEL_DIR'] + '/sam/utils/syscalls/gcc/syscalls.c']]
+                                          env['ATMEL_DIR'] + '/sam/utils/syscalls/gcc/syscalls.c',
+                                          env['ATMEL_DIR'] + '/sam/drivers/dmac/dmac.c']]
         
         # Add platform dependent linker flags
         env['LINKFLAGS'] = ['-mthumb', '-Wl,--start-group', '-larm_cortexM3l_math', '-lm',
@@ -258,6 +259,7 @@ elif env['TARG'] == 'bsp':
                           env['ATMEL_DIR'] + '/sam/boards/arduino_due_x/board_config', env['ATMEL_DIR'] + '/config',
                           env['ATMEL_DIR'] + '/common/services/clock/sam3x/module_config', env['ATMEL_DIR'] + '/common/services/clock/sam3x', 
                           env['ATMEL_DIR'] + '/thirdparty/freertos/freertos-7.3.0/module_config',
+                          env['ATMEL_DIR'] + '/sam/drivers/dmac',
                           os.getcwd() + '/RTOS', os.getcwd() + '/crypto', os.getcwd() + '/crypto/ecc', os.getcwd() + '/external/sha2', os.getcwd() + '/malloc', os.getcwd() + '/inc', os.getcwd() + '/WSL']
 
 # Include paths

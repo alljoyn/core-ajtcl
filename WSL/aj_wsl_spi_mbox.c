@@ -85,30 +85,16 @@ AJ_Status AJ_WSL_GetReadBufferSpaceAvailable(uint16_t* spaceAvailable)
     return status;
 }
 
-// take a node and write out as many bytes as needed from the node.
-static AJ_Status AJ_WSL_SPI_WriteOneByteFunc(AJ_BufNode* node, void* context)
+static void AJ_WSL_BufListIterate_DMA(AJ_BufList* list)
 {
-    AJ_Status status = AJ_ERR_SPI_WRITE;
-    uint16_t* bytesRemaining = (uint16_t*)context;
-    uint16_t iter = 0;
-    // loop, sending data a byte at a time.
-    while ((iter < node->length) && (*bytesRemaining > 1)) {
-        status = AJ_WSL_SPI_WriteByte8(node->buffer[iter], AJ_WSL_SPI_CONTINUE);
-        iter++;
-        *bytesRemaining = *bytesRemaining - 1;
-
-        /*
-         * we have to write the last byte with a SPI end message,
-         * but we can only do that when there is one more byte to send
-         */
-        if ((*bytesRemaining == 1) && (node->length > 0)) {
-            // write out the last byte with an end signal
-            status = AJ_WSL_SPI_WriteByte8(node->buffer[iter], AJ_WSL_SPI_END);
-            *bytesRemaining = *bytesRemaining - 1;
-            break;
+    if (list != NULL) {
+        AJ_BufNode* node = list->head;
+        while (node != NULL) {
+            AJ_BufNode* nextNode = node->next;
+            AJ_WSL_SPI_DMATransfer(node->buffer, node->length, 1);
+            node = nextNode;
         }
     }
-    return status;
 }
 
 AJ_EXPORT AJ_Status AJ_WSL_WriteBufListToMBox(uint8_t box, uint8_t endpoint, uint16_t len, AJ_BufList* list)
@@ -165,8 +151,8 @@ AJ_EXPORT AJ_Status AJ_WSL_WriteBufListToMBox(uint8_t box, uint8_t endpoint, uin
 
         bytesRemaining = len;
 
-        // Take the AJ_BufList to write out and call the
-        AJ_BufListIterate(AJ_WSL_SPI_WriteOneByteFunc, list, &bytesRemaining);
+        // Take the AJ_BufList to write out and write it out to the SPI interface via DMA
+        AJ_WSL_BufListIterate_DMA(list);
 
         // clear the packet available interrupt
         cause = 0x1f;
@@ -182,6 +168,32 @@ AJ_EXPORT AJ_Status AJ_WSL_WriteBufListToMBox(uint8_t box, uint8_t endpoint, uin
     }
     AJ_LeaveCriticalRegion();
     return status;
+}
+
+void AJ_WSL_SPI_ReadIntoBuffer(uint16_t bytesToRead, uint8_t** buf)
+{
+    aj_spi_status rc;
+    wsl_spi_command send;
+    AJ_Status status = AJ_ERR_SPI_READ;
+    uint8_t pcs = AJ_WSL_SPI_PCS;
+    uint16_t toss;
+
+    // initialize an SPI CMD structure with the register of interest
+    send.cmd_rx = AJ_WSL_SPI_READ;
+    send.cmd_reg = AJ_WSL_SPI_EXTERNAL;
+    send.cmd_addr = AJ_WSL_SPI_MBOX_0_EOM_ALIAS - bytesToRead;
+
+    // write the register
+    rc = AJ_SPI_WRITE(AJ_WSL_SPI_DEVICE, *((uint8_t*)&send + 1), AJ_WSL_SPI_PCS, AJ_WSL_SPI_CONTINUE);
+    AJ_ASSERT(rc == SPI_OK);
+    rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, &toss, &pcs); // toss.
+    AJ_ASSERT(rc == SPI_OK);
+    rc = AJ_SPI_WRITE(AJ_WSL_SPI_DEVICE, *(uint8_t*)&send, AJ_WSL_SPI_PCS, AJ_WSL_SPI_END);
+    AJ_ASSERT(rc == SPI_OK);
+    rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, &toss, &pcs); // toss.
+    AJ_ASSERT(rc == SPI_OK);
+
+    AJ_WSL_SPI_DMATransfer((uint32_t)*buf, bytesToRead, 0);
 }
 
 
@@ -206,9 +218,10 @@ AJ_EXPORT AJ_Status AJ_WSL_ReadFromMBox(uint8_t box, uint16_t* len, uint8_t** bu
     uint16_t payloadLength;
 
     AJ_ASSERT(0 == box);
-
+    AJ_EnterCriticalRegion();
     //2. INTERNAL read from INTR_CAUSE register.
     do {
+
         //3. INTERNAL read from RDBUF_BYTE_AVA register.
         status = AJ_WSL_SPI_RegisterRead(AJ_WSL_SPI_REG_RDBUF_BYTE_AVA, &bytesInBuffer);
 
@@ -235,10 +248,8 @@ AJ_EXPORT AJ_Status AJ_WSL_ReadFromMBox(uint8_t box, uint16_t* len, uint8_t** bu
         // write size to be transferred
         status = AJ_WSL_SetDMABufferSize(bytesToRead);
         AJ_ASSERT(status == AJ_OK);
-        //7. Start DMA read command and start reading the data by de-asserting chip select pin.
 
-        status = AJ_WSL_SPI_DMARead16(AJ_WSL_SPI_MBOX_0_EOM_ALIAS - bytesToRead, *len, (uint16_t*)*buf);
-        AJ_ASSERT(status == AJ_OK);
+        AJ_WSL_SPI_ReadIntoBuffer(bytesToRead, buf);
 
         // clear the packet available interrupt
         cause = 0x1;
@@ -246,7 +257,9 @@ AJ_EXPORT AJ_Status AJ_WSL_ReadFromMBox(uint8_t box, uint16_t* len, uint8_t** bu
         AJ_ASSERT(status == AJ_OK);
 
         break;
+
     } while (0);
+    AJ_LeaveCriticalRegion();
     return status;
 }
 
@@ -308,7 +321,9 @@ AJ_Status AJ_WSL_SPI_RegisterWrite(uint16_t reg, uint16_t spi_data)
     send.cmd_rx = AJ_WSL_SPI_WRITE;
     send.cmd_reg = AJ_WSL_SPI_INTERNAL;
     send.cmd_addr = reg;
+
     // write the register, one byte at a time, in the right order
+
     rc = AJ_SPI_WRITE(AJ_WSL_SPI_DEVICE, *((uint8_t*)&send + 1), AJ_WSL_SPI_PCS, AJ_WSL_SPI_CONTINUE);
     AJ_ASSERT(rc == SPI_OK);
     rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, &toss, &pcs); // toss.
