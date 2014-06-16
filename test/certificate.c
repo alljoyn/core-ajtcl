@@ -52,8 +52,9 @@ int AJ_Main(int ac, char** av)
     AJ_Status status = AJ_OK;
     size_t num = 2;
     size_t i;
-    uint8_t b8[sizeof (AJ_Certificate)];
-    char pem[1024];
+    uint8_t* b8;
+    char* pem;
+    size_t pemlen;
     ecc_privatekey root_prvkey;
     ecc_publickey root_pubkey;
     uint8_t* manifest;
@@ -61,8 +62,7 @@ int AJ_Main(int ac, char** av)
     uint8_t digest[SHA256_DIGEST_LENGTH];
     ecc_privatekey peer_prvkey;
     ecc_publickey peer_pubkey;
-    AJ_Certificate leaf;
-    AJ_Certificate root;
+    AJ_Certificate* cert;
     AJ_GUID guild;
 
     /*
@@ -70,12 +70,18 @@ int AJ_Main(int ac, char** av)
      */
     AJ_GenerateDSAKeyPair(&root_pubkey, &root_prvkey);
 
+    b8 = (uint8_t*) AJ_Malloc(sizeof (ecc_publickey));
+    AJ_ASSERT(b8);
     status = AJ_BigEndianEncodePublicKey(&root_pubkey, b8);
     AJ_ASSERT(AJ_OK == status);
-    status = AJ_RawToB64(b8, sizeof (ecc_publickey), pem, sizeof (pem));
+    pemlen = 4 * ((sizeof (ecc_publickey) + 2) / 3) + 1;
+    pem = (char*) AJ_Malloc(pemlen);
+    status = AJ_RawToB64(b8, sizeof (ecc_publickey), pem, pemlen);
     AJ_ASSERT(AJ_OK == status);
-    AJ_AlwaysPrintf(("Owner Public Key\n"));
-    AJ_AlwaysPrintf(("-----BEGIN PUBLIC KEY-----\n%s\n-----END PUBLIC KEY-----\n", pem));
+    AJ_Printf("Owner Public Key\n");
+    AJ_Printf("-----BEGIN PUBLIC KEY-----\n%s\n-----END PUBLIC KEY-----\n", pem);
+    AJ_Free(b8);
+    AJ_Free(pem);
 
     CreateManifest(&manifest, &manifestlen);
     ManifestDigest(manifest, &manifestlen, digest);
@@ -85,61 +91,82 @@ int AJ_Main(int ac, char** av)
     for (i = 0; i < num; i++) {
         AJ_GenerateDSAKeyPair(&peer_pubkey, &peer_prvkey);
 
+        b8 = (uint8_t*) AJ_Malloc(sizeof (ecc_publickey));
+        AJ_ASSERT(b8);
         status = AJ_BigEndianEncodePublicKey(&peer_pubkey, b8);
         AJ_ASSERT(AJ_OK == status);
-        status = AJ_RawToB64(b8, sizeof (ecc_publickey), pem, sizeof (pem));
+        pemlen = 4 * ((sizeof (ecc_publickey) + 2) / 3) + 1;
+        pem = (char*) AJ_Malloc(pemlen);
+        status = AJ_RawToB64(b8, sizeof (ecc_publickey), pem, pemlen);
         AJ_ASSERT(AJ_OK == status);
-        AJ_AlwaysPrintf(("Peer Public Key\n"));
-        AJ_AlwaysPrintf(("-----BEGIN PUBLIC KEY-----\n%s\n-----END PUBLIC KEY-----\n", pem));
+        AJ_Printf("Peer Public Key\n");
+        AJ_Printf("-----BEGIN PUBLIC KEY-----\n%s\n-----END PUBLIC KEY-----\n", pem);
+        AJ_Free(b8);
+        AJ_Free(pem);
 
+        b8 = (uint8_t*) AJ_Malloc(sizeof (ecc_privatekey));
+        AJ_ASSERT(b8);
         status = AJ_BigEndianEncodePrivateKey(&peer_prvkey, b8);
         AJ_ASSERT(AJ_OK == status);
-        status = AJ_RawToB64(b8, sizeof (ecc_privatekey), pem, sizeof (pem));
+        pemlen = 4 * ((sizeof (ecc_privatekey) + 2) / 3) + 1;
+        pem = (char*) AJ_Malloc(pemlen);
+        status = AJ_RawToB64(b8, sizeof (ecc_privatekey), pem, pemlen);
         AJ_ASSERT(AJ_OK == status);
-        AJ_AlwaysPrintf(("Peer Private Key\n"));
-        AJ_AlwaysPrintf(("-----BEGIN PRIVATE KEY-----\n%s\n-----END PRIVATE KEY-----\n", pem));
+        AJ_Printf("Peer Private Key\n");
+        AJ_Printf("-----BEGIN PRIVATE KEY-----\n%s\n-----END PRIVATE KEY-----\n", pem);
+        AJ_Free(b8);
+        AJ_Free(pem);
 
-        status = AJ_CreateCertificate(&leaf, 0, &peer_pubkey, NULL, NULL, digest, 0);
+        cert = (AJ_Certificate*) AJ_Malloc(sizeof (AJ_Certificate));
+        AJ_ASSERT(cert);
+        status = AJ_CreateCertificate(cert, 0, &peer_pubkey, NULL, NULL, digest, 0);
         AJ_ASSERT(AJ_OK == status);
-        status = AJ_SignCertificate(&leaf, &peer_prvkey);
+        status = AJ_SignCertificate(cert, &peer_prvkey);
         AJ_ASSERT(AJ_OK == status);
-        status = AJ_VerifyCertificate(&leaf);
-        AJ_ASSERT(AJ_OK == status);
-
-        status = AJ_BigEndianEncodeCertificate(&leaf, b8, sizeof (b8));
-        AJ_ASSERT(AJ_OK == status);
-        status = AJ_RawToB64(b8, leaf.size, pem, sizeof (pem));
-        AJ_ASSERT(AJ_OK == status);
-        AJ_AlwaysPrintf(("Peer Certificate (Type 0)\n"));
-        AJ_AlwaysPrintf(("-----BEGIN CERTIFICATE-----\n%s\n-----END CERTIFICATE-----\n", pem));
-
-        status = AJ_CreateCertificate(&root, 1, &root_pubkey, &peer_pubkey, NULL, digest, 0);
-        AJ_ASSERT(AJ_OK == status);
-        status = AJ_SignCertificate(&root, &root_prvkey);
-        AJ_ASSERT(AJ_OK == status);
-        status = AJ_VerifyCertificate(&root);
+        status = AJ_VerifyCertificate(cert);
         AJ_ASSERT(AJ_OK == status);
 
-        status = AJ_BigEndianEncodeCertificate(&root, b8, sizeof (b8));
+        b8 = (uint8_t*) AJ_Malloc(sizeof (AJ_Certificate));
+        AJ_ASSERT(b8);
+        status = AJ_BigEndianEncodeCertificate(cert, b8, sizeof (AJ_Certificate));
         AJ_ASSERT(AJ_OK == status);
-        status = AJ_RawToB64(b8, root.size, pem, sizeof (pem));
+        pemlen = 4 * ((sizeof (AJ_Certificate) + 2) / 3) + 1;
+        pem = (char*) AJ_Malloc(pemlen);
+        status = AJ_RawToB64(b8, cert->size, pem, pemlen);
         AJ_ASSERT(AJ_OK == status);
-        AJ_AlwaysPrintf(("Root Certificate (Type 1)\n"));
-        AJ_AlwaysPrintf(("-----BEGIN CERTIFICATE-----\n%s\n-----END CERTIFICATE-----\n", pem));
+        AJ_Printf("Peer Certificate (Type 0)\n");
+        AJ_Printf("-----BEGIN CERTIFICATE-----\n%s\n-----END CERTIFICATE-----\n", pem);
 
-        status = AJ_CreateCertificate(&root, 2, &root_pubkey, &peer_pubkey, &guild, digest, 0);
+        status = AJ_CreateCertificate(cert, 1, &root_pubkey, &peer_pubkey, NULL, digest, 0);
         AJ_ASSERT(AJ_OK == status);
-        status = AJ_SignCertificate(&root, &root_prvkey);
+        status = AJ_SignCertificate(cert, &root_prvkey);
         AJ_ASSERT(AJ_OK == status);
-        status = AJ_VerifyCertificate(&root);
+        status = AJ_VerifyCertificate(cert);
         AJ_ASSERT(AJ_OK == status);
 
-        status = AJ_BigEndianEncodeCertificate(&root, b8, sizeof (b8));
+        status = AJ_BigEndianEncodeCertificate(cert, b8, sizeof (AJ_Certificate));
         AJ_ASSERT(AJ_OK == status);
-        status = AJ_RawToB64(b8, root.size, pem, sizeof (pem));
+        status = AJ_RawToB64(b8, cert->size, pem, pemlen);
         AJ_ASSERT(AJ_OK == status);
-        AJ_AlwaysPrintf(("Root Certificate (Type 2)\n"));
-        AJ_AlwaysPrintf(("-----BEGIN CERTIFICATE-----\n%s\n-----END CERTIFICATE-----\n", pem));
+        AJ_Printf("Root Certificate (Type 1)\n");
+        AJ_Printf("-----BEGIN CERTIFICATE-----\n%s\n-----END CERTIFICATE-----\n", pem);
+
+        status = AJ_CreateCertificate(cert, 2, &root_pubkey, &peer_pubkey, &guild, digest, 0);
+        AJ_ASSERT(AJ_OK == status);
+        status = AJ_SignCertificate(cert, &root_prvkey);
+        AJ_ASSERT(AJ_OK == status);
+        status = AJ_VerifyCertificate(cert);
+        AJ_ASSERT(AJ_OK == status);
+
+        status = AJ_BigEndianEncodeCertificate(cert, b8, sizeof (AJ_Certificate));
+        AJ_ASSERT(AJ_OK == status);
+        status = AJ_RawToB64(b8, cert->size, pem, pemlen);
+        AJ_ASSERT(AJ_OK == status);
+        AJ_Printf("Root Certificate (Type 2)\n");
+        AJ_Printf("-----BEGIN CERTIFICATE-----\n%s\n-----END CERTIFICATE-----\n", pem);
+        AJ_Free(cert);
+        AJ_Free(b8);
+        AJ_Free(pem);
     }
 
     AJ_Free(manifest);
