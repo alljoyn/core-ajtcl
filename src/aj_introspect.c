@@ -285,9 +285,9 @@ static AJ_Status ExpandInterfaces(XMLWriterFunc XMLWriter, void* context, const 
                 return AJ_ERR_UNEXPECTED;
             }
             XMLWriter(context, MemberOpen[memberType], 0);
-            if (IS_SESSIONLESS(*member)) {
+            if (memberType == SIGNAL && IS_SESSIONLESS(*member)) {
                 /*
-                 * Advance so that we do not return a & character
+                 * Advance so that we do not return a '&' character
                  */
                 member++;
                 if (descLookup != NULL) {
@@ -842,9 +842,15 @@ static AJ_Status MatchProp(const char* member, const char* prop, uint8_t op, con
 static uint32_t MatchMember(const char* encoding, const AJ_Message* msg)
 {
     const char* member = msg->member;
-    char mtype = (msg->hdr->msgType == AJ_MSG_METHOD_CALL) ? '?' : '!';
-    if (*encoding++ != mtype) {
+    uint8_t memberType = (msg->hdr->msgType == AJ_MSG_METHOD_CALL) ? METHOD : SIGNAL;
+    if (MEMBER_TYPE(*encoding++) != memberType) {
         return FALSE;
+    }
+    if (memberType == SIGNAL && IS_SESSIONLESS(*encoding)) {
+        /*
+         * Advance so that we do not return a '&' character
+         */
+        *encoding++;
     }
     while (*member) {
         if (*encoding++ != *member++) {
