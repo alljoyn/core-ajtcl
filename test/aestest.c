@@ -16,11 +16,11 @@
  *    ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
-#include "aj_target.h"
+#include <ajtcl/aj_target.h>
 
-#include "alljoyn.h"
-#include "aj_crypto.h"
-#include "aj_debug.h"
+#include <ajtcl/alljoyn.h>
+#include <ajtcl/aj_crypto.h>
+#include <ajtcl/aj_debug.h>
 
 typedef struct {
     const char* key;     /* AES key */

@@ -25,12 +25,12 @@
  */
 #define AJ_MODULE SERIAL
 
-#include "aj_target.h"
-#include "aj_status.h"
-#include "aj_serial.h"
-#include "aj_serial_rx.h"
-#include "aj_serial_tx.h"
-#include "aj_debug.h"
+#include <ajtcl/aj_target.h>
+#include <ajtcl/aj_status.h>
+#include <ajtcl/aj_serial.h>
+#include <ajtcl/aj_serial_rx.h>
+#include <ajtcl/aj_serial_tx.h>
+#include <ajtcl/aj_debug.h>
 
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value

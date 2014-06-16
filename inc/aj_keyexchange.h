@@ -22,9 +22,9 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
-#include "aj_target.h"
-#include "aj_peer.h"
-#include "aj_crypto_sha2.h"
+#include <ajtcl/aj_target.h>
+#include <ajtcl/aj_peer.h>
+#include <ajtcl/aj_crypto_sha2.h>
 
 #ifdef __cplusplus
 extern "C" {

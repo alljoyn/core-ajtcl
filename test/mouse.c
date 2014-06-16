@@ -19,15 +19,15 @@
 
 #include <stdio.h>
 
-#include "alljoyn.h"
-#include "aj_debug.h"
+#include <ajtcl/alljoyn.h>
+#include <ajtcl/aj_debug.h>
 
-#include "efm32_adc.h"
-#include "efm32_cmu.h"
-#include "efm32_gpio.h"
+#include <efm32_adc.h>
+#include <efm32_cmu.h>
+#include <efm32_gpio.h>
 
-#include "dmactrl.h"
-#include "efm32_dma.h"
+#include <dmactrl.h>
+#include <efm32_dma.h>
 
 #define ACCEL_SENSOR_PORT     gpioPortA
 #define ACCEL_SENSOR_PIN      10

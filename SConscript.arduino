@@ -1,0 +1,72 @@
+Import('env')
+
+# Arduino does not build binaries; just sets up for inclusion in Arduino IDE
+env['build'] = False
+
+arduinoLibDir = '#dist/arduino_due/libraries/AllJoyn/'
+
+# Install the .c files as .cpp files for the Arduino IDE to consume.
+srcs = [
+    Glob('src/*.c'),
+    Glob('src/target/$TARG/*.c'),
+    Glob('src/crypto/*.c'),
+    Glob('external/sha2/*.c')
+]
+env.InstallAs([ File(arduinoLibDir + f.name.replace('.c' , '.cpp')) for f in srcs ], srcs)
+
+# Install the related header files as well.
+hdrs = [
+    Glob('inc/ajtcl/*.h'),
+    Glob('src/*.h'),
+    Glob('src/target/$TARG/*.h'),
+    Glob('src/crypto/*.h'),
+    Glob('external/sha2/*.h')
+]
+env.Install(arduinoLibDir + 'ajtcl', hdrs)
+
+# Install the Arduino specific examples into their source
+env.Install(Dir(arduinoLibDir).abspath, Dir('src/target/arduino/examples/'))
+
+
+# Install the generic .c sample and test programs from the sample and
+# test directories into their destination while changing the
+# extension.
+
+# Install the test programs
+tests = [
+    'svclite',
+    'clientlite',
+    'siglite',
+    'bastress2',
+    'mutter',
+    'sessions',
+    'aestest'
+]
+for test in tests:
+    tdir = arduinoLibDir + 'tests/AJ_' + test
+    env.Install(tdir, 'src/target/arduino/tests/AJ_' + test + '/AJ_' + test + '.ino')
+    env.InstallAs(tdir + '/' + test + '.cpp', 'test/' + test + '.c')
+
+
+# Install basic samples
+basicsamples = [
+    'basic_service',
+    'basic_client',
+    'signal_service',
+    'signalConsumer_client'
+]
+for sample in basicsamples:
+    sdir = arduinoLibDir + 'samples/AJ_' + sample
+    env.Install(sdir, 'src/target/arduino/samples/AJ_' + sample + '/AJ_' + sample + '.ino')
+    env.InstallAs(sdir + '/' + sample + '.cpp', 'samples/basic/' + sample + '.c')
+
+
+# Install secure samples
+securesamples = [
+    'SecureClient',
+    'SecureService'
+]
+for sample in securesamples:
+    sdir = arduinoLibDir + 'samples/AJ_' + sample
+    env.Install(sdir, 'src/target/arduino/samples/AJ_' + sample + '/AJ_' + sample + '.ino')
+    env.InstallAs(sdir + '/' + sample + '.cpp', 'samples/secure/' + sample + '.c')

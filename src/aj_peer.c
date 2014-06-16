@@ -23,21 +23,21 @@
  */
 #define AJ_MODULE PEER
 
-#include "aj_target.h"
-#include "aj_peer.h"
-#include "aj_bus.h"
-#include "aj_msg.h"
-#include "aj_util.h"
-#include "aj_guid.h"
-#include "aj_creds.h"
-#include "aj_std.h"
-#include "aj_crypto.h"
-#include "aj_crypto_sha2.h"
-#include "aj_debug.h"
-#include "aj_config.h"
-#include "aj_keyexchange.h"
-#include "aj_keyauthentication.h"
-#include "aj_cert.h"
+#include <ajtcl/aj_target.h>
+#include <ajtcl/aj_peer.h>
+#include <ajtcl/aj_bus.h>
+#include <ajtcl/aj_msg.h>
+#include <ajtcl/aj_util.h>
+#include <ajtcl/aj_guid.h>
+#include <ajtcl/aj_creds.h>
+#include <ajtcl/aj_std.h>
+#include <ajtcl/aj_crypto.h>
+#include <ajtcl/aj_crypto_sha2.h>
+#include <ajtcl/aj_debug.h>
+#include <ajtcl/aj_config.h>
+#include <ajtcl/aj_keyexchange.h>
+#include <ajtcl/aj_keyauthentication.h>
+#include <ajtcl/aj_cert.h>
 
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value

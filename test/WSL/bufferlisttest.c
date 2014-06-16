@@ -25,14 +25,14 @@ extern "C" {
 
 #define AJ_MODULE WSL_UNIT_TEST
 
-#include "aj_target.h"
+#include <ajtcl/aj_target.h>
 
-#include "../../WSL/aj_buf.h"
-#include "../../WSL/aj_wsl_htc.h"
-#include "../../WSL/aj_wsl_spi.h"
-#include "../../WSL/aj_wsl_wmi.h"
-#include "../../WSL/aj_wsl_net.h"
-#include "aj_debug.h"
+#include "../../src/wsl/aj_buf.h"
+#include "../../src/wsl/aj_wsl_htc.h"
+#include "../../src/wsl/aj_wsl_spi.h"
+#include "../../src/wsl/aj_wsl_wmi.h"
+#include "../../src/wsl/aj_wsl_net.h"
+#include <ajtcl/aj_debug.h>
 
 
 /**

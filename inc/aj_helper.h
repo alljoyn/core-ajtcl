@@ -23,9 +23,9 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
-#include "aj_status.h"
-#include "aj_bus.h"
-#include "aj_about.h"
+#include <ajtcl/aj_status.h>
+#include <ajtcl/aj_bus.h>
+#include <ajtcl/aj_about.h>
 
 #ifdef __cplusplus
 extern "C" {

@@ -25,9 +25,9 @@
  */
 #define AJ_MODULE CERTIFICATE
 
-#include "aj_debug.h"
-#include "aj_cert.h"
-#include "aj_util.h"
+#include <ajtcl/aj_debug.h>
+#include <ajtcl/aj_cert.h>
+#include <ajtcl/aj_util.h>
 
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
@@ -119,7 +119,7 @@ AJ_Status AJ_BigEndianDecodePrivateKey(ecc_privatekey* privatekey, uint8_t* b8)
 
 static void CertificateSize(AJ_Certificate* certificate)
 {
-    certificate->size = sizeof (uint32_t) + sizeof (ecc_publickey) + SHA256_DIGEST_LENGTH;
+    certificate->size = sizeof (uint32_t) + sizeof (ecc_publickey) + AJ_SHA256_DIGEST_LENGTH;
     switch (certificate->version) {
     case 1:
     case 2:
@@ -167,8 +167,8 @@ AJ_Status AJ_BigEndianEncodeCertificate(AJ_Certificate* certificate, uint8_t* b8
         b8 += AJ_GUID_LENGTH;
         break;
     }
-    memcpy(b8, certificate->digest, SHA256_DIGEST_LENGTH);
-    b8 += SHA256_DIGEST_LENGTH;
+    memcpy(b8, certificate->digest, AJ_SHA256_DIGEST_LENGTH);
+    b8 += AJ_SHA256_DIGEST_LENGTH;
     HostU32ToBigEndianU8((uint32_t*) &certificate->signature, sizeof (ecc_signature), b8);
     b8 += sizeof (ecc_signature);
 
@@ -208,8 +208,8 @@ AJ_Status AJ_BigEndianDecodeCertificate(AJ_Certificate* certificate, uint8_t* b8
         b8 += AJ_GUID_LENGTH;
         break;
     }
-    memcpy(certificate->digest, b8, SHA256_DIGEST_LENGTH);
-    b8 += SHA256_DIGEST_LENGTH;
+    memcpy(certificate->digest, b8, AJ_SHA256_DIGEST_LENGTH);
+    b8 += AJ_SHA256_DIGEST_LENGTH;
     BigEndianU8ToHostU32(b8, (uint32_t*) &certificate->signature, sizeof (ecc_signature));
     b8 += sizeof (ecc_signature);
 
@@ -234,7 +234,7 @@ AJ_Status AJ_CreateCertificate(AJ_Certificate* certificate, const uint32_t versi
         memcpy((uint8_t*) &certificate->guild, (uint8_t*) guild, AJ_GUID_LENGTH);
         break;
     }
-    memcpy((uint8_t*) &certificate->digest, (uint8_t*) digest, SHA256_DIGEST_LENGTH);
+    memcpy((uint8_t*) &certificate->digest, (uint8_t*) digest, AJ_SHA256_DIGEST_LENGTH);
 
     CertificateSize(certificate);
 
@@ -257,7 +257,7 @@ static AJ_Status CertificateDigest(AJ_Certificate* certificate, uint8_t* digest)
 AJ_Status AJ_SignCertificate(AJ_Certificate* certificate, const ecc_privatekey* issuer_private)
 {
     AJ_Status status = AJ_ERR_SECURITY;
-    uint8_t digest[SHA256_DIGEST_LENGTH];
+    uint8_t digest[AJ_SHA256_DIGEST_LENGTH];
 
     switch (certificate->version) {
     case 0:
@@ -277,7 +277,7 @@ AJ_Status AJ_SignCertificate(AJ_Certificate* certificate, const ecc_privatekey* 
 AJ_Status AJ_VerifyCertificate(AJ_Certificate* certificate)
 {
     AJ_Status status = AJ_ERR_SECURITY;
-    uint8_t digest[SHA256_DIGEST_LENGTH];
+    uint8_t digest[AJ_SHA256_DIGEST_LENGTH];
 
     switch (certificate->version) {
     case 0:

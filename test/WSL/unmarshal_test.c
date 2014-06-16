@@ -17,11 +17,11 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
-#include "aj_target.h"
-#include "aj_util.h"
+#include <ajtcl/aj_target.h>
+#include <ajtcl/aj_util.h>
 
-#include "aj_debug.h"
-#include "../../WSL/aj_wsl_unmarshal.h"
+#include <ajtcl/aj_debug.h>
+#include "../../src/src/wsl/aj_wsl_unmarshal.h"
 
 /* SSID fishing2 [00:23:69:7e:bb:fe] RSSI=34 security=WPA2:CCMP */
 

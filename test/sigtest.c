@@ -17,9 +17,9 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
-#include <aj_crypto.h>
-#include <aj_debug.h>
-#include <alljoyn.h>
+#include <ajtcl/aj_crypto.h>
+#include <ajtcl/aj_debug.h>
+#include <ajtcl/alljoyn.h>
 
 static const uint16_t SIG_LEN_MAX = 65000;
 static const uint16_t SIG_LEN_MIN = 100;

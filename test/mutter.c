@@ -17,10 +17,10 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
-#include "alljoyn.h"
-#include "aj_util.h"
-#include "aj_debug.h"
-#include "aj_bufio.h"
+#include <ajtcl/alljoyn.h>
+#include <ajtcl/aj_util.h>
+#include <ajtcl/aj_debug.h>
+#include <ajtcl/aj_bufio.h>
 
 static uint8_t wireBuffer[8 * 1024];
 static size_t wireBytes = 0;

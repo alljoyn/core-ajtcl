@@ -23,10 +23,10 @@
  */
 #define AJ_MODULE BUFIO
 
-#include "aj_target.h"
-#include "aj_status.h"
-#include "aj_bufio.h"
-#include "aj_debug.h"
+#include <ajtcl/aj_target.h>
+#include <ajtcl/aj_status.h>
+#include <ajtcl/aj_bufio.h>
+#include <ajtcl/aj_debug.h>
 
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value

@@ -17,8 +17,8 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
-#include <aj_crypto.h>
-#include <alljoyn.h>
+#include <ajtcl/aj_crypto.h>
+#include <ajtcl/alljoyn.h>
 
 /* Forward Declaration */
 static void Print_Connection_Summary(void);

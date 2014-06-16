@@ -162,8 +162,8 @@
  * @{
  */
 
-#include "aj_target.h"
-#include "aj_msg.h"
+#include <ajtcl/aj_target.h>
+#include <ajtcl/aj_msg.h>
 
 #ifdef __cplusplus
 extern "C" {

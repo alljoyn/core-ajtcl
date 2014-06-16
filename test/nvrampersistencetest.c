@@ -17,8 +17,8 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
-#include <alljoyn.h>
-#include <aj_nvram.h>
+#include <ajtcl/alljoyn.h>
+#include <ajtcl/aj_nvram.h>
 
 extern void AJ_NVRAM_Layout_Print();
 
