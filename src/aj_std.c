@@ -17,8 +17,8 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
-#include "aj_target.h"
-#include "aj_std.h"
+#include <ajtcl/aj_target.h>
+#include <ajtcl/aj_std.h>
 
 const char AJ_DBusDestination[] = "org.freedesktop.DBus";
 const char AJ_BusDestination[] = "org.alljoyn.Bus";

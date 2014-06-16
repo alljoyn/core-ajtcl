@@ -21,10 +21,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-#include "aj_debug.h"
-#include "alljoyn.h"
-#include "aj_cert.h"
-#include "aj_crypto.h"
+#include <ajtcl/aj_debug.h>
+#include <ajtcl/alljoyn.h>
+#include <ajtcl/aj_cert.h>
+#include <ajtcl/aj_crypto.h>
 
 uint8_t dbgTEST_CERTIFICATE = 0;
 
@@ -59,7 +59,7 @@ int AJ_Main(int ac, char** av)
     ecc_publickey root_pubkey;
     uint8_t* manifest;
     size_t manifestlen;
-    uint8_t digest[SHA256_DIGEST_LENGTH];
+    uint8_t digest[AJ_SHA256_DIGEST_LENGTH];
     ecc_privatekey peer_prvkey;
     ecc_publickey peer_pubkey;
     AJ_Certificate* cert;

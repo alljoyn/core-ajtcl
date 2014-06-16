@@ -19,9 +19,9 @@
 #define AJ_MODULE SIGNAL_SERVICE
 
 #include <stdio.h>
-#include <aj_debug.h>
-#include "alljoyn.h"
-#include "aj_msg.h"
+#include <ajtcl/aj_debug.h>
+#include <ajtcl/alljoyn.h>
+#include <ajtcl/aj_msg.h>
 
 uint8_t dbgSIGNAL_SERVICE = 0;
 /**

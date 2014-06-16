@@ -21,8 +21,8 @@
  *    ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
-#include <aj_util.h>
-#include <alljoyn.h>
+#include <ajtcl/aj_util.h>
+#include <ajtcl/alljoyn.h>
 
 #ifdef __cplusplus
 extern "C" {

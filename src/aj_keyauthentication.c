@@ -23,13 +23,13 @@
  */
 #define AJ_MODULE KEYAUTHENTICATION
 
-#include "aj_target.h"
-#include "aj_debug.h"
-#include "aj_keyauthentication.h"
-#include "aj_cert.h"
-#include "aj_peer.h"
-#include "aj_creds.h"
-#include "aj_auth_listener.h"
+#include <ajtcl/aj_target.h>
+#include <ajtcl/aj_debug.h>
+#include <ajtcl/aj_keyauthentication.h>
+#include <ajtcl/aj_cert.h>
+#include <ajtcl/aj_peer.h>
+#include <ajtcl/aj_creds.h>
+#include <ajtcl/aj_auth_listener.h>
 
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
@@ -76,7 +76,7 @@ AJ_KeyAuthentication AJ_KeyAuthenticationPSK = {
     PSK_Final
 };
 
-#define AUTH_VERIFIER_LEN SHA256_DIGEST_LENGTH
+#define AUTH_VERIFIER_LEN AJ_SHA256_DIGEST_LENGTH
 typedef struct _PSKContext {
     uint8_t* hint;
     size_t hintlen;
@@ -116,7 +116,7 @@ static AJ_Status ComputeVerifier(const char* label, uint8_t* buffer, size_t buff
     AJ_Status status;
     const uint8_t* data[3];
     uint8_t lens[3];
-    uint8_t digest[SHA256_DIGEST_LENGTH];
+    uint8_t digest[AJ_SHA256_DIGEST_LENGTH];
 
     AJ_SHA256_GetDigest(kactx.hash, digest, 1);
 
@@ -318,7 +318,7 @@ AJ_Status ECDSA_Marshal(AJ_Message* msg, uint8_t role)
     AJ_Certificate* certificate;
     AJ_Certificate* chain = ecdsactx.certchain;
     int chainlen = ecdsactx.certchainlen;
-    uint8_t verifier[SHA256_DIGEST_LENGTH];
+    uint8_t verifier[AJ_SHA256_DIGEST_LENGTH];
 
     AJ_InfoPrintf(("AJ_ECDSA_Marshal(msg=0x%p)\n", msg));
 
@@ -438,7 +438,7 @@ AJ_Status ECDSA_Unmarshal(AJ_Message* msg, uint8_t role)
     AJ_Credential credential;
     AJ_Certificate* certificate;
     uint8_t* b8;
-    uint8_t verifier[SHA256_DIGEST_LENGTH];
+    uint8_t verifier[AJ_SHA256_DIGEST_LENGTH];
     char* variant;
     ecc_publickey issuer;
     AJ_Validity validity;

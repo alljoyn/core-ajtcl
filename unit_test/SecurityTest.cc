@@ -21,17 +21,20 @@
 #include <gtest/gtest.h>
 
 extern "C" {
-#include "aj_debug.h"
-#include "alljoyn.h"
-#include "aj_cert.h"
-#include "aj_peer.h"
-#include "aj_creds.h"
-#include "aj_auth_listener.h"
-#include "aj_keyexchange.h"
-#include "aj_keyauthentication.h"
-#include "aj_config.h"
-#include "aj_crypto.h"
-
+#include <ajtcl/aj_debug.h>
+#include <ajtcl/aj_cert.h>
+#include <ajtcl/aj_peer.h>
+#include <ajtcl/aj_creds.h>
+#include <ajtcl/aj_auth_listener.h>
+#include <ajtcl/aj_keyexchange.h>
+#include <ajtcl/aj_keyauthentication.h>
+#include <ajtcl/aj_introspect.h>
+#include <ajtcl/aj_config.h>
+#include <ajtcl/aj_crypto.h>
+#include <ajtcl/aj_crypto_sha2.h>
+#include <ajtcl/aj_std.h>
+#include <ajtcl/aj_init.h>
+#include <ajtcl/aj_connect.h>
 }
 
 #define CONNECT_TIMEOUT    (1000ul * 200)
@@ -109,7 +112,7 @@ static ecc_privatekey root_prvkey;
 static ecc_publickey root_pubkey;
 static uint8_t* manifest;
 static size_t manifestlen;
-static uint8_t digest[SHA256_DIGEST_LENGTH];
+static uint8_t digest[AJ_SHA256_DIGEST_LENGTH];
 static ecc_privatekey peer_prvkey;
 static ecc_publickey peer_pubkey;
 static AJ_Certificate* cert;

@@ -23,13 +23,13 @@
  */
 #define AJ_MODULE CREDS
 
-#include "aj_target.h"
-#include "aj_creds.h"
-#include "aj_status.h"
-#include "aj_crypto.h"
-#include "aj_nvram.h"
-#include "aj_debug.h"
-#include "aj_config.h"
+#include <ajtcl/aj_target.h>
+#include <ajtcl/aj_creds.h>
+#include <ajtcl/aj_status.h>
+#include <ajtcl/aj_crypto.h>
+#include <ajtcl/aj_nvram.h>
+#include <ajtcl/aj_debug.h>
+#include <ajtcl/aj_config.h>
 
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value

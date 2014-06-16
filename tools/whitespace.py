@@ -23,6 +23,8 @@ import sys, os, fnmatch, re, filecmp, difflib, textwrap
 import hashlib, pickle, time
 from subprocess import Popen, STDOUT, PIPE
 
+whitespacedb = '.whitespace.db'
+
 def main(argv=None):
     start_time = time.clock()
     dir_ignore = ["stlport", "build", ".git", ".repo", "alljoyn_objc", "ios", "external" ]
@@ -48,16 +50,14 @@ def main(argv=None):
     # removed from the dictionary.  If the file is new or the calculated hash has
     # changed the WS checker will check the file to see if it complies with the WS
     # rules.
-    try:
-        f = open('whitespace.db', 'r')
+    if os.path.exists(whitespacedb):
+        f = open(whitespacedb, 'r')
         try:
             whitespace_db = pickle.load(f)
         except pickle.UnpicklingError:
-            os.remove('whitespace.db')
+            os.remove(whitespacedb)
         finally:
             f.close()
-    except IOError:
-        print 'whitespace.db not found a new one will be created.'
 
     if argv is None:
         argv=[]
@@ -100,8 +100,6 @@ def main(argv=None):
         print "(Or, run SCons with 'WS=off' to bypass the whitespace check)"
         sys.exit(2)
 
-    print "whitespace %s %s" % (wscmd,uncrustify_config)
-    print "cwd=%s" % (os.getcwd())
     if wscmd == 'off':
         return 0
 
@@ -222,14 +220,13 @@ def main(argv=None):
     # checker is run.
     if whitespace_db_updated:
         try:
-            f = open('whitespace.db', 'w')
+            f = open(whitespacedb, 'w')
             try:
                 pickle.dump(whitespace_db, f)
             finally:
                 f.close()
         except IOError:
-            print 'Unable to create whitespace.db file.'
-    print 'WS total run time: {0:.2f} seconds'.format(time.clock() - start_time)
+            pass
     return xit
 
 '''Return the uncrustify version number'''

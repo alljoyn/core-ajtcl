@@ -20,9 +20,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "alljoyn.h"
-#include "aj_crypto.h"
-#include "aj_debug.h"
+#include <ajtcl/alljoyn.h>
+#include <ajtcl/aj_crypto.h>
+#include <ajtcl/aj_debug.h>
 
 static const uint8_t key[] = { 0xC6, 0xC4, 0xFC, 0xEF, 0x31, 0x85, 0xFB, 0x66, 0xAA, 0xB8, 0x62, 0xBC, 0x03, 0x76, 0xAB, 0xBE };
 

@@ -23,9 +23,9 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
-#include "aj_guid.h"
-#include "aj_crypto_ecc.h"
-#include "aj_crypto_sha2.h"
+#include <ajtcl/aj_guid.h>
+#include <ajtcl/aj_crypto_ecc.h>
+#include <ajtcl/aj_crypto_sha2.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -50,7 +50,7 @@ typedef struct _AJ_Certificate {
     AJ_Validity validity;
     uint8_t delegate;
     uint8_t guild[AJ_GUID_LENGTH];
-    uint8_t digest[SHA256_DIGEST_LENGTH];
+    uint8_t digest[AJ_SHA256_DIGEST_LENGTH];
     ecc_signature signature;
     uint32_t size;
 } AJ_Certificate;

@@ -21,14 +21,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-#include <aj_debug.h>
-#include "alljoyn.h"
-#include "aj_crypto_ecc.h"
-#include "aj_cert.h"
-#include "aj_peer.h"
-#include "aj_creds.h"
-#include "aj_auth_listener.h"
-#include "aj_util.h"
+#include <ajtcl/aj_debug.h>
+#include <ajtcl/alljoyn.h>
+#include <ajtcl/aj_crypto_ecc.h>
+#include <ajtcl/aj_cert.h>
+#include <ajtcl/aj_peer.h>
+#include <ajtcl/aj_creds.h>
+#include <ajtcl/aj_auth_listener.h>
+#include <ajtcl/aj_util.h>
 
 uint8_t dbgSECURE_SERVICE = 1;
 

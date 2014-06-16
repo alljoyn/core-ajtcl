@@ -19,8 +19,8 @@
 #define AJ_MODULE BASIC_SERVICE
 
 #include <stdio.h>
-#include <aj_debug.h>
-#include "alljoyn.h"
+#include <ajtcl/aj_debug.h>
+#include <ajtcl/alljoyn.h>
 
 #define CONNECT_ATTEMPTS   10
 static const char ServiceName[] = "org.alljoyn.Bus.sample";

@@ -17,9 +17,9 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
-#include "aj_target.h"
-#include "aj_util.h"
-#include "aj_version.h"
+#include <ajtcl/aj_target.h>
+#include <ajtcl/aj_util.h>
+#include <ajtcl/aj_version.h>
 
 #define AJ_TO_STRING(x) # x
 #define AJ_VERSION_STRING(a, b, c, d, e) AJ_TO_STRING(a) "." AJ_TO_STRING(b) "." AJ_TO_STRING(c) AJ_TO_STRING(d) " Tag " AJ_TO_STRING(e) "\0"
