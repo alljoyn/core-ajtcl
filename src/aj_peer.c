@@ -212,7 +212,6 @@ static AJ_Status KeyGen(const char* peerName, uint8_t role, const char* nonce1, 
     AJ_Status status;
     const uint8_t* data[4];
     uint8_t lens[4];
-    AJ_PeerCred* cred;
     const AJ_GUID* peerGuid = AJ_GUID_Find(peerName);
 
     AJ_InfoPrintf(("KeyGen(peerName=\"%s\", role=%d., nonce1=\"%s\", nonce2=\"%s\", outbuf=0x%p, len=%d.)\n",
@@ -223,23 +222,8 @@ static AJ_Status KeyGen(const char* peerName, uint8_t role, const char* nonce1, 
         return AJ_ERR_UNEXPECTED;
     }
 
-    status = AJ_GetPeerCredential(peerGuid, &cred);
-    if (AJ_OK != status) {
-        AJ_WarnPrintf(("KeyGen(): AJ_ERR_NO_MATCH\n"));
-        return AJ_ERR_NO_MATCH;
-    }
-    /* check the secret expiry */
-    status = AJ_CredentialExpired(cred);
-    if (AJ_ERR_KEY_EXPIRED == status) {
-        /* secret expired */
-        AJ_DeletePeerCredential(peerGuid);
-        AJ_WarnPrintf(("KeyGen(): Secret expired\n"));
-        AJ_FreeCredential(cred);
-        return AJ_ERR_KEY_EXPIRED;
-    }
-    data[0] = cred->data;
-    lens[0] = (uint32_t) cred->dataLen;
-
+    data[0] = handshakeContext.mastersecret;
+    lens[0] = (uint32_t)AJ_MASTER_SECRET_LEN;
     data[1] = (uint8_t*)"session key";
     lens[1] = 11;
     data[2] = (uint8_t*)nonce1;
@@ -253,7 +237,6 @@ static AJ_Status KeyGen(const char* peerName, uint8_t role, const char* nonce1, 
      */
     if (len < (AES_KEY_LEN + AJ_VERIFIER_LEN)) {
         AJ_WarnPrintf(("KeyGen(): AJ_ERR_RESOURCES\n"));
-        AJ_FreeCredential(cred);
         return AJ_ERR_RESOURCES;
     }
 
@@ -269,7 +252,6 @@ static AJ_Status KeyGen(const char* peerName, uint8_t role, const char* nonce1, 
         status = AJ_RawToHex(outBuf, AJ_VERIFIER_LEN, (char*) outBuf, len, FALSE);
     }
     AJ_InfoPrintf(("KeyGen Verifier = %s.\n", outBuf));
-    AJ_FreeCredential(cred);
     return status;
 }
 
@@ -433,6 +415,7 @@ AJ_Status AJ_PeerHandleExchangeGUIDs(AJ_Message* msg, AJ_Message* reply)
     char* str;
     AJ_GUID remoteGuid;
     AJ_GUID localGuid;
+    AJ_PeerCred* cred;
 
     AJ_InfoPrintf(("AJ_PeerHandleExchangeGuids(msg=0x%p, reply=0x%p)\n", msg, reply));
 
@@ -472,6 +455,24 @@ AJ_Status AJ_PeerHandleExchangeGUIDs(AJ_Message* msg, AJ_Message* reply)
         return AJ_MarshalErrorMsg(msg, reply, AJ_ErrResources);
     }
     authContext.peerGuid = AJ_GUID_Find(msg->sender);
+
+    /*
+     * If we have a mastersecret stored - use it
+     */
+    status = AJ_GetPeerCredential(authContext.peerGuid, &cred);
+    if (AJ_OK == status) {
+        status = AJ_CredentialExpired(cred);
+        if (AJ_ERR_KEY_EXPIRED != status) {
+            /* secret not expired or time unknown */
+            handshakeContext.state = AJ_AUTH_SUCCESS;
+            /* assert that MASTER_SECRET_LEN == cred->dataLen */
+            memcpy(handshakeContext.mastersecret, cred->data, cred->dataLen);
+        } else {
+            AJ_DeletePeerCredential(authContext.peerGuid);
+        }
+        AJ_FreeCredential(cred);
+    }
+
     /*
      * We are not currently negotiating versions so we tell the peer what version we require.
      */
@@ -572,10 +573,15 @@ AJ_Status AJ_PeerHandleExchangeGUIDsReply(AJ_Message* msg)
         if (AJ_ERR_KEY_EXPIRED != status) {
             /* secret not expired or time unknown */
             handshakeContext.state = AJ_AUTH_SUCCESS;
+            /* assert that MASTER_SECRET_LEN == cred->dataLen */
+            memcpy(handshakeContext.mastersecret, cred->data, cred->dataLen);
+            AJ_FreeCredential(cred);
             status = GenSessionKey(msg);
+            return status;
+        } else {
+            AJ_DeletePeerCredential(authContext.peerGuid);
         }
         AJ_FreeCredential(cred);
-        return status;
     }
 
     switch (versionContext.handshakeType) {
@@ -1082,11 +1088,11 @@ AJ_Status AJ_PeerHandleKeyAuthentication(AJ_Message* msg, AJ_Message* reply)
     handshakeContext.state = AJ_AUTH_SUCCESS;
     handshakeContext.keyauthentication->Final(&expiration);
 
-    status = SaveMasterSecret(peerGuid, expiration);
-    if (AJ_OK != status) {
-        AJ_WarnPrintf(("AJ_PeerHandleKeyAuthentication(msg=0x%p, reply=0x%p): Save master secret error\n", msg, reply));
-        HandshakeComplete(AJ_ERR_SECURITY);
-        return AJ_MarshalErrorMsg(msg, reply, AJ_ErrSecurityViolation);
+    if (expiration) {
+        status = SaveMasterSecret(peerGuid, expiration);
+        if (AJ_OK != status) {
+            AJ_WarnPrintf(("AJ_PeerHandleKeyAuthentication(msg=0x%p, reply=0x%p): Save master secret error\n", msg, reply));
+        }
     }
 
     return status;
@@ -1144,11 +1150,11 @@ AJ_Status AJ_PeerHandleKeyAuthenticationReply(AJ_Message* msg)
     handshakeContext.keyauthentication->Final(&expiration);
 
     peerGuid = AJ_GUID_Find(msg->sender);
-    status = SaveMasterSecret(peerGuid, expiration);
-    if (AJ_OK != status) {
-        AJ_WarnPrintf(("AJ_PeerHandleKeyAuthenticationReply(msg=0x%p): Save master secret error\n", msg));
-        HandshakeComplete(AJ_ERR_SECURITY);
-        return AJ_ERR_SECURITY;
+    if (expiration) {
+        status = SaveMasterSecret(peerGuid, expiration);
+        if (AJ_OK != status) {
+            AJ_WarnPrintf(("AJ_PeerHandleKeyAuthenticationReply(msg=0x%p): Save master secret error\n", msg));
+        }
     }
 
     status = GenSessionKey(msg);
@@ -1210,6 +1216,13 @@ AJ_Status AJ_PeerHandleGenSessionKey(AJ_Message* msg, AJ_Message* reply)
     if (AJ_OK != status) {
         return AJ_MarshalErrorMsg(msg, reply, AJ_ErrResources);
     }
+    if (AJ_AUTH_SUCCESS != handshakeContext.state) {
+        /*
+         * We don't have a saved master secret and we haven't generated one yet
+         */
+        AJ_InfoPrintf(("AJ_PeerHandleGenSessionKey(msg=0x%p, reply=0x%p): Key not available\n", msg, reply));
+        return AJ_MarshalErrorMsg(msg, reply, AJ_ErrRejected);
+    }
 
     /*
      * Remote peer GUID, Local peer GUID and Remote peer's nonce
@@ -1259,6 +1272,8 @@ AJ_Status AJ_PeerHandleGenSessionKeyReply(AJ_Message* msg)
         AJ_WarnPrintf(("AJ_PeerHandleGetSessionKeyReply(msg=0x%p): error=%s.\n", msg, msg->error));
         if (0 == strncmp(msg->error, AJ_ErrResources, sizeof(AJ_ErrResources))) {
             status = AJ_ERR_RESOURCES;
+        } else if (0 == strncmp(msg->error, AJ_ErrRejected, sizeof(AJ_ErrRejected))) {
+            status = ExchangeSuites(msg);
         } else {
             status = AJ_ERR_SECURITY;
             HandshakeComplete(status);
