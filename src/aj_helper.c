@@ -433,7 +433,11 @@ AJ_Status StartClient(AJ_BusAttachment* bus,
             ifaces = interfaces;
             while (*ifaces != NULL) {
                 strcat(rule, impl);
-                strcat(rule, *ifaces);
+                if ((*ifaces)[0] == '$') {
+                    strcat(rule, &(*ifaces)[1]);
+                } else {
+                    strcat(rule, *ifaces);
+                }
                 strcat(rule, "'");
                 ifaces++;
             }
