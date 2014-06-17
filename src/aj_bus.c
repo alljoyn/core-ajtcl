@@ -429,7 +429,7 @@ AJ_Status AJ_BusHandleBusMessage(AJ_Message* msg)
     AJ_Message reply;
 
     AJ_InfoPrintf(("AJ_BusHandleBusMessage(msg=0x%p)\n", msg));
-
+    memset(&reply, 0, sizeof(AJ_Message));
     /*
      * Check we actually have a message to handle
      */

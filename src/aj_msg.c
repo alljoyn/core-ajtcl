@@ -357,7 +357,13 @@ static AJ_Status EncryptMessage(AJ_Message* msg)
 AJ_Status AJ_DeliverMsg(AJ_Message* msg)
 {
     AJ_Status status = AJ_OK;
-    AJ_IOBuffer* ioBuf = &msg->bus->sock.tx;
+    AJ_IOBuffer* ioBuf;
+
+    if (!msg || !msg->bus) {
+        return AJ_ERR_MARSHAL;
+    }
+
+    ioBuf = &msg->bus->sock.tx;
 
     /*
      * If the header has already been marshaled (due to partial delivery) it will be NULL
