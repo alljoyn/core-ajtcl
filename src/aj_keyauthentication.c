@@ -557,7 +557,8 @@ AJ_Status ECDSA_Unmarshal(AJ_Message* msg, uint8_t role)
         }
         if (0 != memcmp(&issuer, &certificate->subject, sizeof (ecc_publickey))) {
             AJ_InfoPrintf(("AJ_ECDSA_Unmarshal(msg=0x%p): Certificate chaining invalid\n", msg));
-            return AJ_ERR_SECURITY;
+            status = AJ_ERR_SECURITY;
+            goto Exit;
         }
 
         status = AJ_VerifyCertificate(certificate);
