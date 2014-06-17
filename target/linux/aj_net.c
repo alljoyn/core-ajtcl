@@ -303,6 +303,9 @@ AJ_Status AJ_Net_SendTo(AJ_IOBuffer* buf)
             }
 
             sendToBroadcast(context->udpSock, buf->readPtr, tx);
+        } else {
+            AJ_ErrPrintf(("AJ_Net_SendTo(): Invalid IPv4 socket\n"));
+            return AJ_ERR_WRITE;
         }
 
 
@@ -319,6 +322,9 @@ AJ_Status AJ_Net_SendTo(AJ_IOBuffer* buf)
                 AJ_ErrPrintf(("AJ_Net_SendTo(): Invalid address IP address. errno=\"%s\"", strerror(errno)));
                 return AJ_ERR_WRITE;
             }
+        } else {
+            AJ_ErrPrintf(("AJ_Net_SendTo(): Invalid IPv6 socket\n"));
+            return AJ_ERR_WRITE;
         }
 
         if (ret == -1) {
