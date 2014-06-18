@@ -211,7 +211,7 @@ static void XMLWriteDescription(XMLWriterFunc XMLWriter, void* context, uint8_t 
             XMLWriter(context, "    ", 4);
         }
         XMLWriter(context, "<description", 12);
-        if (strlen(languageTag) > 0) {
+        if (languageTag != NULL && strlen(languageTag) > 0) {
             XMLWriter(context, " language=\"", 11);
             XMLWriter(context, languageTag, 0);
             XMLWriter(context, "\"", 1);
