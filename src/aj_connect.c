@@ -53,10 +53,26 @@
 #ifndef NDEBUG
 AJ_EXPORT uint8_t dbgCONNECT = 0;
 #endif
-
+/*
+ * Protocol version of the router you have connected to
+ */
 static uint8_t routingProtoVersion = 0;
+/*
+ * This global gets set depending on whether or not you are using 14.06 features or not
+ * If using NGNS this will be set to 9, otherwise 8 for backwards compatibility
+ */
+static uint8_t minProtoVersion = 0;
 
 static const char daemonService[] = "org.alljoyn.BusNode";
+
+uint8_t AJ_GetMinProtoVersion()
+{
+    return minProtoVersion;
+}
+void AJ_SetMinProtoVersion(uint8_t min)
+{
+    minProtoVersion = min;
+}
 
 void SetBusAuthPwdCallback(BusAuthPwdFunc callback)
 {
@@ -147,6 +163,9 @@ static AJ_Status AnonymousAuthAdvance(AJ_IOBuffer* rxBuf, AJ_IOBuffer* txBuf) {
                 return AJ_ERR_ACCESS_ROUTING_NODE;
             }
             routingProtoVersion = atoi((const char*)(rxBuf->readPtr + strlen("INFORM_PROTO_VERSION") + 1));
+            if (routingProtoVersion < AJ_GetMinProtoVersion()) {
+                return AJ_ERR_OLD_VERSION;
+            }
         }
     }
 
@@ -179,6 +198,7 @@ AJ_Status AJ_Authenticate(AJ_BusAttachment* bus)
 
     /* Use SASL Anonymous to connect to routing node */
     status = AnonymousAuthAdvance(&bus->sock.rx, &bus->sock.tx);
+
     if (status == AJ_OK) {
         status = SendHello(bus);
     }
@@ -446,6 +466,7 @@ AJ_Status AJ_FindBusAndConnect(AJ_BusAttachment* bus, const char* serviceName, u
         AJ_InfoPrintf(("AJ_Connect(): AJ_Authenticate status=%s\n", AJ_StatusText(status)));
         goto ExitConnect;
     }
+
 
     // subscribe to the signal NameOwnerChanged and wait for the response
     status = AJ_BusSetSignalRule(bus, "type='signal',member='NameOwnerChanged',interface='org.freedesktop.DBus'", AJ_BUS_SIGNAL_ALLOW);
