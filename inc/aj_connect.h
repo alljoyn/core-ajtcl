@@ -24,6 +24,14 @@
 #include "aj_target.h"
 #include "aj_status.h"
 #include "aj_bus.h"
+/**
+ * Gets the routing nodes protocol version that you are connected to.
+ *
+ * @return          The routing nodes protocol version
+ *                  0 if not connected to a routing node
+ */
+AJ_EXPORT
+uint8_t AJ_GetRoutingProtoVersion(void);
 
 /**
  * Authenticate with the daemon

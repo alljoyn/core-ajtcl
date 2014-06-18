@@ -54,6 +54,8 @@
 AJ_EXPORT uint8_t dbgCONNECT = 0;
 #endif
 
+static uint8_t routingProtoVersion = 0;
+
 static const char daemonService[] = "org.alljoyn.BusNode";
 
 void SetBusAuthPwdCallback(BusAuthPwdFunc callback)
@@ -102,7 +104,10 @@ static AJ_Status WriteLine(AJ_IOBuffer* txBuf, char* line) {
     txBuf->writePtr += strlen(line);
     return txBuf->send(txBuf);
 }
-
+uint8_t AJ_GetRoutingProtoVersion(void)
+{
+    return routingProtoVersion;
+}
 /**
  * Since the routing node expects any of its clients to use SASL with Anonymous
  * or PINX in order to connect, this method will send the necessary SASL
@@ -141,6 +146,7 @@ static AJ_Status AnonymousAuthAdvance(AJ_IOBuffer* rxBuf, AJ_IOBuffer* txBuf) {
             if (memcmp(rxBuf->readPtr, "INFORM_PROTO_VERSION", strlen("INFORM_PROTO_VERSION")) != 0) {
                 return AJ_ERR_ACCESS_ROUTING_NODE;
             }
+            routingProtoVersion = atoi((const char*)(rxBuf->readPtr + strlen("INFORM_PROTO_VERSION") + 1));
         }
     }
 
@@ -477,4 +483,8 @@ void AJ_Disconnect(AJ_BusAttachment* bus)
         bus->numsuites = 0;
     }
     AJ_ClearAuthContext();
+    /*
+     * Set the routing nodes proto version to zero (not connected)
+     */
+    routingProtoVersion = 0;
 }
