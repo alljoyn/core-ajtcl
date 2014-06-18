@@ -342,13 +342,15 @@ Exit:
 
 /*
  * Finds the oldest credential and deletes it
+ * @param[out] deleteSlot holder for the slot of deleted credential or zero if not deleted
+ * @return AJ_OK if there is no reading error.
  */
-static AJ_Status AJ_DeleteOldestCredential()
+static AJ_Status AJ_DeleteOldestCredential(uint16_t* deleteSlot)
 {
     AJ_Status status = AJ_ERR_INVALID;
     uint16_t slot = AJ_CREDS_NV_ID_BEGIN;
     AJ_NV_DATASET* handle;
-    uint16_t oldestslot = AJ_CREDS_NV_ID_END;
+    uint16_t oldestslot = 0;
     uint32_t oldestexp = 0xFFFFFFFF;
     uint16_t localCredType;
     uint8_t localCredIdLen;
@@ -357,6 +359,7 @@ static AJ_Status AJ_DeleteOldestCredential()
 
     AJ_InfoPrintf(("AJ_DeleteOldestCredential()\n"));
 
+    *deleteSlot = 0;
     for (; slot < AJ_CREDS_NV_ID_END; slot++) {
         if (!AJ_NVRAM_Exist(slot)) {
             continue;
@@ -404,26 +407,27 @@ static AJ_Status AJ_DeleteOldestCredential()
         cred.dataLen = 0;
         cred.associationLen = 0;
         status = ReadRemainderOfCredential(handle, &cred);
-        status = AJ_NVRAM_Close(handle);
+        AJ_NVRAM_Close(handle);
+        if (status != AJ_OK) {
+            AJ_ErrPrintf(("AJ_DeleteOldestCredential(): AJ_ERR_FAILURE on read failure \n"));
+            return status;
+        }
+
         /* if older and type GENERIC (master secret) */
         if ((cred.expiration <= oldestexp) && (AJ_CRED_TYPE_GENERIC == cred.type)) {
             oldestexp = cred.expiration;
             oldestslot = slot;
         }
         FreeCredentialContent(&cred);
-        if (status != AJ_OK) {
-            AJ_ErrPrintf(("AJ_DeleteOldestCredential(): AJ_ERR_FAILURE on read failure \n"));
-            return status;
-        }
     }
 
-    if (oldestslot != AJ_CREDS_NV_ID_END) {
+    if (oldestslot) {
         AJ_InfoPrintf(("AJ_DeleteOldestCredential(): slot=%d exp=0x%08X\n", oldestslot, oldestexp));
         AJ_NVRAM_Delete(oldestslot);
-        status = AJ_OK;
     }
 
-    return status;
+    *deleteSlot = oldestslot;
+    return AJ_OK;
 }
 
 AJ_Status AJ_StoreCredential(AJ_PeerCred* aCred)
@@ -442,11 +446,11 @@ AJ_Status AJ_StoreCredential(AJ_PeerCred* aCred)
          */
         len = GetCredentialSize(aCred);
         len = WORD_ALIGN(len);
-        while ((AJ_OK == status) && (len >= AJ_NVRAM_GetSizeRemaining())) {
-            AJ_InfoPrintf(("AJ_StoreCredential(aCred=0x%p): Remaining %d Required %d\n", aCred, AJ_NVRAM_GetSizeRemaining(), len));
-            status = AJ_DeleteOldestCredential();
-        }
         slot = FindCredsEmptySlot();
+        while ((AJ_OK == status) && (!slot || (len >= AJ_NVRAM_GetSizeRemaining()))) {
+            AJ_InfoPrintf(("AJ_StoreCredential(aCred=0x%p): Remaining %d Required %d Slot %d\n", aCred, AJ_NVRAM_GetSizeRemaining(), len, slot));
+            status = AJ_DeleteOldestCredential(&slot);
+        }
     }
 
     if (slot) {
