@@ -24,6 +24,21 @@
 #include "aj_target.h"
 #include "aj_status.h"
 #include "aj_bus.h"
+
+/**
+ * Get the minimum protocol version allowed. This is set by AJ_SetMinProtoVersion()
+ * and its value depends on the features your using.
+ *
+ * @return          Minimum routing protocol version allowed
+ */
+uint8_t AJ_GetMinProtoVersion();
+
+/**
+ * Set the minimum router protocol version that you want to connect to.
+ *
+ * @param min       The minimum protocol version
+ */
+void AJ_SetMinProtoVersion(uint8_t min);
 /**
  * Gets the routing nodes protocol version that you are connected to.
  *
