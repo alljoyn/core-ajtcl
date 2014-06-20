@@ -182,6 +182,7 @@ const char* AJ_StatusText(AJ_Status status)
         AJ_CASE(AJ_ERR_SPI_NO_SPACE);
         AJ_CASE(AJ_ERR_SPI_READ);
         AJ_CASE(AJ_ERR_SPI_WRITE);
+        AJ_CASE(AJ_ERR_OLD_VERSION);
 
     default:
         return "<unknown>";
