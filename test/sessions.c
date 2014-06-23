@@ -66,7 +66,7 @@ static const AJ_Object AppObjects[] = {
  */
 void AppDoWork()
 {
-    AJ_AlwaysPrintf(("AppDoWork\n"));
+    AJ_InfoPrintf(("AppDoWork\n"));
 }
 
 
@@ -533,6 +533,16 @@ int AJ_Main()
                 /*
                  * don't force a disconnect, be ready to accept another session
                  */
+                break;
+
+            case AJ_SIGNAL_FOUND_ADV_NAME:
+                {
+                    char* name;
+                    char* namePrefix;
+                    uint16_t status;
+                    AJ_UnmarshalArgs(&msg, "sqs", &name, &status, &namePrefix);
+                    AJ_AlwaysPrintf(("FoundAdvertisedName name=%s, namePrefix=%s\n", name, namePrefix));
+                }
                 break;
 
             default:
