@@ -37,7 +37,7 @@ static uint16_t tid2 = 16;
 static uint16_t tid3 = 17;
 static uint16_t tid4 = 18;
 
-#define AJ_NVRAM_REQUESTED 4096
+#define AJ_NVRAM_REQUESTED AJ_NVRAM_SIZE
 #define RAND_DATA
 #define READABLE_LOG
 
@@ -391,10 +391,10 @@ AJ_Status TestNvramWrite()
 #ifdef WRITE_STRESS
     while (TRUE) {
 #endif
-    cap1 = (tid1 % 900) + 1;
-    cap2 = (tid2 % 900) + 1;
-    cap3 = (tid3 % 900) + 1;
-    cap4 = (tid4 % 900) + 1;
+    cap1 = (tid1 % ((AJ_NVRAM_REQUESTED / 4) - 100)) + 1;
+    cap2 = (tid2 % ((AJ_NVRAM_REQUESTED / 4) - 100)) + 1;
+    cap3 = (tid3 % ((AJ_NVRAM_REQUESTED / 4) - 100)) + 1;
+    cap4 = (tid4 % ((AJ_NVRAM_REQUESTED / 4) - 100)) + 1;
 
     d1 = AJ_NVRAM_Open(tid1, "w", cap1);
     for (i = 0; i < AJ_NVRAM_REQUESTED / 4; i++) {

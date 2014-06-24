@@ -31,6 +31,10 @@
 #define AJ_NV_DATASET_MODE_READ      'r'      /**< Data set is in read mode */
 #define AJ_NV_DATASET_MODE_WRITE     'w'      /**< Data set is in write mode */
 
+#ifndef AJ_NVRAM_SIZE
+#define AJ_NVRAM_SIZE (4096)
+#endif
+
 /**
  * AllJoyn NVRAM dataset handle
  */
