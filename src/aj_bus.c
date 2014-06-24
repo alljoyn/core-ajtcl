@@ -278,26 +278,7 @@ AJ_Status AJ_BusSetLinkTimeout(AJ_BusAttachment* bus, uint32_t sessionId, uint32
 
 AJ_Status AJ_BusSetSignalRule(AJ_BusAttachment* bus, const char* ruleString, uint8_t rule)
 {
-    AJ_Status status;
-    AJ_Message msg;
-    uint32_t msgId = (rule == AJ_BUS_SIGNAL_ALLOW) ? AJ_METHOD_ADD_MATCH : AJ_METHOD_REMOVE_MATCH;
-
-    AJ_InfoPrintf(("AJ_BusSetSignalRule(bus=0x%p, ruleString=\"%s\", rule=%d.)\n", bus, ruleString, rule));
-
-    status = AJ_MarshalMethodCall(bus, &msg, msgId, AJ_DBusDestination, 0, 0, AJ_METHOD_TIMEOUT);
-    if (status == AJ_OK) {
-        uint32_t sz = 0;
-        uint8_t nul = 0;
-        sz = (uint32_t)strlen(ruleString);
-        status = AJ_DeliverMsgPartial(&msg, sz + 5);
-        AJ_MarshalRaw(&msg, &sz, 4);
-        AJ_MarshalRaw(&msg, ruleString, strlen(ruleString));
-        AJ_MarshalRaw(&msg, &nul, 1);
-    }
-    if (status == AJ_OK) {
-        status = AJ_DeliverMsg(&msg);
-    }
-    return status;
+    return AJ_BusSetSignalRuleFlags(bus, ruleString, rule, 0);
 }
 
 AJ_Status AJ_BusAddSignalRule(AJ_BusAttachment* bus, const char* signalName, const char* interfaceName, uint8_t rule)
