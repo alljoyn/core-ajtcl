@@ -549,8 +549,8 @@ AJ_Status AJ_BusHandleBusMessage(AJ_Message* msg)
 
     case AJ_SIGNAL_NAME_OWNER_CHANGED:
         AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_SIGNAL_NAME_OWNER_CHANGED)\n"));
-        AJ_UnmarshalArgs(msg, "sss", &name, &oldOwner, &newOwner);
-        if (newOwner && oldOwner && newOwner[0] == '\0') {
+        status = AJ_UnmarshalArgs(msg, "sss", &name, &oldOwner, &newOwner);
+        if ((status == AJ_OK) && newOwner && oldOwner && newOwner[0] == '\0') {
             AJ_GUID_DeleteNameMapping(oldOwner);
         }
         /*
