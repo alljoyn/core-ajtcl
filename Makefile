@@ -1,6 +1,3 @@
-# All paths in this file are relative
-# The symlink batch file must be ran first
-
 # Copyright (c) 2014, AllSeen Alliance. All rights reserved.
 #
 #    Permission to use, copy, modify, and/or distribute this software for any
@@ -15,16 +12,75 @@
 #    ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 #    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-# Defines
-ALLJOYN_DEFINES  = -DAJ_CONFIGURE_WIFI_UPON_START 
-ALLJOYN_DEFINES += -D_DEBUG=1
-ALLJOYN_DEFINES += -DAJ_DEBUG_RESTRICT=AJ_DEBUG_ALL
-ALLJOYN_DEFINES += -DWIFI_DEVICE_NAME=\"4002Pez\"
-ALLJOYN_DEFINES += -DWIFI_SCAN=1
-ALLJOYN_DEFINES += -DWIFI_SSID=\"fishing2\"
-ALLJOYN_DEFINES += -DWIFI_PASSPHRASE=\"foobar12\"
-ALLJOYN_DEFINES += -DxSOFTAP_SSID=\"PEZAJTCL\"
-ALLJOYN_DEFINES += -DxSOFTAP_PASSPHRASE=\"foobar12\"
+#
+# This makefile is meant to be used solely for building WSL-enabled applications.
+# It is intended to be invoked from IDEs that do not support building using SCons.
+# All paths in this file are relative to the makefile location
+#
+# Some care has to be taken when passing string values into the makefile from the command-line.
+# An extra level of backslash escaping required to get a string presented to the compiler's preprocessor.
+# For example, passing the string "bar" to use as a character string initializer in a .c file:
+#    const char foo_var[] = FOO_VAR;
+#
+# Is passed on the command line:
+#    make target FOO_VAR=\\\"bar\\\"
+#
+# Which results in compiler arguments such as:
+#    -DFOO_VAR=\"bar\"
+#
+# settings that can be defined:
+#   AJ_CONFIGURE_WIFI_UPON_START: (boolean) should wifi network connections be started when the AllJoyn
+#            application starts, 1 means yes, 0 or undef means no
+#            example: AJ_CONFIGURE_WIFI_UPON_START=1
+#   WIFI_DEVICE_NAME: (quoted string) the hostname to assign to your device when connecting to the network
+#            example: WIFI_DEVICE_NAME=\\\"WSLNode001\\\"
+#   WIFI_SCAN: (boolean) should a scan of access points be performed when the device starts up,
+#            1 means yes, 0 or undef means no
+#            example: WIFI_SCAN=1
+#   WIFI_SSID: (quoted string) the SSID of the network to connect to
+#            example: WIFI_SSID=\\\"AP_SSID01\\\"
+#   WIFI_PASSPHRASE: (quoted string) the passphrase used to connect to WIFI_SSID
+#            example: WIFI_PASSPHRASE=\\\"PassPhrase\\\"
+#   SOFTAP_SSID: (quoted string) the SSID to use when the device is put into Access Point mode
+#            example: SOFTAP_SSID=\\\"SoftAP_SSID01\\\"
+#   SOFTAP_PASSPHRASE: (quoted string) the passphrase needed by clients to connect to SOFTAP_SSID
+#            example: SOFTAP_PASSPHRASE=\\\"My_PassPhrase\\\"
+
+ALLJOYN_DEFINES =
+
+# Check which options are defined on the command-line
+ifneq ($(AJ_DEBUG_RESTRICT), )
+ALLJOYN_DEFINES += -DAJ_DEBUG_RESTRICT=${AJ_DEBUG_RESTRICT}
+endif
+
+ifneq ($(AJ_CONFIGURE_WIFI_UPON_START), )
+ALLJOYN_DEFINES += -DAJ_CONFIGURE_WIFI_UPON_START=${AJ_CONFIGURE_WIFI_UPON_START}
+endif
+
+ifneq ($(WIFI_DEVICE_NAME),)
+ALLJOYN_DEFINES += -DWIFI_DEVICE_NAME=${WIFI_DEVICE_NAME}
+endif
+
+ifneq ($(WIFI_SCAN),)
+ALLJOYN_DEFINES += -DWIFI_SCAN=${WIFI_SCAN}
+endif
+
+ifneq ($(WIFI_SSID),)
+ALLJOYN_DEFINES += -DWIFI_SSID=${WIFI_SSID}
+endif
+
+ifneq ($(WIFI_PASSPHRASE),)
+ALLJOYN_DEFINES += -DWIFI_PASSPHRASE=${WIFI_PASSPHRASE}
+endif
+
+ifneq ($(SOFTAP_SSID),)
+ALLJOYN_DEFINES += -DSOFTAP_SSID=${SOFTAP_SSID}
+endif
+
+ifneq ($(SOFTAP_PASSPHRASE),)
+ALLJOYN_DEFINES += -DSOFTAP_PASSPHRASE=${SOFTAP_PASSPHRASE}
+endif
+
 
 DEFINES = 	-D__SAM3X8E__ \
 			-DARM_MATH_CM3=true \
@@ -32,6 +88,8 @@ DEFINES = 	-D__SAM3X8E__ \
 			-Dprintf=iprintf 
 
 DEFINES += $(ALLJOYN_DEFINES)
+
+
 
 RELEASE_DEFINES = 	-DNDEBUG \
 
@@ -55,7 +113,7 @@ RELEASE_LDFLAGS = \
 			-Os \
 
 
-# Include Paths			
+# Include Paths
 INCLUDES = 	-I. \
 			-Iconfig \
 			-I$(FREE_RTOS_DIR)/Source/include \
@@ -245,11 +303,11 @@ SOURCE_FILES :=	$(FREE_RTOS_DIR)/Source/croutine.c \
 
 TEST_FILES = 	test/aestest.c
 TEST_FILES +=	test/mutter.c
-TEST_FILES +=	test/svclite.c		
-TEST_FILES +=  	test/nvramtest.c
+TEST_FILES +=	test/svclite.c
+TEST_FILES +=	test/nvramtest.c
 TEST_FILES += 	test/clientlite.c
 TEST_FILES += 	test/sessionslite.c
-TEST_FILES += 	test/WSL/initial_bring_up.c
+
 		
 SAMPLE_FILES =  	samples/basic/basic_client.c
 SAMPLE_FILES += 	samples/basic/basic_service.c
@@ -285,7 +343,6 @@ debug: all
 all: test \
 	sample \
 	due_mutter \
-	due_initial_bring_up \
 	due_svclite \
 	due_nvram_test \
 	due_clientlite \
@@ -298,9 +355,6 @@ due_aestest:
 
 due_mutter:
 	$(COMPILER) -o due_mutter.elf $(OBJECTS) test/mutter.o $(LDFLAGS)
-
-due_initial_bring_up:
-	$(COMPILER) -o due_initial_bring_up.elf $(OBJECTS) test/WSL/initial_bring_up.o $(LDFLAGS)
 
 due_svclite:
 	$(COMPILER) -o due_svclite.elf $(OBJECTS) test/svclite.o $(LDFLAGS)
