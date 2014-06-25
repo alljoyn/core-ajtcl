@@ -29,7 +29,6 @@
 #define INVALID_DATA_BYTE (0xFF)
 #define SENTINEL_OFFSET (4)
 #define WORD_ALIGN(x) ((x & 0x3) ? ((x >> 2) + 1) << 2 : x)
-#define AJ_NVRAM_SIZE (2048)
 
 typedef struct _NV_EntryHeader {
     uint16_t id;           /**< The unique id */
