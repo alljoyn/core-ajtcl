@@ -304,7 +304,11 @@ AJ_Status AJ_StartService(AJ_BusAttachment* bus,
         AJ_Message msg;
 
         status = AJ_UnmarshalMsg(bus, &msg, AJ_UNMARSHAL_TIMEOUT);
-
+        if (status == AJ_ERR_NO_MATCH) {
+            // Ignore unknown messages
+            status = AJ_OK;
+            continue;
+        }
         if (status != AJ_OK) {
             AJ_ErrPrintf(("AJ_StartService(): status=%s.\n", AJ_StatusText(status)));
             break;
@@ -479,6 +483,11 @@ AJ_Status StartClient(AJ_BusAttachment* bus,
                 return status;
             }
             timeout -= AJ_UNMARSHAL_TIMEOUT;
+            status = AJ_OK;
+            continue;
+        }
+        if (status == AJ_ERR_NO_MATCH) {
+            // Ignore unknown messages
             status = AJ_OK;
             continue;
         }
