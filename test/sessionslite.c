@@ -203,6 +203,8 @@ int inStr(char*str, const char*in)
 char*aj_strtok(char*str, const char*delim)
 {
     static char*nextLocation = 0;
+    int currentTokenLength;
+    int nextTokenLength;
     /* NULL given so set location to the string */
     if (str == NULL) {
         str = nextLocation;
@@ -219,8 +221,8 @@ char*aj_strtok(char*str, const char*delim)
      * and move the location and str pointers to those
      * two locations.
      */
-    int currentTokenLength = inStr(nextLocation, delim);
-    int nextTokenLength = notInStr(str, delim);
+    currentTokenLength = inStr(nextLocation, delim);
+    nextTokenLength = notInStr(str, delim);
     /* Get current token */
     str = nextLocation + currentTokenLength;
     /* Update for the next token */
@@ -245,6 +247,7 @@ char*aj_strtok(char*str, const char*delim)
 
 int AJ_Main()
 {
+    int i;
     AJ_Initialize();
     AJ_PrintXML(AppObjects);
     AJ_RegisterObjects(AppObjects, NULL);
@@ -256,7 +259,7 @@ int AJ_Main()
     } else {
         authStatus = AJ_OK;
     }
-    int i = 0;
+    i = 0;
     while (commands[i] != NULL) {
         AJ_AlwaysPrintf(("%s\n", commands[i]));
         i++;
@@ -654,6 +657,16 @@ int AJ_Main()
                     uint32_t id, reason;
                     AJ_UnmarshalArgs(&msg, "uu", &id, &reason);
                     AJ_InfoPrintf(("Session lost. ID = %u, reason = %u", id, reason));
+                }
+                break;
+
+            case AJ_SIGNAL_FOUND_ADV_NAME:
+                {
+                    char* name;
+                    char* namePrefix;
+                    uint16_t status;
+                    AJ_UnmarshalArgs(&msg, "sqs", &name, &status, &namePrefix);
+                    AJ_AlwaysPrintf(("FoundAdvertisedName name=%s, namePrefix=%s\n", name, namePrefix));
                 }
                 break;
 
