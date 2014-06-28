@@ -1,78 +1,83 @@
-
-AllJoyn Thin Client Version 14.02 Release Notes
-===============================================
+AllJoyn Thin Client Core Library: Version 14.06 Beta Release Notes
+==================================================================
 
 Platform Support
 ----------------
-1) Linux Ubuntu (32 and 64 bit x86)
-2) Windows 7 (32 and 64 bit x86)
-3) Windows 8 (32 and 64 bit x86)
+1) Linux Ubuntu 12.04 LTS (32 and 64 bit)
+2) Windows 7 (32 and 64 bit)
+3) Windows 8 (32 and 64 bit)
 
-Features added in Version 14.02
--------------------------------
-1) Configurable debug logging mechanism;
-2) Discovery mechanism extended to use IPv4 broadcast and IPv6 mutlicast;
-3) Network API extended to allow more intelligent error handling.
 
-Issues Addressed in Version 14.02
----------------------------------
-AJTCT-21:   Helper functions ending in 2 are now removed
-AJTCT-24:   moved aj_init.c out of target builds
-AJTCT 50:   use IPV4 and IPV6 multicast for discovery
-AJTCT-60:   Replaced all printf calls with AJ_Printf, AJ_InfoPrintf or AJ_ErrPrintf
-AJTCT-61:   Added return code AJ_ERR_SESSION_LOST
-AJTCT-78:   fixed code that was closing stdin on Linux
-AJTCT-82:   iniitlize status variable; check for IPV4 mcast even if IPV6 fails
-AJTCT-87:   Linux stdin I/O thread never stops
-AJTCT-92:   send broadcast discovery packets out on ALL IPV4 interfaces
+Features added in Version 14.06 Beta
+------------------------------------
+* Tight integration of the About functionality 
+* Security 2.0 and removal of old mechanisms of authentication.
+* Next Generation Name Service support: "Who Implements" query is
+  supported: this provides the ability to discover peers that implement
+  specific interfaces - similar to About Client functionality.
+* WMI SPI Layer (WSL) for Thin Library: Implementation to allow Arduino
+  Due running with an RTOS (example for FreeRTOS) to work with the
+  Arrow/Netcom GT202 IoE WiFi module.
 
-AJCORE-4:   Level based filtering needs <= not < to give the expected behavior.
-AJCORE-5:   Added aj_config.h file to hold config data
-AJCORE-28:  Removed useless variable 'initial'
-AJCORE-80:  Fixed null object path crash
-AJCORE-182: Added flag parameter to AJ_BusAdvertiseName and AJ_BusBindSessionPort
-AJCORE-233: Added API AJ_RemoveSessionMember to thin client
-AJCORE-241: Added SessionLostWithReason signal
-AJCORE-351: Thin client must send the supported protocol version to the daemon
-AJCORE-703: Minor restructure to expose some internal APIs to support language bindings.
-AJCORE-704: Reworked pool based malloc to be more useful.
-AJCORE-716: Added AJ_GetVersion that returns the alljoyn version
-AJCORE-719: memcpy did not take into account null terminator
-AJCORE 721: clean up socket if bind fails
-AJCORE-722: Pointer is dereferenced before checking for null
-AJCORE-725: Fixed possible NULL pointer dereference
-AJCORE 726: fixed some klocwork issues
-AJCORE-727: Fixed memory leak in nvramtest
-AJCORE-728: Fixed multiple NULL pointer dereferences in sessions
-AJCORE-741: Fix AJ_UnmarshalRaw so it doesn't overwrite the message header
-AJCORE-742: Add a new API to reset the message args allowing them to be unmarshaled again
-AJCORE-753: Make debug logging dox easier to understand.
-AJCORE-758: AJ_UnmarshalMsg() now returns ERR_READ when in an unrecoverable state
-AJCORE-760: Replace CHECK macro with explicit status check
-AJCORE-771  added IPV4 broadcast and IPv6 multicast discovery support
-AJCORE-772: Separated out network primitives so they can be used independently of the Connect helper
-AJCORE-777  fixed missing include
-AJCORE-785: svclite disconnects from session lost signal
-AJCORE-787: Fixed AJ_CONNECT_LOCALHOST
-AJCORE-790: Fixed SASL authentication error
-AJCORE-796  fixed nvram function declarations
-AJCORE-804: Set flag to indicate that scalar array will be marshaled element-by-element
-AJCORE-845: Fixed possible uninitialized variable
-AJCORE-854: Fixed AJ_InitTimer not setting the time to the current time
-AJCORE-887: Fixed possible array out of bounds failure
-AJCORE-899: unmarshalScalarAsElement should be initialized to FALSE
+
+Issues Addressed in Version 14.06 Beta
+--------------------------------------
+ASACORE-53   Typo in thin library NVRAM constant
+ASACORE-143  Implement aj_realloc for thin library
+ASACORE-145  liballjoyn_about.a binary compatibility for objective C
+ASACORE-173  About bus objects are not announced
+ASACORE-204  AboutIcon's Device Icon is incorrectly named in ajtcl
+ASACORE-213  About iOS SDK: missing API ('SetDeviceName' with language)
+ASACORE-224  AJTCL Linux port needs a larger transmit buffer
+ASACORE-264  AllJoynFramework_iOS: add missing files to project
+ASACORE-491  DBUS.Properties.GetAll method bypasses interface security
+ASACORE-507  Bus name not updated in RN, therefore join session fails
+ASACORE-561  Thin Client needs an API to get the routing nodes protocol
+	     version
+ASACORE-629  Thin library samples need to handle routing node exit gracefully
+ASACORE-638  aj_helper.c should ignore unknown messages
+
+
+Known Issues in Version 14.06 Beta
+----------------------------------
+ASACORE-46   AJ Thin Client applications that use AJ_StartClient() do not
+             know the full bus name of the service that was joined for
+             sending method calls.
+ASACORE-192  Overlapping ADDMATCH rules should not fetch previously
+             received Sessionless signals again. 
+ASACORE-305  WSL boot delays are a bit too long
+ASACORE-309  WSL power consumption may be too high while sleeping: The WSL
+             code doesn't tell the WiFi hardware to go into low-power modes
+             when a sleep is requested.
+ASACORE-624  AJ_PrintXML(AppObjects) does not prints all the objects that
+             are present
 
 Compatibility
 -------------
-1) Thin Client now negotiates AllJoyn protocol version with routing node (version 8).
-2) AJ_Connect has been deprecated in favor of AJ_FindBusAndConnect.
-3) Renamed AJ_BusSetSignalRule2 to AJ_BusAddSignalRule
-4) Removed functions AJ_StartService2 and AJ_StartClient2.
-5) Added parameter <connected> to AJ_StartService and AJ_StartClient
+Starting in Version 14.06
+* The APIs for About in the core/about_tcl repo are DEPRECATED
+* Thin Library protocol version changed from 8 to 9.
+* New function AJ_StartClientByInterface which adds support for new NGNS
+  features
+* Thin Client accepts connection to the routing node based on protocol
+  version. When connecting to a pre-14.06 (protocol version < 9) routing
+  node you must use the functions AJ_StartClient or AJ_StartService
+  otherwise the thin client will reject the connection. Using the NGNS
+  function AJ_StartClientByInterface will only allow you to connect to a
+  14.06 routing node (protocol version > 9).
+
+Starting in Version 14.02
+* Thin Client now negotiates AllJoyn protocol version with routing node
+  (version 8).
+* AJ_Connect has been deprecated in favor of AJ_FindBusAndConnect.
+* Renamed AJ_BusSetSignalRule2 to AJ_BusAddSignalRule
+* Removed functions AJ_StartService2 and AJ_StartClient2.
+* Added parameter <connected> to AJ_StartService and AJ_StartClient
 
 
 Change history
 --------------
+14.06 - June AllSeen Alliance Release
 14.02 - AllSeen Alliance Release
 3.4.1 - Bug fixes.
 3.4.0 - Support for Object Level Security.
