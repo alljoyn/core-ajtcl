@@ -84,6 +84,23 @@ static const char AJ_IPV6_MULTICAST_GROUP[] = "ff02::13a";
  */
 #define AJ_UDP_PORT 9956
 
+/*
+ * Various events for I/O
+ */
+static WSAEVENT interruptEvent = WSA_INVALID_EVENT;
+static WSAEVENT recvEvent = WSA_INVALID_EVENT;
+static WSAEVENT sendEvent = WSA_INVALID_EVENT;
+
+/*
+ * This function is called to cancel a pending select.
+ */
+void AJ_Net_Interrupt()
+{
+    if (interruptEvent != WSA_INVALID_EVENT) {
+        WSASetEvent(interruptEvent);
+    }
+}
+
 static AJ_Status AJ_Net_Send(AJ_IOBuffer* buf)
 {
     DWORD ret;
@@ -94,12 +111,21 @@ static AJ_Status AJ_Net_Send(AJ_IOBuffer* buf)
     assert(buf->direction == AJ_IO_BUF_TX);
 
     if (tx > 0) {
-        ret = send((SOCKET)buf->context, buf->readPtr, tx, 0);
-        if (ret == SOCKET_ERROR) {
+        WSAOVERLAPPED ov;
+        DWORD flags = 0;
+        WSABUF wsbuf;
+
+        memset(&ov, 0, sizeof(ov));
+        ov.hEvent = sendEvent;
+        wsbuf.len = tx;
+        wsbuf.buf = buf->readPtr;
+
+        ret = WSASend((SOCKET)buf->context, &wsbuf, 1, NULL, flags, &ov, NULL);
+        if (!WSAGetOverlappedResult((SOCKET)buf->context, &ov, &tx, TRUE, &flags)) {
             AJ_ErrPrintf(("AJ_Net_Send(): send() failed. WSAGetLastError()=0x%x, status=AJ_ERR_WRITE\n", WSAGetLastError()));
             return AJ_ERR_WRITE;
         }
-        buf->readPtr += ret;
+        buf->readPtr += tx;
     }
     if (AJ_IO_BUF_AVAIL(buf) == 0) {
         AJ_IO_BUF_RESET(buf);
@@ -108,44 +134,79 @@ static AJ_Status AJ_Net_Send(AJ_IOBuffer* buf)
     return AJ_OK;
 }
 
+static WSAOVERLAPPED wsaOverlapped;
+static WSABUF wsbuf;
+
 static AJ_Status AJ_Net_Recv(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)
 {
-    AJ_Status status = AJ_OK;
+    AJ_Status status = AJ_ERR_READ;
+    WSAEVENT events[2];
     DWORD rx = AJ_IO_BUF_SPACE(buf);
-    fd_set fds;
-    int rc = 0;
-    const struct timeval tv = { timeout / 1000, 1000 * (timeout % 1000) };
+    DWORD flags = 0;
+    DWORD ret = SOCKET_ERROR;
 
-    AJ_InfoPrintf(("AJ_Net_Recv(buf=0x%p, len=%d., timeout=%d.)\n", buf, len, timeout));
+    AJ_InfoPrintf(("AJ_Net_Recv(buf=0x%p, len=%d, timeout=%d)\n", buf, len, timeout));
 
     assert(buf->direction == AJ_IO_BUF_RX);
 
-    FD_ZERO(&fds);
-    FD_SET((SOCKET)buf->context, &fds);
-    rc = select(1, &fds, NULL, NULL, &tv);
-    if (rc == 0) {
-        return AJ_ERR_TIMEOUT;
-    }
-
     rx = min(rx, len);
-    if (rx) {
-        DWORD ret = recv((SOCKET)buf->context, buf->writePtr, rx, 0);
-        if ((ret == SOCKET_ERROR) || (ret == 0)) {
-            AJ_ErrPrintf(("AJ_Net_Recv(): recv() failed. WSAGetLastError()=0x%x, status=AJ_ERR_READ\n", WSAGetLastError()));
-            status = AJ_ERR_READ;
-        } else {
-            buf->writePtr += ret;
+    if (!rx) {
+        return AJ_OK;
+    }
+    /*
+     * Overlapped receives cannot be cancelled. We are relying the fact that a timedout or
+     * interrupted receive will be eventually reposted with the same buffer.
+     */
+    if (wsaOverlapped.hEvent == INVALID_HANDLE_VALUE) {
+        wsbuf.len = rx;
+        wsbuf.buf = buf->writePtr;
+        memset(&wsaOverlapped, 0, sizeof(WSAOVERLAPPED));
+        wsaOverlapped.hEvent = recvEvent;
+        ret = WSARecv((SOCKET)buf->context, &wsbuf, 1, NULL, &flags, &wsaOverlapped, NULL);
+        if ((ret == SOCKET_ERROR) && (WSAGetLastError() != WSA_IO_PENDING)) {
+            AJ_ErrPrintf(("WSARecv(): fauled WSAGetLastError()=%d\n", WSAGetLastError()));
+            return AJ_ERR_READ;
         }
     }
-    AJ_InfoPrintf(("AJ_Net_Recv(): status=%s\n", AJ_StatusText(status)));
+    /*
+     * Assert that the buffer and length are the same in the case where this is a reposting of the
+     * receive after an timeout or interrupt.
+     */
+    AJ_ASSERT(wsbuf.buf == buf->writePtr);
+    AJ_ASSERT(wsbuf.len == rx);
+
+    events[0] = wsaOverlapped.hEvent;
+    events[1] = interruptEvent;
+    ret = WSAWaitForMultipleEvents(2, events, FALSE, timeout, TRUE);
+    if (ret == WSA_WAIT_EVENT_0) {
+        if (WSAGetOverlappedResult((SOCKET)buf->context, &wsaOverlapped, &rx, TRUE, &flags)) {
+            status = AJ_OK;
+        }
+    } else if (ret == WSA_WAIT_TIMEOUT) {
+        status = AJ_ERR_TIMEOUT;
+    } else if (ret == (WSA_WAIT_EVENT_0 + 1)) {
+        WSAResetEvent(interruptEvent);
+        status = AJ_ERR_INTERRUPTED;
+    }
+    if (status == AJ_OK) {
+        /*
+         * Reset recv event and clear overlapped struct for the next call
+         */
+        WSAResetEvent(wsaOverlapped.hEvent);
+        wsaOverlapped.hEvent = INVALID_HANDLE_VALUE;
+        buf->writePtr += rx;
+        AJ_InfoPrintf(("AJ_Net_Recv(): read %d bytes\n", rx));
+    } else {
+        AJ_ErrPrintf(("AJ_Net_Recv(): %s WSAGetLastError()=%d\n", AJ_StatusText(status), WSAGetLastError()));
+    }
     return status;
 }
 
 /*
  * Statically sized buffers for I/O
  */
-static uint8_t rxData[1024];
-static uint8_t txData[1024];
+static uint8_t rxData[2048];
+static uint8_t txData[2048];
 
 AJ_Status AJ_Net_Connect(AJ_NetSocket* netSock, uint16_t port, uint8_t addrType, const uint32_t* addr)
 {
@@ -153,6 +214,7 @@ AJ_Status AJ_Net_Connect(AJ_NetSocket* netSock, uint16_t port, uint8_t addrType,
     SOCKADDR_STORAGE addrBuf;
     socklen_t addrSize;
     SOCKET sock;
+    int af;
 
     AJ_InfoPrintf(("AJ_Net_Connect(nexSock=0x%p, port=%d., addrType=%d., addr=0x%p)\n", netSock, port, addrType, addr));
 
@@ -161,7 +223,12 @@ AJ_Status AJ_Net_Connect(AJ_NetSocket* netSock, uint16_t port, uint8_t addrType,
 
     memset(&addrBuf, 0, sizeof(addrBuf));
 
-    sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (addrType == AJ_ADDR_IPV4) {
+        af = AF_INET;
+    } else {
+        af = AF_INET6;
+    }
+    sock = WSASocket(af, SOCK_STREAM, IPPROTO_TCP, NULL, 0, WSA_FLAG_OVERLAPPED);
     if (sock == INVALID_SOCKET) {
         AJ_ErrPrintf(("AJ_Net_Connect(): invalid socket.  status=AJ_ERR_CONNECT\n"));
         return AJ_ERR_CONNECT;
@@ -191,6 +258,10 @@ AJ_Status AJ_Net_Connect(AJ_NetSocket* netSock, uint16_t port, uint8_t addrType,
         AJ_IOBufInit(&netSock->tx, txData, sizeof(txData), AJ_IO_BUF_TX, (void*)sock);
         netSock->tx.send = AJ_Net_Send;
         AJ_InfoPrintf(("AJ_Net_Connect(): status=AJ_OK\n"));
+        sendEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+        recvEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+        interruptEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+        wsaOverlapped.hEvent = INVALID_HANDLE_VALUE;
         return AJ_OK;
     }
 }
@@ -205,6 +276,9 @@ void AJ_Net_Disconnect(AJ_NetSocket* netSock)
         shutdown(sock, 0);
         closesocket(sock);
         memset(netSock, 0, sizeof(AJ_NetSocket));
+        WSACloseEvent(recvEvent);
+        WSACloseEvent(sendEvent);
+        WSACloseEvent(interruptEvent);
     }
 }
 
