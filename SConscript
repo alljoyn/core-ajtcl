@@ -81,6 +81,7 @@ if env['TARG'] == 'win32':
     env['libs'] = ['wsock32', 'advapi32']
     env.Append(CFLAGS=['/J', '/W3'])
     env.Append(CPPDEFINES=['_CRT_SECURE_NO_WARNINGS'])
+    env.Append(LINKFLAGS=['/NODEFAULTLIB:libcmt.lib'])
     if env['VARIANT'] == 'debug':
         env.Append(CFLAGS=['/MD', '/Zi', '/Od'])
         env.Append(LINKFLAGS=['/debug'])
@@ -88,8 +89,6 @@ if env['TARG'] == 'win32':
         env.Append(CPPDEFINES = ['NDEBUG'])
         env.Append(CFLAGS=['/MD', '/Gy', '/O1', '/GF'])
         env.Append(LINKFLAGS=['/opt:ref'])
-        env.Append(LFLAGS=['/NODEFAULTLIB:libcmt.lib'])
-        env.Append(LINKFLAGS=['/NODEFAULTLIB:libcmt.lib'])
     # Include paths
     env['includes'] = [ os.getcwd() + '/inc', os.getcwd() + '/target/${TARG}']
     # Target-specific headers and sources
