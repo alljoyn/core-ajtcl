@@ -16,10 +16,13 @@
  *    ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
+#define AJ_MODULE SESSIONS
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <alljoyn.h>
+
+uint8_t dbgSESSIONS = 0;
 
 #define CONNECT_TIMEOUT    (1000ul * 60)
 #define CONNECT_PAUSE      (1000ul * 10)
