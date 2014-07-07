@@ -457,17 +457,28 @@ AJ_EXPORT
 AJ_MemberType AJ_GetMemberType(uint32_t identifier, const char** member, uint8_t* isSecure);
 
 /**
- * Debugging aid prints out the XML for an object table
+ * Debugging aid that prints out the XML for an object table
+ *
+ * @param objs        A NULL terminated array of object info structs.
  */
 #ifdef NDEBUG
-#define AJ_PrintXML(obj)
+#define AJ_PrintXML(objs)
+#else
+AJ_EXPORT
+void AJ_PrintXML(const AJ_Object* objs);
+#endif
+
+/**
+ * Debugging aid that prints out the XML for an object table
+ *
+ * @param objs        A NULL terminated array of object info structs.
+ * @param languageTag The language that descriptions should be returned in if supported, else default lang used
+ */
+#ifdef NDEBUG
 #define AJ_PrintXMLWithDescriptions(...)
 #else
 AJ_EXPORT
-void AJ_PrintXML(const AJ_Object* obj);
-
-AJ_EXPORT
-void AJ_PrintXMLWithDescriptions(const AJ_Object* obj, const char* languageTag);
+void AJ_PrintXMLWithDescriptions(const AJ_Object* objs, const char* languageTag);
 #endif
 
 /**
