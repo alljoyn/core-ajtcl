@@ -55,7 +55,7 @@
 #define AJ_CONNECT_PAUSE         (10 * 1000)       //how long to pause between failed connects        (aj_helper.c)
 #define AJ_DEFAULT_REPLY_TIMEOUT (1000 * 20)       //reply timeout                                    (aj_introspect.c)
 #define AJ_MIN_BUS_LINK_TIMEOUT  (40)              //min link timeout for the bus                     (aj_link_timeout.c)
-#define AJ_BUS_LINK_PING_TIMEOUT (5)               //time period where probe requests should be acked (aj_link_timeout.c)
+#define AJ_BUS_LINK_PING_TIMEOUT (5 * 1000)        //time period in which probe requests sb acked     (aj_link_timeout.c)
 #define AJ_MAX_LINK_PING_PACKETS (3)               //max number of outstanding probe requests         (aj_link_timeout.c)
 #define AJ_METHOD_TIMEOUT        (1000 * 3)        //timeout for method calls                         (aj_bus.c)
 #define AJ_MAX_AUTH_TIME         (5 * 60 * 1000ul) //max time for incomplete authentication           (aj_peer.c)
