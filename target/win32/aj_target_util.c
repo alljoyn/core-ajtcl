@@ -68,9 +68,9 @@ void AJ_InitTimer(AJ_Time* timer)
  * @return returns the same string as 'str' if there has been a read error a null
  *                 pointer will be returned and 'str' will remain unchanged.
  */
-char*AJ_GetLine(char*str, int num, FILE*fp)
+char* AJ_GetLine(char* str, size_t num, void* fp)
 {
-    char*p = fgets(str, num, fp);
+    char*p = fgets(str, (int)num, (FILE*)fp);
 
     if (p != NULL) {
         size_t last = strlen(str) - 1;
@@ -103,7 +103,7 @@ unsigned __stdcall RunFunc(void* threadArg)
 uint8_t AJ_StartReadFromStdIn()
 {
     if (!ioThreadRunning) {
-        handle = _beginthreadex(NULL, stacksize, &RunFunc, NULL, 0, &threadId);
+        handle = (HANDLE)_beginthreadex(NULL, stacksize, &RunFunc, NULL, 0, &threadId);
         if (handle <= 0) {
             AJ_ErrPrintf(("Fail to spin a thread for reading from stdin\n"));
             return FALSE;
@@ -145,7 +145,7 @@ void* AJ_Realloc(void* ptr, size_t size)
 
 void AJ_Free(void* p)
 {
-    return free(p);
+    free(p);
 }
 
 #ifndef NDEBUG
