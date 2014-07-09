@@ -395,9 +395,11 @@ AJ_Status AJ_DeliverMsg(AJ_Message* msg)
 }
 
 /*
- * Timeout after we have started to unmarshal a message
+ * Timeout after we have started to unmarshal a message.  The entire message is
+ * not guaranteed to be in the TCP buffer so an extended timeout can be required
+ * to load a message that spans underlying TCP packets.
  */
-#define UNMARSHAL_TIMEOUT 550ul
+#define UNMARSHAL_TIMEOUT 15000ul
 
 /*
  * Make sure we have the required number of bytes in the I/O buffer
@@ -435,9 +437,12 @@ static AJ_Status LoadBytes(AJ_IOBuffer* ioBuf, uint16_t numBytes, uint8_t pad)
         }
     }
     /*
-     * Skip over pad bytes (The wire protocol says these should be zeroes)
+     * Skip over pad bytes (The wire protocol says these should be zeroes).
+     * Only skip if bytes have actually been read.
      */
-    ioBuf->readPtr += pad;
+    if (status == AJ_OK) {
+        ioBuf->readPtr += pad;
+    }
     return status;
 }
 
