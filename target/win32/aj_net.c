@@ -164,7 +164,7 @@ static AJ_Status AJ_Net_Recv(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)
         wsaOverlapped.hEvent = recvEvent;
         ret = WSARecv((SOCKET)buf->context, &wsbuf, 1, NULL, &flags, &wsaOverlapped, NULL);
         if ((ret == SOCKET_ERROR) && (WSAGetLastError() != WSA_IO_PENDING)) {
-            AJ_ErrPrintf(("WSARecv(): fauled WSAGetLastError()=%d\n", WSAGetLastError()));
+            AJ_ErrPrintf(("WSARecv(): failed WSAGetLastError()=%d\n", WSAGetLastError()));
             return AJ_ERR_READ;
         }
     }
@@ -187,6 +187,8 @@ static AJ_Status AJ_Net_Recv(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)
     } else if (ret == (WSA_WAIT_EVENT_0 + 1)) {
         WSAResetEvent(interruptEvent);
         status = AJ_ERR_INTERRUPTED;
+    } else {
+        AJ_ErrPrintf(("AJ_Net_Recv(): WSAGetLastError()=%d\n", WSAGetLastError()));
     }
     if (status == AJ_OK) {
         /*
@@ -196,8 +198,6 @@ static AJ_Status AJ_Net_Recv(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)
         wsaOverlapped.hEvent = INVALID_HANDLE_VALUE;
         buf->writePtr += rx;
         AJ_InfoPrintf(("AJ_Net_Recv(): read %d bytes\n", rx));
-    } else {
-        AJ_ErrPrintf(("AJ_Net_Recv(): %s WSAGetLastError()=%d\n", AJ_StatusText(status), WSAGetLastError()));
     }
     return status;
 }
