@@ -74,10 +74,12 @@
 #define AJ_FLAG_NO_REPLY_EXPECTED  0x01    /**< Not expecting a reply */
 #define AJ_FLAG_AUTO_START         0x02    /**< Auto start the service */
 #define AJ_FLAG_ALLOW_REMOTE_MSG   0x04    /**< Allow messeages from remote hosts */
-#define ALLJOYN_FLAG_SESSIONLESS   0x10    /**< Sessionless message */
+#define AJ_FLAG_SESSIONLESS        0x10    /**< Sessionless message */
 #define AJ_FLAG_GLOBAL_BROADCAST   0x20    /**< Global (bus-to-bus) broadcast */
 #define AJ_FLAG_COMPRESSED         0x40    /**< Header is compressed */
 #define AJ_FLAG_ENCRYPTED          0x80    /**< Body is encrypted */
+
+#define ALLJOYN_FLAG_SESSIONLESS   0x10    /**< Deprecated: Use AJ_FLAG_SESSIONLESS instead */
 
 /*
  * Wire protocol version number
