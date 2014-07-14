@@ -47,10 +47,10 @@ const char* AJ_GetVersion();
  * Call AJ_InitTimer() to initialize the timer before calling this function.
  *
  * @param timer      Tracks relative time.
- * @param cumulative If TRUE the elapsed time returned is cumulative, otheriwise it is relative to
- *                   the the time the function was called.
+ * @param cumulative If TRUE the elapsed time returned is cumulative, otherwise it is relative to
+ *                   the time the function was last called.
  *
- * @return  The elapsed milliseconds.
+ * @return  The elapsed time in milliseconds.
  */
 AJ_EXPORT
 uint32_t AJ_GetElapsedTime(AJ_Time* timer, uint8_t cumulative);
