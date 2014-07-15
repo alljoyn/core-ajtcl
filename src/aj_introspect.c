@@ -567,27 +567,27 @@ static void PrintXML(void* context, const char* str, uint32_t len)
     }
 }
 
-void AJ_PrintXML(const AJ_Object* obj)
+void AJ_PrintXML(const AJ_Object* objs)
 {
-    AJ_PrintXMLWithDescriptions(obj, NULL); // without descriptions
+    AJ_PrintXMLWithDescriptions(objs, NULL); // without descriptions
 }
 
-void AJ_PrintXMLWithDescriptions(const AJ_Object* obj, const char* languageTag)
+void AJ_PrintXMLWithDescriptions(const AJ_Object* objs, const char* languageTag)
 {
     AJ_Status status;
 
-    if (obj->path) {
-        if (strcmp(obj->path, "/") == 0) {
-            status = GenXML(PrintXML, NULL, NULL, obj, languageTag); // with descriptions in the given language
+    while (objs && objs->path) {
+        if (strcmp(objs->path, "/") == 0) {
+            status = GenXML(PrintXML, NULL, NULL, objs, languageTag); // with descriptions in the given language
             if (status != AJ_OK) {
-                AJ_ErrPrintf(("\nFailed to generate XML - check interface descriptions of %s for errors\n", obj->path));
+                AJ_ErrPrintf(("\nFailed to generate XML - check interface descriptions of %s for errors\n", objs->path));
             }
         } else {
             AJ_ObjectIterator iter;
             const AJ_Object* lookup;
             lookup = AJ_InitObjectIterator(&iter, AJ_OBJ_FLAGS_ALL_INCLUDE_MASK, AJ_OBJ_FLAGS_INTROSPECTABLE_EXCLUDE_MASK);
             while (lookup != NULL) {
-                if (strcmp(lookup->path, obj->path) == 0) {
+                if (strcmp(lookup->path, objs->path) == 0) {
                     break;
                 }
                 lookup = AJ_NextObject(&iter);
@@ -595,13 +595,14 @@ void AJ_PrintXMLWithDescriptions(const AJ_Object* obj, const char* languageTag)
             if (lookup != NULL) {
                 status = GenXML(PrintXML, NULL, &iter, NULL, languageTag); // with descriptions in the given language
                 if (status != AJ_OK) {
-                    AJ_ErrPrintf(("\nFailed to generate XML - check interface descriptions of %s for errors\n", obj->path));
+                    AJ_ErrPrintf(("\nFailed to generate XML - check interface descriptions of %s for errors\n", objs->path));
                 }
             } else {
                 AJ_AlwaysPrintf(("Reminder: Object not yet added to the ObjectList, do not forget to call RegisterObjects\n"));
-                status = GenXML(PrintXML, NULL, NULL, obj, languageTag);
+                status = GenXML(PrintXML, NULL, NULL, objs, languageTag);
             }
         }
+        objs++;
     }
 }
 #endif
