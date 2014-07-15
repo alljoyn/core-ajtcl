@@ -17,9 +17,24 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
+
+/**
+ * Per-module definition of the current module for debug logging.  Must be defined
+ * prior to first inclusion of aj_debug.h
+ */
+#define AJ_MODULE SESSIONS
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <alljoyn.h>
+
+
+
+/**
+ * Turn on per-module debug printing by setting this variable to non-zero value
+ * (usually in debugger).
+ */
+uint8_t dbgSESSIONS = 0;
 
 #define CONNECT_TIMEOUT    (1000ul * 60)
 #define CONNECT_PAUSE      (1000ul * 10)
