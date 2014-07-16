@@ -554,9 +554,12 @@ AJ_Status AJ_BusHandleBusMessage(AJ_Message* msg)
             AJ_GUID_DeleteNameMapping(oldOwner);
         }
         /*
-         * Reset so the application can handle this too
+         * Reset so the application can handle this too.  Don't overwrite any
+         * error detected during the AJ_UnmarshalArgs().
          */
-        status = AJ_ResetArgs(msg);
+        if (status == AJ_OK) {
+            status = AJ_ResetArgs(msg);
+        }
         break;
 
     case AJ_METHOD_ABOUT_GET_PROP:
