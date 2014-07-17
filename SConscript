@@ -82,7 +82,15 @@ if env['TARG'] == 'win32':
     env.Append(CFLAGS=['/J', '/W3'])
     env.Append(CPPDEFINES=['_CRT_SECURE_NO_WARNINGS'])
     if env['VARIANT'] == 'debug':
-        env.Append(CFLAGS=['/MD', '/Zi', '/Od'])
+        # With a modern Microsoft compiler it is typical to use a pdb file i.e. the /Zi
+        # or/ZI CCPDBFLAGS.  However in SCons a pdb file is created for each .obj file.
+        # To be able to use the debug information we would have to copy all of the
+        # pdb files (one for each C++ file) into the dist. SCons documentation recommends
+        # using the /Z7 option to solve this problem.  Since another more acceptable
+        # solution has not yet been found we are going with the recommendation from the
+        # SCons documentation.
+        env['CCPDBFLAGS'] = '/Z7'
+        env.Append(CFLAGS=['/MD', '/Od'])
         env.Append(LINKFLAGS=['/debug'])
     else:
         env.Append(CPPDEFINES = ['NDEBUG'])
