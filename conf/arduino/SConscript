@@ -1,0 +1,80 @@
+# Copyright (c) 2014, AllSeen Alliance. All rights reserved.
+#
+#    Permission to use, copy, modify, and/or distribute this software for any
+#    purpose with or without fee is hereby granted, provided that the above
+#    copyright notice and this permission notice appear in all copies.
+#
+#    THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+#    WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+#    MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+#    ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+#    WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+#    ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+#    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+# 
+
+import os
+Import('env')
+
+# In case of Arduino target, package the 'SDK' suitable for development
+# on Arduino IDE
+
+arduinoLibDir = '${BUILDDIR}/arduino_due/libraries/AllJoyn/'
+
+# Arduino sketches need the corresponding platform-independent sources
+tests = [ ]
+tests.append('svclite')
+tests.append('clientlite')
+tests.append('siglite')
+tests.append('bastress2')
+tests.append('mutter')
+tests.append('sessions')
+tests.append('aestest')
+testInputs = [ ]
+testOutputs = [ ]
+
+# Install the generic .c files from the test directory into their
+# destination while changing the extension
+# Also install the .ino file for the test sketch
+for test in Flatten(tests):
+    in_path = File('test/' + test + '.c')
+    out_path = File('target/arduino/tests/AJ_' + test + '/' + test + '.cpp')
+
+    env.Install(Dir(arduinoLibDir + 'tests/AJ_' + test + '/').abspath, File('target/arduino/tests/AJ_' + test + '/AJ_' + test + '.ino'))
+    env.InstallAs(File(arduinoLibDir + 'tests/AJ_' + test + '/' + test + '.cpp').abspath, in_path.abspath)
+
+replaced_names = []
+for x in Flatten([env['aj_srcs'], env['aj_targ_srcs'], env['aj_sw_crypto']]):
+    replaced_names.append( File(arduinoLibDir + x.name.replace('.c', '.cpp') ) )
+
+# change the extension
+install_renamed_files = env.InstallAs(Flatten(replaced_names), Flatten([env['aj_srcs'], env['aj_targ_srcs'], env['aj_sw_crypto']]))
+install_host_headers = env.Install(arduinoLibDir, env['aj_targ_headers'])
+install_headers = env.Install(arduinoLibDir, env['aj_headers'])
+
+# install the examples into their source
+env.Install(Dir(arduinoLibDir).abspath, 'target/arduino/examples/')
+
+# Install basic samples
+basicsamples = [ ]
+basicsamples.append('basic_service')
+basicsamples.append('basic_client')
+basicsamples.append('signal_service')
+basicsamples.append('signalConsumer_client')
+
+securesamples = [ ]
+securesamples.append('SecureClient')
+securesamples.append('SecureService')
+
+for sample in Flatten(basicsamples):
+    in_path = File('samples/basic/' + sample + '.c')
+    out_path = File('target/arduino/samples/AJ_' + sample + '/' + sample + '.cpp')
+    env.Install(Dir(arduinoLibDir + 'samples/AJ_' + sample + '/').abspath, File('target/arduino/samples/AJ_' + sample + '/AJ_' + sample + '.ino'))
+    env.InstallAs(File(arduinoLibDir + 'samples/AJ_' + sample + '/' + sample + '.cpp').abspath, in_path.abspath)
+
+for sample in Flatten(securesamples):
+    in_path = File('samples/secure/' + sample + '.c')
+    out_path = File('target/arduino/samples/AJ_' + sample + '/' + sample + '.cpp')
+    env.Install(Dir(arduinoLibDir + 'samples/AJ_' + sample + '/').abspath, File('target/arduino/samples/AJ_' + sample + '/AJ_' + sample + '.ino'))
+    env.InstallAs(File(arduinoLibDir + 'samples/AJ_' + sample + '/' + sample + '.cpp').abspath, in_path.abspath)
+
