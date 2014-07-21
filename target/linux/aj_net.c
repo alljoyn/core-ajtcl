@@ -430,11 +430,6 @@ AJ_Status AJ_Net_RecvFrom(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)
 static uint8_t rxDataMCast[1454];
 static uint8_t txDataMCast[262];
 
-#ifndef SO_REUSEPORT
-#define SO_REUSEPORT SO_REUSEADDR
-#endif
-
-
 static int MCastUp4()
 {
     int ret;
@@ -452,9 +447,9 @@ static int MCastUp4()
         return INVALID_SOCKET;
     }
 
-    ret = setsockopt(mcastSock, SOL_SOCKET, SO_REUSEPORT, &reuse, sizeof(reuse));
+    ret = setsockopt(mcastSock, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
     if (ret != 0) {
-        AJ_ErrPrintf(("MCastUp4(): setsockopt(SO_REUSEPORT) failed. errno=\"%s\", status=AJ_ERR_READ\n", strerror(errno)));
+        AJ_ErrPrintf(("MCastUp4(): setsockopt(SO_REUSEADDR) failed. errno=\"%s\", status=AJ_ERR_READ\n", strerror(errno)));
         goto ExitError;
     }
 
@@ -512,9 +507,9 @@ static int MCastUp6()
         return INVALID_SOCKET;
     }
 
-    ret = setsockopt(mcastSock, SOL_SOCKET, SO_REUSEPORT, &reuse, sizeof(reuse));
+    ret = setsockopt(mcastSock, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
     if (ret != 0) {
-        AJ_ErrPrintf(("MCastUp6(): setsockopt(SO_REUSEPORT) failed. errno=\"%s\", status=AJ_ERR_READ\n", strerror(errno)));
+        AJ_ErrPrintf(("MCastUp6(): setsockopt(SO_REUSEADDR) failed. errno=\"%s\", status=AJ_ERR_READ\n", strerror(errno)));
         goto ExitError;
     }
 
