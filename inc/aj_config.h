@@ -32,7 +32,6 @@
 
 /* Network options */
 #define AJ_CONNECT_LOCALHOST        0           //Enable to bypass discovery and connect locally
-#define AJ_WHO_HAS_REPEAT           4           //number of times to send WHO_HAS       (aj_disco.c)
 #define AJ_MAX_TIMERS               4           //maximum number of timers              (aj_helper.c)
 
 /* Auth options */
@@ -50,6 +49,10 @@
 
 /* Timeouts */
 #define AJ_WHO_HAS_TIMEOUT       (1000)            //how long to wait for WHO_HAS response            (aj_disco.c)
+#define AJ_DISCOVER_ATTEMPTS     (10)              //Number of times to discover before backing off   (aj_disco.c)
+#define AJ_FIRST_BACKOFF_TIME    (10 * 1000)       //First back-off timeout for discovering           (aj_disco.c)
+#define AJ_SECOND_BACKOFF_TIME   (20 * 1000)       //Second back-off timeout for discovering          (aj_disco.c)
+#define AJ_THIRD_BACKOFF_TIME    (40 * 1000)       //Third back-off timeout for discovering           (aj_disco.c)
 #define AJ_UNMARSHAL_TIMEOUT     (100 * 1000)      //unmarshal timeout                                (aj_helper.c + aj_msg.c)
 #define AJ_CONNECT_TIMEOUT       (60 * 1000)       //connection timeout                               (aj_helper.c)
 #define AJ_CONNECT_PAUSE         (10 * 1000)       //how long to pause between failed connects        (aj_helper.c)
