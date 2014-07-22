@@ -225,10 +225,49 @@ static AJ_Status ParseIsAt(AJ_IOBuffer* rxBuf, const char* prefix, AJ_Service* s
 Exit:
     return status;
 }
+/*
+ * Function for determining whether or not to send a WHO-HAS packet. The algorithm
+ * will send WHO-HAS packets every second for AJ_DISCOVER_ATTEMPTS seconds, then wait
+ * AJ_FIRST_BACKOFF_TIME seconds and send another, then wait
+ * AJ_SECOND_BACKOFF_TIME seconds and send another, then send WHO_HAS's every
+ * AJ_THIRD_BACKOFF_TIME seconds until the timeout passed into AJ_Discover() expires
+ */
+static uint8_t sendDiscovery(uint32_t discoverAttempts, AJ_Time* discoverTimer)
+{
+    uint32_t waitPeriod;
+    // Initial burst discovery
+    if (discoverAttempts < AJ_DISCOVER_ATTEMPTS) {
+        return TRUE;
+    } else {
+        //Decide to send a WHO-HAS packet based on the three back-off constants
+        switch (discoverAttempts) {
+        case (AJ_DISCOVER_ATTEMPTS):
+        case (AJ_DISCOVER_ATTEMPTS + 1):
+            waitPeriod = AJ_FIRST_BACKOFF_TIME;
+            break;
 
+        case (AJ_DISCOVER_ATTEMPTS + 2):
+            waitPeriod = AJ_SECOND_BACKOFF_TIME;
+            break;
+
+        case (AJ_DISCOVER_ATTEMPTS + 3):
+        default:
+            waitPeriod = AJ_THIRD_BACKOFF_TIME;
+            break;
+        }
+        if (AJ_GetElapsedTime(discoverTimer, TRUE) < waitPeriod) {
+            return FALSE;
+        } else {
+            AJ_InitTimer(discoverTimer);
+            return TRUE;
+        }
+    }
+}
 AJ_Status AJ_Discover(const char* prefix, AJ_Service* service, uint32_t timeout)
 {
     AJ_Status status;
+    uint32_t discoverAttempts = 0;
+    AJ_Time discoverTimer;
     AJ_Time stopwatch;
     AJ_Time recvStopWatch;
     AJ_NetSocket sock;
@@ -236,9 +275,12 @@ AJ_Status AJ_Discover(const char* prefix, AJ_Service* service, uint32_t timeout)
     AJ_InfoPrintf(("AJ_Discover(prefix=\"%s\", service=0x%p, timeout=%d.)\n", prefix, service, timeout));
 
     /*
-     * Initialize the timer
+     * Initialize the timers
+     * stopwatch for the overall discovery timeout
+     * discoverTimer for the back-off algorithm
      */
     AJ_InitTimer(&stopwatch);
+    AJ_InitTimer(&discoverTimer);
     /*
      * Enable multicast I/O for the discovery packets.
      */
@@ -248,16 +290,19 @@ AJ_Status AJ_Discover(const char* prefix, AJ_Service* service, uint32_t timeout)
         return status;
     }
     while ((int32_t)timeout > 0) {
-        AJ_IO_BUF_RESET(&sock.tx);
-        AJ_InfoPrintf(("AJ_Discover(): WHO-HAS \"%s\"\n", prefix));
-        ComposeWhoHas(&sock.tx, prefix);
-        status = sock.tx.send(&sock.tx);
-        AJ_InfoPrintf(("AJ_Discover(): status=%s\n", AJ_StatusText(status)));
-        /*
-         * If the send failed the socket has probably gone away.
-         */
-        if (status != AJ_OK) {
-            goto _Exit;
+        if (sendDiscovery(discoverAttempts, &discoverTimer)) {
+            discoverAttempts++;
+            AJ_IO_BUF_RESET(&sock.tx);
+            AJ_InfoPrintf(("AJ_Discover(): WHO-HAS \"%s\"\n", prefix));
+            ComposeWhoHas(&sock.tx, prefix);
+            status = sock.tx.send(&sock.tx);
+            AJ_InfoPrintf(("AJ_Discover(): status=%s\n", AJ_StatusText(status)));
+            /*
+             * If the send failed the socket has probably gone away.
+             */
+            if (status != AJ_OK) {
+                goto _Exit;
+            }
         }
         /*
          * Pause between sending each WHO-HAS
