@@ -86,16 +86,18 @@ static AJ_Status CloseNetSock(AJ_NetSocket* netSock)
     NetContext* context = (NetContext*)netSock->rx.context;
     if (context) {
         if (context->tcpSock != INVALID_SOCKET) {
-            close(context->tcpSock);
+            struct linger l;
+            l.l_onoff = 1;
+            l.l_linger = 0;
+            setsockopt(context->tcpSock, SOL_SOCKET, SO_LINGER, (void*)&l, sizeof(l));
             shutdown(context->tcpSock, SHUT_RDWR);
+            close(context->tcpSock);
         }
         if (context->udpSock != INVALID_SOCKET) {
             close(context->udpSock);
-            shutdown(context->udpSock, SHUT_RDWR);
         }
         if (context->udp6Sock != INVALID_SOCKET) {
             close(context->udp6Sock);
-            shutdown(context->udp6Sock, SHUT_RDWR);
         }
 
         context->tcpSock = context->udpSock = context->udp6Sock = INVALID_SOCKET;
