@@ -86,16 +86,18 @@ static AJ_Status CloseNetSock(AJ_NetSocket* netSock)
     NetContext* context = (NetContext*)netSock->rx.context;
     if (context) {
         if (context->tcpSock != INVALID_SOCKET) {
-            close(context->tcpSock);
+            struct linger l;
+            l.l_onoff = 1;
+            l.l_linger = 0;
+            setsockopt(context->tcpSock, SOL_SOCKET, SO_LINGER, (void*)&l, sizeof(l));
             shutdown(context->tcpSock, SHUT_RDWR);
+            close(context->tcpSock);
         }
         if (context->udpSock != INVALID_SOCKET) {
             close(context->udpSock);
-            shutdown(context->udpSock, SHUT_RDWR);
         }
         if (context->udp6Sock != INVALID_SOCKET) {
             close(context->udp6Sock);
-            shutdown(context->udp6Sock, SHUT_RDWR);
         }
 
         context->tcpSock = context->udpSock = context->udp6Sock = INVALID_SOCKET;
@@ -357,7 +359,7 @@ AJ_Status AJ_Net_RecvFrom(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)
     NetContext* context = (NetContext*) buf->context;
     AJ_Status status = AJ_OK;
     ssize_t ret;
-    size_t rx = AJ_IO_BUF_SPACE(buf);
+    size_t rx;
     fd_set fds;
     int maxFd = INVALID_SOCKET;
     int rc = 0;
@@ -389,21 +391,23 @@ AJ_Status AJ_Net_RecvFrom(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)
     // if both sockets are ready, read from both in order to
     // reset the state
 
-    if (rx && FD_ISSET(context->udp6Sock, &fds)) {
+    rx = AJ_IO_BUF_SPACE(buf);
+    if (context->udp6Sock != INVALID_SOCKET && FD_ISSET(context->udp6Sock, &fds)) {
         rx = min(rx, len);
-        ret = recvfrom(context->udp6Sock, buf->writePtr, rx, 0, NULL, 0);
-        if (ret == -1) {
-            AJ_ErrPrintf(("AJ_Net_RecvFrom(): recvfrom() failed. errno=\"%s\", status=AJ_ERR_READ\n", strerror(errno)));
-            status = AJ_ERR_READ;
-        } else {
-            buf->writePtr += ret;
-            status = AJ_OK;
+        if (rx) {
+            ret = recvfrom(context->udp6Sock, buf->writePtr, rx, 0, NULL, 0);
+            if (ret == -1) {
+                AJ_ErrPrintf(("AJ_Net_RecvFrom(): recvfrom() failed. errno=\"%s\", status=AJ_ERR_READ\n", strerror(errno)));
+                status = AJ_ERR_READ;
+            } else {
+                buf->writePtr += ret;
+                status = AJ_OK;
+            }
         }
     }
 
-
     rx = AJ_IO_BUF_SPACE(buf);
-    if (FD_ISSET(context->udpSock, &fds)) {
+    if (context->udpSock != INVALID_SOCKET && FD_ISSET(context->udpSock, &fds)) {
         rx = min(rx, len);
         if (rx) {
             ret = recvfrom(context->udpSock, buf->writePtr, rx, 0, NULL, 0);
@@ -430,11 +434,6 @@ AJ_Status AJ_Net_RecvFrom(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)
 static uint8_t rxDataMCast[1454];
 static uint8_t txDataMCast[262];
 
-#ifndef SO_REUSEPORT
-#define SO_REUSEPORT SO_REUSEADDR
-#endif
-
-
 static int MCastUp4()
 {
     int ret;
@@ -452,9 +451,9 @@ static int MCastUp4()
         return INVALID_SOCKET;
     }
 
-    ret = setsockopt(mcastSock, SOL_SOCKET, SO_REUSEPORT, &reuse, sizeof(reuse));
+    ret = setsockopt(mcastSock, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
     if (ret != 0) {
-        AJ_ErrPrintf(("MCastUp4(): setsockopt(SO_REUSEPORT) failed. errno=\"%s\", status=AJ_ERR_READ\n", strerror(errno)));
+        AJ_ErrPrintf(("MCastUp4(): setsockopt(SO_REUSEADDR) failed. errno=\"%s\", status=AJ_ERR_READ\n", strerror(errno)));
         goto ExitError;
     }
 
@@ -512,9 +511,9 @@ static int MCastUp6()
         return INVALID_SOCKET;
     }
 
-    ret = setsockopt(mcastSock, SOL_SOCKET, SO_REUSEPORT, &reuse, sizeof(reuse));
+    ret = setsockopt(mcastSock, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
     if (ret != 0) {
-        AJ_ErrPrintf(("MCastUp6(): setsockopt(SO_REUSEPORT) failed. errno=\"%s\", status=AJ_ERR_READ\n", strerror(errno)));
+        AJ_ErrPrintf(("MCastUp6(): setsockopt(SO_REUSEADDR) failed. errno=\"%s\", status=AJ_ERR_READ\n", strerror(errno)));
         goto ExitError;
     }
 

@@ -190,11 +190,7 @@ static uint32_t GetAcceptableVersion(uint32_t srcV)
     if ((authV < MIN_AUTH_VERSION) || (authV > MAX_AUTH_VERSION)) {
         return 0;
     }
-    /*
-     * MIN_KEYGEN_VERSION is 0 - so first case can't happen.
-     * Leaving in case it changes in the future.
-     */
-    if ((keyV < MIN_KEYGEN_VERSION) || (keyV > MAX_KEYGEN_VERSION)) {
+    if (keyV > MAX_KEYGEN_VERSION) {
         return 0;
     }
 
