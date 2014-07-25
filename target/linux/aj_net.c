@@ -359,7 +359,7 @@ AJ_Status AJ_Net_RecvFrom(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)
     NetContext* context = (NetContext*) buf->context;
     AJ_Status status = AJ_OK;
     ssize_t ret;
-    size_t rx = AJ_IO_BUF_SPACE(buf);
+    size_t rx;
     fd_set fds;
     int maxFd = INVALID_SOCKET;
     int rc = 0;
@@ -391,21 +391,23 @@ AJ_Status AJ_Net_RecvFrom(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)
     // if both sockets are ready, read from both in order to
     // reset the state
 
-    if (rx && FD_ISSET(context->udp6Sock, &fds)) {
+    rx = AJ_IO_BUF_SPACE(buf);
+    if (context->udp6Sock != INVALID_SOCKET && FD_ISSET(context->udp6Sock, &fds)) {
         rx = min(rx, len);
-        ret = recvfrom(context->udp6Sock, buf->writePtr, rx, 0, NULL, 0);
-        if (ret == -1) {
-            AJ_ErrPrintf(("AJ_Net_RecvFrom(): recvfrom() failed. errno=\"%s\", status=AJ_ERR_READ\n", strerror(errno)));
-            status = AJ_ERR_READ;
-        } else {
-            buf->writePtr += ret;
-            status = AJ_OK;
+        if (rx) {
+            ret = recvfrom(context->udp6Sock, buf->writePtr, rx, 0, NULL, 0);
+            if (ret == -1) {
+                AJ_ErrPrintf(("AJ_Net_RecvFrom(): recvfrom() failed. errno=\"%s\", status=AJ_ERR_READ\n", strerror(errno)));
+                status = AJ_ERR_READ;
+            } else {
+                buf->writePtr += ret;
+                status = AJ_OK;
+            }
         }
     }
 
-
     rx = AJ_IO_BUF_SPACE(buf);
-    if (FD_ISSET(context->udpSock, &fds)) {
+    if (context->udpSock != INVALID_SOCKET && FD_ISSET(context->udpSock, &fds)) {
         rx = min(rx, len);
         if (rx) {
             ret = recvfrom(context->udpSock, buf->writePtr, rx, 0, NULL, 0);
