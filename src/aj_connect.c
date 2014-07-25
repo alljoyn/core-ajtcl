@@ -320,7 +320,7 @@ AJ_Status AJ_Connect(AJ_BusAttachment* bus, const char* serviceName, uint32_t ti
     service.ipv4 = 0x7f000001; // 127.0.0.1
 #endif
     service.addrTypes = AJ_ADDR_IPV4;
-#elif defined ARDUINO
+#elif defined(ARDUINO)
     service.ipv4port = 9955;
     service.ipv4 = 0x6501A8C0; // 192.168.1.101
     service.addrTypes = AJ_ADDR_IPV4;
@@ -329,7 +329,7 @@ AJ_Status AJ_Connect(AJ_BusAttachment* bus, const char* serviceName, uint32_t ti
         AJ_InfoPrintf(("AJ_Connect(): AJ_Discover status=%s\n", AJ_StatusText(status)));
         goto ExitConnect;
     }
-#elif defined AJ_SERIAL_CONNECTION
+#elif defined(AJ_SERIAL_CONNECTION)
     // don't bother with discovery, we are connected to a daemon.
     // however, take this opportunity to bring up the serial connection
     // in a way that depends on the target
@@ -418,7 +418,7 @@ AJ_Status AJ_FindBusAndConnect(AJ_BusAttachment* bus, const char* serviceName, u
     service.ipv4 = 0x7f000001; // 127.0.0.1
 #endif
     service.addrTypes = AJ_ADDR_IPV4;
-#elif defined ARDUINO
+#elif defined(ARDUINO)
     service.ipv4port = 9955;
     service.ipv4 = 0x6501A8C0; // 192.168.1.101
     service.addrTypes = AJ_ADDR_IPV4;
@@ -427,7 +427,7 @@ AJ_Status AJ_FindBusAndConnect(AJ_BusAttachment* bus, const char* serviceName, u
         AJ_InfoPrintf(("AJ_Connect(): AJ_Discover status=%s\n", AJ_StatusText(status)));
         goto ExitConnect;
     }
-#elif defined AJ_SERIAL_CONNECTION
+#elif defined(AJ_SERIAL_CONNECTION)
     // don't bother with discovery, we are connected to a daemon.
     // however, take this opportunity to bring up the serial connection
     status = AJ_Serial_Up();
