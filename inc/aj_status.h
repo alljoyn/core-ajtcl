@@ -66,10 +66,12 @@ typedef enum {
     AJ_ERR_SPI_READ     = 37, /**< Read error */
     AJ_ERR_SPI_WRITE    = 38, /**< Write error */
     AJ_ERR_OLD_VERSION  = 39, /**< Router you connected to is old and unsupported */
+    AJ_ERR_NVRAM_READ   = 40, /**< Error while reading from NVRAM */
+    AJ_ERR_NVRAM_WRITE  = 41, /**< Error while writing to NVRAM */
     /*
      * REMINDER: Update AJ_StatusText in aj_debug.c if adding a new status code.
      */
-    AJ_STATUS_LAST      = 39  /**< The last error status code */
+    AJ_STATUS_LAST      = 41  /**< The last error status code */
 
 } AJ_Status;
 

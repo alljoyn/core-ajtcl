@@ -1527,13 +1527,15 @@ static AJ_Status Marshal(AJ_Message* msg, const char** sig, AJ_Arg* arg)
     *sig += 1;
     if (IsScalarType(arg->typeId)) {
         if (arg->flags & AJ_ARRAY_FLAG) {
+            uint32_t szu32;
             if ((typeId != AJ_ARG_ARRAY) || (**sig != arg->typeId)) {
                 AJ_ErrPrintf(("Marshal(): AJ_ERR_MARSHAL\n"));
                 return AJ_ERR_MARSHAL;
             }
             *sig += 1;
             sz = arg->len;
-            status = WriteBytes(msg, &sz, 4, pad);
+            szu32 = (uint32_t)sz;
+            status = WriteBytes(msg, &szu32, 4, pad);
             if (status == AJ_OK) {
                 /*
                  * May need to pad if the elements required 8 byte alignment
@@ -1566,7 +1568,8 @@ static AJ_Status Marshal(AJ_Message* msg, const char** sig, AJ_Arg* arg)
             }
             status = WriteBytes(msg, &szu8, 1, pad);
         } else {
-            status = WriteBytes(msg, &sz, 4, pad);
+            uint32_t szu32 = (uint32_t)sz;
+            status = WriteBytes(msg, &szu32, 4, pad);
         }
         if (status == AJ_OK) {
             status = WriteBytes(msg, arg->val.v_string, sz, 0);
