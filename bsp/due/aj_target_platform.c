@@ -65,6 +65,7 @@ void ASSERT(int i)
 uint8_t* const AJ_NVRAM_BASE_ADDRESS = (uint8_t*)(0x100000 - AJ_NVRAM_SECTOR_SIZE - AJ_NVRAM_SIZE);
 uint8_t* const AJ_NVRAM_COMPACTION_BUF = (uint8_t*)(0x100000 - AJ_NVRAM_SECTOR_SIZE);
 #define AJ_NVRAM_END_ADDRESS (AJ_NVRAM_BASE_ADDRESS + AJ_NVRAM_SIZE)
+uint32_t AJ_NVRAM_PageSize = 256; /* default page size of NVRAM memory */
 
 AJ_Status _AJ_NV_Write(void* dest, void* buf, uint16_t size)
 {
@@ -85,6 +86,7 @@ AJ_Status _AJ_NV_Read(void* src, void* buf, uint16_t size)
 void AJ_NVRAM_Init()
 {
     nvm_init(INT_FLASH);
+    nvm_get_page_size(INT_FLASH, &AJ_NVRAM_PageSize);
     if (*((uint32_t*)AJ_NVRAM_BASE_ADDRESS) != AJ_NV_SENTINEL) {
         AJ_AlwaysPrintf(("Sentinel has not been set, clearing NVRAM\n"));
         _AJ_NVRAM_Clear();
@@ -93,9 +95,9 @@ void AJ_NVRAM_Init()
 void AJ_NV_EraseSector(uint32_t sector)
 {
     int i;
-    for (i = 0; i < 4; i++) {
+    for (i = 0; i < (AJ_NVRAM_SECTOR_SIZE / AJ_NVRAM_PageSize); i++) {
         uint32_t page_number;
-        nvm_get_pagenumber(INT_FLASH, sector, &page_number);
+        nvm_get_pagenumber(INT_FLASH, sector + (i * AJ_NVRAM_PageSize), &page_number);
         nvm_page_erase(INT_FLASH, page_number);
     }
 }
@@ -104,21 +106,12 @@ void _AJ_NVRAM_Clear()
     //Erase the first sector starting at the base address
     int i;
     uint8_t* eraseSectorAddr = AJ_NVRAM_BASE_ADDRESS;
-    // You can only erase pages. 4 pages per NVRAM section
-    for (i = 0; i < 4; i++) {
-        uint32_t page_number;
-        nvm_get_pagenumber(INT_FLASH, eraseSectorAddr, &page_number);
-        nvm_page_erase(INT_FLASH, page_number);
-    }
+    AJ_NV_EraseSector(eraseSectorAddr);
     // Write the sentinel string
     _AJ_NV_Write(AJ_NVRAM_BASE_ADDRESS, "AJNV", 4);
     eraseSectorAddr += AJ_NVRAM_SECTOR_SIZE;
     while (eraseSectorAddr < AJ_NVRAM_END_ADDRESS) {
-        for (i = 0; i < 4; i++) {
-            uint32_t page_number;
-            nvm_get_pagenumber(INT_FLASH, eraseSectorAddr, &page_number);
-            nvm_page_erase(INT_FLASH, page_number);
-        }
+        AJ_NV_EraseSector(eraseSectorAddr);
         eraseSectorAddr += AJ_NVRAM_SECTOR_SIZE;
     }
 }
@@ -138,7 +131,7 @@ AJ_Status _AJ_CompactNVStorage()
 
     // copy sentinel
     AJ_NV_EraseSector(AJ_NVRAM_COMPACTION_BUF);
-    _AJ_NV_Write(AJ_NVRAM_BASE_ADDRESS, buf, SENTINEL_OFFSET);
+    _AJ_NV_Write(AJ_NVRAM_COMPACTION_BUF, "AJNV", SENTINEL_OFFSET);
     offset += SENTINEL_OFFSET;
     extern void AJ_NVRAM_Layout_Print();
     //AJ_NVRAM_Layout_Print();
@@ -152,7 +145,7 @@ AJ_Status _AJ_CompactNVStorage()
                 uint16_t leftOver = 0;
                 copyBytes = AJ_NVRAM_SECTOR_SIZE - offset;
                 leftOver = entrySize - copyBytes;
-                _AJ_NV_Write(data, buf + offset, copyBytes);
+                _AJ_NV_Write(buf + offset, data, copyBytes);
                 AJ_NV_EraseSector(eraseSectorAddr);
                 _AJ_NV_Write(eraseSectorAddr, buf, AJ_NVRAM_SECTOR_SIZE);
                 AJ_NV_EraseSector(AJ_NVRAM_COMPACTION_BUF);
@@ -164,7 +157,7 @@ AJ_Status _AJ_CompactNVStorage()
                     offset = leftOver;
                 }
             } else {
-                _AJ_NV_Write(data, buf + offset, entrySize);
+                _AJ_NV_Write(buf + offset, data, entrySize);
                 offset += entrySize;
             }
         }
