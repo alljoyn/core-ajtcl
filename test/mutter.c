@@ -80,7 +80,8 @@ static const char* const testSignature[] = {
     "yyyyya{ys}",
     "(iay)",
     "ia{iv}i",
-    "ay"
+    "ay",
+    "a{s(us)}"
 };
 
 typedef struct {
@@ -89,6 +90,21 @@ typedef struct {
     uint32_t c;
     uint32_t d;
 } TestStruct;
+
+typedef struct {
+    int32_t m;
+    int32_t n;
+} TestInnerStruct;
+
+typedef struct {
+    uint32_t u;
+    char* str1;
+    uint32_t v;
+    TestInnerStruct inner;
+    uint16_t q;
+    char* str2;
+    uint16_t r;
+} TestNestedStruct;
 
 #ifndef NDEBUG
 static AJ_Status MsgInit(AJ_Message* msg, uint32_t msgId, uint8_t msgType)
@@ -103,7 +119,6 @@ static AJ_Status MsgInit(AJ_Message* msg, uint32_t msgId, uint8_t msgType)
 
 extern AJ_MutterHook MutterHook;
 #endif
-
 
 static const char* const Fruits[] = {
     "apple", "banana", "cherry", "durian", "elderberry", "fig", "grape"
@@ -200,6 +215,7 @@ int AJ_Main()
                 break;
             }
             for (key = 0; key < ArraySize(Fruits); ++key) {
+#ifdef EXPANDED_FORM
                 AJ_Arg dict;
                 status = AJ_MarshalContainer(&txMsg, &dict, AJ_ARG_DICT_ENTRY);
                 if (status != AJ_OK) {
@@ -213,6 +229,12 @@ int AJ_Main()
                 if (status != AJ_OK) {
                     break;
                 }
+#else
+                status = AJ_MarshalArgs(&txMsg, "{us}", key, Fruits[key]);
+                if (status != AJ_OK) {
+                    break;
+                }
+#endif
             }
             if (status == AJ_OK) {
                 status = AJ_MarshalCloseContainer(&txMsg, &array1);
@@ -223,6 +245,7 @@ int AJ_Main()
             break;
 
         case 2:
+#ifdef EXPANDED_FORM
             status = AJ_MarshalArgs(&txMsg, "u", 11111);
             if (status != AJ_OK) {
                 break;
@@ -235,7 +258,6 @@ int AJ_Main()
             if (status != AJ_OK) {
                 break;
             }
-#ifdef EXPANDED_FORM
             status = AJ_MarshalContainer(&txMsg, &struct2, AJ_ARG_STRUCT);
             if (status != AJ_OK) {
                 break;
@@ -248,12 +270,6 @@ int AJ_Main()
             if (status != AJ_OK) {
                 break;
             }
-#else
-            status = AJ_MarshalArgs(&txMsg, "(ii)", -100, -200);
-            if (status != AJ_OK) {
-                break;
-            }
-#endif
             status = AJ_MarshalArgs(&txMsg, "qsq", 4444, "goodbye", 5555);
             if (status != AJ_OK) {
                 break;
@@ -266,6 +282,12 @@ int AJ_Main()
             if (status != AJ_OK) {
                 break;
             }
+#else
+            status = AJ_MarshalArgs(&txMsg, "u(usu(ii)qsq)yyy", 11111, 22222, "hello", 33333, -100, -200, 4444, "goodbye", 5555, 1, 2, 3);
+            if (status != AJ_OK) {
+                break;
+            }
+#endif
             break;
 
         case 3:
@@ -766,6 +788,53 @@ int AJ_Main()
                 break;
             }
             break;
+
+        case 17:
+            status = AJ_MarshalContainer(&txMsg, &array1, AJ_ARG_ARRAY);
+            if (status != AJ_OK) {
+                break;
+            }
+            for (key = 0; key < ArraySize(Colors); ++key) {
+#ifdef EXPANDED_FORM
+                AJ_Arg dict;
+                status = AJ_MarshalContainer(&txMsg, &dict, AJ_ARG_DICT_ENTRY);
+                if (status != AJ_OK) {
+                    break;
+                }
+                status = AJ_MarshalArgs(&txMsg, "s", Colors[key]);
+                if (status != AJ_OK) {
+                    break;
+                }
+                status = AJ_MarshalContainer(&txMsg, &struct1, AJ_ARG_STRUCT);
+                if (status != AJ_OK) {
+                    break;
+                }
+                status = AJ_MarshalArgs(&txMsg, "us", key, Fruits[key]);
+                if (status != AJ_OK) {
+                    break;
+                }
+                status = AJ_MarshalCloseContainer(&txMsg, &struct1);
+                if (status != AJ_OK) {
+                    break;
+                }
+                status = AJ_MarshalCloseContainer(&txMsg, &dict);
+                if (status != AJ_OK) {
+                    break;
+                }
+#else
+                status = AJ_MarshalArgs(&txMsg, "{s(us)}", Colors[key], key, Fruits[key]);
+                if (status != AJ_OK) {
+                    break;
+                }
+#endif
+            }
+            if (status == AJ_OK) {
+                status = AJ_MarshalCloseContainer(&txMsg, &array1);
+                if (status != AJ_OK) {
+                    break;
+                }
+            }
+            break;
         }
         if (status != AJ_OK) {
             AJ_AlwaysPrintf(("Failed %d\n", test));
@@ -805,6 +874,7 @@ int AJ_Main()
                     }
                 } else {
                     char* fruit;
+#ifdef EXPANDED_FORM
                     AJ_Arg dict;
                     status = AJ_UnmarshalContainer(&rxMsg, &dict, AJ_ARG_DICT_ENTRY);
                     if (status != AJ_OK) {
@@ -819,6 +889,13 @@ int AJ_Main()
                     if (status != AJ_OK) {
                         break;
                     }
+#else
+                    status = AJ_UnmarshalArgs(&rxMsg, "{us}", &key, &fruit);
+                    if (status != AJ_OK) {
+                        break;
+                    }
+                    AJ_AlwaysPrintf(("Unmarshal[%d] = %s\n", key, fruit));
+#endif
                 }
             }
             /*
@@ -833,6 +910,7 @@ int AJ_Main()
             break;
 
         case 2:
+#ifdef EXPANDED_FORM
             status = AJ_UnmarshalArgs(&rxMsg, "u", &u);
             if (status != AJ_OK) {
                 break;
@@ -884,6 +962,19 @@ int AJ_Main()
                 break;
             }
             AJ_AlwaysPrintf(("Unmarshal %d\n", y));
+#else
+            {
+                TestNestedStruct ns;
+                uint8_t y1;
+                uint8_t y2;
+
+                status = AJ_UnmarshalArgs(&rxMsg, "u(usu(ii)qsq)yyy", &u, &ns.u, &ns.str1, &ns.v, &ns.inner.m, &ns.inner.n, &ns.q, &ns.str2, &ns.r, &y, &y1, &y2);
+                if (status != AJ_OK) {
+                    break;
+                }
+                AJ_AlwaysPrintf(("Unmarshal %u (%u %s %u (%d %d) %u %s %u) %d %d %d\n", u, ns.u, ns.str1, ns.v, ns.inner.m, ns.inner.n, ns.q, ns.str2, ns.r, y, y1, y2));
+            }
+#endif
             break;
 
         case 3:
@@ -1418,6 +1509,68 @@ int AJ_Main()
             status = AJ_UnmarshalCloseContainer(&rxMsg, &array1);
             if (status != AJ_OK) {
                 break;
+            }
+            break;
+
+        case 17:
+            status = AJ_UnmarshalContainer(&rxMsg, &array1, AJ_ARG_ARRAY);
+            if (status != AJ_OK) {
+                break;
+            }
+            for (j = 0; j >= 0; ++j) {
+                if (j & 1) {
+                    AJ_AlwaysPrintf(("Skipping dict entry %d\n", j));
+                    status = AJ_SkipArg(&rxMsg);
+                    if (status != AJ_OK) {
+                        break;
+                    }
+                } else {
+                    char* color;
+                    char* fruit;
+#ifdef EXPANDED_FORM
+                    AJ_Arg dict;
+                    status = AJ_UnmarshalContainer(&rxMsg, &dict, AJ_ARG_DICT_ENTRY);
+                    if (status != AJ_OK) {
+                        break;
+                    }
+                    status = AJ_UnmarshalArgs(&rxMsg, "s", &color);
+                    if (status != AJ_OK) {
+                        break;
+                    }
+                    status = AJ_UnmarshalContainer(&rxMsg, &struct1, AJ_ARG_STRUCT);
+                    if (status != AJ_OK) {
+                        break;
+                    }
+                    status = AJ_UnmarshalArgs(&rxMsg, "us", &key, &fruit);
+                    if (status != AJ_OK) {
+                        break;
+                    }
+                    AJ_AlwaysPrintf(("Unmarshal %s => (%d, %s)\n", color, key, fruit));
+                    status = AJ_UnmarshalCloseContainer(&rxMsg, &struct1);
+                    if (status != AJ_OK) {
+                        break;
+                    }
+                    status = AJ_UnmarshalCloseContainer(&rxMsg, &dict);
+                    if (status != AJ_OK) {
+                        break;
+                    }
+#else
+                    status = AJ_UnmarshalArgs(&rxMsg, "{s(us)}", &color, &key, &fruit);
+                    if (status != AJ_OK) {
+                        break;
+                    }
+                    AJ_AlwaysPrintf(("Unmarshal %s => (%d, %s)\n", color, key, fruit));
+#endif
+                }
+            }
+            /*
+             * We expect AJ_ERR_NO_MORE
+             */
+            if (status == AJ_ERR_NO_MORE) {
+                status = AJ_UnmarshalCloseContainer(&rxMsg, &array1);
+                if (status != AJ_OK) {
+                    break;
+                }
             }
             break;
         }
