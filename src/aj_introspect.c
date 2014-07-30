@@ -672,7 +672,6 @@ AJ_Status AJ_HandleIntrospectRequest(const AJ_Message* msg, AJ_Message* reply, c
         obj = AJ_NextObject(&objIter);
     }
     if (obj != NULL && obj->path != NULL) {
-        AJ_PrintXMLWithDescriptions(obj, languageTag);
         /*
          * First pass computes the size of the XML string
          */
