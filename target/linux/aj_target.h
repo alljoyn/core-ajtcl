@@ -54,7 +54,7 @@
 #endif
 
 #define AJ_Printf(fmat, ...) \
-    do { printf(fmat, ## __VA_ARGS__); } while (0)
+    do { printf(fmat, ## __VA_ARGS__); fflush(stdout); } while (0)
 
 #ifndef NDEBUG
 extern uint8_t dbgCONFIGUREME;
