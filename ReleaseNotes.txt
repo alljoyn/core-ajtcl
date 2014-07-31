@@ -8,10 +8,11 @@ Platform Support
 3) Windows 8 (32 and 64 bit)
 
 
-Features added in Version 14.06 Beta
-------------------------------------
+Features added in Version 14.06
+-------------------------------
 * Tight integration of the About functionality 
-* Security 2.0 and removal of old mechanisms of authentication.
+* Security enhancements to support future Security 2.0 feature and removal
+  of old mechanisms of authentication. 
 * Next Generation Name Service support: "Who Implements" query is
   supported: this provides the ability to discover peers that implement
   specific interfaces - similar to About Client functionality.
@@ -20,8 +21,8 @@ Features added in Version 14.06 Beta
   Arrow/Netcom GT202 IoE WiFi module.
 
 
-Issues Addressed in Version 14.06 Beta
---------------------------------------
+Issues Addressed in Version 14.06
+---------------------------------
 ASACORE-53   Typo in thin library NVRAM constant
 ASACORE-143  Implement aj_realloc for thin library
 ASACORE-145  liballjoyn_about.a binary compatibility for objective C
@@ -34,23 +35,31 @@ ASACORE-491  DBUS.Properties.GetAll method bypasses interface security
 ASACORE-507  Bus name not updated in RN, therefore join session fails
 ASACORE-561  Thin Client needs an API to get the routing nodes protocol
 	     version
+ASACORE-624  AJ_PrintXML(AppObjects) does not prints all the objects that
+             are present
 ASACORE-629  Thin library samples need to handle routing node exit gracefully
 ASACORE-638  aj_helper.c should ignore unknown messages
 
+Details can be found at:
+https://jira.allseenalliance.org/issues/?jql=project %3D ASACORE AND status %3D Closed AND resolved >%3D 2014-02-04 AND resolved <%3D 2014-07-31 AND resolution %3D fixed AND (component %3D EMPTY OR component in ("Thin Core Library"%2C "TCL%3A WSL"%2C "About TC")) ORDER BY key asc
 
-Known Issues in Version 14.06 Beta
-----------------------------------
+
+Known Issues in Version 14.06
+-----------------------------
 ASACORE-46   AJ Thin Client applications that use AJ_StartClient() do not
              know the full bus name of the service that was joined for
              sending method calls.
-ASACORE-192  Overlapping ADDMATCH rules should not fetch previously
-             received Sessionless signals again. 
 ASACORE-305  WSL boot delays are a bit too long
 ASACORE-309  WSL power consumption may be too high while sleeping: The WSL
              code doesn't tell the WiFi hardware to go into low-power modes
-             when a sleep is requested.
-ASACORE-624  AJ_PrintXML(AppObjects) does not prints all the objects that
-             are present
+             when a sleep is requested
+ASACORE-703  Thin clients occasionally having problems rediscoverying
+             routing node 
+ASACORE-730  Too many NOC messages bog down TCL applications
+
+For a complete list of open issues:
+https://jira.allseenalliance.org/issues/?jql=project %3D ASACORE AND status in (Open%2C "In Progress"%2C Reopened%2C New) AND (component %3D EMPTY OR component in ("About TC"%2C "Thin Core Library"%2C "TCL%3A WSL")) AND type %3D Bug ORDER BY priority DESC%2C key ASC
+
 
 Compatibility
 -------------
@@ -77,7 +86,8 @@ Starting in Version 14.02
 
 Change history
 --------------
-14.06 - June AllSeen Alliance Release
-14.02 - AllSeen Alliance Release
+14.06 - Bug fixes, scalability and stability support, new features listed
+        above.
+14.02 - Bug fixes.
 3.4.1 - Bug fixes.
 3.4.0 - Support for Object Level Security.
