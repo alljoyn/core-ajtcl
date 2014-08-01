@@ -550,6 +550,14 @@ AJ_Status AJ_WSL_WMI_WaitForWorkItem(uint32_t socket, AJ_WSL_NET_COMMAND command
                 AJ_QueueReset(AJ_WSL_SOCKET_CONTEXT[i].workTxQueue);
             }
             return AJ_ERR_LINK_DEAD;
+        } else if ((*item)->itemType == WSL_NET_DATA_RX) {
+            // If we got data we want to save it and not throw it away, its still not what we
+            // wanted so we return AJ_ERR_NULL
+            if ((*item)->node->length) {
+                AJ_BufNode* new = AJ_BufNodeCreateAndTakeOwnership((*item)->node);
+                AJ_BufListPushTail(AJ_WSL_SOCKET_CONTEXT[socket].stashedRxList, new);
+                return AJ_ERR_NULL;
+            }
         } else {
             AJ_WarnPrintf(("AJ_WSL_WMI_WaitForWorkItem(): Received incorrect work item %x, wanted %x\n", (*item)->itemType, command));
             return AJ_ERR_NULL;
