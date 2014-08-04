@@ -53,7 +53,7 @@ ASACORE-305  WSL boot delays are a bit too long
 ASACORE-309  WSL power consumption may be too high while sleeping: The WSL
              code doesn't tell the WiFi hardware to go into low-power modes
              when a sleep is requested
-ASACORE-703  Thin clients occasionally having problems rediscoverying
+ASACORE-703  Thin clients occasionally having problems rediscovering
              routing node 
 ASACORE-730  Too many NOC messages bog down TCL applications
 
@@ -68,12 +68,23 @@ Starting in Version 14.06
 * Thin Library protocol version changed from 8 to 9.
 * New function AJ_StartClientByInterface which adds support for new NGNS
   features
-* Thin Client accepts connection to the routing node based on protocol
+* Thin Client accepts connection to the routing node (RN) based on protocol
   version. When connecting to a pre-14.06 (protocol version < 9) routing
   node you must use the functions AJ_StartClient or AJ_StartService
   otherwise the thin client will reject the connection. Using the NGNS
   function AJ_StartClientByInterface will only allow you to connect to a
-  14.06 routing node (protocol version > 9).
+  14.06 RN (protocol version > 9).
+* The change in authentication protocol results in the following
+  incompatibilities (these were discussed and approved by the AllSeen TSC
+  on May 5. 2014):
+  * A 14.06 TCL Application cannot connect with 14.02 TCL App if the
+    interaction requires the use of a secured interface
+  * 14.06 TCL App cannot use a 14.02 RN that requires authentication.  The
+    default configuration file on all platforms for 14.02 RNs requires TC
+    nodes to authenticate (this is no longer true in 14.06).  For
+    stand-alone RNs this is easily changed via the configuration file,
+    while for bundled configurations this requires that the configuration
+    in the code be modified.
 
 Starting in Version 14.02
 * Thin Client now negotiates AllJoyn protocol version with routing node
