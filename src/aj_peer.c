@@ -259,10 +259,16 @@ void AJ_ClearAuthContext()
 
 static void HandshakeComplete(AJ_Status status)
 {
+
+    uint32_t expiration;
     AJ_InfoPrintf(("HandshakeComplete(status=%d.)\n", status));
 
     if (authContext.callback) {
         authContext.callback(authContext.cbContext, status);
+    }
+
+    if ((AJ_OK != status) && (AJ_AUTH_EXCHANGED == handshakeContext.state)) {
+        handshakeContext.keyauthentication->Final(&expiration);
     }
     AJ_ClearAuthContext();
 }
