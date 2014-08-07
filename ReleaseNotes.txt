@@ -1,5 +1,5 @@
-AllJoyn Thin Client Core Library: Version 14.06 Beta Release Notes
-==================================================================
+AllJoyn Thin Core Library: Version 14.06 Release Notes
+======================================================
 
 Platform Support
 ----------------
