@@ -144,16 +144,16 @@ uint8_t* getDeviceMac(void)
 
 static const AJ_HeapConfig wsl_heapConfig[] = {
     { 8,     30 },
-    { 16,    80 },
+    { 16,    100 },
     { 20,    80 },
     { 24,    10 },
     { 32,    20 },
     { 48,    10 },
     { 64,    10 },
-    { 84,     4 },
+    { 84,     6 },
     { 100,    2 },
 };
-#define WSL_HEAP_WORD_COUNT (6880 / 4)
+#define WSL_HEAP_WORD_COUNT (7360 / 4)
 static uint32_t wsl_heap[WSL_HEAP_WORD_COUNT];
 
 
