@@ -36,7 +36,9 @@
 #endif
 
 /**
- * AllJoyn NVRAM dataset handle
+ * AllJoyn NVRAM dataset handle. Applications should treat this an opaque data structure. The values
+ * of the fields are implementation specific so cannot be relied on to have the same meaning across
+ * different implementations.
  */
 typedef struct _AJ_NV_DATASET {
     uint8_t mode;          /**< The access mode (read or write) of a data set */
@@ -91,10 +93,9 @@ AJ_NV_DATASET* AJ_NVRAM_Open(uint16_t id, char* mode, uint16_t capacity);
  * @param size  Size, in bytes, to be written.
  * @param handle Pointer to an AJ_NV_DATASET object that specifies a data set.
  *
- * @return The number of byte of data written to the data set
- *         -1 if the offset is out of the bound of the data set
+ * @return The number of byte of data written to the data set or -1 if the write failed.
  */
-size_t AJ_NVRAM_Write(void* ptr, uint16_t size, AJ_NV_DATASET* handle);
+size_t AJ_NVRAM_Write(const void* ptr, uint16_t size, AJ_NV_DATASET* handle);
 
 /**
  * Read from the data set specified by a handle
@@ -103,10 +104,24 @@ size_t AJ_NVRAM_Write(void* ptr, uint16_t size, AJ_NV_DATASET* handle);
  * @param size  Size, in bytes, to be read.
  * @param handle Pointer to an AJ_NV_DATASET object that specifies a data set.
  *
- * @return The number of byte of data read from the data set.
- *         -1 if the offset is out of the bound of the data set
+ * @return The number of bytes of data read from the data set, or -1 if the read failed.
  */
 size_t AJ_NVRAM_Read(void* ptr, uint16_t size, AJ_NV_DATASET* handle);
+
+/**
+ * Returns a pointer to data at the current read position of an NVRAM data set. This function may
+ * not be supported by all implementations. If this function returns NULL the caller will have to
+ * allocate a buffer and use AJ_NVRAM_Read() to load the data set into memory.
+ *
+ * Note: the caller cannot assume that the pointer value returned will remain valid after the data
+ * set is closed.
+ *
+ * @param handle Pointer to an AJ_NV_DATASET object that has been opened for reading.
+ *
+ * @return  A pointer to the requested data or NULL if this function is not supported by the
+ *          implementation or the data set was not opened for reading.
+ */
+const void* AJ_NVRAM_Peek(AJ_NV_DATASET* handle);
 
 /**
  * Close the data set and release the handle

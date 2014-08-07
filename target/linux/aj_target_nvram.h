@@ -45,7 +45,7 @@ typedef struct _NV_EntryHeader {
  * @param buf   Pointer to data to be written
  * @param size  The number of bytes to be written
  */
-void _AJ_NV_Write(void* dest, void* buf, uint16_t size);
+void _AJ_NV_Write(void* dest, const void* buf, uint16_t size);
 
 /**
  * Read a block of data from NVRAM

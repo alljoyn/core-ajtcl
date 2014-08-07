@@ -35,7 +35,7 @@ void AJ_NVRAM_Init()
     }
 }
 
-void _AJ_NV_Write(void* dest, void* buf, uint16_t size)
+void _AJ_NV_Write(void* dest, const void* buf, uint16_t size)
 {
     memcpy(dest, buf, size);
 }

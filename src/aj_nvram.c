@@ -37,6 +37,8 @@ uint8_t dbgNVRAM = 0;
 
 extern uint8_t* AJ_NVRAM_BASE_ADDRESS;
 
+static uint8_t isCompact = FALSE;
+
 #define AJ_NVRAM_END_ADDRESS (AJ_NVRAM_BASE_ADDRESS + AJ_NVRAM_SIZE)
 
 uint32_t AJ_NVRAM_GetSize(void)
@@ -55,8 +57,15 @@ uint32_t AJ_NVRAM_GetSize(void)
     }
     return size + SENTINEL_OFFSET;
 }
+
+extern AJ_Status _AJ_CompactNVStorage();
+
 uint32_t AJ_NVRAM_GetSizeRemaining(void)
 {
+    if (!isCompact) {
+        _AJ_CompactNVStorage();
+        isCompact = TRUE;
+    }
     return AJ_NVRAM_SIZE - AJ_NVRAM_GetSize();
 }
 
@@ -110,8 +119,6 @@ uint8_t* AJ_FindNVEntry(uint16_t id)
     return NULL;
 }
 
-extern AJ_Status _AJ_CompactNVStorage();
-
 AJ_Status AJ_NVRAM_Create(uint16_t id, uint16_t capacity)
 {
     uint8_t* ptr;
@@ -127,8 +134,11 @@ AJ_Status AJ_NVRAM_Create(uint16_t id, uint16_t capacity)
     capacity = WORD_ALIGN(capacity); // 4-byte alignment
     ptr = AJ_FindNVEntry(INVALID_DATA);
     if (!ptr || (ptr + ENTRY_HEADER_SIZE + capacity > AJ_NVRAM_END_ADDRESS)) {
-        AJ_InfoPrintf(("AJ_NVRAM_Create(): _AJ_CompactNVStorage()\n"));
-        _AJ_CompactNVStorage();
+        if (!isCompact) {
+            AJ_InfoPrintf(("AJ_NVRAM_Create(): _AJ_CompactNVStorage()\n"));
+            _AJ_CompactNVStorage();
+            isCompact = TRUE;
+        }
         ptr = AJ_FindNVEntry(INVALID_DATA);
         if (!ptr || ptr + ENTRY_HEADER_SIZE + capacity > AJ_NVRAM_END_ADDRESS) {
             AJ_InfoPrintf(("AJ_NVRAM_Create(): AJ_ERR_FAILURE\n"));
@@ -158,6 +168,7 @@ AJ_Status AJ_NVRAM_Delete(uint16_t id)
     memcpy(&newHeader, ptr, ENTRY_HEADER_SIZE);
     newHeader.id = 0;
     _AJ_NV_Write(ptr, &newHeader, ENTRY_HEADER_SIZE);
+    isCompact = FALSE;
     return AJ_OK;
 }
 
@@ -231,7 +242,7 @@ OPEN_ERR_EXIT:
     return NULL;
 }
 
-size_t AJ_NVRAM_Write(void* ptr, uint16_t size, AJ_NV_DATASET* handle)
+size_t AJ_NVRAM_Write(const void* ptr, uint16_t size, AJ_NV_DATASET* handle)
 {
     int16_t bytesWrite = 0;
     uint8_t patchBytes = 0;
@@ -260,7 +271,7 @@ size_t AJ_NVRAM_Write(void* ptr, uint16_t size, AJ_NV_DATASET* handle)
         patchBytes = 4 - (handle->curPos & 0x3);
         memcpy(tmpBuf, handle->inode + sizeof(NV_EntryHeader) + alignedPos, handle->curPos & 0x3);
         if (patchBytes > bytesWrite) {
-            patchBytes = bytesWrite;
+            patchBytes = (uint8_t)bytesWrite;
         }
         memcpy(tmpBuf + (handle->curPos & 0x3), buf, patchBytes);
         _AJ_NV_Write(handle->inode + sizeof(NV_EntryHeader) + alignedPos, tmpBuf, 4);
@@ -274,6 +285,18 @@ size_t AJ_NVRAM_Write(void* ptr, uint16_t size, AJ_NV_DATASET* handle)
         handle->curPos += bytesWrite;
     }
     return bytesWrite + patchBytes;
+}
+
+const void* AJ_NVRAM_Peek(AJ_NV_DATASET* handle)
+{
+    NV_EntryHeader* header;
+
+    if (!handle || handle->mode == AJ_NV_DATASET_MODE_WRITE) {
+        AJ_ErrPrintf(("AJ_NVRAM_Peek(): AJ_ERR_ACCESS\n"));
+        return NULL;
+    }
+    header = (NV_EntryHeader*)handle->inode;
+    return (const void*)(handle->inode + sizeof(NV_EntryHeader) +  handle->curPos);
 }
 
 size_t AJ_NVRAM_Read(void* ptr, uint16_t size, AJ_NV_DATASET* handle)
