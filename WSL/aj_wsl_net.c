@@ -861,9 +861,10 @@ int16_t AJ_WSL_NET_socket_recv(AJ_WSL_SOCKNUM sock, uint8_t* buffer, uint32_t si
             if (item->itemType == WSL_NET_INTERUPT) {
                 // At this point we dont care about the interrupted signal but we are expecting a RX packet
                 // so we need to pull the next item off the queue
+                AJ_WSL_WMI_FreeWorkItem(item);
                 status = AJ_QueuePull(AJ_WSL_SOCKET_CONTEXT[sock].workRxQueue, &item, timeout);
             }
-            if (item->itemType == WSL_NET_DISCONNECT) {
+            if ((status == AJ_OK) && (item->itemType == WSL_NET_DISCONNECT)) {
                 AJ_InfoPrintf(("Disconnect received\n"));
                 // Clean up the network queues
                 int i;
@@ -878,7 +879,7 @@ int16_t AJ_WSL_NET_socket_recv(AJ_WSL_SOCKNUM sock, uint8_t* buffer, uint32_t si
                     AJ_QueueReset(AJ_WSL_SOCKET_CONTEXT[i].workTxQueue);
                 }
                 ret = -1;
-            } else if (item->itemType == WSL_NET_CLOSE || item->itemType == AJ_WSL_WORKITEM(AJ_WSL_WORKITEM_SOCKET, WSL_SOCK_CLOSE)) {
+            } else if ((status == AJ_OK) && (item->itemType == WSL_NET_CLOSE || item->itemType == AJ_WSL_WORKITEM(AJ_WSL_WORKITEM_SOCKET, WSL_SOCK_CLOSE))) {
                 // Pull the close work item off the queue
                 AJ_QueuePull(AJ_WSL_SOCKET_CONTEXT[sock].workRxQueue, &item, 0);
                 // Socket was closed so tear down the connections
@@ -891,12 +892,12 @@ int16_t AJ_WSL_NET_socket_recv(AJ_WSL_SOCKNUM sock, uint8_t* buffer, uint32_t si
                 AJ_QueueReset(AJ_WSL_SOCKET_CONTEXT[sock].workRxQueue);
                 AJ_QueueReset(AJ_WSL_SOCKET_CONTEXT[sock].workTxQueue);
                 ret = -1;
-            } else if (item->itemType == WSL_NET_DATA_RX) {
+            } else if ((status == AJ_OK) && (item->itemType == WSL_NET_DATA_RX)) {
 
                 //AJ_InfoPrintf(("=====DATA RX ITEM RECEIVED=====\n"));
                 //AJ_DumpBytes("DATA RX ITEM", item->node->buffer, item->size);
                 rx = min(sizeBuffer, item->size);
-                memcpy(buffer, item->node->buffer, rx);
+                memcpy(buffer + stash, item->node->buffer, rx);
                 AJ_BufNodePullBytes(item->node, rx);
                 // check node: if not empty assign to stash.
                 if (item->node->length) {
