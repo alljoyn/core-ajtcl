@@ -45,6 +45,21 @@
 #include "aj_util.h"
 #include "aj_debug.h"
 
+#if defined (OPENWRT_MIPS)
+/*
+ * OpenWrt includes a fairly egregious bug in that it does not provide
+ * proper values for eventfd() flags based on the platform,
+ * particularly MIPS in this case.  Thus we override their values
+ * accordingly.
+ */
+#undef EFD_SEMAPHORE
+#undef EFD_CLOSEXEC
+#undef EFD_NONBLOCK
+#define EFD_SEMAPHORE 00000001
+#define EFD_CLOSEXEC  02000000
+#define EFD_NONBLOCK  00000200
+#endif
+
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
  * (usually in debugger).
