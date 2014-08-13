@@ -85,7 +85,7 @@ static NetContext netContext = { INVALID_SOCKET, INVALID_SOCKET, INVALID_SOCKET 
  * This only has an effect if select is in a blocking state, any other blocking
  * calls will be unaffected by this call
  */
-void AJ_Net_Interrupted(void)
+void AJ_Net_Interrupt(void)
 {
     AJ_WSL_NET_signal_interrupted(selectSock);
 }

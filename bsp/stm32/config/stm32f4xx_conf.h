@@ -1,6 +1,3 @@
-/**
- * @file
- */
 /******************************************************************************
  * Copyright (c) 2014, AllSeen Alliance. All rights reserved.
  *
@@ -17,24 +14,9 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
-#include "aj_target_platform.h"
-#include "aj_target.h"
-#include "aj_debug.h"
-#include "aj_target_rtos.h"
+#ifndef STM32F4XX_HAL_CONF_H_
+#define STM32F4XX_HAL_CONF_H_
 
-static void main_task(void* parameters)
-{
-    AJ_PlatformInit();
-    AJ_AlwaysPrintf((" ==============================================\n"));
-    AJ_AlwaysPrintf(("||       Alljoyn Thin Client + FreeRTOS       ||\n"));
-    AJ_AlwaysPrintf((" ==============================================\n"));
-    AllJoyn_Start();
-    while (1) ;
-}
+#define assert_param(expr) ((void)0)
 
-int main(void)
-{
-    AJ_CreateTask(main_task, (const signed char*)"AlljoynTask", AJ_WSL_STACK_SIZE, NULL, 2, NULL);
-    AJ_StartScheduler();
-    return 0;
-}
+#endif /* STM32F4XX_HAL_CONF_H_ */

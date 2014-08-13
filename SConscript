@@ -35,10 +35,11 @@ vars.Add(PathVariable('GTEST_DIR', 'The path to googletest sources', os.environ.
 vars.Add(EnumVariable('WS', 'Whitespace Policy Checker', 'check', allowed_values=('check', 'detail', 'fix', 'off')))
 vars.Add(EnumVariable('FORCE32', 'Force building 32 bit on 64 bit architecture', 'false', allowed_values=('false', 'true')))
 vars.Add(EnumVariable('NO_AUTH', 'Compile in authentication mechanism\'s to the code base', 'no', allowed_values=('no', 'yes')))
-vars.Add(EnumVariable('AJWSL', 'Compile driver for the QCA4004 for a specific platform', 'off', allowed_values=('due', 'off')))
+vars.Add(EnumVariable('AJWSL', 'Compile driver for the QCA4004 for a specific platform', 'off', allowed_values=('due', 'stm32', 'off')))
 vars.Add(PathVariable('ATMEL_DIR', 'Directory for ATMEL source code', os.environ.get('ATMEL_DIR'), PathVariable.PathIsDir))
 vars.Add(PathVariable('FREE_RTOS_DIR','Directory to FreeRTOS source code', os.environ.get('FREE_RTOS_DIR'), PathVariable.PathIsDir))
 vars.Add(PathVariable('ARM_TOOLCHAIN_DIR', 'Path to the GNU ARM toolchain bin folder', os.environ.get('ARM_TOOLCHAIN_DIR'), PathVariable.PathIsDir))
+vars.Add(PathVariable('STM_SRC_DIR', 'Path to the source code for the STM32 microcontroller', os.environ.get('STM_SRC_DIR'), PathVariable.PathIsDir))
 
 if default_msvc_version:
     vars.Add(EnumVariable('MSVC_VERSION', 'MSVC compiler version - Windows', default_msvc_version, allowed_values=('8.0', '9.0', '10.0', '11.0', '11.0Exp')))
@@ -168,7 +169,6 @@ elif env['TARG'] == 'bsp':
     env.Replace(AR = env.File('${ARM_TOOLCHAIN_DIR}/arm-none-eabi-ar')) 
 
     
-    # Override any prefix or suffix's that are specific to the GNU ARM compiler
     env['CPPDEFPREFIX']     = '-D'
     env['OBJSUFFIX']        = '.o'
     env['SHOBJSUFFIX']      = '.os'
@@ -185,6 +185,18 @@ elif env['TARG'] == 'bsp':
     env['LINKFLAGS']        = '-Xlinker -Map -Xlinker '
     env['LINKCOM']          = '$LINK -o $TARGET $LINKFLAGS $__RPATH $SOURCES $_LIBDIRFLAGS $_LIBFLAGS'
     env['LINK']             = '$CC'
+    env['ASFLAGS']          = ''
+    env['ASPPCOM']          = '$AS'
+    env['ARFLAGS']          = 'rc'
+    env['ARCOM']            = '$AR $ARFLAGS $TARGET $SOURCES' 
+    env['LIBDIRPREFIX']     = ''
+    env['ASCOM']            = '$CC -o $TARGET -c $CFLAGS $CCFLAGS $_CCCOMCOM $SOURCES' 
+    env['LIBPREFIX'] = 'lib'
+    env['LIBSUFFIX'] = '.a'
+    env['RANLIB'] = 'ranlib'
+    env['RANLIBFLAGS'] =    ''
+    env['RANLIBCOM'] = '$RANLIB $RANLIBFLAGS $TARGET'
+    env['SHLIBPREFIX'] = ''
     # This was done because scons creates a link file to feed into the linker
     # and arm-none-eabi removes '\' when interpreting a linker file. This
     # prevents scons from creating a link file and just feeding the command line
@@ -204,10 +216,11 @@ elif env['TARG'] == 'bsp':
     
     # Add platform independent source files
     rtos_src = [Glob('RTOS/*.c') + Glob('RTOS/FreeRTOS/*.c') + Glob(env['FREE_RTOS_DIR'] + '/Source/*.c') +
-                [env['FREE_RTOS_DIR'] + '/Source/portable/MemMang/heap_3.c', 
-                 env['FREE_RTOS_DIR'] + '/Source/portable/GCC/ARM_CM3/port.c']]
+                [env['FREE_RTOS_DIR'] + '/Source/portable/GCC/ARM_CM3/port.c']]
     
     if env['AJWSL'] == 'due':
+        rtos_src += [env['FREE_RTOS_DIR'] + '/Source/portable/MemMang/heap_3.c']
+        
         # Add platform dependent sources
         due_src = [Glob('bsp/due/*.c') + [env['ATMEL_DIR'] + '/common/services/clock/sam3x/sysclk.c',
                                           env['ATMEL_DIR'] + '/common/services/spi/sam_spi/spi_master.c',
@@ -268,9 +281,50 @@ elif env['TARG'] == 'bsp':
                           env['ATMEL_DIR'] + '/thirdparty/CMSIS/Include',       env['ATMEL_DIR'] + '/thirdparty/CMSIS/Lib/GCC',
                           env['ATMEL_DIR'] + '/sam/boards/arduino_due_x/board_config', env['ATMEL_DIR'] + '/config',
                           env['ATMEL_DIR'] + '/common/services/clock/sam3x/module_config', env['ATMEL_DIR'] + '/common/services/clock/sam3x', 
-                          env['ATMEL_DIR'] + '/thirdparty/freertos/freertos-7.3.0/module_config',
                           env['ATMEL_DIR'] + '/sam/drivers/dmac',
                           os.getcwd() + '/RTOS', os.getcwd() + '/crypto', os.getcwd() + '/crypto/ecc', os.getcwd() + '/external/sha2', os.getcwd() + '/malloc', os.getcwd() + '/inc', os.getcwd() + '/WSL']
+    elif env['AJWSL'] == 'stm32':
+        
+        rtos_src += [env['FREE_RTOS_DIR'] + '/Source/portable/MemMang/heap_4.c']
+        
+        # Add platform dependent sources
+        stm_src = [env['STM_SRC_DIR'] + 'Libraries/CMSIS/ST/STM32F4xx/Source/Templates/gcc_ride7/startup_stm32f4xx.s',
+                   env['STM_SRC_DIR'] + 'Libraries/CMSIS/ST/STM32F4xx/Source/Templates/system_stm32f4xx.c',
+                   env['STM_SRC_DIR'] + 'Libraries/STM32F4xx_StdPeriph_Driver/src/misc.c',
+                   env['STM_SRC_DIR'] + 'Libraries/STM32F4xx_StdPeriph_Driver/src/stm32f4xx_rcc.c',
+                   env['STM_SRC_DIR'] + 'Libraries/STM32F4xx_StdPeriph_Driver/src/stm32f4xx_usart.c',
+                   env['STM_SRC_DIR'] + 'Libraries/STM32F4xx_StdPeriph_Driver/src/stm32f4xx_gpio.c',
+                   env['STM_SRC_DIR'] + 'Libraries/STM32F4xx_StdPeriph_Driver/src/stm32f4xx_dma.c',
+                   env['STM_SRC_DIR'] + 'Libraries/STM32F4xx_StdPeriph_Driver/src/stm32f4xx_wwdg.c',
+                   env['STM_SRC_DIR'] + 'Libraries/STM32F4xx_StdPeriph_Driver/src/stm32f4xx_spi.c',
+                   env['STM_SRC_DIR'] + 'Libraries/STM32F4xx_StdPeriph_Driver/src/stm32f4xx_flash.c',
+                   env['STM_SRC_DIR'] + 'Libraries/STM32F4xx_StdPeriph_Driver/src/stm32f4xx_rng.c',
+                   env['STM_SRC_DIR'] + 'Libraries/STM32F4xx_StdPeriph_Driver/src/stm32f4xx_exti.c',
+                   env['STM_SRC_DIR'] + 'Libraries/STM32F4xx_StdPeriph_Driver/src/stm32f4xx_syscfg.c',
+                   'bsp/stm32/aj_target_platform.c',
+                   'bsp/stm32/aj_spi.c',
+                   'bsp/stm32/syscalls.c'
+                   ]
+        
+        # Add platform dependent linker flags
+        env['LINKFLAGS'] = ['-mthumb', '-Wl,--start-group', '-lm', '-lc',
+                            '-Wl,--end-group', '-Wl,--gc-sections', '-Wl,-Map,${TARGET.base}.map',
+                            '-mcpu=cortex-m3', '-T' + env['STM_SRC_DIR'] + 'Project/Peripheral_Examples/SysTick/TrueSTUDIO/SysTick/stm32_flash.ld',
+                            '-Wl,--entry=Reset_Handler']
+        
+        # Add platform dependent defines
+        env.Append(CPPDEFINES = ['STM32F407xx', 'USE_STDPERIPH_DRIVER','HAL_UART_MODULE_ENABLED', 'HAL_RCC_MODULE_ENABLED', 
+                                 'HAL_GPIO_MODULE_ENABLED', 'HAL_USART_MODULE_ENABLED', 'HAL_FLASH_MODULE_ENABLED'])
+
+        # Add platform dependent include paths
+        env['CPPPATH'] = [os.getcwd() + '/bsp', os.getcwd() + '/bsp/stm32', env['FREE_RTOS_DIR'] + '/Source/include', os.getcwd() + '/RTOS/FreeRTOS',
+                          os.getcwd() + '/bsp/stm32/config',
+                          os.getcwd() + '/RTOS', os.getcwd() + '/crypto', os.getcwd() + '/crypto/ecc', os.getcwd() + '/external/sha2', 
+                          os.getcwd() + '/malloc', os.getcwd() + '/inc', os.getcwd() + '/WSL', env['FREE_RTOS_DIR'] + '/Source/portable/GCC/ARM_CM3',
+                          env['STM_SRC_DIR'] + 'Utilities/STM32F4-Discovery',
+                          env['STM_SRC_DIR'] + 'Libraries/CMSIS/ST/STM32F4xx/Include',
+                          env['STM_SRC_DIR'] + 'Libraries/CMSIS/Include',
+                          env['STM_SRC_DIR'] + 'Libraries/STM32F4xx_StdPeriph_Driver/inc']
 
 elif env['TARG'] in [ 'darwin' ]:
     if os.environ.has_key('CROSS_PREFIX'):
@@ -358,6 +412,20 @@ if env['AJWSL'] == 'due':
     env.Program('test/siglite', ['test/siglite.c'] + env['aj_obj'])
     env.Program('test/nvramtest', ['test/nvramtest.c'] + env['aj_obj'])
     env.Program('test/sessionslite', ['test/sessionslite.c'] + env['aj_obj'])
+
+elif env['AJWSL'] == 'stm32':
+
+    srcs = env.Object(env['aj_srcs'] + env['aj_sw_crypto'] + env['aj_malloc'] + env['aj_crypto_ecc'] + env['aj_external_sha2'])
+    srcs += env.Object(wsl)
+    srcs += env.Object(rtos_src)
+    srcs += env.Object(stm_src)
+
+    stm_lib = env.StaticLibrary('ajtcl_stm32', srcs)
+
+    # Build standard ajtcl test programs
+    env.Program('test/svclite', ['test/svclite.c'], LIBS=[stm_lib])
+    env.Program('test/nvramtest', ['test/nvramtest.c'], LIBS=[stm_lib])
+    env.Program('test/clientlite', ['test/clientlite.c'], LIBS=[stm_lib])
 
 Export('env')
 

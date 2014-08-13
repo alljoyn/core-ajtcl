@@ -20,8 +20,8 @@
  */
 #define AJ_MODULE HELPER
 
-#include "aj_helper.h"
 #include "alljoyn.h"
+#include "aj_helper.h"
 #include "aj_link_timeout.h"
 #include "aj_debug.h"
 #include "aj_config.h"

@@ -77,6 +77,7 @@
 #define AJ_WSL_SPI_CHIP_SPI_INT_PIN PIO_PC23_IDX  /* pin D7 on the Arduino Due */
 #define AJ_WSL_SPI_CHIP_SPI_INT_BIT PIO_PC23
 #define AJ_WSL_SPI_CHIP_POWER_PIN PIO_PC28_IDX  /* pin D3 on the Arduino Due */
+#define AJ_WSL_STACK_SIZE   2000
 
 typedef spi_status_t aj_spi_status;
 
