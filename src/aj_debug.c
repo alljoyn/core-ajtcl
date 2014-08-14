@@ -16,8 +16,11 @@
  *    ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
+#define AJ_MODULE DEBUG
 
 #include "aj_debug.h"
+
+uint8_t dbgDEBUG = 0;
 
 #ifndef NDEBUG
 
@@ -83,7 +86,7 @@ void _AJ_DumpMsg(const char* tag, AJ_Message* msg, uint8_t body)
         AJ_AlwaysPrintf(("        hdr len=%d\n", msg->hdr->headerLen));
 #if AJ_DUMP_MSG_RAW
         AJ_DumpBytes(NULL, p,  hdrBytes);
-        AJ_AlwaysPrintf("body len=%d\n", msg->hdr->bodyLen);
+        AJ_AlwaysPrintf(("body len=%d\n", msg->hdr->bodyLen));
         if (body) {
             AJ_DumpBytes(NULL, p + hdrBytes, msg->hdr->bodyLen);
         }
