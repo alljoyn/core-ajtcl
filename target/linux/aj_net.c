@@ -508,7 +508,6 @@ static int MCastUp4()
     ret = setsockopt(mcastSock, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq));
     if (ret < 0) {
         AJ_ErrPrintf(("MCastUp4(): setsockopt(IP_ADD_MEMBERSHIP) failed. errno=\"%s\", status=AJ_ERR_READ\n", strerror(errno)));
-        goto ExitError;
     }
 
     return mcastSock;
