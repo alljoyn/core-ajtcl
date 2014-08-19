@@ -157,7 +157,6 @@ INCLUDES = 	-I. \
 			-I$(ATMEL_DIR)/common/services/clock/sam3x/module_config \
 			-I$(ATMEL_DIR)/config \
 			-I$(ATMEL_DIR)/common/services/clock/sam3x \
-			-I$(ATMEL_DIR)/thirdparty/freertos/freertos-7.3.0/module_config \
 			-Iinc \
 			-IRTOS \
 			-IRTOS/FreeRTOS \
