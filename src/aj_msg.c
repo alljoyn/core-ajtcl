@@ -1095,7 +1095,7 @@ AJ_Status AJ_UnmarshalMsg(AJ_BusAttachment* bus, AJ_Message* msg, uint32_t timeo
         /*
          * Silently discard message unless in debug mode
          */
-        AJ_ErrPrintf(("Discarding bad message %s\n", AJ_StatusText(status)));
+        AJ_WarnPrintf(("Discarding unknown message %s\n", AJ_StatusText(status)));
         AJ_DumpMsg("DISCARDING", msg, FALSE);
         AJ_CloseMsg(msg);
     }

@@ -215,7 +215,7 @@ AJ_NV_DATASET* AJ_NVRAM_Open(uint16_t id, char* mode, uint16_t capacity)
     } else {
         entry = AJ_FindNVEntry(id);
         if (!entry) {
-            AJ_ErrPrintf(("AJ_NVRAM_Open(): Data set %d. does not exist\n", id));
+            AJ_WarnPrintf(("AJ_NVRAM_Open(): Data set %d. does not exist\n", id));
             goto OPEN_ERR_EXIT;
         }
     }

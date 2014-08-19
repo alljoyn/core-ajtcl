@@ -818,21 +818,21 @@ static AJ_Status MatchProp(const char* member, const char* prop, uint8_t op, con
     const char* encoding = member;
 
     if (*encoding++ != '@') {
-        AJ_ErrPrintf(("MatchProp(): AJ_ERR_NO_MATCH\n"));
+        AJ_InfoPrintf(("MatchProp(): AJ_ERR_NO_MATCH\n"));
         return AJ_ERR_NO_MATCH;
     }
     while (*prop) {
         if (*encoding++ != *prop++) {
-            AJ_ErrPrintf(("MatchProp(): AJ_ERR_NO_MATCH\n"));
+            AJ_InfoPrintf(("MatchProp(): AJ_ERR_NO_MATCH\n"));
             return AJ_ERR_NO_MATCH;
         }
     }
     if ((op == AJ_PROP_GET) && (*encoding == WRITE_ONLY)) {
-        AJ_ErrPrintf(("MatchProp(): AJ_ERR_DISALLOWED\n"));
+        AJ_InfoPrintf(("MatchProp(): AJ_ERR_DISALLOWED\n"));
         return AJ_ERR_DISALLOWED;
     }
     if ((op == AJ_PROP_SET) && (*encoding == READ_ONLY)) {
-        AJ_ErrPrintf(("MatchProp(): AJ_ERR_DISALLOWED\n"));
+        AJ_InfoPrintf(("MatchProp(): AJ_ERR_DISALLOWED\n"));
         return AJ_ERR_DISALLOWED;
     }
     *sig = ++encoding;

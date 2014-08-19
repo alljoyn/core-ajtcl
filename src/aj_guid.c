@@ -73,7 +73,7 @@ static NameToGUID* LookupName(const char* name)
             return &nameMap[i];
         }
     }
-    AJ_WarnPrintf(("LookupName(): NULL\n"));
+    AJ_InfoPrintf(("LookupName(): NULL\n"));
     return NULL;
 }
 
