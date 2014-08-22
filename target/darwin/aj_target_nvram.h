@@ -29,7 +29,6 @@
 #define INVALID_DATA (0xFFFF)
 #define INVALID_DATA_BYTE (0xFF)
 #define SENTINEL_OFFSET (4)
-#define AJ_NVRAM_SIZE (2024)
 
 typedef struct _NV_EntryHeader {
     uint16_t id;           /**< The unique id */
@@ -46,7 +45,7 @@ typedef struct _NV_EntryHeader {
  * @param buf   Pointer to data to be written
  * @param size  The number of bytes to be written
  */
-void _AJ_NV_Write(void* dest, void* buf, uint16_t size);
+void _AJ_NV_Write(void* dest, const void* buf, uint16_t size);
 
 /**
  * Read a block of data from NVRAM

@@ -54,6 +54,8 @@ uint8_t dbgNET = 0;
 
 #define INVALID_SOCKET (-1)
 
+#define MSG_NOSIGNAL 0
+
 /*
  * IANA assigned IPv4 multicast group for AllJoyn.
  */
@@ -85,16 +87,18 @@ static AJ_Status CloseNetSock(AJ_NetSocket* netSock)
     NetContext* context = (NetContext*)netSock->rx.context;
     if (context) {
         if (context->tcpSock != INVALID_SOCKET) {
-            close(context->tcpSock);
+            struct linger l;
+            l.l_onoff = 1;
+            l.l_linger = 0;
+            setsockopt(context->tcpSock, SOL_SOCKET, SO_LINGER, (void*)&l, sizeof(l));
             shutdown(context->tcpSock, SHUT_RDWR);
+            close(context->tcpSock);
         }
         if (context->udpSock != INVALID_SOCKET) {
             close(context->udpSock);
-            shutdown(context->udpSock, SHUT_RDWR);
         }
         if (context->udp6Sock != INVALID_SOCKET) {
             close(context->udp6Sock);
-            shutdown(context->udp6Sock, SHUT_RDWR);
         }
 
         context->tcpSock = context->udpSock = context->udp6Sock = INVALID_SOCKET;
@@ -114,7 +118,7 @@ AJ_Status AJ_Net_Send(AJ_IOBuffer* buf)
     assert(buf->direction == AJ_IO_BUF_TX);
 
     if (tx > 0) {
-        ret = send(context->tcpSock, buf->readPtr, tx, 0);
+        ret = send(context->tcpSock, buf->readPtr, tx, MSG_NOSIGNAL);
         if (ret == -1) {
             AJ_ErrPrintf(("AJ_Net_Send(): send() failed. errno=\"%s\", status=AJ_ERR_WRITE\n", strerror(errno)));
             return AJ_ERR_WRITE;
@@ -129,6 +133,27 @@ AJ_Status AJ_Net_Send(AJ_IOBuffer* buf)
     return AJ_OK;
 }
 
+/*
+ * An eventfd handle used for interrupting a network read blocked on select
+ */
+static int interruptFd = INVALID_SOCKET;
+
+/*
+ * The socket that is blocked in select
+ */
+static uint8_t blocked;
+
+/*
+ * This function is called to cancel a pending select.
+ */
+void AJ_Net_Interrupt()
+{
+    if (blocked) {
+        uint64_t u64;
+        write(interruptFd, &u64, sizeof(u64));
+    }
+}
+
 AJ_Status AJ_Net_Recv(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)
 {
     NetContext* context = (NetContext*) buf->context;
@@ -136,6 +161,7 @@ AJ_Status AJ_Net_Recv(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)
     size_t rx = AJ_IO_BUF_SPACE(buf);
     fd_set fds;
     int rc = 0;
+    int maxFd = context->tcpSock;
     struct timeval tv = { timeout / 1000, 1000 * (timeout % 1000) };
 
     AJ_InfoPrintf(("AJ_Net_Recv(buf=0x%p, len=%d., timeout=%d.)\n", buf, len, timeout));
@@ -144,11 +170,21 @@ AJ_Status AJ_Net_Recv(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)
 
     FD_ZERO(&fds);
     FD_SET(context->tcpSock, &fds);
-    rc = select(context->tcpSock + 1, &fds, NULL, NULL, &tv);
+    if (interruptFd >= 0) {
+        FD_SET(interruptFd, &fds);
+        maxFd = max(maxFd, interruptFd);
+    }
+    blocked = TRUE;
+    rc = select(maxFd + 1, &fds, NULL, NULL, &tv);
+    blocked = FALSE;
     if (rc == 0) {
         return AJ_ERR_TIMEOUT;
     }
-
+    if ((interruptFd >= 0) && FD_ISSET(interruptFd, &fds)) {
+        uint64_t u64;
+        read(interruptFd, &u64, sizeof(u64));
+        return AJ_ERR_INTERRUPTED;
+    }
     rx = min(rx, len);
     if (rx) {
         ssize_t ret = recv(context->tcpSock, buf->writePtr, rx, 0);
@@ -164,25 +200,23 @@ AJ_Status AJ_Net_Recv(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)
 }
 
 static uint8_t rxData[1024];
-static uint8_t txData[1024];
+static uint8_t txData[1500];
 
 AJ_Status AJ_Net_Connect(AJ_NetSocket* netSock, uint16_t port, uint8_t addrType, const uint32_t* addr)
 {
     int ret;
     struct sockaddr_storage addrBuf;
     socklen_t addrSize;
+    int tcpSock = INVALID_SOCKET;
 
     AJ_InfoPrintf(("AJ_Net_Connect(netSock=0x%p, port=%d., addrType=%d., addr=0x%p)\n", netSock, port, addrType, addr));
 
     memset(&addrBuf, 0, sizeof(addrBuf));
 
-    int tcpSock = socket(AF_INET, SOCK_STREAM, 0);
+    tcpSock = socket(AF_INET, SOCK_STREAM, 0);
     if (tcpSock == INVALID_SOCKET) {
         AJ_ErrPrintf(("AJ_Net_Connect(): socket() failed.  status=AJ_ERR_CONNECT\n"));
-        return AJ_ERR_CONNECT;
-    } else {
-        int disableSigPipe = 1;
-        setsockopt(socket, SOL_SOCKET, SO_NOSIGPIPE, &disableSigPipe, sizeof(disableSigPipe));
+        goto ConnectError;
     }
     if (addrType == AJ_ADDR_IPV4) {
         struct sockaddr_in* sa = (struct sockaddr_in*)&addrBuf;
@@ -201,7 +235,7 @@ AJ_Status AJ_Net_Connect(AJ_NetSocket* netSock, uint16_t port, uint8_t addrType,
     ret = connect(tcpSock, (struct sockaddr*)&addrBuf, addrSize);
     if (ret < 0) {
         AJ_ErrPrintf(("AJ_Net_Connect(): connect() failed. errno=\"%s\", status=AJ_ERR_CONNECT\n", strerror(errno)));
-        return AJ_ERR_CONNECT;
+        goto ConnectError;
     } else {
         netContext.tcpSock = tcpSock;
         AJ_IOBufInit(&netSock->rx, rxData, sizeof(rxData), AJ_IO_BUF_RX, &netContext);
@@ -209,12 +243,29 @@ AJ_Status AJ_Net_Connect(AJ_NetSocket* netSock, uint16_t port, uint8_t addrType,
         AJ_IOBufInit(&netSock->tx, txData, sizeof(txData), AJ_IO_BUF_TX, &netContext);
         netSock->tx.send = AJ_Net_Send;
         AJ_InfoPrintf(("AJ_Net_Connect(): status=AJ_OK\n"));
-        return AJ_OK;
     }
+
+    return AJ_OK;
+
+ConnectError:
+    if (interruptFd != INVALID_SOCKET) {
+        close(interruptFd);
+        interruptFd = INVALID_SOCKET;
+    }
+
+    if (tcpSock != INVALID_SOCKET) {
+        close(tcpSock);
+    }
+
+    return AJ_ERR_CONNECT;
 }
 
 void AJ_Net_Disconnect(AJ_NetSocket* netSock)
 {
+    if (interruptFd >= 0) {
+        close(interruptFd);
+        interruptFd = -1;
+    }
     CloseNetSock(netSock);
 }
 
@@ -231,11 +282,10 @@ static void sendToBroadcast(int sock, void* ptr, size_t tx)
         if (addr->ifa_addr != NULL && addr->ifa_addr->sa_family == AF_INET) {
             char buf[INET_ADDRSTRLEN];
             struct sockaddr_in* sin_bcast = &((struct sockaddr_in*) addr->ifa_addr)->sin_addr;
-            //struct sockaddr_in* sin_bcast = (struct sockaddr_in*) addr->ifa_ifu.ifu_broadaddr;
             sin_bcast->sin_port = htons(AJ_UDP_PORT);
             inet_ntop(AF_INET, &(sin_bcast->sin_addr), buf, sizeof(buf));
             AJ_InfoPrintf(("sendToBroadcast: sending to bcast addr %s\n", buf));
-            sendto(sock, ptr, tx, 0, (struct sockaddr*) sin_bcast, sizeof(struct sockaddr_in));
+            sendto(sock, ptr, tx, MSG_NOSIGNAL, (struct sockaddr*) sin_bcast, sizeof(struct sockaddr_in));
         }
 
         addr = addr->ifa_next;
@@ -245,7 +295,8 @@ static void sendToBroadcast(int sock, void* ptr, size_t tx)
 
 AJ_Status AJ_Net_SendTo(AJ_IOBuffer* buf)
 {
-    ssize_t ret;
+    ssize_t ret = -1;
+    uint8_t sendSucceeded = FALSE;
     size_t tx = AJ_IO_BUF_AVAIL(buf);
     NetContext* context = (NetContext*) buf->context;
     AJ_InfoPrintf(("AJ_Net_SendTo(buf=0x%p)\n", buf));
@@ -258,13 +309,16 @@ AJ_Status AJ_Net_SendTo(AJ_IOBuffer* buf)
             sin.sin_port = htons(AJ_UDP_PORT);
 
             if (inet_pton(AF_INET, AJ_IPV4_MULTICAST_GROUP, &sin.sin_addr) == 1) {
-                ret = sendto(context->udpSock, buf->readPtr, tx, 0, (struct sockaddr*)&sin, sizeof(sin));
+                ret = sendto(context->udpSock, buf->readPtr, tx, MSG_NOSIGNAL, (struct sockaddr*)&sin, sizeof(sin));
+                if (tx == ret) {
+                    sendSucceeded = TRUE;
+                }
+            } else {
+                AJ_ErrPrintf(("AJ_Net_SendTo(): Invalid address IP address. errno=\"%s\"", strerror(errno)));
             }
-
 
             sendToBroadcast(context->udpSock, buf->readPtr, tx);
         }
-
 
         // now sendto the ipv6 address
         if (context->udp6Sock != INVALID_SOCKET) {
@@ -274,11 +328,17 @@ AJ_Status AJ_Net_SendTo(AJ_IOBuffer* buf)
             sin6.sin6_scope_id = 0;
             sin6.sin6_port = htons(AJ_UDP_PORT);
             if (inet_pton(AF_INET6, AJ_IPV6_MULTICAST_GROUP, &sin6.sin6_addr) == 1) {
-                ret = sendto(context->udp6Sock, buf->readPtr, tx, 0, (struct sockaddr*) &sin6, sizeof(sin6));
+                ret = sendto(context->udp6Sock, buf->readPtr, tx, MSG_NOSIGNAL, (struct sockaddr*) &sin6, sizeof(sin6));
+                if (tx == ret) {
+                    sendSucceeded = TRUE;
+                }
+            } else {
+                AJ_ErrPrintf(("AJ_Net_SendTo(): Invalid address IP address. errno=\"%s\"", strerror(errno)));
             }
         }
 
-        if (ret == -1) {
+        if (!sendSucceeded) {
+            /* Both IPv4 and IPv6 failed, return an error */
             AJ_ErrPrintf(("AJ_Net_SendTo(): sendto() failed. errno=\"%s\", status=AJ_ERR_WRITE\n", strerror(errno)));
             return AJ_ERR_WRITE;
         }
@@ -294,7 +354,7 @@ AJ_Status AJ_Net_RecvFrom(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)
     NetContext* context = (NetContext*) buf->context;
     AJ_Status status = AJ_OK;
     ssize_t ret;
-    size_t rx = AJ_IO_BUF_SPACE(buf);
+    size_t rx;
     fd_set fds;
     int maxFd = INVALID_SOCKET;
     int rc = 0;
@@ -309,9 +369,9 @@ AJ_Status AJ_Net_RecvFrom(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)
         FD_SET(context->udpSock, &fds);
     }
 
-    //if (context->udp6Sock != INVALID_SOCKET) {
-    //    FD_SET(context->udp6Sock, &fds);
-    //}
+    if (context->udp6Sock != INVALID_SOCKET) {
+        FD_SET(context->udp6Sock, &fds);
+    }
 
     maxFd = max(context->udp6Sock, context->udpSock);
 
@@ -326,18 +386,20 @@ AJ_Status AJ_Net_RecvFrom(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)
     // if both sockets are ready, read from both in order to
     // reset the state
 
-    if (rx && context->udp6Sock != INVALID_SOCKET && FD_ISSET(context->udp6Sock, &fds)) {
+    rx = AJ_IO_BUF_SPACE(buf);
+    if (context->udp6Sock != INVALID_SOCKET && FD_ISSET(context->udp6Sock, &fds)) {
         rx = min(rx, len);
-        ret = recvfrom(context->udp6Sock, buf->writePtr, rx, 0, NULL, 0);
-        if (ret == -1) {
-            AJ_ErrPrintf(("AJ_Net_RecvFrom(): recvfrom() failed. errno=\"%s\", status=AJ_ERR_READ\n", strerror(errno)));
-            status = AJ_ERR_READ;
-        } else {
-            buf->writePtr += ret;
-            status = AJ_OK;
+        if (rx) {
+            ret = recvfrom(context->udp6Sock, buf->writePtr, rx, 0, NULL, 0);
+            if (ret == -1) {
+                AJ_ErrPrintf(("AJ_Net_RecvFrom(): recvfrom() failed. errno=\"%s\", status=AJ_ERR_READ\n", strerror(errno)));
+                status = AJ_ERR_READ;
+            } else {
+                buf->writePtr += ret;
+                status = AJ_OK;
+            }
         }
     }
-
 
     rx = AJ_IO_BUF_SPACE(buf);
     if (context->udpSock != INVALID_SOCKET && FD_ISSET(context->udpSock, &fds)) {
@@ -384,9 +446,9 @@ static int MCastUp4()
         return INVALID_SOCKET;
     }
 
-    ret = setsockopt(mcastSock, SOL_SOCKET, SO_REUSEPORT, &reuse, sizeof(reuse));
+    ret = setsockopt(mcastSock, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
     if (ret != 0) {
-        AJ_ErrPrintf(("MCastUp4(): setsockopt(SO_REUSEPORT) failed. errno=\"%s\", status=AJ_ERR_READ\n", strerror(errno)));
+        AJ_ErrPrintf(("MCastUp4(): setsockopt(SO_REUSEADDR) failed. errno=\"%s\", status=AJ_ERR_READ\n", strerror(errno)));
         goto ExitError;
     }
 
@@ -440,13 +502,13 @@ static int MCastUp6()
 
     mcastSock = socket(AF_INET6, SOCK_DGRAM, 0);
     if (mcastSock == INVALID_SOCKET) {
-        AJ_ErrPrintf(("MCastUp6(): socket() fails. status=AJ_ERR_READ\n"));
+        AJ_ErrPrintf(("MCastUp6(): socket() fails. errno=\"%s\" status=AJ_ERR_READ\n", strerror(errno)));
         return INVALID_SOCKET;
     }
 
-    ret = setsockopt(mcastSock, SOL_SOCKET, SO_REUSEPORT, &reuse, sizeof(reuse));
+    ret = setsockopt(mcastSock, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
     if (ret != 0) {
-        AJ_ErrPrintf(("MCastUp6(): setsockopt(SO_REUSEPORT) failed. errno=\"%s\", status=AJ_ERR_READ\n", strerror(errno)));
+        AJ_ErrPrintf(("MCastUp6(): setsockopt(SO_REUSEADDR) failed. errno=\"%s\", status=AJ_ERR_READ\n", strerror(errno)));
         goto ExitError;
     }
 
@@ -486,7 +548,7 @@ AJ_Status AJ_Net_MCastUp(AJ_NetSocket* netSock)
 {
     AJ_Status status = AJ_ERR_READ;
     netContext.udpSock = MCastUp4();
-    netContext.udp6Sock = INVALID_SOCKET; //= MCastUp6();
+    netContext.udp6Sock = INVALID_SOCKET; //MCastUp6();
 
     if (netContext.udpSock != INVALID_SOCKET || netContext.udp6Sock != INVALID_SOCKET) {
         AJ_IOBufInit(&netSock->rx, rxDataMCast, sizeof(rxDataMCast), AJ_IO_BUF_RX, &netContext);

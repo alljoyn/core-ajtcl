@@ -50,7 +50,7 @@ void AJ_NVRAM_Init()
     }
 }
 
-void _AJ_NV_Write(void* dest, void* buf, uint16_t size)
+void _AJ_NV_Write(void* dest, const void* buf, uint16_t size)
 {
     memcpy(dest, buf, size);
     _AJ_StoreNVToFile();
@@ -70,7 +70,7 @@ void _AJ_NVRAM_Clear()
 
 AJ_Status _AJ_LoadNVFromFile()
 {
-    FILE* f = fopen("ajlite.nvram", "r");
+    FILE* f = fopen("ajlite.nvram", "rb");
     if (f == NULL) {
         AJ_ErrPrintf(("_AJ_LoadNVFromFile(): LoadNVFromFile() failed. status=AJ_ERR_FAILURE\n"));
         return AJ_ERR_FAILURE;
@@ -84,7 +84,7 @@ AJ_Status _AJ_LoadNVFromFile()
 
 AJ_Status _AJ_StoreNVToFile()
 {
-    FILE* f = fopen("ajlite.nvram", "w");
+    FILE* f = fopen("ajlite.nvram", "wb");
     if (!f) {
         AJ_ErrPrintf(("_AJ_StireNVToFile(): LoadNVFromFile() failed. status=AJ_ERR_FAILURE\n"));
         return AJ_ERR_FAILURE;
