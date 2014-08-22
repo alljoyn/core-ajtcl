@@ -322,7 +322,7 @@ AJ_Status AJ_Connect(AJ_BusAttachment* bus, const char* serviceName, uint32_t ti
     service.ipv4 = 0x7f000001; // 127.0.0.1
 #endif
     service.addrTypes = AJ_ADDR_IPV4;
-#elif defined(ARDUINO)
+#elif defined(ARDUINO) && !defined(AJ_SERIAL_CONNECTION)
     service.ipv4port = 9955;
     service.ipv4 = 0x6501A8C0; // 192.168.1.101
     service.addrTypes = AJ_ADDR_IPV4;
@@ -427,7 +427,7 @@ AJ_Status AJ_FindBusAndConnect(AJ_BusAttachment* bus, const char* serviceName, u
         service.ipv4 = 0x7f000001; // 127.0.0.1
 #endif
         service.addrTypes = AJ_ADDR_IPV4;
-#elif defined(ARDUINO)
+#elif defined(ARDUINO) && !defined(AJ_SERIAL_CONNECTION)
         service.ipv4port = 9955;
         service.ipv4 = 0x6501A8C0; // 192.168.1.101
         service.addrTypes = AJ_ADDR_IPV4;

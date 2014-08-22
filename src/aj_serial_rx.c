@@ -17,7 +17,6 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
-#ifdef AJ_SERIAL_CONNECTION
 
 /**
  * Per-module definition of the current module for debug logging.  Must be defined
@@ -26,6 +25,7 @@
 #define AJ_MODULE SERIAL_RX
 
 #include "aj_target.h"
+#ifdef AJ_SERIAL_CONNECTION
 #include "aj_status.h"
 #include "aj_serial.h"
 #include "aj_serial_rx.h"
@@ -209,8 +209,8 @@ AJ_Status AJ_SerialRX_Init(void)
      */
     for (i = 0; i < AJ_SerialLinkParams.maxWindowSize + 1; ++i) {
         prev = RxFreeList;
-        RxFreeList = AJ_Malloc(sizeof(RX_PKT));
-        RxFreeList->buffer = AJ_Malloc(maxRxFrameSize);
+        RxFreeList = (RX_PKT*)AJ_Malloc(sizeof(RX_PKT));
+        RxFreeList->buffer = (uint8_t*)AJ_Malloc(maxRxFrameSize);
         RxFreeList->state = PACKET_NEW;
         RxFreeList->len = 0;
         RxFreeList->next = prev;
@@ -219,8 +219,8 @@ AJ_Status AJ_SerialRX_Init(void)
     bufferRxFreeList = NULL;
     for (i = 0; i < AJ_SerialLinkParams.maxWindowSize + 1; i++) {
         prevBuf = bufferRxFreeList;
-        bufferRxFreeList = AJ_Malloc(sizeof(AJ_SlippedBuffer));
-        bufferRxFreeList->buffer = AJ_Malloc(SLIPPED_LEN(AJ_SerialLinkParams.packetSize));
+        bufferRxFreeList = (AJ_SlippedBuffer*)AJ_Malloc(sizeof(AJ_SlippedBuffer));
+        bufferRxFreeList->buffer = (uint8_t*)AJ_Malloc(SLIPPED_LEN(AJ_SerialLinkParams.packetSize));
         bufferRxFreeList->actualLen = 0;
         bufferRxFreeList->allocatedLen = SLIPPED_LEN(AJ_SerialLinkParams.packetSize);
         bufferRxFreeList->next = prevBuf;

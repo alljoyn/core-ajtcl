@@ -30,6 +30,7 @@ vars = Variables()
 
 # Common build variables
 vars.Add(EnumVariable('TARG', 'Target platform variant', default_target, allowed_values=('win32', 'linux', 'arduino', 'bsp', 'darwin')))
+vars.Add(EnumVariable('SHIELD', 'Arduino Shield variant', 'eth', allowed_values=('eth', 'wifi', 'btle')))
 vars.Add(EnumVariable('VARIANT', 'Build variant', 'debug', allowed_values=('debug', 'release')))
 vars.Add(PathVariable('GTEST_DIR', 'The path to googletest sources', os.environ.get('GTEST_DIR'), PathVariable.PathIsDir))
 vars.Add(EnumVariable('WS', 'Whitespace Policy Checker', 'check', allowed_values=('check', 'detail', 'fix', 'off')))
@@ -149,10 +150,10 @@ elif env['TARG'] in [ 'linux' ]:
 
 elif env['TARG'] == 'arduino':
     # Include paths
-    env['includes'] = [ os.getcwd() + '/inc', os.getcwd() + '/target/${TARG}']
+    env['includes'] = [ os.getcwd() + '/inc', os.getcwd() + '/target/${TARG}', os.getcwd() + '/target/${TARG}/${SHIELD}']
 
     # Target-specific headers and sources
-    env['aj_targ_headers'] = [Glob('target/' + env['TARG'] + '/*.h')]
+    env['aj_targ_headers'] = [Glob('target/' + env['TARG'] + '/*.h') + Glob('target/' + env['TARG'] + '/' + env['SHIELD'] + '/*.h')]
     env['aj_targ_srcs'] = [Glob('target/' + env['TARG'] + '/*.c')]
 
 # Board support package target
@@ -169,6 +170,11 @@ elif env['TARG'] == 'bsp':
     env.Replace(AR = env.File('${ARM_TOOLCHAIN_DIR}/arm-none-eabi-ar')) 
 
     
+    # Target-specific headers and sources
+    env['aj_targ_headers'] = [Glob('target/' + env['TARG'] + '/*.h')]
+    env['aj_targ_srcs'] = [Glob('target/' + env['TARG'] + '/*.c')]
+
+    # Override any prefix or suffix's that are specific to the GNU ARM compiler
     env['CPPDEFPREFIX']     = '-D'
     env['OBJSUFFIX']        = '.o'
     env['SHOBJSUFFIX']      = '.os'
@@ -362,14 +368,13 @@ elif env['TARG'] in [ 'darwin' ]:
     if env['FORCE32'] == 'true':
         env.Append(CFLAGS='-m32')
         env.Append(LINKFLAGS='-m32')
+else:
+    # Target-specific headers and sources
+    env['aj_targ_headers'] = [Glob('target/' + env['TARG'] + '/*.h')]
+    env['aj_targ_srcs'] = [Glob('target/' + env['TARG'] + '/*.c')]
 
 # Include paths
 env['includes'] = [ os.getcwd() + '/inc', os.getcwd() + '/target/${TARG}', os.getcwd() + '/crypto/ecc', os.getcwd() + '/external/sha2']
-
-# Target-specific headers and sources
-env['aj_targ_headers'] = [Glob('target/' + env['TARG'] + '/*.h')]
-env['aj_targ_srcs'] = [Glob('target/' + env['TARG'] + '/*.c')]
-
 
 # AllJoyn Thin Client headers and sources (target independent)
 env['aj_headers'] = [Glob('inc/*.h') + Glob('external/*/*.h')]
@@ -478,11 +483,11 @@ if env['TARG'] == 'arduino':
         env.InstallAs(File(arduinoLibDir + 'tests/AJ_' + test + '/' + test + '.cpp').abspath, in_path.abspath)
 
     replaced_names = []
-    for x in Flatten([env['aj_srcs'], env['aj_targ_srcs'], env['aj_sw_crypto'], env['aj_external_sha2']]):
+    for x in Flatten([env['aj_srcs'], env['aj_targ_srcs'], env['aj_sw_crypto'], env['aj_crypto_ecc'], env['aj_external_sha2']]):
         replaced_names.append( File(arduinoLibDir + x.name.replace('.c', '.cpp') ) )
 
     # change the extension
-    install_renamed_files = env.InstallAs(Flatten(replaced_names), Flatten([env['aj_srcs'], env['aj_targ_srcs'], env['aj_sw_crypto'], env['aj_external_sha2']]))
+    install_renamed_files = env.InstallAs(Flatten(replaced_names), Flatten([env['aj_srcs'], env['aj_targ_srcs'], env['aj_sw_crypto'], env['aj_crypto_ecc'], env['aj_external_sha2']]))
     install_host_headers = env.Install(arduinoLibDir, env['aj_targ_headers'])
     install_headers = env.Install(arduinoLibDir, env['aj_headers'])
 

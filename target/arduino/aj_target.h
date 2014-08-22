@@ -20,10 +20,15 @@
  ******************************************************************************/
 
 #define AJ_EXPORT
+#include "aj_shield.h"
 
 #include <stdio.h>
 #include <stdint.h>
 #include <stddef.h>
+
+#if defined(__cplusplus)
+extern "C" {
+#endif
 
 typedef signed char int8_t;           /** 8-bit signed integer */
 typedef unsigned char uint8_t;        /** 8-bit unsigned integer */
@@ -66,6 +71,10 @@ inline int heap_used() {
 
 void ram_diag();
 
+/* atoi not supplied on all Arduino platforms */
+int AJ_atoi(char const*inP);
+#define atoi(x) AJ_atoi(x)
+
 // End Memory Diagnostics
 
 #define WORD_ALIGN(x) ((x & 0x3) ? ((x >> 2) + 1) << 2 : x)
@@ -73,10 +82,14 @@ void ram_diag();
 #define HOST_IS_LITTLE_ENDIAN  TRUE
 #define HOST_IS_BIG_ENDIAN     FALSE
 
-#ifdef WIFI_UDP_WORKING
+
+#if defined(AJ_ARDUINO_SHIELD_BTLE)
+    #define AJ_SERIAL_CONNECTION
+#elif defined(AJ_ARDUINO_SHIELD_WIFI)
+    #define WIFI_UDP_WORKING
     #include <WiFi.h>
     #include <WiFiUdp.h>
-#else
+#elif defined(AJ_ARDUINO_SHIELD_ETH)
     #include <Ethernet.h>
     #include <EthernetUdp.h>
 #endif
@@ -96,11 +109,23 @@ extern uint8_t dbgTARGET_UTIL;
 
 #endif
 
+#ifndef min
+#define min(x, y) (((x) < (y)) ? (x) : (y))
+#endif
+
+#ifndef max
+#define max(x, y) (((x) > (y)) ? (x) : (y))
+#endif
+
 #define AJ_ASSERT(x) assert(x)
 
 /*
  * AJ_Reboot() is a NOOP on this platform
  */
 #define AJ_Reboot()
+
+#if defined(__cplusplus)
+}
+#endif
 
 #endif

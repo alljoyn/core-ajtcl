@@ -17,8 +17,6 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
-#ifdef AJ_SERIAL_CONNECTION
-
 /**
  * Per-module definition of the current module for debug logging.  Must be defined
  * prior to first inclusion of aj_debug.h
@@ -26,7 +24,10 @@
 #define AJ_MODULE SERIAL_TX
 
 #include "aj_target.h"
+#ifdef AJ_SERIAL_CONNECTION
+
 #include "aj_status.h"
+#include "aj_serio.h"
 #include "aj_serial.h"
 #include "aj_serial_rx.h"
 #include "aj_serial_tx.h"
@@ -167,8 +168,8 @@ AJ_Status AJ_SerialTX_Init()
      */
     for (i = 0; i < AJ_SerialLinkParams.maxWindowSize; ++i) {
         prev = txFreeList;
-        txFreeList = AJ_Malloc(sizeof(TxPkt));
-        txFreeList->payload = AJ_Malloc(AJ_SerialLinkParams.packetSize);
+        txFreeList = (TxPkt*)AJ_Malloc(sizeof(TxPkt));
+        txFreeList->payload = (uint8_t*)AJ_Malloc(AJ_SerialLinkParams.packetSize);
         txFreeList->next = prev;
     }
 
@@ -176,9 +177,9 @@ AJ_Status AJ_SerialTX_Init()
     bufferTxFreeList = NULL;
     for (i = 0; i < AJ_SerialLinkParams.maxWindowSize; i++) {
         prevBuf = bufferTxFreeList;
-        bufferTxFreeList = AJ_Malloc(sizeof(AJ_SlippedBuffer));
+        bufferTxFreeList = (AJ_SlippedBuffer*)AJ_Malloc(sizeof(AJ_SlippedBuffer));
 
-        bufferTxFreeList->buffer = AJ_Malloc(SLIPPED_LEN(AJ_SerialLinkParams.packetSize)); //TODO: calculate slipped length based on packet size
+        bufferTxFreeList->buffer = (uint8_t*)AJ_Malloc(SLIPPED_LEN(AJ_SerialLinkParams.packetSize));  //TODO: calculate slipped length based on packet size
         bufferTxFreeList->actualLen = 0;
         bufferTxFreeList->allocatedLen = SLIPPED_LEN(AJ_SerialLinkParams.packetSize);
         bufferTxFreeList->next = prevBuf;
@@ -189,9 +190,9 @@ AJ_Status AJ_SerialTX_Init()
     /*
      * Buffer for unreliable packets
      */
-    txUnreliable = AJ_Malloc(sizeof(TxPkt));
+    txUnreliable = (TxPkt*)AJ_Malloc(sizeof(TxPkt));
     memset((void*)txUnreliable, 0, sizeof(TxPkt));
-    txUnreliable->payload = AJ_Malloc(AJ_LINK_PACKET_PAYLOAD);
+    txUnreliable->payload = (uint8_t*)AJ_Malloc(AJ_LINK_PACKET_PAYLOAD);
 
     AJ_InitTimer(&resendTime);
     AJ_TimeAddOffset(&resendTime, AJ_TIMER_FOREVER);

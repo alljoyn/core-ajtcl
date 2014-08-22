@@ -2,7 +2,7 @@
  * @file
  */
 /******************************************************************************
- * Copyright (c) 2013, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2013-2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -21,7 +21,9 @@
 #include <alljoyn.h>
 
 #include <SPI.h>
-#ifdef WIFI_UDP_WORKING
+#if defined(AJ_SERIAL_CONNECTION)
+#include <lib_aci.h>
+#elif defined(WIFI_UDP_WORKING)
 #include <WiFi.h>
 #else
 #include <Ethernet.h>
@@ -38,7 +40,9 @@ void setup() {
 
     AJ_Printf("setup...\n");
 
-#ifdef WIFI_UDP_WORKING
+#if defined(AJ_SERIAL_CONNECTION)
+    //Put Any BTLE specific requirements here
+#elif defined(WIFI_UDP_WORKING)
     char ssid[] = "yourNetwork";     // the name of your network
     int status = WL_IDLE_STATUS;     // the Wifi radio's status
 
@@ -50,7 +54,7 @@ void setup() {
     }
 
     // attempt to connect to Wifi network:
-    while (wifiStatus != WL_CONNECTED) {
+    while (status != WL_CONNECTED) {
         Serial.print("Attempting to connect to open SSID: ");
         Serial.println(ssid);
         status = WiFi.begin(ssid);

@@ -6,7 +6,7 @@
  * @{
  */
 /******************************************************************************
- * Copyright (c) 2012-2013, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2012-2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -87,6 +87,14 @@ typedef void (*AJ_SerIOTxCompleteFunc)(uint8_t* buf, uint16_t len);
 typedef void (*AJ_SerialTxFunc)(uint8_t* buf, uint32_t len);
 
 /**
+ * Function pointer type for an abstracted Serial I/O check which will
+ * be called from within the AJ_StateMachine. Useful if UART device
+ * is not interrupt driven.
+ *
+ */
+typedef void (*AJ_SerIOCheck)(void);
+
+/**
  * @brief Initialize the Serial I/O Subsystem
  *
  * Given a serial IO config structure as a guide, initialize the serial I/O
@@ -106,6 +114,7 @@ AJ_Status AJ_SerialIOInit(AJ_SerIOConfig* config);
 void AJ_SetRxCB(AJ_SerIORxCompleteFunc rx_cb);
 void AJ_SetTxCB(AJ_SerIOTxCompleteFunc tx_cb);
 void AJ_SetTxSerialTransmit(AJ_SerialTxFunc tx_func);
+void AJ_SetSioCheck(AJ_SerIOCheck sioCheckCb);
 
 void AJ_RX(uint8_t* buf, uint32_t len);
 void AJ_PauseRX();
@@ -114,5 +123,7 @@ void AJ_ResumeRX();
 void AJ_TX(uint8_t* buf, uint32_t len);
 void AJ_PauseTX();
 void AJ_ResumeTX();
+
+AJ_Status AJ_SerialTargetInit(const char* ttyName, uint16_t bitRate);
 
 #endif /* _AJ_SERIO_H */

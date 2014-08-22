@@ -24,6 +24,7 @@
 #include "aj_net.h"
 #include "aj_util.h"
 #include "aj_debug.h"
+#include "aj_serial.h"
 
 #ifdef WIFI_UDP_WORKING
 #include <SPI.h>
@@ -62,6 +63,47 @@ static EthernetClient g_client;
 static EthernetUDP g_clientUDP;
 #endif
 
+#ifdef AJ_ARDUINO_SHIELD_BTLE
+
+AJ_Status AJ_Net_Send(AJ_IOBuffer* buf)
+{
+    AJ_Status ret = AJ_OK;
+    size_t tx = AJ_IO_BUF_AVAIL(buf);
+
+    AJ_ASSERT(buf->direction == AJ_IO_BUF_TX);
+
+    if (tx > 0) {
+        ret = AJ_SerialSend(buf->readPtr, tx);
+        if (ret != AJ_OK) {
+            return ret;
+        }
+        buf->readPtr += tx;
+    }
+    if (AJ_IO_BUF_AVAIL(buf) == 0) {
+        AJ_IO_BUF_RESET(buf);
+    }
+    return AJ_OK;
+}
+
+AJ_Status AJ_Net_Recv(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)
+{
+    AJ_Status status = AJ_OK;
+    size_t rx = AJ_IO_BUF_SPACE(buf);
+    uint16_t recv = 0;
+
+    AJ_ASSERT(buf->direction == AJ_IO_BUF_RX);
+
+    rx = min(rx, len);
+    if (rx) {
+        status = AJ_SerialRecv(buf->writePtr, rx, timeout, &recv);
+        if (status == AJ_OK) {
+            buf->writePtr += recv;
+        }
+    }
+    return status;
+}
+
+#else
 AJ_Status AJ_Net_Send(AJ_IOBuffer* buf)
 {
     uint32_t ret;
@@ -168,6 +210,7 @@ AJ_Status AJ_Net_Recv(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)
 
     return status;
 }
+#endif
 
 /*
  * Need enough RX buffer space to receive a complete name service packet when
@@ -228,8 +271,13 @@ AJ_Status AJ_Net_SendTo(AJ_IOBuffer* buf)
 
     if (tx > 0) {
         // send to subnet-directed broadcast address
+#if defined(WIFI_UDP_WORKING)
+        IPAddress subnet = WiFi.subnetMask();
+        IPAddress localIp = WiFi.localIP();
+#else
         IPAddress subnet = Ethernet.subnetMask();
         IPAddress localIp = Ethernet.localIP();
+#endif
         uint32_t directedBcastAddr = (uint32_t(subnet) & uint32_t(localIp)) | (~uint32_t(subnet));
         IPAddress a(directedBcastAddr);
         ret = g_clientUDP.beginPacket(IPAddress(directedBcastAddr), AJ_UDP_PORT);

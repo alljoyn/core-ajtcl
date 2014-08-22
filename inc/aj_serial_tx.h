@@ -4,7 +4,7 @@
  * @file
  */
 /******************************************************************************
- * Copyright (c) 2013, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2013-2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -62,14 +62,14 @@ void AJ_SerialTX_EnqueuePkt(uint8_t type,
  * has been received. The ACK value is one greater (modulo 8) than the seq number of the
  * last packet successfully received.
  */
-void AJ_SerialTX_ReceivedAck(uint8_t ack);
+void AJ_SerialTx_ReceivedAck(uint8_t ack);
 
 
 /**
  * This function is called from the receive side with the sequence number of
  * the last packet received.
  */
-void AJ_SerialTX_ReceivedSeq(uint8_t seq);
+void AJ_SerialTx_ReceivedSeq(uint8_t seq);
 
 /**
  * This function is called from the state machine to resend any data packets

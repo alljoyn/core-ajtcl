@@ -1,16 +1,10 @@
-#ifndef _ALLJOYN_H
-#define _ALLJOYN_H
-
-#if defined(__cplusplus) && !defined(ARDUINO)
-extern "C" {
-#endif
+#ifndef _AJ_SHIELD_H
+#define _AJ_SHIELD_H
 /**
- * @file alljoyn.h
- * @defgroup alljoyn Conveniently Include AllJoyn Headers
- * @{
+ * @file
  */
 /******************************************************************************
- * Copyright (c) 2012, 2014, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -25,24 +19,14 @@ extern "C" {
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
-#include "aj_target.h"
-#include "aj_debug.h"
-#include "aj_version.h"
-#include "aj_status.h"
-#include "aj_init.h"
-#include "aj_util.h"
-#include "aj_bus.h"
-#include "aj_msg.h"
-#include "aj_introspect.h"
-#include "aj_std.h"
-#include "aj_connect.h"
-#include "aj_about.h"
-#include "aj_helper.h"
-
-#if defined(__cplusplus) && !defined(ARDUINO)
-}
-#endif
-/**
- * @}
+/*
+ * This library will build for Arduino DUE with Ethernet shield
+ *
+ * Note: Only one shield type is allowed. TCL only supports a single
+ * transport type.
  */
+#define AJ_ARDUINO_SHIELD_ETH
+//#define AJ_ARDUINO_SHIELD_WIFI
+//#define AJ_ARDUINO_SHIELD_BTLE
+
 #endif

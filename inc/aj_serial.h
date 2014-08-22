@@ -143,10 +143,15 @@ extern AJ_LinkParameters AJ_SerialLinkParams;
 
 
 /*
+ * Run state machine
+ */
+void AJ_StateMachine(void);
+
+/*
  * Handle a link control packet.
  */
-void AJ_SerialLinkPacket(uint8_t* buffer,
-                         uint16_t len);
+void AJ_Serial_LinkPacket(uint8_t* buffer,
+                          uint16_t len);
 
 
 /**

@@ -17,7 +17,6 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
-#ifdef AJ_SERIAL_CONNECTION
 
 /**
  * Per-module definition of the current module for debug logging.  Must be defined
@@ -26,7 +25,9 @@
 #define AJ_MODULE SERIAL
 
 #include "aj_target.h"
+#ifdef AJ_SERIAL_CONNECTION
 #include "aj_status.h"
+#include "aj_serio.h"
 #include "aj_serial.h"
 #include "aj_serial_rx.h"
 #include "aj_serial_tx.h"
@@ -55,12 +56,12 @@ AJ_LinkParameters AJ_SerialLinkParams;
 /**
  * controls rate at which we send synch packets when the link is down in milliseconds
  */
-const uint32_t CONN_TIMEOUT = 200;
+const uint32_t CONN_TIMEOUT = 1000;
 
 /**
  * controls how long we will wait for a confirmation packet after we synchronize in milliseconds
  */
-const uint32_t NEGO_TIMEOUT = 200;
+const uint32_t NEGO_TIMEOUT = 1000;
 
 /**
  * controls how long we will send disconnect packet when the application is closing the link in milliseconds
@@ -87,13 +88,13 @@ typedef enum {
 /*
  * link establishment packets
  */
-static const char ConnPkt[LINK_PACKET_SIZE] = "CONN";
-static const char AcptPkt[LINK_PACKET_SIZE] = "ACPT";
-static const char NegoPkt[LINK_PACKET_SIZE] = "NEGO";
-static const char NrspPkt[LINK_PACKET_SIZE] = "NRSP";
-static const char ResuPkt[LINK_PACKET_SIZE] = "RESU";
-static const char DiscPkt[LINK_PACKET_SIZE] = "DISC";
-static const char DrspPkt[LINK_PACKET_SIZE] = "DRSP";
+static const char ConnPkt[LINK_PACKET_SIZE] = { 'C', 'O', 'N', 'N' };
+static const char AcptPkt[LINK_PACKET_SIZE] = { 'A', 'C', 'P', 'T' };
+static const char NegoPkt[LINK_PACKET_SIZE] = { 'N', 'E', 'G', 'O' };
+static const char NrspPkt[LINK_PACKET_SIZE] = { 'N', 'R', 'S', 'P' };
+static const char ResuPkt[LINK_PACKET_SIZE] = { 'R', 'E', 'S', 'U' };
+static const char DiscPkt[LINK_PACKET_SIZE] = { 'D', 'I', 'S', 'C' };
+static const char DrspPkt[LINK_PACKET_SIZE] = { 'D', 'R', 'S', 'P' };
 
 /**
  * Time to send the LinkPacket
@@ -437,6 +438,13 @@ void AJ_SerialShutdown(void)
 }
 
 
+static AJ_SerIOCheck sioCheck = NULL;
+void AJ_SetSioCheck(AJ_SerIOCheck sioCheckCb)
+{
+    sioCheck = sioCheckCb;
+}
+
+
 extern AJ_Time resendTime;
 extern AJ_Time ackTime;
 volatile int dataReceived;
@@ -452,6 +460,10 @@ void AJ_StateMachine()
 {
     AJ_Time now;
     AJ_InitTimer(&now);
+
+    if (sioCheck) {
+        sioCheck();
+    }
 
     if (dataReceived) {
         /* Data has been received in the receive callback, process the data,
