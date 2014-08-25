@@ -24,6 +24,7 @@
 #include "aj_target.h"
 #include "aj_status.h"
 #include "aj_bus.h"
+#include "aj_disco.h"
 
 /**
  * Get the minimum protocol version allowed. This is set by AJ_SetMinProtoVersion()
@@ -114,6 +115,21 @@ typedef uint32_t (*BusAuthPwdFunc)(uint8_t* buffer, uint32_t bufLen);
  */
 AJ_EXPORT
 void SetBusAuthPwdCallback(BusAuthPwdFunc callback);
+
+/**
+ * Check whether we have already attempted to connect to the routing node
+ * specified by service.
+ *
+ * @param service   The service info struct
+ *
+ * @return          TRUE if blacklisted
+ */
+uint8_t AJ_IsRoutingNodeBlacklisted(AJ_Service* service);
+
+/**
+ * Clear the list of blacklisted routing nodes.
+ */
+void AJ_InitRoutingNodeBlacklist();
 
 /**
  * @}
