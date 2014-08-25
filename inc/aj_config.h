@@ -33,6 +33,7 @@
 /* Network options */
 #define AJ_CONNECT_LOCALHOST        0           //Enable to bypass discovery and connect locally
 #define AJ_MAX_TIMERS               4           //maximum number of timers              (aj_helper.c)
+#define AJ_ROUTING_NODE_BLACKLIST_SIZE 16       // maximum number of blacklisted routing nodes
 
 /* Auth options */
 #define AJ_NONCE_LEN                28          //Length of the nonce.

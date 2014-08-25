@@ -324,7 +324,13 @@ AJ_Status AJ_Discover(const char* prefix, AJ_Service* service, uint32_t timeout)
                 status = ParseIsAt(&sock.rx, prefix, service);
                 if (status == AJ_OK) {
                     AJ_InfoPrintf(("AJ_Discover(): IS-AT \"%s\"\n", prefix));
-                    goto _Exit;
+
+                    // skip blacklisted addresses!
+                    if (!AJ_IsRoutingNodeBlacklisted(service)) {
+                        goto _Exit;
+                    } else {
+                        AJ_InfoPrintf(("AJ_Discover(): Skipping blacklisted Routing Node"));
+                    }
                 }
             }
             if (AJ_GetElapsedTime(&recvStopWatch, TRUE) > AJ_WHO_HAS_TIMEOUT) {
@@ -339,7 +345,6 @@ _Exit:
      * All done with multicast for now
      */
     AJ_Net_MCastDown(&sock);
-
     AJ_InfoPrintf(("AJ_Discover(): Stop discovery of \"%s\"\n", prefix));
     return status;
 }
