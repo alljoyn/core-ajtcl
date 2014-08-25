@@ -164,6 +164,7 @@ static AJ_Status AnonymousAuthAdvance(AJ_IOBuffer* rxBuf, AJ_IOBuffer* txBuf) {
             }
             routingProtoVersion = atoi((const char*)(rxBuf->readPtr + strlen("INFORM_PROTO_VERSION") + 1));
             if (routingProtoVersion < AJ_GetMinProtoVersion()) {
+                AJ_InfoPrintf(("ERR_OLD_VERSION: Found version %u but minimum %u required", routingProtoVersion, AJ_GetMinProtoVersion()));
                 return AJ_ERR_OLD_VERSION;
             }
         }
@@ -382,10 +383,13 @@ ExitConnect:
     return status;
 }
 
+static void AddRoutingNodeToBlacklist(AJ_Service* service);
+
 AJ_Status AJ_FindBusAndConnect(AJ_BusAttachment* bus, const char* serviceName, uint32_t timeout)
 {
     AJ_Status status;
     AJ_Service service;
+    uint8_t finished = FALSE;
 
 #ifdef AJ_SERIAL_CONNECTION
     AJ_Time start, now;
@@ -409,67 +413,79 @@ AJ_Status AJ_FindBusAndConnect(AJ_BusAttachment* bus, const char* serviceName, u
     if (!serviceName) {
         serviceName = daemonService;
     }
+
+    while (finished == FALSE) {
+        finished = TRUE;
+
 #if AJ_CONNECT_LOCALHOST
-    service.ipv4port = 9955;
+        service.ipv4port = 9955;
 #if HOST_IS_LITTLE_ENDIAN
-    service.ipv4 = 0x0100007F; // 127.0.0.1
+        service.ipv4 = 0x0100007F; // 127.0.0.1
 #endif
 #if HOST_IS_BIG_ENDIAN
-    service.ipv4 = 0x7f000001; // 127.0.0.1
+        service.ipv4 = 0x7f000001; // 127.0.0.1
 #endif
-    service.addrTypes = AJ_ADDR_IPV4;
+        service.addrTypes = AJ_ADDR_IPV4;
 #elif defined(ARDUINO)
-    service.ipv4port = 9955;
-    service.ipv4 = 0x6501A8C0; // 192.168.1.101
-    service.addrTypes = AJ_ADDR_IPV4;
-    status = AJ_Discover(serviceName, &service, timeout);
-    if (status != AJ_OK) {
-        AJ_InfoPrintf(("AJ_Connect(): AJ_Discover status=%s\n", AJ_StatusText(status)));
-        goto ExitConnect;
-    }
+        service.ipv4port = 9955;
+        service.ipv4 = 0x6501A8C0; // 192.168.1.101
+        service.addrTypes = AJ_ADDR_IPV4;
+        status = AJ_Discover(serviceName, &service, timeout);
+        if (status != AJ_OK) {
+            AJ_InfoPrintf(("AJ_Connect(): AJ_Discover status=%s\n", AJ_StatusText(status)));
+            goto ExitConnect;
+        }
 #elif defined(AJ_SERIAL_CONNECTION)
-    // don't bother with discovery, we are connected to a daemon.
-    // however, take this opportunity to bring up the serial connection
-    status = AJ_Serial_Up();
-    if (status != AJ_OK) {
-        AJ_InfoPrintf(("AJ_Connect(): AJ_Serial_Up status=%s\n", AJ_StatusText(status)));
-    }
+        // don't bother with discovery, we are connected to a daemon.
+        // however, take this opportunity to bring up the serial connection
+        status = AJ_Serial_Up();
+        if (status != AJ_OK) {
+            AJ_InfoPrintf(("AJ_Connect(): AJ_Serial_Up status=%s\n", AJ_StatusText(status)));
+        }
 #else
-    status = AJ_Discover(serviceName, &service, timeout);
-    if (status != AJ_OK) {
-        AJ_InfoPrintf(("AJ_Connect(): AJ_Discover status=%s\n", AJ_StatusText(status)));
-        goto ExitConnect;
-    }
+        status = AJ_Discover(serviceName, &service, timeout);
+        if (status != AJ_OK) {
+            AJ_InfoPrintf(("AJ_Connect(): AJ_Discover status=%s\n", AJ_StatusText(status)));
+            goto ExitConnect;
+        }
 #endif
-    status = AJ_Net_Connect(&bus->sock, service.ipv4port, service.addrTypes & AJ_ADDR_IPV4, &service.ipv4);
-    if (status != AJ_OK) {
-        AJ_InfoPrintf(("AJ_Connect(): AJ_Net_Connect status=%s\n", AJ_StatusText(status)));
-        goto ExitConnect;
-    }
+        status = AJ_Net_Connect(&bus->sock, service.ipv4port, service.addrTypes & AJ_ADDR_IPV4, &service.ipv4);
+        if (status != AJ_OK) {
+            AJ_InfoPrintf(("AJ_Connect(): AJ_Net_Connect status=%s\n", AJ_StatusText(status)));
+            goto ExitConnect;
+        }
 
 #ifdef AJ_SERIAL_CONNECTION
-    // run the state machine for long enough to (hopefully) do the SLAP handshake
-    do {
-        AJ_StateMachine();
-        AJ_InitTimer(&now);
-    } while (AJ_SerialLinkParams.linkState != AJ_LINK_ACTIVE && AJ_GetTimeDifference(&now, &start) < timeout);
+        // run the state machine for long enough to (hopefully) do the SLAP handshake
+        do {
+            AJ_StateMachine();
+            AJ_InitTimer(&now);
+        } while (AJ_SerialLinkParams.linkState != AJ_LINK_ACTIVE && AJ_GetTimeDifference(&now, &start) < timeout);
 
-    if (AJ_SerialLinkParams.linkState != AJ_LINK_ACTIVE) {
-        AJ_InfoPrintf(("Failed to establish active SLAP connection in %u msec\n", timeout));
-        AJ_SerialShutdown();
-        return AJ_ERR_TIMEOUT;
-    }
+        if (AJ_SerialLinkParams.linkState != AJ_LINK_ACTIVE) {
+            AJ_InfoPrintf(("Failed to establish active SLAP connection in %u msec\n", timeout));
+            AJ_SerialShutdown();
+            return AJ_ERR_TIMEOUT;
+        }
 #endif
 
-    status = AJ_Authenticate(bus);
-    if (status != AJ_OK) {
-        AJ_InfoPrintf(("AJ_Connect(): AJ_Authenticate status=%s\n", AJ_StatusText(status)));
-        goto ExitConnect;
+        status = AJ_Authenticate(bus);
+        if (status != AJ_OK) {
+            AJ_InfoPrintf(("AJ_Connect(): AJ_Authenticate status=%s\n", AJ_StatusText(status)));
+
+#if !defined(AJ_CONNECT_LOCALHOST) && !defined(ARDUINO) && !defined(AJ_SERIAL_CONNECTION)
+            AddRoutingNodeToBlacklist(&service);
+            // try again
+            finished = FALSE;
+#endif
+            // else we will end the loop
+        }
     }
 
-
     // subscribe to the signal NameOwnerChanged and wait for the response
-    status = AJ_BusSetSignalRule(bus, "type='signal',member='NameOwnerChanged',interface='org.freedesktop.DBus'", AJ_BUS_SIGNAL_ALLOW);
+    if (status == AJ_OK) {
+        status = AJ_BusSetSignalRule(bus, "type='signal',member='NameOwnerChanged',interface='org.freedesktop.DBus'", AJ_BUS_SIGNAL_ALLOW);
+    }
 
 ExitConnect:
 
@@ -477,6 +493,7 @@ ExitConnect:
         AJ_InfoPrintf(("AJ_Connect(): status=%s\n", AJ_StatusText(status)));
         AJ_Disconnect(bus);
     }
+
     return status;
 }
 
@@ -504,8 +521,45 @@ void AJ_Disconnect(AJ_BusAttachment* bus)
         bus->numsuites = 0;
     }
     AJ_ClearAuthContext();
+
     /*
      * Set the routing nodes proto version to zero (not connected)
      */
     routingProtoVersion = 0;
+}
+
+static uint32_t RoutingNodeIPBlacklist[AJ_ROUTING_NODE_BLACKLIST_SIZE];
+static uint16_t RoutingNodePortBlacklist[AJ_ROUTING_NODE_BLACKLIST_SIZE];
+static uint8_t RoutingNodeBlacklist_idx = 0;
+
+uint8_t AJ_IsRoutingNodeBlacklisted(AJ_Service* service)
+{
+    uint8_t i = 0;
+    for (; i < AJ_ROUTING_NODE_BLACKLIST_SIZE; ++i) {
+        if (RoutingNodeIPBlacklist[i]) {
+            if (RoutingNodeIPBlacklist[i] == service->ipv4 && RoutingNodePortBlacklist[i] == service->ipv4port) {
+                return TRUE;
+            }
+        } else {
+            // break early if list isn't full
+            break;
+        }
+
+    }
+
+    return FALSE;
+}
+
+static void AddRoutingNodeToBlacklist(AJ_Service* service)
+{
+    RoutingNodeIPBlacklist[RoutingNodeBlacklist_idx] = service->ipv4;
+    RoutingNodePortBlacklist[RoutingNodeBlacklist_idx] = service->ipv4port;
+    RoutingNodeBlacklist_idx = (RoutingNodeBlacklist_idx + 1) % AJ_ROUTING_NODE_BLACKLIST_SIZE;
+}
+
+void AJ_InitRoutingNodeBlacklist()
+{
+    memset(RoutingNodeIPBlacklist, 0, sizeof(RoutingNodeIPBlacklist));
+    memset(RoutingNodePortBlacklist, 0, sizeof(RoutingNodePortBlacklist));
+    RoutingNodeBlacklist_idx = 0;
 }

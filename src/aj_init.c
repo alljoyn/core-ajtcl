@@ -30,6 +30,7 @@
 #include "aj_guid.h"
 #include "aj_crypto.h"
 #include "aj_debug.h"
+#include "aj_connect.h"
 
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
@@ -55,5 +56,10 @@ void AJ_Initialize(void)
          * This will initialize credentials if needed
          */
         AJ_GetLocalGUID(&localGuid);
+
+        /*
+         * Clear the Routing Node black list
+         */
+        AJ_InitRoutingNodeBlacklist();
     }
 }
