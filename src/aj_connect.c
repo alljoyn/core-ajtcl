@@ -473,7 +473,8 @@ AJ_Status AJ_FindBusAndConnect(AJ_BusAttachment* bus, const char* serviceName, u
         if (status != AJ_OK) {
             AJ_InfoPrintf(("AJ_Connect(): AJ_Authenticate status=%s\n", AJ_StatusText(status)));
 
-#if !defined(AJ_CONNECT_LOCALHOST) && !defined(ARDUINO) && !defined(AJ_SERIAL_CONNECTION)
+#if !AJ_CONNECT_LOCALHOST && !defined(ARDUINO) && !defined(AJ_SERIAL_CONNECTION)
+            AJ_InfoPrintf(("AJ_Connect(): Blacklisting routing node"));
             AddRoutingNodeToBlacklist(&service);
             // try again
             finished = FALSE;
