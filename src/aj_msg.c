@@ -1845,7 +1845,6 @@ static AJ_Status VMarshalArgs(AJ_Message* msg, const char** sig, va_list* argpp)
     AJ_Arg arg;
     AJ_Arg container;
     va_list argp;
-
     __va_copy(argp, *argpp);
 
     container.typeId = AJ_ARG_INVALID;
@@ -1855,6 +1854,7 @@ static AJ_Status VMarshalArgs(AJ_Message* msg, const char** sig, va_list* argpp)
         uint16_t u16;
         uint32_t u32;
         uint64_t u64;
+        const char* inSig = *sig;
         uint8_t typeId = (uint8_t)*((*sig)++);
         void* val;
 
@@ -1870,8 +1870,14 @@ static AJ_Status VMarshalArgs(AJ_Message* msg, const char** sig, va_list* argpp)
                  * where the inner call advanced in the signature.
                  */
                 if (status == AJ_OK) {
-                    char tId = *(*sig - 1);
-                    if ((tId == AJ_STRUCT_CLOSE) || (tId == AJ_DICT_ENTRY_CLOSE)) {
+                    uint8_t lastNestedTypeId;
+                    AJ_ASSERT(inSig < *sig);
+                    /*
+                     * Since we advanced *sig in the while loop the previous pointer is guaranteed to exist
+                     */
+                    lastNestedTypeId = (uint8_t)*((*sig) - 1);
+
+                    if ((lastNestedTypeId == AJ_STRUCT_CLOSE) || (lastNestedTypeId == AJ_DICT_ENTRY_CLOSE)) {
                         status = AJ_MarshalCloseContainer(msg, &container);
                         if (status != AJ_OK) {
                             break;
