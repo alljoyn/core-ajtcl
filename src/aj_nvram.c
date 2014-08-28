@@ -268,6 +268,7 @@ size_t AJ_NVRAM_Write(const void* ptr, uint16_t size, AJ_NV_DATASET* handle)
     if (bytesWrite > 0 && ((handle->curPos & 0x3) != 0)) {
         uint8_t tmpBuf[4];
         uint16_t alignedPos = handle->curPos & (~0x3);
+        memset(&tmpBuf, INVALID_DATA, sizeof(tmpBuf));
         patchBytes = 4 - (handle->curPos & 0x3);
         memcpy(tmpBuf, handle->inode + sizeof(NV_EntryHeader) + alignedPos, handle->curPos & 0x3);
         if (patchBytes > bytesWrite) {
