@@ -42,19 +42,6 @@ wsl_socket_context AJ_WSL_SOCKET_CONTEXT[5];
 
 static wsl_scan_list list;
 
-/*
- * This work item is used in an ISR so it needs to be
- * allocated before the ISR is called
- */
-const wsl_work_item interrupted = {
-    WSL_NET_INTERUPT,       //ItemType
-    0,                      //SequenceNumber
-    NULL,                   //list
-    NULL,                   //node
-    0,                      //size
-    0                       //endpoint
-};
-
 uint8_t WSL_MacsAreEqual(uint8_t* mac1, uint8_t* mac2)
 {
     int i = 0;
@@ -785,23 +772,20 @@ int16_t AJ_WSL_NET_socket_select(AJ_WSL_SOCKNUM sock, uint32_t timeout)
 }
 void AJ_WSL_NET_signal_interrupted(AJ_WSL_SOCKNUM sock)
 {
-    wsl_work_item* item = &interrupted;
-    wsl_work_item* peek;
-    uint8_t hasWoken;
+    wsl_work_item* item = AJ_WSL_Malloc(sizeof(wsl_work_item));
+
+    item->itemType = WSL_NET_INTERUPT;
+    item->sequenceNumber = 0;
+    item->list = NULL;
+    item->node = NULL;
+    item->size = 0;
+    item->endpoint = 0;
+
     if (AJ_WSL_SOCKET_CONTEXT[sock].valid == FALSE) {
         return;
     }
-    AJ_QueuePeekFromISR(AJ_WSL_SOCKET_CONTEXT[sock].workRxQueue, &peek);
-    //There is already an interrupt request in the queue so we dont need to do anything
-    if (peek->itemType == WSL_NET_INTERUPT) {
-        return;
-    } else {
-        // Push the interrupted work item to the front of the RX queue
-        AJ_QueuePushFromISR(AJ_WSL_SOCKET_CONTEXT[sock].workRxQueue, &item);
-        if (hasWoken == pdTRUE) {
-            // Another task has woken from this, something is wrong
-        }
-    }
+    // Push the interrupted work item to the front of the RX queue
+    AJ_QueuePushFromISR(AJ_WSL_SOCKET_CONTEXT[sock].workRxQueue, &item);
 }
 
 /************************************************************************/
