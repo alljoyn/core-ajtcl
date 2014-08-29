@@ -28,6 +28,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/eventfd.h>
+#include <sys/fcntl.h>
 #include <arpa/inet.h>
 #include <sys/ioctl.h>
 #include <net/if.h>
@@ -210,7 +211,7 @@ AJ_Status AJ_Net_Connect(AJ_NetSocket* netSock, uint16_t port, uint8_t addrType,
 
     AJ_InfoPrintf(("AJ_Net_Connect(netSock=0x%p, port=%d., addrType=%d., addr=0x%p)\n", netSock, port, addrType, addr));
 
-    interruptFd = eventfd(0, EFD_NONBLOCK);
+    interruptFd = eventfd(0, O_NONBLOCK);  // Use O_NONBLOCK instead of EFD_NONBLOCK due to bug in OpenWrt's uCLibc
     if (interruptFd < 0) {
         AJ_ErrPrintf(("AJ_Net_Connect(): failed to created interrupt event\n"));
         goto ConnectError;
