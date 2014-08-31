@@ -1263,6 +1263,101 @@ AJ_Status AJ_UnmarshalPropertyArgs(AJ_Message* msg, uint32_t* propId, const char
     return status;
 }
 
+AJ_Status AJ_MarshalAllPropertiesArgs(AJ_Message* replyMsg, const char* iface, AJ_BusPropGetCallback callback, void* context)
+{
+    AJ_Status status;
+    uint8_t oIndex = (replyMsg->msgId >> 24) & ~AJ_REP_ID_FLAG;
+    uint8_t pIndex = replyMsg->msgId >> 16;
+    uint8_t iIndex;
+    const AJ_Object* obj = &objectLists[oIndex][pIndex];
+    uint8_t secure = SecurityApplies(iface, obj);
+    AJ_InterfaceDescription desc;
+    AJ_Arg array;
+
+    /*
+     * If the interface is secure check the message must be encrypted
+     */
+    if (secure && !(replyMsg->hdr->flags & AJ_FLAG_ENCRYPTED)) {
+        status = AJ_ERR_SECURITY;
+        AJ_WarnPrintf(("Security violation accessing property\n"));
+        goto Exit;
+    }
+
+    desc = FindInterface(obj->interfaces, iface, &iIndex);
+    if (desc != NULL) {
+        uint8_t mIndex = 0;
+
+        status = AJ_MarshalContainer(replyMsg, &array, AJ_ARG_ARRAY);
+        if (status != AJ_OK) {
+            goto Exit;
+        }
+
+        /*
+         * Iterate over the interface members to locate the properties that are being accessed.
+         */
+        while (*(++desc) != NULL) {
+            const char* prop = *desc;
+            size_t pos;
+            AJ_Arg dict;
+            AJ_Arg key;
+            uint32_t propId = AJ_ENCODE_PROPERTY_ID(oIndex, pIndex, iIndex, mIndex++);
+
+            /*
+             * Consume member type in member definition and skip member if not a Property
+             */
+            if (MEMBER_TYPE(*(prop++)) != PROPERTY) {
+                continue;
+            }
+
+            /*
+             * Skip Write Only properties
+             */
+            pos = AJ_StringFindFirstOf(prop, "<=>");
+            if ((pos > 1) && (prop[pos - 1] == WRITE_ONLY)) {
+                continue;
+            }
+
+            status = AJ_MarshalContainer(replyMsg, &dict, AJ_ARG_DICT_ENTRY);
+            if (status != AJ_OK) {
+                goto Exit;
+            }
+
+            /*
+             * Marshal property name
+             */
+            AJ_InitArg(&key, AJ_ARG_STRING, 0, prop, pos);
+            status = AJ_MarshalArg(replyMsg, &key);
+            /*
+             * Marshal property value as Variant setting up the signature
+             */
+            if (status == AJ_OK) {
+                char sig[16];
+                ComposeSignature(prop, prop[pos], sig, sizeof(sig));
+                status = AJ_MarshalVariant(replyMsg, sig);
+            }
+            /*
+             * Marshal property value argument
+             */
+            if ((status == AJ_OK) && (callback != NULL)) {
+                status = callback(replyMsg, propId, context);
+            }
+
+            if (status == AJ_OK) {
+                status = AJ_MarshalCloseContainer(replyMsg, &dict);
+            }
+
+            if (status != AJ_OK) {
+                goto Exit;
+            }
+        }
+
+        status = AJ_MarshalCloseContainer(replyMsg, &array);
+    }
+
+Exit:
+    return status;
+}
+
 AJ_Status AJ_IdentifyMessage(AJ_Message* msg)
 {
     AJ_Status status = AJ_ERR_NO_MATCH;
