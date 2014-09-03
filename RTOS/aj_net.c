@@ -142,6 +142,7 @@ AJ_Status AJ_Net_Recv(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)
 {
     AJ_Status status = AJ_OK;
     int16_t ret;
+    AJ_Time timer;
     NetContext* context = (NetContext*) buf->context;
     size_t rx = AJ_IO_BUF_SPACE(buf);
 
@@ -149,6 +150,7 @@ AJ_Status AJ_Net_Recv(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)
 
     assert(buf->direction == AJ_IO_BUF_RX);
     selectSock = context->tcpSock;
+    AJ_InitTimer(&timer);
     ret = AJ_WSL_NET_socket_select(context->tcpSock, timeout);
     if (ret == -2) {
         // Select timed out
@@ -161,10 +163,10 @@ AJ_Status AJ_Net_Recv(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)
         return AJ_ERR_READ;
     }
     // If we pass these checks there is data ready for receive
-
+    timeout -= AJ_GetElapsedTime(&timer, TRUE);
     rx = min(rx, len);
     if (rx) {
-        ret = AJ_WSL_NET_socket_recv(context->tcpSock, buf->writePtr, rx, 0);
+        ret = AJ_WSL_NET_socket_recv(context->tcpSock, buf->writePtr, rx, timeout);
         if (ret == -1) {
             status = AJ_ERR_READ;
         } else if (ret == 0) {

@@ -144,16 +144,16 @@ uint8_t* getDeviceMac(void)
 
 static const AJ_HeapConfig wsl_heapConfig[] = {
     { 8,     30 },
-    { 16,    80 },
+    { 16,    100 },
     { 20,    80 },
     { 24,    10 },
     { 32,    20 },
     { 48,    10 },
     { 64,    10 },
-    { 84,     4 },
+    { 84,     6 },
     { 100,    2 },
 };
-#define WSL_HEAP_WORD_COUNT (6880 / 4)
+#define WSL_HEAP_WORD_COUNT (7360 / 4)
 static uint32_t wsl_heap[WSL_HEAP_WORD_COUNT];
 
 
@@ -162,6 +162,7 @@ void* AJ_WSL_Malloc(size_t size)
 {
     void* mem = NULL;
     // allocate from the WSL pool first.
+    AJ_EnterCriticalRegion();
     if (size <= 100) {
         mem = AJ_PoolAlloc(size);
     }
@@ -170,17 +171,20 @@ void* AJ_WSL_Malloc(size_t size)
     if (!mem) {
         mem = AJ_Malloc(size);
     }
+    AJ_LeaveCriticalRegion();
     return mem;
 }
 
 void AJ_WSL_Free(void* ptr)
 {
+    AJ_EnterCriticalRegion();
     // if the address is within the WSL heap, free the pool entry, else fallback to free.
     if ((ptr > (void*)&wsl_heap) && (ptr < (void*)&wsl_heap[WSL_HEAP_WORD_COUNT])) {
         AJ_PoolFree(ptr);
     } else {
         AJ_Free(ptr);
     }
+    AJ_LeaveCriticalRegion();
 }
 
 
@@ -461,6 +465,9 @@ void AJ_WSL_WMI_ProcessSocketDataResponse(AJ_BufNode* pNodeHTCBody)
     uint32_t _handle, srcAddr;
     uint16_t ipv6addr[8];
     uint16_t bufferOffset = 0;
+    AJ_Status status;
+    wsl_work_item** ppWork;
+    wsl_work_item* sockResp;
 //    AJ_DumpBytes("WMI_SOCKET_RESPONSE B", pNodeHTCBody->buffer, pNodeHTCBody->length);
     // Get the initial bytes of data in the packet
     WMI_Unmarshal(pNodeHTCBody->buffer, "quuq", &lead, &u32, &_handle, &_port);
@@ -486,8 +493,6 @@ void AJ_WSL_WMI_ProcessSocketDataResponse(AJ_BufNode* pNodeHTCBody)
         bufferOffset += 12;
     }
 
-    wsl_work_item** ppWork;
-    wsl_work_item* sockResp;
     sockResp = AJ_WSL_Malloc(sizeof(wsl_work_item));
     memset(sockResp, 0, sizeof(wsl_work_item));
     sockResp->itemType = WSL_NET_DATA_RX;
@@ -498,7 +503,6 @@ void AJ_WSL_WMI_ProcessSocketDataResponse(AJ_BufNode* pNodeHTCBody)
 
     ppWork = &sockResp;
     AJ_QueuePush(AJ_WSL_SOCKET_CONTEXT[socketIndex].workRxQueue, ppWork, AJ_TIMER_FOREVER);
-
 }
 
 AJ_Status AJ_WSL_WMI_QueueWorkItem(uint32_t socket, AJ_WSL_NET_COMMAND command, uint8_t endpoint, AJ_BufList* list)
@@ -524,18 +528,20 @@ AJ_Status AJ_WSL_WMI_QueueWorkItem(uint32_t socket, AJ_WSL_NET_COMMAND command, 
  */
 AJ_Status AJ_WSL_WMI_WaitForWorkItem(uint32_t socket, AJ_WSL_NET_COMMAND command, wsl_work_item** item)
 {
+    AJ_Status status;
 //    AJ_AlwaysPrintf(("WaitForWorkItem: %x\n", command));
     //wsl_work_item* item;
-    AJ_QueuePull(AJ_WSL_SOCKET_CONTEXT[socket].workRxQueue, item, AJ_TIMER_FOREVER);
+    status = AJ_QueuePull(AJ_WSL_SOCKET_CONTEXT[socket].workRxQueue, item, AJ_TIMER_FOREVER);
     if (*item) {
-        if ((*item)->itemType == WSL_NET_INTERUPT) {
+        if ((status == AJ_OK) && ((*item)->itemType == WSL_NET_INTERUPT)) {
             // We don't care about the interrupted signal for any calls using this function
-            AJ_QueuePull(AJ_WSL_SOCKET_CONTEXT[socket].workRxQueue, item, AJ_TIMER_FOREVER);
+            AJ_WSL_WMI_FreeWorkItem((*item));
+            status = AJ_QueuePull(AJ_WSL_SOCKET_CONTEXT[socket].workRxQueue, item, AJ_TIMER_FOREVER);
         }
-        if ((*item)->itemType == command) {
+        if ((status == AJ_OK) && ((*item)->itemType == command)) {
             //AJ_InfoPrintf(("AJ_WSL_WMI_WaitForWorkItem(): Received work item\n"));
             return AJ_OK;
-        } else if ((*item)->itemType == WSL_NET_DISCONNECT) {
+        } else if ((status == AJ_OK) && ((*item)->itemType == WSL_NET_DISCONNECT)) {
             AJ_InfoPrintf(("Disconnect received\n"));
             // Clean up the network queues
             int i;
@@ -550,7 +556,7 @@ AJ_Status AJ_WSL_WMI_WaitForWorkItem(uint32_t socket, AJ_WSL_NET_COMMAND command
                 AJ_QueueReset(AJ_WSL_SOCKET_CONTEXT[i].workTxQueue);
             }
             return AJ_ERR_LINK_DEAD;
-        } else if ((*item)->itemType == WSL_NET_DATA_RX) {
+        } else if ((status == AJ_OK) && ((*item)->itemType == WSL_NET_DATA_RX)) {
             // If we got data we want to save it and not throw it away, its still not what we
             // wanted so we return AJ_ERR_NULL
             if ((*item)->node->length) {
