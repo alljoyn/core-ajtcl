@@ -275,8 +275,10 @@ void AJ_Net_Disconnect(AJ_NetSocket* netSock)
     CloseNetSock(netSock);
 }
 
-static void sendToBroadcast(int sock, void* ptr, size_t tx)
+static uint8_t sendToBroadcast(int sock, void* ptr, size_t tx)
 {
+    ssize_t ret = -1;
+    uint8_t sendSucceeded = FALSE;
     struct ifaddrs* addrs;
     struct ifaddrs* addr;
 
@@ -291,12 +293,16 @@ static void sendToBroadcast(int sock, void* ptr, size_t tx)
             sin_bcast->sin_port = htons(AJ_UDP_PORT);
             inet_ntop(AF_INET, &(sin_bcast->sin_addr), buf, sizeof(buf));
             AJ_InfoPrintf(("sendToBroadcast: sending to bcast addr %s\n", buf));
-            sendto(sock, ptr, tx, MSG_NOSIGNAL, (struct sockaddr*) sin_bcast, sizeof(struct sockaddr_in));
+            ret = sendto(sock, ptr, tx, MSG_NOSIGNAL, (struct sockaddr*) sin_bcast, sizeof(struct sockaddr_in));
+            if (!sendSucceeded && (ret == tx)) {
+                sendSucceeded = TRUE;
+            }
         }
 
         addr = addr->ifa_next;
     }
     freeifaddrs(addrs);
+    return sendSucceeded;
 }
 
 AJ_Status AJ_Net_SendTo(AJ_IOBuffer* buf)
@@ -323,7 +329,9 @@ AJ_Status AJ_Net_SendTo(AJ_IOBuffer* buf)
                 AJ_ErrPrintf(("AJ_Net_SendTo(): Invalid address IP address. errno=\"%s\"", strerror(errno)));
             }
 
-            sendToBroadcast(context->udpSock, buf->readPtr, tx);
+            if (sendToBroadcast(context->udpSock, buf->readPtr, tx) == TRUE) {
+                sendSucceeded = TRUE;
+            } // leave sendSucceeded unchanged if FALSE
         }
 
         // now sendto the ipv6 address
@@ -485,8 +493,12 @@ static int MCastUp4()
     mreq.imr_interface.s_addr = INADDR_ANY;
     ret = setsockopt(mcastSock, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq));
     if (ret < 0) {
-        AJ_ErrPrintf(("MCastUp4(): setsockopt(IP_ADD_MEMBERSHIP) failed. errno=\"%s\", status=AJ_ERR_READ\n", strerror(errno)));
-        goto ExitError;
+        /*
+         * Not all Linux based systems setup an IPv4 multicast route.
+         * Since we were successful in setting up IPv4 broadcast for
+         * this socket, we'll just use that and not use IPv4 multicast.
+         */
+        AJ_WarnPrintf(("MCastUp4(): setsockopt(IP_ADD_MEMBERSHIP) failed. errno=\"%s\", status=AJ_ERR_READ\n", strerror(errno)));
     }
 
     return mcastSock;
