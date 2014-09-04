@@ -325,7 +325,6 @@ void AJ_WSL_MBoxListenAndProcessTask(void* parameters)
                         sockWork->endpoint = item->endpoint;
                         ppWork = &sockWork;
                         AJ_QueuePush(AJ_WSL_SOCKET_CONTEXT[i].workRxQueue, ppWork, AJ_TIMER_FOREVER);
-
                     }
                     AJ_WSL_WMI_FreeWorkItem(item);
                 }
