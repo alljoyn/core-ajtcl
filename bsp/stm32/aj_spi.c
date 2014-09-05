@@ -137,11 +137,7 @@ AJ_Status AJ_WSL_SPI_DMATransfer(uint8_t* buffer, uint16_t len, uint8_t directio
 
 void AJ_WSL_SPI_PowerCycleChip(void)
 {
-    /* FET */
-    GPIO_ResetBits(GPIOE, GPIO_Pin_9);
-    AJ_Sleep(10);
-    GPIO_SetBits(GPIOE, GPIO_Pin_9);
-
+    SPI_SSOutputCmd(SPI1, DISABLE);
     /* PWD */
     GPIO_ResetBits(GPIOE, GPIO_Pin_7);
     AJ_Sleep(10);
