@@ -32,6 +32,7 @@
 #include <mach/clock.h>
 #include <mach/mach.h>
 #include <libkern/OSByteOrder.h>
+#include <errno.h>
 
 uint8_t dbgTARGET_UTIL = 0;
 
@@ -43,7 +44,7 @@ void AJ_Sleep(uint32_t time)
 
     // nanosleep returns the amount of time slept before being interrupted by a signal,
     // so loop until the full sleep is finished
-    while (nanosleep(&waittime, &waittime) == -1) {
+    while (nanosleep(&waittime, &waittime) == -1 && errno == EINTR) {
         continue;
     }
 
