@@ -101,11 +101,6 @@ uint32_t get_line(char*str, int num, FILE*fp)
     return stringLength;
 }
 
-static uint32_t PasswordCallback(uint8_t* buffer, uint32_t bufLen)
-{
-    return 0;
-}
-
 #define CONNECT_TIMEOUT    (1000 * 200)
 #define UNMARSHAL_TIMEOUT  (1000 * 5)
 #define METHOD_TIMEOUT     (100 * 10)
@@ -310,6 +305,15 @@ int AJ_Main(int ac, char** av)
         } else if (0 == strncmp(*av, "-e", 2)) {
             ac--;
             av++;
+        } else {
+            AJ_Printf("SecureClientECDHE.exe [-e|-ek] <encryption suite>\n"
+                      "-e <encryption suite>\n"
+                      "   Specify an encryption suite to use: ECDHE_ECDSA, ECDHE_PSK, or ECDHE_NULL\n"
+                      "   -e can be specified multiple times to support multiple encryption suites\n"
+                      "-ek <encryption suite>\n"
+                      "    Same as -e, except that any existing authentication keys are cleared. This \n"
+                      "    will ensure a new key exchange/password validation occurs");
+            return AJ_ERR_NULL;
         }
         if (!ac) {
             AJ_Printf("-e(k) requires an auth mechanism.\n");
@@ -351,7 +355,12 @@ int AJ_Main(int ac, char** av)
                     status = AJ_ClearCredentials();
                     AJ_ASSERT(AJ_OK == status);
                 }
-                authStatus = AJ_BusAuthenticatePeer(&bus, ServiceName, AuthCallback, &authStatus);
+
+                status = AJ_BusAuthenticatePeer(&bus, ServiceName, AuthCallback, &authStatus);
+                if (status != AJ_OK) {
+                    AJ_Printf("AJ_BusAuthenticatePeer returned %d\n", status);
+                    break;
+                }
             } else {
                 AJ_InfoPrintf(("StartClient returned %d\n", status));
                 AJ_Printf("StartClient returned %d\n", status);
@@ -365,7 +374,11 @@ int AJ_Main(int ac, char** av)
                 break;
             }
             authStatus = AJ_ERR_NULL;
-            SendPing(&bus, sessionId);
+            status = SendPing(&bus, sessionId);
+            if (status != AJ_OK) {
+                AJ_Printf("SendPing returned %d\n", status);
+                continue;
+            }
         }
 
         status = AJ_UnmarshalMsg(&bus, &msg, UNMARSHAL_TIMEOUT);
