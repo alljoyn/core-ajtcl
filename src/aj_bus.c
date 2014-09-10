@@ -686,6 +686,27 @@ static AJ_Status PropAccess(AJ_Message* msg, PropCallback* cb, uint8_t op)
     return AJ_DeliverMsg(&reply);
 }
 
+static AJ_Status PropAccessAll(AJ_Message* msg, PropCallback* cb)
+{
+    AJ_Status status;
+    AJ_Message reply;
+    const char* iface;
+
+    AJ_InfoPrintf(("PropAccessAll(msg=0x%p, cb=0x%p)\n", msg, cb));
+
+    status = AJ_UnmarshalArgs(msg, "s", &iface);
+    if (status == AJ_OK) {
+        status = AJ_MarshalReplyMsg(msg, &reply);
+    }
+    if (status == AJ_OK) {
+        status = AJ_MarshalAllPropertiesArgs(&reply, iface, cb->Get, cb->context);
+    }
+    if (status != AJ_OK) {
+        AJ_MarshalStatusMsg(msg, &reply, status);
+    }
+    return AJ_DeliverMsg(&reply);
+}
+
 AJ_Status AJ_BusPropGet(AJ_Message* msg, AJ_BusPropGetCallback callback, void* context)
 {
     PropCallback cb;
@@ -706,6 +727,17 @@ AJ_Status AJ_BusPropSet(AJ_Message* msg, AJ_BusPropSetCallback callback, void* c
     cb.context = context;
     cb.Set = callback;
     return PropAccess(msg, &cb, AJ_PROP_SET);
+}
+
+AJ_Status AJ_BusPropGetAll(AJ_Message* msg, AJ_BusPropGetCallback callback, void* context)
+{
+    PropCallback cb;
+
+    AJ_InfoPrintf(("AJ_BusPropGetAll(msg=0x%p, callback=0x%p, context=0x%p)\n", msg, callback, context));
+
+    cb.context = context;
+    cb.Get = callback;
+    return PropAccessAll(msg, &cb);
 }
 
 AJ_Status AJ_BusEnableSecurity(AJ_BusAttachment* bus, const uint32_t* suites, size_t numsuites)

@@ -332,6 +332,23 @@ AJ_EXPORT
 AJ_Status AJ_MarshalPropertyArgs(AJ_Message* msg, uint32_t propId);
 
 /**
+ * This function marshals ALL the properties arguments (names and values) of a given interface of a property GET_ALL message.
+ *
+ * If everything is correct the reply message contains the marshalled response with the ALL the properties
+ * defined for the given interface of the object associated with the request. Otherwise, an error reply
+ * message is marshalled with the last error status.
+ *
+ * @param replyMsg      The message to marshal the reply into. Assumes the message header is already set by a previous call to AJ_MarshalReplyMsg().
+ * @param iface         The interface name (obtained from the request) whose properties are to be marshalled.
+ * @param callback      The function called to request the application to marshal each property value.
+ * @param context       A caller provided context that is passed into the callback function.
+ *
+ * @return              Return AJ_Status
+ */
+AJ_EXPORT
+AJ_Status AJ_MarshalAllPropertiesArgs(AJ_Message* replyMsg, const char* iface, AJ_BusPropGetCallback callback, void* context);
+
+/**
  * Handle an introspection request
  *
  * @param msg        The introspection request method call

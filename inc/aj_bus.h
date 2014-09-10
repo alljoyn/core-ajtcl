@@ -466,7 +466,7 @@ AJ_Status AJ_BusAuthenticatePeer(AJ_BusAttachment* bus, const char* peerBusName,
  * Callback function prototype for a callback function to GET a property. All this function has to
  * do is marshal the property value.
  *
- * @param replyMsg  The GET_PROPERTY reply message
+ * @param replyMsg  The GET_PROPERTY or GET_ALL_PROPERTIES reply message
  * @param propId    The property identifier
  * @param context   The caller provided context that was passed into AJ_BusPropGet()
  *
@@ -488,6 +488,19 @@ typedef AJ_Status (*AJ_BusPropGetCallback)(AJ_Message* replyMsg, uint32_t propId
  */
 AJ_EXPORT
 AJ_Status AJ_BusPropGet(AJ_Message* msg, AJ_BusPropGetCallback callback, void* context);
+
+/**
+ * Helper function that provides all the boilerplate for responding to a GET_ALL_PROPERTIES. All the
+ * application has to do is marshal each of the property values.
+ *
+ * @param msg       An unmarshalled GET_ALL_PROPERTIES message
+ * @param callback  The function called to request the application to marshal the property value.
+ * @param context   A caller provided context that is passed into the callback function
+ *
+ * @return  Return AJ_Status
+ */
+AJ_EXPORT
+AJ_Status AJ_BusPropGetAll(AJ_Message* msg, AJ_BusPropGetCallback callback, void* context);
 
 /**
  * Callback function prototype for a callback function to SET an application property. All this
