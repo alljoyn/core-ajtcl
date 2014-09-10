@@ -358,14 +358,15 @@ static AJ_Status ExpandInterfaces(XMLWriterFunc XMLWriter, void* context, const 
             }
             description = GetDescription(descLookup, (descId | (((uint32_t)memberIndex) << 8)), languageTag);
             if (description != NULL) {
-                XMLWriteDescription(XMLWriter, context, 1, description, languageTag);
                 if (memberType == PROPERTY) {
+                    XMLWriter(context, ">\n", 2);
                     /*
                      * Move to the alternate close for a propety
                      * which is in the memberClose table of entry 4
                      */
                     memberType++;
                 }
+                XMLWriteDescription(XMLWriter, context, 1, description, languageTag);
             }
             XMLWriter(context, MemberClose[memberType], 0);
         }
