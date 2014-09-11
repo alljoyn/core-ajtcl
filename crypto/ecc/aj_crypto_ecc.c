@@ -1587,23 +1587,23 @@ char*
 ECC_feature_list(void)
 {
     return (
-               "ECC_P256"
+        "ECC_P256"
 #ifdef ECDSA
-               " ECDSA"
+        " ECDSA"
 #endif
 #ifdef SPECIAL_SQUARE
-               " SPECIAL_SQUARE"
+        " SPECIAL_SQUARE"
 #endif
 #ifdef SMALL_CODE
-               " SMALL_CODE"
+        " SMALL_CODE"
 #endif
 #ifdef MPY2BITS
-               " MPY2BITS"
+        " MPY2BITS"
 #endif
 #ifdef ARM7_ASM
-               " ARM7_ASM"
+        " ARM7_ASM"
 #endif
-               );
+        );
 }
 #endif /* ECC_TEST */
 

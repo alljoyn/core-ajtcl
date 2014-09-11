@@ -902,56 +902,56 @@ TEST_F(MutterTest, ByteAndDictionaryEntries)
 
         status = AJ_MarshalArgs(&txMsg, "y", in_byte);
         EXPECT_EQ(AJ_OK, status) << "  Actual Status: " <<
-        AJ_StatusText(status) << ". Unable to marshal a byte into the message.";
+            AJ_StatusText(status) << ". Unable to marshal a byte into the message.";
 
         status = AJ_MarshalContainer(&txMsg, &array1, AJ_ARG_ARRAY);
         EXPECT_EQ(AJ_OK, status) << "  Actual Status: " <<
-        AJ_StatusText(status) << ". Unable to marshal array start into the message.";
+            AJ_StatusText(status) << ". Unable to marshal array start into the message.";
 
         for (size_t key = 0; key < ArraySize(Colors); key++) {
             AJ_Arg dict;
 
             status = AJ_MarshalContainer(&txMsg, &dict, AJ_ARG_DICT_ENTRY);
             EXPECT_EQ(AJ_OK, status) << "  Actual Status: " <<
-            AJ_StatusText(status) << ". Unable to marshal dict start.";
+                AJ_StatusText(status) << ". Unable to marshal dict start.";
 
             status = AJ_MarshalArgs(&txMsg, "ss", Colors[key], Fruits[key]);
             EXPECT_EQ(AJ_OK, status) << "  Actual Status: " <<
-            AJ_StatusText(status) << ". Unable to marshal key-value pair.";
+                AJ_StatusText(status) << ". Unable to marshal key-value pair.";
 
             status = AJ_MarshalCloseContainer(&txMsg, &dict);
             EXPECT_EQ(AJ_OK, status) << "  Actual Status: " <<
-            AJ_StatusText(status) << ". Unable to marshal dict end.";
+                AJ_StatusText(status) << ". Unable to marshal dict end.";
         }
 
         status = AJ_MarshalCloseContainer(&txMsg, &array1);
         EXPECT_EQ(AJ_OK, status) << "  Actual Status: " <<
-        AJ_StatusText(status) << ". Unable to marshal array end into the message.";
+            AJ_StatusText(status) << ". Unable to marshal array end into the message.";
 
         status = AJ_DeliverMsg(&txMsg);
         EXPECT_EQ(AJ_OK, status) << "  Actual Status: " <<
-        AJ_StatusText(status) << ". Unable to deliver message.";
+            AJ_StatusText(status) << ". Unable to deliver message.";
 
         status = AJ_UnmarshalMsg(&testBus, &rxMsg, ZERO_SECONDS);
         EXPECT_EQ(AJ_OK, status) << "  Actual Status: " <<
-        AJ_StatusText(status) << ". Unable to unmarshal message.";
+            AJ_StatusText(status) << ". Unable to unmarshal message.";
 
         uint8_t out_byte = 0;
         status = AJ_UnmarshalArgs(&rxMsg, "y", &out_byte);
         EXPECT_EQ(AJ_OK, status) << "  Actual Status: " <<
-        AJ_StatusText(status) << ". Unable to unmarshal a byte from the message.";
+            AJ_StatusText(status) << ". Unable to unmarshal a byte from the message.";
 
         if (AJ_OK == status) {
             /* The value that was marshaled must match the unmarshaled */
             EXPECT_EQ(in_byte, out_byte) << "A byte was marshaled and "
-            "unmarshaled back. The unmarshaled value " << out_byte <<
-            " does NOT match the marshaled value " << in_byte;
+                "unmarshaled back. The unmarshaled value " << out_byte <<
+                " does NOT match the marshaled value " << in_byte;
         }
 
         status = AJ_UnmarshalContainer(&rxMsg, &array1, AJ_ARG_ARRAY);
         EXPECT_EQ(AJ_OK, status) << "  Actual Status: " <<
-        AJ_StatusText(status) << ". Unable to unmarshal the start of array "
-        "from the message.";
+            AJ_StatusText(status) << ". Unable to unmarshal the start of array "
+            "from the message.";
 
         for (size_t key = 0; key < ArraySize(Colors); key++) {
             AJ_Arg dict;
@@ -960,29 +960,29 @@ TEST_F(MutterTest, ByteAndDictionaryEntries)
 
             status = AJ_UnmarshalContainer(&rxMsg, &dict, AJ_ARG_DICT_ENTRY);
             EXPECT_EQ(AJ_OK, status) << "  Actual Status: " <<
-            AJ_StatusText(status) << ". Unable to unmarshal dict start.";
+                AJ_StatusText(status) << ". Unable to unmarshal dict start.";
 
             status = AJ_UnmarshalArgs(&rxMsg, "ss", &color, &fruit);
             EXPECT_EQ(AJ_OK, status) << "  Actual Status: " <<
-            AJ_StatusText(status) << ". Unable to unmarshal key-value pair.";
+                AJ_StatusText(status) << ". Unable to unmarshal key-value pair.";
 
             if (AJ_OK == status) {
                 /* verify that what was marshaled in, is unmarshaled out */
 
                 EXPECT_STREQ(Colors[key], color) << "The key of dictionary "
-                "element was marshaled in and unmarshaled out. The unmarshaled "
-                "value " << color << " does NOT match the marshaled value " <<
-                Colors[key];
+                    "element was marshaled in and unmarshaled out. The unmarshaled "
+                    "value " << color << " does NOT match the marshaled value " <<
+                    Colors[key];
 
                 EXPECT_STREQ(Fruits[key], fruit) << "The value of dictionary "
-                "element was marshaled in and unmarshaled out. The unmarshaled "
-                "value " << fruit << " does NOT match the marshaled value " <<
-                Fruits[key];
+                    "element was marshaled in and unmarshaled out. The unmarshaled "
+                    "value " << fruit << " does NOT match the marshaled value " <<
+                    Fruits[key];
             }
 
             status = AJ_UnmarshalCloseContainer(&rxMsg, &dict);
             EXPECT_EQ(AJ_OK, status) << "  Actual Status: " <<
-            AJ_StatusText(status) << ". Unable to unmarshal dict end.";
+                AJ_StatusText(status) << ". Unable to unmarshal dict end.";
         }
 
         /*
@@ -992,18 +992,18 @@ TEST_F(MutterTest, ByteAndDictionaryEntries)
         AJ_Arg dict;
         status = AJ_UnmarshalContainer(&rxMsg, &dict, AJ_ARG_DICT_ENTRY);
         EXPECT_EQ(AJ_ERR_NO_MORE, status) << "  Actual Status: " <<
-        AJ_StatusText(status) << ". After unmarshaling all the dictionary "
-        "entries, we expect that there are no more entries.";
+            AJ_StatusText(status) << ". After unmarshaling all the dictionary "
+            "entries, we expect that there are no more entries.";
 
         if (AJ_ERR_NO_MORE == status) {
             status = AJ_UnmarshalCloseContainer(&rxMsg, &array1);
             EXPECT_EQ(AJ_OK, status) << "  Actual Status: " <<
-            AJ_StatusText(status) << ". Unable to unmarshal end of the array "
-            "from the message.";
+                AJ_StatusText(status) << ". Unable to unmarshal end of the array "
+                "from the message.";
 
             status = AJ_CloseMsg(&rxMsg);
             EXPECT_EQ(AJ_OK, status) << "  Actual Status: " <<
-            AJ_StatusText(status) << ". Unable to close the message.";
+                AJ_StatusText(status) << ". Unable to close the message.";
         }
     }
 }
@@ -1023,59 +1023,59 @@ TEST_F(MutterTest, MultipleBytesAndDictionaryEntries)
         for (uint8_t i = 0; i < ArraySize(in_bytes); i++) {
             status = AJ_MarshalArgs(&txMsg, "y", in_bytes[i]);
             EXPECT_EQ(AJ_OK, status) << "  Actual Status: " <<
-            AJ_StatusText(status) << ". Unable to marshal a byte into the message.";
+                AJ_StatusText(status) << ". Unable to marshal a byte into the message.";
         }
 
         status = AJ_MarshalContainer(&txMsg, &array1, AJ_ARG_ARRAY);
         EXPECT_EQ(AJ_OK, status) << "  Actual Status: " <<
-        AJ_StatusText(status) << ". Unable to marshal array start into the message.";
+            AJ_StatusText(status) << ". Unable to marshal array start into the message.";
 
         for (size_t key = 0; key < ArraySize(Colors); key++) {
             AJ_Arg dict;
 
             status = AJ_MarshalContainer(&txMsg, &dict, AJ_ARG_DICT_ENTRY);
             EXPECT_EQ(AJ_OK, status) << "  Actual Status: " <<
-            AJ_StatusText(status) << ". Unable to marshal dict start.";
+                AJ_StatusText(status) << ". Unable to marshal dict start.";
 
             status = AJ_MarshalArgs(&txMsg, "ys", key, Colors[key]);
             EXPECT_EQ(AJ_OK, status) << "  Actual Status: " <<
-            AJ_StatusText(status) << ". Unable to marshal key-value pair.";
+                AJ_StatusText(status) << ". Unable to marshal key-value pair.";
 
             status = AJ_MarshalCloseContainer(&txMsg, &dict);
             EXPECT_EQ(AJ_OK, status) << "  Actual Status: " <<
-            AJ_StatusText(status) << ". Unable to marshal dict end.";
+                AJ_StatusText(status) << ". Unable to marshal dict end.";
         }
 
         status = AJ_MarshalCloseContainer(&txMsg, &array1);
         EXPECT_EQ(AJ_OK, status) << "  Actual Status: " <<
-        AJ_StatusText(status) << ". Unable to marshal array end into the message.";
+            AJ_StatusText(status) << ". Unable to marshal array end into the message.";
 
         status = AJ_DeliverMsg(&txMsg);
         EXPECT_EQ(AJ_OK, status) << "  Actual Status: " <<
-        AJ_StatusText(status) << ". Unable to deliver message.";
+            AJ_StatusText(status) << ". Unable to deliver message.";
 
         status = AJ_UnmarshalMsg(&testBus, &rxMsg, ZERO_SECONDS);
         EXPECT_EQ(AJ_OK, status) << "  Actual Status: " <<
-        AJ_StatusText(status) << ". Unable to unmarshal message.";
+            AJ_StatusText(status) << ". Unable to unmarshal message.";
 
         for (uint8_t i = 0; i < ArraySize(in_bytes); i++) {
             uint8_t out_byte = 0;
             status = AJ_UnmarshalArgs(&rxMsg, "y", &out_byte);
             EXPECT_EQ(AJ_OK, status) << "  Actual Status: " <<
-            AJ_StatusText(status) << ". Unable to unmarshal a byte from the message.";
+                AJ_StatusText(status) << ". Unable to unmarshal a byte from the message.";
 
             if (AJ_OK == status) {
                 /* The value that was marshaled must match the unmarshaled */
                 EXPECT_EQ(in_bytes[i], out_byte) << "A byte was marshaled and "
-                "unmarshaled back. The unmarshaled value " << out_byte <<
-                " does NOT match the marshaled value " << in_bytes[i];
+                    "unmarshaled back. The unmarshaled value " << out_byte <<
+                    " does NOT match the marshaled value " << in_bytes[i];
             }
         }
 
         status = AJ_UnmarshalContainer(&rxMsg, &array1, AJ_ARG_ARRAY);
         EXPECT_EQ(AJ_OK, status) << "  Actual Status: " <<
-        AJ_StatusText(status) << ". Unable to unmarshal the start of array "
-        "from the message.";
+            AJ_StatusText(status) << ". Unable to unmarshal the start of array "
+            "from the message.";
 
         for (size_t key = 0; key < ArraySize(Colors); key++) {
             AJ_Arg dict;
@@ -1084,29 +1084,29 @@ TEST_F(MutterTest, MultipleBytesAndDictionaryEntries)
 
             status = AJ_UnmarshalContainer(&rxMsg, &dict, AJ_ARG_DICT_ENTRY);
             EXPECT_EQ(AJ_OK, status) << "  Actual Status: " <<
-            AJ_StatusText(status) << ". Unable to unmarshal dict start.";
+                AJ_StatusText(status) << ". Unable to unmarshal dict start.";
 
             status = AJ_UnmarshalArgs(&rxMsg, "ys", &index, &color);
             EXPECT_EQ(AJ_OK, status) << "  Actual Status: " <<
-            AJ_StatusText(status) << ". Unable to unmarshal key-value pair.";
+                AJ_StatusText(status) << ". Unable to unmarshal key-value pair.";
 
             if (AJ_OK == status) {
                 /* verify that what was marshaled in, is unmarshaled out */
 
                 EXPECT_EQ(key, index) << "The key of dictionary "
-                "element was marshaled in and unmarshaled out. The unmarshaled "
-                "value " << index << " does NOT match the marshaled value " <<
-                key;
+                    "element was marshaled in and unmarshaled out. The unmarshaled "
+                    "value " << index << " does NOT match the marshaled value " <<
+                    key;
 
                 EXPECT_STREQ(Colors[key], color) << "The value of dictionary "
-                "element was marshaled in and unmarshaled out. The unmarshaled "
-                "value " << color << " does NOT match the marshaled value " <<
-                Colors[key];
+                    "element was marshaled in and unmarshaled out. The unmarshaled "
+                    "value " << color << " does NOT match the marshaled value " <<
+                    Colors[key];
             }
 
             status = AJ_UnmarshalCloseContainer(&rxMsg, &dict);
             EXPECT_EQ(AJ_OK, status) << "  Actual Status: " <<
-            AJ_StatusText(status) << ". Unable to unmarshal dict end.";
+                AJ_StatusText(status) << ". Unable to unmarshal dict end.";
         }
 
         /*
@@ -1116,18 +1116,18 @@ TEST_F(MutterTest, MultipleBytesAndDictionaryEntries)
         AJ_Arg dict;
         status = AJ_UnmarshalContainer(&rxMsg, &dict, AJ_ARG_DICT_ENTRY);
         EXPECT_EQ(AJ_ERR_NO_MORE, status) << "  Actual Status: " <<
-        AJ_StatusText(status) << ". After unmarshaling all the dictionary "
-        "entries, we expect that there are no more entries.";
+            AJ_StatusText(status) << ". After unmarshaling all the dictionary "
+            "entries, we expect that there are no more entries.";
 
         if (AJ_ERR_NO_MORE == status) {
             status = AJ_UnmarshalCloseContainer(&rxMsg, &array1);
             EXPECT_EQ(AJ_OK, status) << "  Actual Status: " <<
-            AJ_StatusText(status) << ". Unable to unmarshal end of the array "
-            "from the message.";
+                AJ_StatusText(status) << ". Unable to unmarshal end of the array "
+                "from the message.";
 
             status = AJ_CloseMsg(&rxMsg);
             EXPECT_EQ(AJ_OK, status) << "  Actual Status: " <<
-            AJ_StatusText(status) << ". Unable to close the message.";
+                AJ_StatusText(status) << ". Unable to close the message.";
         }
     }
 }
