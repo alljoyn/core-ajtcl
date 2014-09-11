@@ -599,7 +599,6 @@ AJ_Status AJ_StartClient(AJ_BusAttachment* bus,
                          uint32_t* sessionId,
                          const AJ_SessionOpts* opts)
 {
-    AJ_SetMinProtoVersion(8);
     return StartClient(bus, daemonName, timeout, connected, name, port, NULL, sessionId, NULL, opts);
 }
 
@@ -612,6 +611,5 @@ AJ_Status AJ_StartClientByInterface(AJ_BusAttachment* bus,
                                     char* serviceName,
                                     const AJ_SessionOpts* opts)
 {
-    AJ_SetMinProtoVersion(9);
     return StartClient(bus, daemonName, timeout, connected, NULL, 0, interfaces, sessionId, serviceName, opts);
 }

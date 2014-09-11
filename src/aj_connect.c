@@ -58,10 +58,11 @@ AJ_EXPORT uint8_t dbgCONNECT = 0;
  */
 static uint8_t routingProtoVersion = 0;
 /*
- * This global gets set depending on whether or not you are using 14.06 features or not
- * If using NGNS this will be set to 9, otherwise 8 for backwards compatibility
+ * Minimum accepted protocol version of a router to be connected to
+ * Version 10 (14.06) allows for NGNS and untrusted connection to router
+ * May be set to earlier version with AJ_SetMinProtoVersion().
  */
-static uint8_t minProtoVersion = 0;
+static uint8_t minProtoVersion = 10;
 
 static const char daemonService[] = "org.alljoyn.BusNode";
 
@@ -151,7 +152,7 @@ static AJ_Status AnonymousAuthAdvance(AJ_IOBuffer* rxBuf, AJ_IOBuffer* txBuf) {
     }
 
     if (status == AJ_OK) {
-        status = WriteLine(txBuf, "INFORM_PROTO_VERSION 9\n"); /* old codes use 8, but server uses 9 */
+        status = WriteLine(txBuf, "INFORM_PROTO_VERSION 10\n");
         ResetRead(rxBuf);
     }
 
