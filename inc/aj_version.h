@@ -6,7 +6,7 @@
  * @{
  */
 /******************************************************************************
- * Copyright (c) 2013, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2013-2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -21,12 +21,20 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
-#define AJ_MAJOR_VERSION   14    /**< major version */
-#define AJ_MINOR_VERSION   6     /**< minor version */
-#define AJ_RELEASE_VERSION 0     /**< release version */
-#define AJ_RELEASE_TAG     "14.06.00_beta"
+#define AJ_RELEASE_YEAR        14       /**< release year */
+#define AJ_MAJOR_VERSION       AJ_RELEASE_YEAR /**< deprecated */
+#define AJ_RELEASE_MONTH       6        /**< release month */
+#define AJ_MINOR_VERSION       AJ_RELEASE_MONTH /**< deprecated */
+#define AJ_FEATURE_VERSION     0        /**< feature version */
+#define AJ_RELEASE_VERSION     AJ_FEATURE_VERSION /**< deprecated */
+#define AJ_BUGFIX_VERSION      0x61     /**< bugfix version (0=first, 0x61==a, 0x62==b, etc.) */
+#define AJ_RELEASE_YEAR_STR    14       /**< release year string (two digits) */
+#define AJ_RELEASE_MONTH_STR   06       /**< release month string (two digits) */
+#define AJ_FEATURE_VERSION_STR 00       /**< feature version string (00, 01, 02, ...) */
+#define AJ_BUGFIX_VERSION_STR  a        /**< bugfix version string (blank, a, b, ...) */
+#define AJ_RELEASE_TAG         "v14.06.00a"
 
-#define AJ_VERSION ((AJ_MAJOR_VERSION) << 24) | ((AJ_MINOR_VERSION) << 16) | (AJ_RELEASE_VERSION)   /**< macro to generate the version from major, minor & release */
+#define AJ_VERSION (((AJ_RELEASE_YEAR) << 24) | ((AJ_RELEASE_MONTH) << 16) | ((AJ_FEATURE_VERSION) << 8) | (AJ_BUGFIX_VERSION))  /**< macro to generate the version from major, minor, release, bugfix */
 
 /**
  * @}
