@@ -118,47 +118,8 @@ then
 	# MBUS-1589: sometimes Windows "home" does not work for keystore tests
 	export USERPROFILE="$( cygpath -wa . )"
 else
-	: Generate the appropriate alljoyn-daemon config file.
-	# Generate a random dynamic port number - this will not work on Cygwin
-	readonly daemon_standard_port_number=$(( 49152 + ($(head -c 1 /dev/urandom| od -t u | head --lines=1 | awk '{print $2}') % 64) * 255 + $(head -c 1 /dev/urandom| od -t u | head --lines=1 | awk '{print $2}')))
-	readonly daemon_unix_local_transport="unix:abstract=alljoyn-$daemon_standard_port_number"
-	# Note: Unfortunately, there is no easy way to get an up-to-date config file
-	#       from anywhere. The config files in the source tree are either out-dated
-	#       or have the necessary lines commented out. So, we resort to generating
-	#       our own config file.
-	#       Also, we try to generate as restricted configuration as possible.
-	#       This is because the daemon is NOT under test.
-	readonly config_file_string="<!DOCTYPE busconfig PUBLIC \"-//freedesktop//DTD D-Bus Bus Configuration 1.0//EN\"
-	 \"http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd\">
-	<busconfig>
-	  <!-- Our well-known bus type, do not change this -->
-	  <type>alljoyn</type>
-	  <listen>$daemon_unix_local_transport</listen>
-	  <listen>tcp:r4addr=0.0.0.0,r4port=$daemon_standard_port_number</listen>
-
-	  <limit name=\"auth_timeout\">32768</limit>
-	  <limit name=\"max_incomplete_connections\">16</limit>
-	  <limit name=\"max_completed_connections\">64</limit>
-
-	  <property name=\"restrict_untrusted_clients\">true</property>
-	  <limit name=\"max_untrusted_clients\">1</limit>
-
-	  <ip_name_service>
-	    <property name=\"interfaces\">*</property>
-	    <property name=\"disable_directed_broadcast\">false</property>
-	    <property name=\"enable_ipv4\">true</property>
-	    <property name=\"enable_ipv6\">true</property>
-	  </ip_name_service>
-
-	  <tcp>
-	    <property name=\"router_advertisement_prefix\">org.alljoyn.BusNode.</property>
-	  </tcp>
-
-	</busconfig>
-	"
-	printf "$config_file_string" > alljoyn-daemon.conf
-
-	options="--config-file=$PWD/alljoyn-daemon.conf --print-address"
+	: set up alljoyn-daemon
+	options="--print-address"
 	gtest_bin_p="$gtest_bin"
 	# MBUS-1589: remove .alljoyn_keystore, if any
 	export HOME="$PWD"
