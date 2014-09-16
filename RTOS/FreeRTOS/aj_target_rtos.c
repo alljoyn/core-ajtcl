@@ -364,9 +364,20 @@ void AJ_Free(void* mem)
 void* AJ_Realloc(void* ptr, size_t size)
 {
     void* ptrNew;
+#ifdef AJ_HEAP4
+    if (!ptr) {
+        return AJ_Malloc(size);
+    }
+    ptrNew = AJ_Malloc(size);
+    if (ptrNew) {
+        memcpy(ptrNew, ptr, size);
+        AJ_Free(ptr);
+    }
+#else
     vTaskSuspendAll();
     ptrNew = realloc(ptr, size);
     xTaskResumeAll();
+#endif
     return ptrNew;
 }
 

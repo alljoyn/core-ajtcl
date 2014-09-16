@@ -47,6 +47,8 @@
 
 SPI_InitTypeDef AJ_SPIHandle;
 
+#define A_UINT32 uint32_t
+
 #ifdef AJ_NVRAM_SIZE
 #undef AJ_NVRAM_SIZE
 #define AJ_NVRAM_SIZE (0x20000)
