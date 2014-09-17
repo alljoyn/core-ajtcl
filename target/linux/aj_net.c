@@ -489,6 +489,7 @@ static int MCastUp4()
     /*
      * Join our multicast group
      */
+    memset(&mreq, 0, sizeof(mreq));
     inet_pton(AF_INET, AJ_IPV4_MULTICAST_GROUP, &mreq.imr_multiaddr);
     mreq.imr_interface.s_addr = INADDR_ANY;
     ret = setsockopt(mcastSock, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq));
@@ -533,6 +534,7 @@ static int MCastUp6()
     /*
      * Bind an ephemeral port
      */
+    memset(&sin6, 0, sizeof(sin6));
     sin6.sin6_family = AF_INET6;
     sin6.sin6_port = htons(0);
     sin6.sin6_addr = in6addr_any;
@@ -545,6 +547,7 @@ static int MCastUp6()
     /*
      * Join our multicast group
      */
+    memset(&mreq6, 0, sizeof(mreq6));
     inet_pton(AF_INET6, AJ_IPV6_MULTICAST_GROUP, &mreq6.ipv6mr_multiaddr);
     mreq6.ipv6mr_interface = 0;
     ret = setsockopt(mcastSock, IPPROTO_IPV6, IPV6_JOIN_GROUP, &mreq6, sizeof(mreq6));

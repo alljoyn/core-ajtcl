@@ -390,6 +390,10 @@ if env['TARG'] in [ 'win32', 'linux', 'darwin' ]:
     # Win/Linux programs need their own 'main' function
     env.Append(CPPDEFINES = ['AJ_MAIN', auth])
 
+    # We have more memory on these platforms
+    env.Append(CPPDEFINES = ['AJ_NVRAM_SIZE=64000'])
+    env.Append(CPPDEFINES = ['AJ_NUM_REPLY_CONTEXTS=8'])
+
     # Produce shared libraries for these platforms
     srcs = env['aj_srcs'] + env['aj_targ_srcs'] + env['aj_crypto_ecc'] + env['aj_malloc'] + env['aj_external_sha2']
     if env['TARG'] == 'win32':
