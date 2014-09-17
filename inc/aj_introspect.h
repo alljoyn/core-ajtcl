@@ -113,7 +113,7 @@ typedef const char* const* AJ_InterfaceDescription;
  * Interface, Member, and Arg indexes starts at 1 and represent the readible index in a list.
  * [ a, b, ... ] a would be index 1, b 2, etc.
  */
-#define AJ_DESCRIPTION_ID(o, i, m, a)   (((uint32_t)(o) << 24) | (((uint32_t)(i)) << 16) | (((uint32_t)(m)) << 8) | (a))
+#define AJ_DESCRIPTION_ID(o, i, m, a)   ((((uint32_t)(o)) << 24) | (((uint32_t)(i)) << 16) | (((uint32_t)(m)) << 8) | (a))
 
 /* Helper macros for reuse of the message and property Ids from the AJ_ENCODE_*_ID macros: */
 
@@ -122,27 +122,27 @@ typedef const char* const* AJ_InterfaceDescription;
  * msgId Id of the method or the signal member
  * argIdx starts at 1 as in (a) in AJ_DESCRIPTION_ID. argIdx 0 indicate the interface member itself (i.e. method or signal) instead of the member's arguments.
  */
-#define AJ_DESC_ID_FROM_MSG_ID(msgId, argIdx) ((((uint32_t)(msgId + 0x101)) << 8) | argIdx)
+#define AJ_DESC_ID_FROM_MSG_ID(msgId, argIdx) (((uint32_t)(((uint32_t)(msgId) & 0xFFFFFF) + 0x101) << 8) | argIdx)
 
 /*
  * AJ_DESC_ID_FROM_PROP_ID(propId)
  * propId Id of the property member
  */
-#define AJ_DESC_ID_FROM_PROP_ID(propId) ((((uint32_t)(propId + 0x101)) << 8))
+#define AJ_DESC_ID_FROM_PROP_ID(propId) ((uint32_t)(((uint32_t)(propId) & 0xFFFFFF) + 0x101) << 8)
 
 
 /*
  * AJ_DESC_ID_FROM_OBJ_INDEX(objIdx)
  * objIdx index of the object in its registered object list
  */
-#define AJ_DESC_ID_FROM_OBJ_INDEX(objIdx) ((((uint32_t)(objIdx)) << 24))
+#define AJ_DESC_ID_FROM_OBJ_INDEX(objIdx) (((uint32_t)(objIdx) & 0xFF) << 24)
 
 /*
  * AJ_DESC_ID_FROM_INTERFACE_INDEX(objIdx, ifaceIdx)
  * objIdx index of the object in its registered object list
  * ifaceIdx index of the interface in the object description for this object index.
  */
-#define AJ_DESC_ID_FROM_INTERFACE_INDEX(objIdx, ifaceIdx) (AJ_DESC_ID_FROM_OBJ_INDEX(objIdx) | ((((uint32_t)(ifaceIdx + 0x1)) << 16)))
+#define AJ_DESC_ID_FROM_INTERFACE_INDEX(objIdx, ifaceIdx) (AJ_DESC_ID_FROM_OBJ_INDEX(objIdx) | (((uint32_t)(ifaceIdx) & 0xFF) + 0x1)) << 16))
 
 /* end of helper macros */
 
