@@ -231,7 +231,7 @@ OPEN_ERR_EXIT:
     return NULL;
 }
 
-size_t AJ_NVRAM_Write(void* ptr, uint16_t size, AJ_NV_DATASET* handle)
+size_t AJ_NVRAM_Write(const void* ptr, uint16_t size, AJ_NV_DATASET* handle)
 {
     int16_t bytesWrite = 0;
     uint8_t patchBytes = 0;

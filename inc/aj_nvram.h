@@ -94,7 +94,7 @@ AJ_NV_DATASET* AJ_NVRAM_Open(uint16_t id, char* mode, uint16_t capacity);
  * @return The number of byte of data written to the data set
  *         -1 if the offset is out of the bound of the data set
  */
-size_t AJ_NVRAM_Write(void* ptr, uint16_t size, AJ_NV_DATASET* handle);
+size_t AJ_NVRAM_Write(const void* ptr, uint16_t size, AJ_NV_DATASET* handle);
 
 /**
  * Read from the data set specified by a handle
