@@ -243,6 +243,7 @@ elif env['TARG'] == 'bsp':
                                           env['ATMEL_DIR'] + '/sam/drivers/efc/efc.c',
                                           env['ATMEL_DIR'] + '/sam/drivers/tc/tc.c',
                                           env['ATMEL_DIR'] + '/sam/drivers/trng/trng.c',
+                                          env['ATMEL_DIR'] + '/sam/drivers/rstc/rstc.c',
                                           env['ATMEL_DIR'] + '/sam/utils/cmsis/sam3x/source/templates/exceptions.c',
                                           env['ATMEL_DIR'] + '/sam/utils/cmsis/sam3x/source/templates/system_sam3x.c',
                                           env['ATMEL_DIR'] + '/sam/utils/cmsis/sam3x/source/templates/gcc/startup_sam3x.c',
@@ -281,7 +282,7 @@ elif env['TARG'] == 'bsp':
                           env['ATMEL_DIR'] + '/thirdparty/CMSIS/Include',       env['ATMEL_DIR'] + '/thirdparty/CMSIS/Lib/GCC',
                           env['ATMEL_DIR'] + '/sam/boards/arduino_due_x/board_config', env['ATMEL_DIR'] + '/config',
                           env['ATMEL_DIR'] + '/common/services/clock/sam3x/module_config', env['ATMEL_DIR'] + '/common/services/clock/sam3x', 
-                          env['ATMEL_DIR'] + '/sam/drivers/dmac',
+                          env['ATMEL_DIR'] + '/sam/drivers/dmac', env['ATMEL_DIR'] + '/sam/drivers/rstc',
                           os.getcwd() + '/RTOS', os.getcwd() + '/crypto', os.getcwd() + '/crypto/ecc', os.getcwd() + '/external/sha2', os.getcwd() + '/malloc', os.getcwd() + '/inc', os.getcwd() + '/WSL']
     elif env['AJWSL'] == 'stm32':
         

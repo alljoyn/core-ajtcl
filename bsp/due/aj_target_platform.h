@@ -65,6 +65,7 @@
 #include <spi.h>
 #include <pio_handler.h>
 #include "dmac.h"
+#include "rstc.h"
 
 // assign the WSL ISR to the interrupt slot for the correct SPI device
 #define AJ_WSL_SPI_ISR SPI0_Handler

@@ -454,3 +454,7 @@ void AJ_PreSchedulerInit(void)
 {
     NVIC_PriorityGroupConfig(NVIC_PriorityGroup_4);
 }
+void _AJ_Reboot(void)
+{
+    NVIC_SystemReset();
+}

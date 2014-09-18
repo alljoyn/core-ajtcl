@@ -65,7 +65,7 @@ extern uint8_t dbgTARGET_UTIL;
 /*
  * AJ_Reboot() is a NOOP on this platform
  */
-#define AJ_Reboot()
+#define AJ_Reboot() _AJ_Reboot()
 
 
 

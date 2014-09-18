@@ -19,7 +19,7 @@
 
 /******************************************************************************
  * Any time in this file there is a comment including:
-    nvm_***, sysclk_***, board_***, stdio_***
+    nvm_***, sysclk_***, board_***, stdio_***, rstc_***
 
  * note that the API associated with it may be subject to this Atmel license:
  * (information about it is also at www.atmel.com/asf)
@@ -215,4 +215,8 @@ uint32_t AJ_ByteSwap32(uint32_t x)
 uint64_t AJ_ByteSwap64(uint64_t x)
 {
     return swap64(x);
+}
+void _AJ_Reboot(void)
+{
+    rstc_start_software_reset(RSTC);
 }
