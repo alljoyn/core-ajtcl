@@ -27,21 +27,21 @@
 #include "aj_disco.h"
 
 /**
- * Get the minimum protocol version allowed. This is set by AJ_SetMinProtoVersion()
- * and its value depends on the features your using.
+ * Set the minimum acceptable routing node protocol version.
  *
- * @return          Minimum routing protocol version allowed
+ * @param min       Minimum acceptable protocol version
+ */
+void AJ_SetMinProtoVersion(uint8_t min);
+
+/**
+ * Get the minimum acceptable routing node protocol version.
+ *
+ * @return          Minimum acceptable protocol version
  */
 uint8_t AJ_GetMinProtoVersion();
 
 /**
- * Set the minimum router protocol version that you want to connect to.
- *
- * @param min       The minimum protocol version
- */
-void AJ_SetMinProtoVersion(uint8_t min);
-/**
- * Gets the routing nodes protocol version that you are connected to.
+ * Get the routing nodes protocol version
  *
  * @return          The routing nodes protocol version
  *                  0 if not connected to a routing node
