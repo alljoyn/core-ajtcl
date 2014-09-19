@@ -40,7 +40,7 @@
 #define AJ_PINX_MASTER_SECRET_LEN   24          //Length of the master secret PINX
 #define AJ_MASTER_SECRET_LEN        48          //Length of the master secret - RFC 5246
 #define AJ_ADHOC_LEN                16          //AD-HOC maximal passcode length        (aj_auth.h)
-#define AJ_NAME_MAP_GUID_SIZE       2           //aj_guid.c
+#define AJ_NAME_MAP_GUID_SIZE       4           //aj_guid.c
 #define AJ_MAX_NAME_SIZE            14          //aj_guid.c
 #define AJ_MAX_CREDS                40          //Max number of credentials that can store credentials (aj_creds.h)
 #define AJ_LOCAL_GUID_NV_ID         1
