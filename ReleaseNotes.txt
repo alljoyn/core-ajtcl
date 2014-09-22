@@ -1,5 +1,5 @@
-AllJoyn Thin Core Library: Version 14.06 Release Notes
-======================================================
+AllJoyn Thin Core Library: Version 14.06a Release Notes
+=======================================================
 
 Platform Support
 ----------------
@@ -8,8 +8,8 @@ Platform Support
 3) Windows 8 (32 and 64 bit)
 
 
-Features added in Version 14.06
--------------------------------
+Features added in Version 14.06a
+--------------------------------
 * Tight integration of the About functionality 
 * Security enhancements to support future Security 2.0 feature and removal
   of old mechanisms of authentication. 
@@ -21,8 +21,8 @@ Features added in Version 14.06
   Arrow/Netcom GT202 IoE WiFi module.
 
 
-Issues Addressed in Version 14.06
----------------------------------
+Issues Addressed in Version 14.06a
+----------------------------------
 ASACORE-53   Typo in thin library NVRAM constant
 ASACORE-143  Implement aj_realloc for thin library
 ASACORE-145  liballjoyn_about.a binary compatibility for objective C
@@ -39,12 +39,21 @@ ASACORE-624  AJ_PrintXML(AppObjects) does not prints all the objects that
              are present
 ASACORE-629  Thin library samples need to handle routing node exit gracefully
 ASACORE-638  aj_helper.c should ignore unknown messages
+ASACORE-800  Memory leak in auth exchange in case incorrect creds are
+             passed to thin library
+ASACORE-805  WSL Receive Signal Data Failure
+ASACORE-908  Guid Exchange fails between Android Client and Rn node of TCL
+             device After factory reset.
+ASACORE-912  Set the default minimum protocol version in TCL to 10
+ASACORE-924  AJTCL version requires fourth component
+ASACORE-943  AJ_NVRAM_Write declaration should take const void*
 
 Details can be found at:
-https://jira.allseenalliance.org/issues/?jql=project %3D ASACORE AND status %3D Closed AND resolved >%3D 2014-02-04 AND resolved <%3D 2014-07-31 AND resolution %3D fixed AND (component %3D EMPTY OR component in ("Thin Core Library"%2C "TCL%3A WSL"%2C "About TC")) ORDER BY key asc
+https://jira.allseenalliance.org/issues/?jql=project %3D ASACORE AND status
+%3D Closed AND ((resolved >%3D 2014-02-04 AND resolved <%3D 2014-07-31) OR fixVersion in ("14.06", "14.06a")) AND resolution %3D fixed AND (component %3D EMPTY OR component in ("Thin Core Library"%2C "About TC")) ORDER BY key asc
 
 
-Known Issues in Version 14.06
+Known Issues in Version 14.06a
 -----------------------------
 ASACORE-46   AJ Thin Client applications that use AJ_StartClient() do not
              know the full bus name of the service that was joined for
@@ -58,18 +67,21 @@ ASACORE-703  Thin clients occasionally having problems rediscovering
 ASACORE-730  Too many NOC messages bog down TCL applications
 
 For a complete list of open issues:
-https://jira.allseenalliance.org/issues/?jql=project %3D ASACORE AND status in (Open%2C "In Progress"%2C Reopened%2C New) AND (component %3D EMPTY OR component in ("About TC"%2C "Thin Core Library"%2C "TCL%3A WSL")) AND type %3D Bug ORDER BY priority DESC%2C key ASC
+https://jira.allseenalliance.org/issues/?jql=project %3D ASACORE AND status in (Open%2C "In Progress"%2C Reopened%2C New) AND (component %3D EMPTY OR component in ("About TC"%2C "Thin Core Library")) AND type %3D Bug ORDER BY priority DESC%2C key ASC
 
 
 Compatibility
 -------------
+Starting in Version 14.06a
+No changes.
+
 Starting in Version 14.06
 * The APIs for About in the core/about_tcl repo are DEPRECATED
-* Thin Library protocol version changed from 8 to 9.
+* Thin Library protocol version changed from 9 to 10.
 * New function AJ_StartClientByInterface which adds support for new NGNS
   features
 * Thin Client accepts connection to the routing node (RN) based on protocol
-  version. When connecting to a pre-14.06 (protocol version < 9) routing
+  version. When connecting to a pre-14.06 (protocol version < 10) routing
   node you must use the functions AJ_StartClient or AJ_StartService
   otherwise the thin client will reject the connection. Using the NGNS
   function AJ_StartClientByInterface will only allow you to connect to a
@@ -85,10 +97,10 @@ Starting in Version 14.06
     stand-alone RNs this is easily changed via the configuration file,
     while for bundled configurations this requires that the configuration
     in the code be modified.  Another way to mitigate this is for the TCL
-    App developer to modify the AJ_FindBusAndConnect() function (found in
-    aj_connect.c) to keep trying to connect to a different RN when an RN
-    connection fails; that is, search for a RN that the TCL App can connect
-    to.
+    App developer to apply the following patch:
+    https://git.allseenalliance.org/gerrit/#/c/2135/
+    The patch implements a blacklist of RNs that cannot be connected to
+    because of authentication failures or version incompatibility.
 
 Starting in Version 14.02
 * Thin Client now negotiates AllJoyn protocol version with routing node
@@ -101,8 +113,9 @@ Starting in Version 14.02
 
 Change history
 --------------
-14.06 - Bug fixes, scalability and stability support, new features listed
-        above.
-14.02 - Bug fixes.
-3.4.1 - Bug fixes.
-3.4.0 - Support for Object Level Security.
+14.06a - Bug fixes: ASACORE-800 and above
+14.06  - Bug fixes, scalability and stability support, new features listed
+         above.
+14.02  - Bug fixes.
+3.4.1  - Bug fixes.
+3.4.0  - Support for Object Level Security.
