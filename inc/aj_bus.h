@@ -102,7 +102,6 @@ AJ_Status AJ_BusRequestName(AJ_BusAttachment* bus, const char* name, uint32_t fl
 #define AJ_TRANSPORT_WLAN      0x0004    /**< Wireless local-area network transport */
 #define AJ_TRANSPORT_WWAN      0x0008    /**< Wireless wide-area network transport */
 #define AJ_TRANSPORT_LAN       0x0010    /**< Wired local-area network transport */
-#define AJ_TRANSPORT_PROXIMITY 0x0040    /**< Transport compatible with WinRT Proximity Framework */
 
 #define AJ_TRANSPORT_TCP       0x0004    /**< Transport using TCP (same thing as WLAN that implies TCP) */
 #define AJ_TRANSPORT_UDP       0x0100    /**< Transport using the AllJoyn Reliable Datagram Protocol (flavor of reliable UDP) */
