@@ -22,10 +22,10 @@
 #include "aj_version.h"
 
 #define AJ_TO_STRING(x) # x
-#define AJ_VERSION_STRING(a, b, c, d) AJ_TO_STRING(a) "." AJ_TO_STRING(b) "." AJ_TO_STRING(c) " Tag " AJ_TO_STRING(d) "\0"
+#define AJ_VERSION_STRING(a, b, c, d, e) AJ_TO_STRING(a) "." AJ_TO_STRING(b) "." AJ_TO_STRING(c) AJ_TO_STRING(d) " Tag " AJ_TO_STRING(e) "\0"
 const char* AJ_GetVersion()
 {
-    static const char VERSION[] = AJ_VERSION_STRING(AJ_MAJOR_VERSION, AJ_MINOR_VERSION, AJ_RELEASE_VERSION, AJ_RELEASE_TAG);
+    static const char VERSION[] = AJ_VERSION_STRING(AJ_RELEASE_YEAR_STR, AJ_RELEASE_MONTH_STR, AJ_FEATURE_VERSION_STR, AJ_BUGFIX_VERSION_STR, AJ_RELEASE_TAG);
     return &VERSION[0];
 }
 
