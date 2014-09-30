@@ -20,6 +20,10 @@
 #ifndef AJ_BSP_H_
 #define AJ_BSP_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "aj_target.h"
 /*
  * This file contains the layer between alljoyn and platform specific code.
@@ -37,12 +41,12 @@ void AJ_PlatformInit(void);
  * This function should be implemented on a specific platform to write
  * a byte of data over SPI
  */
-aj_spi_status AJ_SPI_WRITE(uint8_t spi_device, uint8_t byte, uint8_t pcs, uint8_t cont);
+//aj_spi_status AJ_SPI_WRITE(uint8_t spi_device, uint8_t byte, uint8_t pcs, uint8_t cont);
 /*
  * This function should be implemented on a specific platform to read
  * a byte of data over SPI
  */
-aj_spi_status AJ_SPI_READ(uint8_t spi_device, uint8_t* data, uint8_t pcs);
+//aj_spi_status AJ_SPI_READ(uint8_t spi_device, uint8_t* data, uint8_t pcs);
 
 /*
  * This function should be implemented on a specific platform to initialize
@@ -61,5 +65,10 @@ void AJ_WSL_SPI_ShutdownSPIController(void);
 void AJ_WSL_SPI_ISR(void);
 
 void AJ_WSL_SPI_CHIP_SPI_ISR(uint32_t id, uint32_t mask);
+AJ_Status AJ_WSL_SPI_DMATransfer(uint8_t* buffer, uint16_t len, uint8_t direction);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* AJ_BSP_H_ */

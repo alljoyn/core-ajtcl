@@ -28,6 +28,7 @@
 #include "aj_wsl_htc.h"
 #include "aj_wsl_net.h"
 #include "aj_wsl_unmarshal.h"
+#include "aj_wsl_marshal.h"
 
 #include "aj_debug.h"
 
@@ -211,11 +212,12 @@ AJ_Status AJ_WSL_NET_SetPassphrase(const char* SSID, const char* passphrase, uin
     passphraseList = AJ_BufListCreate();
     uint8_t* hexPassphrase = NULL;
     if (passLen == 64) {
-        hexPassphrase = AJ_WSL_Malloc(32);
+        hexPassphrase = (uint8_t*)AJ_WSL_Malloc(32);
         status = AJ_HexToRaw(passphrase, 64, hexPassphrase, 32);
         if (status == AJ_OK) {
             WSL_MarshalPacket(passphraseList, WMI_SET_PMK, 0, hexPassphrase, 32);
         } else {
+            AJ_WSL_Free(hexPassphrase);
             // Passphrase was not valid HEX data
             return AJ_ERR_INVALID;
         }
@@ -770,7 +772,7 @@ int16_t AJ_WSL_NET_socket_select(AJ_WSL_SOCKNUM sock, uint32_t timeout)
 }
 void AJ_WSL_NET_signal_interrupted(AJ_WSL_SOCKNUM sock)
 {
-    wsl_work_item* item = AJ_WSL_Malloc(sizeof(wsl_work_item));
+    wsl_work_item* item = (wsl_work_item*)AJ_WSL_Malloc(sizeof(wsl_work_item));
 
     item->itemType = WSL_NET_INTERUPT;
     item->sequenceNumber = 0;
@@ -1001,7 +1003,7 @@ int16_t AJ_WSL_NET_socket_sendto(uint32_t socket, uint8_t* data, uint16_t size, 
     send = AJ_BufListCreate();
     tx_data_node = AJ_BufListCreateNodeExternalZero(data, size, FALSE);
 
-    WMI_MarshalSendTo(send, AJ_WSL_SOCKET_CONTEXT[socket].targetHandle, tx_data_node, size, swap32(addr), port);
+    WMI_MarshalSendTo(send, AJ_WSL_SOCKET_CONTEXT[socket].targetHandle, tx_data_node, size, AJ_ByteSwap32(addr), port);
     //send now contains the header info for the two part packet your sending
     //now write send to the MBOX then the data your sending
     AJ_WSL_WMI_PadPayload(send);

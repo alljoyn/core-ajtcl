@@ -20,6 +20,10 @@
 #ifndef AJ_WSL_TARGET_H__
 #define AJ_WSL_TARGET_H__
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "aj_target_platform.h"
 #include "aj_target.h"
 #include "RTOS.h"
@@ -50,7 +54,7 @@ void AJ_WSL_NET_StackInit(void);
 void* AJ_WSL_Malloc(size_t size);
 void AJ_WSL_Free(void* ptr);
 #endif
-
+AJ_Status AJ_WSL_SPI_RegisterRead(uint16_t reg, uint8_t* spi_data);
 
 /**
  * global flag that indicates the target chip has SPI data available
@@ -88,5 +92,8 @@ extern volatile uint8_t g_b_spi_interrupt_data_ready;
 #endif
 #endif
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif // AJ_WSL_TARGET_H__

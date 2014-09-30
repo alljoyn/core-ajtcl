@@ -20,6 +20,10 @@
 #ifndef AJ_WSL_SPI_H_
 #define AJ_WSL_SPI_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "aj_target.h"
 #include "aj_status.h"
 #include "aj_wsl_target.h"
@@ -110,4 +114,9 @@ AJ_EXPORT AJ_Status AJ_WSL_ReadFromMBox(uint8_t box, uint16_t* len, uint8_t** bu
 AJ_EXPORT AJ_Status AJ_WSL_WriteBufListToMBox(uint8_t box, uint8_t endpoint, uint16_t len, AJ_BufList* list);
 
 #pragma pack(pop)
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif /* AJ_WSL_SPI_H_ */

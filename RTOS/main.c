@@ -28,7 +28,7 @@ static void main_task(void* parameters)
     AJ_AlwaysPrintf((" ==============================================\n"));
     AJ_AlwaysPrintf(("||       Alljoyn Thin Client + FreeRTOS       ||\n"));
     AJ_AlwaysPrintf((" ==============================================\n"));
-    AllJoyn_Start();
+    AllJoyn_Start(0);
     while (1) ;
 }
 
@@ -38,3 +38,4 @@ int main(void)
     AJ_StartScheduler();
     return 0;
 }
+

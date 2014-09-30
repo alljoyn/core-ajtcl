@@ -29,7 +29,7 @@
 
 
 void AJ_WSL_HTC_ModuleInit(void);
-
+uint8_t AJ_WSL_IsDriverStarted(void);
 /*
  *  Endpoints can be in any of these states
  */

@@ -36,7 +36,7 @@ wsl_scan_item* WMI_UnmarshalScan(void* data)
     wsl_scan_item* scan;
     uint8_t* ptr;
     int i;
-    ptr = data;
+    ptr = (uint8_t*)data;
     scan = (wsl_scan_item*)WSL_InitScanItem();
     scan->rssi = *(ptr + 15);
     for (i = 0; i < 6; i++) {         //MAC is bytes 16 through 22
@@ -55,7 +55,7 @@ int32_t WMI_Unmarshal(void* data, const char* sig, ...)
     va_list args;
     uint8_t* ptr;
     va_start(args, sig);
-    ptr = data;
+    ptr = (uint8_t*)data;
     while (*sig) {
         switch (*sig++) {
         case (WMI_ARG_UINT64):

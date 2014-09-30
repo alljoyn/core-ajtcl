@@ -176,8 +176,8 @@ void WSL_MarshalPacket(AJ_BufList* packet, wsl_wmi_command_list command, ...)
         memcpy(cmdid->buffer + 2, &zero, sizeof(uint32_t));
         uint32_t sock_cmd = (uint32_t)va_arg(args, uint32_t);
         memcpy(cmdid->buffer + 6, &sock_cmd, sizeof(uint32_t));
-        signature = (char*)getSockSignature(sock_cmd);
-        size = getSockSize(sock_cmd);
+        signature = (char*)getSockSignature((wsl_socket_cmds)sock_cmd);
+        size = getSockSize((wsl_socket_cmds)sock_cmd);
         AJ_BufListPushTail(packet, cmdid);
         WMI_MarshalArgsBuf(packet, signature, size - 4, &args);
     } else if ((command == WSL_SEND) || (command == WSL_SENDTO) || (command == WSL_SENDTO6)) {

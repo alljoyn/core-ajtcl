@@ -354,7 +354,7 @@ static int MCastUp6()
     /*
      * We pass the current global IPv6 address into the sockopt for joining the multicast group.
      */
-    AJ_WSL_ip6config(IPCONFIG_QUERY, &gblAddr, &locAddr, &gwAddr, &gblExtAddr, linkPrefix, glbPrefix, gwPrefix, glbExtPrefix);
+    AJ_WSL_ip6config(IPCONFIG_QUERY, (uint8_t*)&gblAddr, (uint8_t*)&locAddr, (uint8_t*)&gwAddr, (uint8_t*)&gblExtAddr, linkPrefix, glbPrefix, gwPrefix, glbExtPrefix);
     AJ_InfoPrintf(("Global Address:\n"));
     AJ_InfoPrintf(("%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x\n",
                    gblAddr[0], gblAddr[1], gblAddr[2], gblAddr[3],
@@ -368,7 +368,7 @@ static int MCastUp6()
         AJ_ErrPrintf(("MCastUp6(): socket() fails. status=AJ_ERR_READ\n"));
         return INVALID_SOCKET;
     }
-    ret = AJ_WSL_NET_socket_bind6(mcastSock, &IP6_ADDR_ANY, AJ_EphemeralPort());
+    ret = AJ_WSL_NET_socket_bind6(mcastSock, (uint8_t*)&IP6_ADDR_ANY, AJ_EphemeralPort());
 
     uint8_t optval[32];
     memcpy(&optval, &AJ_IPV6_MCAST_GROUP2, 16);
@@ -394,8 +394,8 @@ AJ_Status AJ_Net_MCastUp(AJ_NetSocket* netSock)
         uint8_t* rxDataMCast = NULL;
         uint8_t* txDataMCast = NULL;
 
-        rxDataMCast = AJ_Malloc(rxDataMCastSize);
-        txDataMCast = AJ_Malloc(txDataMCastSize);
+        rxDataMCast = (uint8_t*)AJ_Malloc(rxDataMCastSize);
+        txDataMCast = (uint8_t*)AJ_Malloc(txDataMCastSize);
         if (!rxDataMCast || !txDataMCast) {
             return AJ_ERR_UNEXPECTED;
         }

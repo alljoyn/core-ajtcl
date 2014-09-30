@@ -17,6 +17,10 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * Per-module definition of the current module for debug logging.  Must be defined
  * prior to first inclusion of aj_debug.h
@@ -26,7 +30,7 @@
 #include "aj_target.h"
 #include "aj_util.h"
 #include "aj_buf.h"
-
+#include "aj_wsl_target.h"
 #include "aj_debug.h"
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
@@ -81,7 +85,7 @@ AJ_BufList* AJ_BufListCreateCopy(AJ_BufList* listIn)
 AJ_BufNode* AJ_BufListCreateNodeZero(uint16_t bufferSize, uint8_t zeroBuffer)
 {
     AJ_BufNode* newNode = (AJ_BufNode*)AJ_WSL_Malloc(sizeof(AJ_BufNode));
-    newNode->buffer = (void*)AJ_WSL_Malloc(bufferSize);
+    newNode->buffer = (uint8_t*)AJ_WSL_Malloc(bufferSize);
     if (zeroBuffer) {
         memset(newNode->buffer, 0, bufferSize);
     }
@@ -327,14 +331,14 @@ void AJ_BufNodeIterate(AJ_BufNodeFunc nodeFunc, AJ_BufList* list, void* context)
     }
 }
 
-AJ_Status AJ_BufListIterate(AJ_BufListFunc nodeFunc, AJ_BufList* list, void* context)
+AJ_Status AJ_BufListIterate(AJ_BufNodeFunc nodeFunc, AJ_BufList* list, void* context)
 {
     AJ_Status status = AJ_OK;
     if (list != NULL) {
         AJ_BufNode* node = list->head;
         while ((status == AJ_OK) && (node != NULL)) {
             AJ_BufNode* nextNode = node->next;
-            status = nodeFunc(node, context);
+            nodeFunc(node, context);
             node = nextNode;
         }
     }
@@ -390,19 +394,17 @@ uint16_t AJ_BufListLengthOnWire(AJ_BufList* list)
 }
 
 
-AJ_Status AJ_BufListFreeNode(AJ_BufNode* node, void* context)
+void AJ_BufListFreeNode(AJ_BufNode* node, void* context)
 {
     AJ_WSL_Free(node);
-    return AJ_OK;
 }
 
-AJ_Status AJ_BufListFreeNodeAndBuffer(AJ_BufNode* node, void* context)
+void AJ_BufListFreeNodeAndBuffer(AJ_BufNode* node, void* context)
 {
     if (node && !(node->flags & AJ_BUFNODE_EXTERNAL_BUFFER)) {
         AJ_WSL_Free(node->bufferStart);
     }
     AJ_WSL_Free(node);
-    return AJ_OK;
 }
 
 
@@ -423,4 +425,6 @@ uint32_t AJ_BufListGetSize(AJ_BufList* list)
     }
     return size;
 }
-
+#ifdef __cplusplus
+}
+#endif

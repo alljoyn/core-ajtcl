@@ -77,9 +77,9 @@ struct AJ_TaskHandle {
 
 
 struct AJ_Queue* AJ_QueueCreate(const char* name) {
-    struct AJ_Queue* p = AJ_Malloc(sizeof(struct AJ_Queue));
+    struct AJ_Queue* p = (struct AJ_Queue*)AJ_Malloc(sizeof(struct AJ_Queue));
     p->q = xQueueCreate(QUEUE_SIZE, ITEM_SIZE);
-    vQueueAddToRegistry(p->q, name);
+    vQueueAddToRegistry(p->q, (signed char*)name);
     return p;
 }
 void AJ_QueueDelete(struct AJ_Queue* q)
@@ -122,7 +122,7 @@ AJ_Status AJ_QueuePushFromISR(struct AJ_Queue* q, void* data)
     uint8_t hasWoken;
     uint8_t ret;
     if (q && q->q && data) {
-        ret = xQueueSendToFrontFromISR(q->q, data, &hasWoken);
+        ret = xQueueSendToFrontFromISR(q->q, data, (long int*)&hasWoken);
     }
     return AJ_OK;
 }
@@ -159,7 +159,7 @@ uint32_t AJ_MsToTicks(uint32_t ms)
  * this pointer can easily point to a new type of structure
  */
 struct AJ_Mutex* AJ_MutexCreate(void) {
-    struct AJ_Mutex* mutex = AJ_Malloc(sizeof(struct AJ_Mutex));
+    struct AJ_Mutex* mutex = (struct AJ_Mutex*)AJ_Malloc(sizeof(struct AJ_Mutex));
     mutex->m = xSemaphoreCreateBinary();
     xSemaphoreGive(mutex->m);
     return mutex;
@@ -213,7 +213,7 @@ AJ_Status AJ_CreateTask(void (*task)(void*),
 {
     int status;
     if (handle) {
-        struct AJ_TaskHandle* th = AJ_Malloc(sizeof(struct AJ_TaskHandle));
+        struct AJ_TaskHandle* th = (struct AJ_TaskHandle*)AJ_Malloc(sizeof(struct AJ_TaskHandle));
         status = xTaskCreate(task, name, stackDepth, parameters, priority, &th->t);
         *handle = th;
     } else {
@@ -279,11 +279,13 @@ void AJ_PlatformInit(void)
     return AJ_OK;
    }
  */
+
 void AJ_Sleep(uint32_t time)
 {
     /* This function does not work until AJ_StartScheduler is called */
     const portTickType delay = (time / portTICK_RATE_MS);
     vTaskDelay(delay);
+
 }
 
 uint32_t AJ_GetElapsedTime(AJ_Time* timer, uint8_t cumulative)

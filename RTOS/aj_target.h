@@ -18,14 +18,22 @@
  *    ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
+
+#include <stdlib.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 #define AJ_EXPORT
 
 #include <stdint.h>
 #include <stddef.h>
-#include "aj_target_platform.h"
+
 #include "aj_target_rtos.h"
+#include "aj_target_platform.h"
 #include <string.h>
 #include "assert.h"
+#include "aj_connect.h"
 
 #ifndef TRUE
 #define TRUE (1)
@@ -67,6 +75,8 @@ extern uint8_t dbgTARGET_UTIL;
  */
 #define AJ_Reboot() _AJ_Reboot()
 
-
+#ifdef __cplusplus
+}
+#endif
 
 #endif

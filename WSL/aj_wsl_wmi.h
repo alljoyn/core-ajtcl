@@ -16,10 +16,12 @@
  *    ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
-
-
 #ifndef AJ_WSL_WMI_H_
 #define AJ_WSL_WMI_H_
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #include "aj_target.h"
 #include "aj_wsl_target.h"
@@ -27,6 +29,7 @@
 #include "aj_buf.h"
 #include "aj_target_platform.h"
 #include "aj_target_rtos.h"
+#include "aj_wsl_spi_constants.h"
 
 void AJ_WSL_WMI_ModuleInit(void);
 // prototype for functions that are invoked for wifi connection status
@@ -185,14 +188,119 @@ typedef struct _wsl_socket_context {
 
 extern uint8_t AJ_WSL_SOCKET_MAX;
 
+/**
+ * Find a socket number
+ *
+ * @param handle        The socket handle
+ *
+ * @return              The socket number with associated handle
+ */
 AJ_WSL_SOCKNUM AJ_WSL_FindSocketContext(uint32_t handle);
 
+/**
+ * Find a socket that you can open
+ *
+ * @return              The socket number avaliable
+ */
+AJ_WSL_SOCKNUM AJ_WSL_FindOpenSocketContext(void);
 
-
+/**
+ * Process a WMI event
+ *
+ * @param pNodeHTCBody  The buf node that was received over WMI
+ */
 AJ_EXPORT void AJ_WSL_WMI_ProcessWMIEvent(AJ_BufNode* pNodeHTCBody);
+
+/**
+ * Process a data WMI event
+ *
+ * @param pNodeHTCBody  The buf node that was received over WMI
+ */
 AJ_EXPORT void AJ_WSL_WMI_ProcessSocketDataResponse(AJ_BufNode* pNodeHTCBody);
 
-AJ_Status AJ_WSL_WMI_WaitForWorkItem(uint32_t socket, AJ_WSL_NET_COMMAND command, wsl_work_item** item);
+/**
+ * Queue a work item to be sent to the target
+ *
+ * @param socket        Socket to send over
+ * @param command       Enum WMI command your sending
+ * @param endpoint      Endpoint on the target to send to
+ * @param list          Buf List that your sending (must be previously marshalled)
+ *
+ * @return              AJ_OK on success
+ */
+AJ_Status AJ_WSL_WMI_QueueWorkItem(uint32_t socket, uint8_t command, uint8_t endpoint, AJ_BufList* list);
+
+/**
+ * Wait for a work item that was previously send on the queue
+ *
+ * @param socket        Socket that the work item was sent to
+ * @param command       Command the was sent
+ * @param item          Address of the work item pointer
+ */
+AJ_Status AJ_WSL_WMI_WaitForWorkItem(uint32_t socket, uint8_t command, wsl_work_item** item);
+
+/**
+ * Free a work item pointer. This frees everything inside the work item structure
+ *
+ * @param item          Item to be freed
+ */
 void AJ_WSL_WMI_FreeWorkItem(wsl_work_item* item);
+
+/**
+ * Get the WMI command ID from the enum command list
+ *
+ * @param command       Enum command your getting the ID for
+ *
+ * @return              The command ID
+ */
+const uint16_t getCommandId(wsl_wmi_command_list command);
+
+/**
+ * Get the command signature
+ *
+ * @param command       Command you want the signature to
+ *
+ * @return              The signature
+ */
+const char* getCommandSignature(wsl_wmi_command_list command);
+
+/**
+ * Get the packet size for a given command
+ *
+ * @param command       The command you need the size for
+ *
+ * @return              The size of the packet
+ */
+const uint16_t getPacketSize(wsl_wmi_command_list command);
+
+/**
+ * Get the socket signature for a socket command
+ *
+ * @param command       The SOCKET command you need the signature for
+ *
+ * @return              The signature
+ */
+const char* getSockSignature(wsl_socket_cmds command);
+
+/**
+ * Get the packet size for a socket command
+ *
+ * @param command       The command you need the size for
+ *
+ * @return              The size of the socket packet
+ */
+uint16_t getSockSize(wsl_socket_cmds command);
+
+/**
+ * Get the devices MAC address
+ *
+ * @return              Pointer to the MAC address data
+ */
+uint8_t* getDeviceMac(void);
+
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* AJ_WSL_WMI_H_ */

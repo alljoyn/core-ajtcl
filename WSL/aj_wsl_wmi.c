@@ -30,13 +30,13 @@
 #include "aj_wsl_tasks.h"
 #include "aj_malloc.h"
 #include "aj_debug.h"
-
+#include "aj_wsl_unmarshal.h"
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
  * (usually in debugger).
  */
 #ifndef NDEBUG
-uint8_t dbgWSL_WMI = 0;
+uint8_t dbgWSL_WMI = 5;
 #endif
 
 extern AJ_WSL_HTC_CONTEXT AJ_WSL_HTC_Global;
@@ -55,6 +55,7 @@ extern wsl_socket_context AJ_WSL_SOCKET_CONTEXT[5];
 uint8_t AJ_WSL_SOCKET_MAX = ArraySize(AJ_WSL_SOCKET_CONTEXT);
 uint32_t AJ_WSL_SOCKET_HANDLE_INVALID = UINT32_MAX;
 
+struct AJ_TaskHandle* AJ_WSL_MBoxListenHandle;
 /*
  * Maps command ID's and signatures
  * Use the enum "wsl_wmi_command_list" to index
@@ -143,15 +144,15 @@ uint8_t* getDeviceMac(void)
 }
 
 static const AJ_HeapConfig wsl_heapConfig[] = {
-    { 8,     30 },
-    { 16,    100 },
-    { 20,    80 },
-    { 24,    10 },
-    { 32,    20 },
-    { 48,    10 },
-    { 64,    10 },
-    { 84,     6 },
-    { 100,    2 },
+    { 8,     30, 0 },
+    { 16,    100, 0 },
+    { 20,    80, 0 },
+    { 24,    10, 0 },
+    { 32,    20, 0 },
+    { 48,    10, 0 },
+    { 64,    10, 0 },
+    { 84,     6, 0 },
+    { 100,    2, 0 },
 };
 #define WSL_HEAP_WORD_COUNT (7360 / 4)
 static uint32_t wsl_heap[WSL_HEAP_WORD_COUNT];
@@ -282,7 +283,7 @@ void AJ_WSL_WMI_ProcessWMIEvent(AJ_BufNode* pNodeHTCBody)
             uint8_t capability;
             dataUnmarshaled += WMI_Unmarshal(pNodeHTCBody->buffer + dataUnmarshaled, "uuMy", &AJ_WSL_TargetFirmware.target_ver, &AJ_WSL_TargetFirmware.abi_ver, &deviceMAC, &capability);
             AJ_InfoPrintf(("WMI_READY, version A %08lx, version B %08lx capability %x\n",  AJ_WSL_TargetFirmware.target_ver, AJ_WSL_TargetFirmware.abi_ver, capability));
-            AJ_InfoPrintf(("Device MAC: %02x:%02x:%02x:%02x:%02x:%02x:", deviceMAC[0], deviceMAC[1], deviceMAC[2], deviceMAC[3], deviceMAC[4], deviceMAC[5]));
+            AJ_InfoPrintf(("Device MAC: %02x:%02x:%02x:%02x:%02x:%02x\n", deviceMAC[0], deviceMAC[1], deviceMAC[2], deviceMAC[3], deviceMAC[4], deviceMAC[5]));
 
             AJ_WSL_HTC_Global.started = TRUE;
             break;
@@ -314,7 +315,7 @@ void AJ_WSL_WMI_ProcessWMIEvent(AJ_BufNode* pNodeHTCBody)
             wsl_work_item** pItem;
             AJ_Status status;
 
-            scanCompleteResponse = AJ_WSL_Malloc(sizeof(wsl_work_item));
+            scanCompleteResponse = (wsl_work_item*)AJ_WSL_Malloc(sizeof(wsl_work_item));
             memset(scanCompleteResponse, 0, sizeof(wsl_work_item));
             scanCompleteResponse->itemType = WSL_NET_SCAN;
             scanCompleteResponse->node = AJ_BufNodeCreateAndTakeOwnership(pNodeHTCBody);
@@ -341,7 +342,7 @@ void AJ_WSL_WMI_ProcessWMIEvent(AJ_BufNode* pNodeHTCBody)
             // the client will pull off a scan complete event and then continue.
             wsl_work_item* disconnectResponse;
             wsl_work_item** pItem;
-            disconnectResponse = AJ_WSL_Malloc(sizeof(wsl_work_item));
+            disconnectResponse = (wsl_work_item*)AJ_WSL_Malloc(sizeof(wsl_work_item));
             memset(disconnectResponse, 0, sizeof(wsl_work_item));
             disconnectResponse->itemType = WSL_NET_DISCONNECT;
             disconnectResponse->node = AJ_BufNodeCreateAndTakeOwnership(pNodeHTCBody);
@@ -362,7 +363,7 @@ void AJ_WSL_WMI_ProcessWMIEvent(AJ_BufNode* pNodeHTCBody)
             wsl_work_item** pItem;
             AJ_Status status;
 
-            connectResponse = AJ_WSL_Malloc(sizeof(wsl_work_item));
+            connectResponse = (wsl_work_item*)AJ_WSL_Malloc(sizeof(wsl_work_item));
             memset(connectResponse, 0, sizeof(wsl_work_item));
             connectResponse->itemType = WSL_NET_CONNECT;
             connectResponse->node = AJ_BufNodeCreateAndTakeOwnership(pNodeHTCBody);
@@ -414,7 +415,7 @@ void AJ_WSL_WMI_ProcessWMIEvent(AJ_BufNode* pNodeHTCBody)
                 if (status == AJ_OK) {
                     wsl_work_item** ppWork;
                     wsl_work_item* sockResp;
-                    sockResp = AJ_WSL_Malloc(sizeof(wsl_work_item));
+                    sockResp = (wsl_work_item*)AJ_WSL_Malloc(sizeof(wsl_work_item));
                     memset(sockResp, 0, sizeof(wsl_work_item));
                     sockResp->itemType = AJ_WSL_WORKITEM(AJ_WSL_WORKITEM_SOCKET, responseType);
                     //sockResp->size = payloadSize;
@@ -493,7 +494,7 @@ void AJ_WSL_WMI_ProcessSocketDataResponse(AJ_BufNode* pNodeHTCBody)
         bufferOffset += 12;
     }
 
-    sockResp = AJ_WSL_Malloc(sizeof(wsl_work_item));
+    sockResp = (wsl_work_item*)AJ_WSL_Malloc(sizeof(wsl_work_item));
     memset(sockResp, 0, sizeof(wsl_work_item));
     sockResp->itemType = WSL_NET_DATA_RX;
     sockResp->size = payloadSize;
@@ -505,12 +506,12 @@ void AJ_WSL_WMI_ProcessSocketDataResponse(AJ_BufNode* pNodeHTCBody)
     AJ_QueuePush(AJ_WSL_SOCKET_CONTEXT[socketIndex].workRxQueue, ppWork, AJ_TIMER_FOREVER);
 }
 
-AJ_Status AJ_WSL_WMI_QueueWorkItem(uint32_t socket, AJ_WSL_NET_COMMAND command, uint8_t endpoint, AJ_BufList* list)
+AJ_Status AJ_WSL_WMI_QueueWorkItem(uint32_t socket, uint8_t command, uint8_t endpoint, AJ_BufList* list)
 {
     AJ_InfoPrintf(("AJ_WSL_WMI_QueueWorkItem()\n"));
     wsl_work_item** ppWork;
     wsl_work_item* sockWork;
-    sockWork = AJ_WSL_Malloc(sizeof(wsl_work_item));
+    sockWork = (wsl_work_item*)AJ_WSL_Malloc(sizeof(wsl_work_item));
     memset(sockWork, 0, sizeof(wsl_work_item));
     sockWork->itemType = command;
     sockWork->list = list;
@@ -526,7 +527,7 @@ AJ_Status AJ_WSL_WMI_QueueWorkItem(uint32_t socket, AJ_WSL_NET_COMMAND command, 
  * This function just returns the work item. If there is data inside that you want
  * you have to unmarshal it after you receive the work item.
  */
-AJ_Status AJ_WSL_WMI_WaitForWorkItem(uint32_t socket, AJ_WSL_NET_COMMAND command, wsl_work_item** item)
+AJ_Status AJ_WSL_WMI_WaitForWorkItem(uint32_t socket, uint8_t command, wsl_work_item** item)
 {
     AJ_Status status;
 //    AJ_AlwaysPrintf(("WaitForWorkItem: %x\n", command));
@@ -560,8 +561,8 @@ AJ_Status AJ_WSL_WMI_WaitForWorkItem(uint32_t socket, AJ_WSL_NET_COMMAND command
             // If we got data we want to save it and not throw it away, its still not what we
             // wanted so we return AJ_ERR_NULL
             if ((*item)->node->length) {
-                AJ_BufNode* new = AJ_BufNodeCreateAndTakeOwnership((*item)->node);
-                AJ_BufListPushTail(AJ_WSL_SOCKET_CONTEXT[socket].stashedRxList, new);
+                AJ_BufNode* new_node = AJ_BufNodeCreateAndTakeOwnership((*item)->node);
+                AJ_BufListPushTail(AJ_WSL_SOCKET_CONTEXT[socket].stashedRxList, new_node);
                 return AJ_ERR_NULL;
             }
         } else {

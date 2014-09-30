@@ -21,11 +21,17 @@
 #ifndef AJ_BUF_H_
 #define AJ_BUF_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "aj_target.h"
 #include "aj_status.h"
 #include "aj_wsl_target.h"
-#pragma pack(push, 1)
 
+#ifndef __cplusplus
+#pragma pack(push, 1)
+#endif
 
 void AJ_BufList_ModuleInit(void);
 
@@ -84,12 +90,12 @@ AJ_BufNode* AJ_BufNodeCreateAndTakeOwnership(AJ_BufNode* giving);
 /*
  * Free the parameter node, (!but not the payload!)
  */
-AJ_Status AJ_BufListFreeNode(AJ_BufNode* node, void* context);
+void AJ_BufListFreeNode(AJ_BufNode* node, void* context);
 
 /*
  * Free the parameter node, and the payload buffer
  */
-AJ_Status AJ_BufListFreeNodeAndBuffer(AJ_BufNode* node, void* context);
+void AJ_BufListFreeNodeAndBuffer(AJ_BufNode* node, void* context);
 
 /*
  * create a new payload of the parameter node
@@ -119,7 +125,7 @@ typedef void (*AJ_BufNodeFunc)(AJ_BufNode* node, void* context);
 typedef AJ_Status (*AJ_BufListFunc)(AJ_BufList* node, void* context);
 
 // perform operation on each node in a buffer list
-AJ_Status AJ_BufListIterate(AJ_BufListFunc listFunc, AJ_BufList* list, void* context);
+AJ_Status AJ_BufListIterate(AJ_BufNodeFunc nodeFunc, AJ_BufList* list, void* context);
 
 void AJ_BufNodeIterate(AJ_BufNodeFunc nodeFunc, AJ_BufList* list, void* context);
 
@@ -172,6 +178,12 @@ void AJ_BufListReadBytesFromWire_Simulated(uint16_t numberToRead, uint8_t* outpu
 void AJ_BufListIterateOnWire(AJ_BufNodeFuncWireBuf nodeFunc, AJ_BufList* list, AJ_BUF_WIREBUFFER* wire);
 
 #endif
+#ifndef __cplusplus
 #pragma pack(pop)
+#endif
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* AJ_BUF_H_ */

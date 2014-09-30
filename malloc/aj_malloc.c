@@ -105,7 +105,7 @@ AJ_Status AJ_PoolInit(void* heap, size_t heapSz, const AJ_HeapConfig* poolConfig
                 AJ_ErrPrintf(("Heap is too small for the requested pool allocations\n"));
                 return AJ_ERR_RESOURCES;
             }
-            block->next = p->freeList;
+            block->next = (MemBlock*)p->freeList;
             p->freeList = (void*)block;
             heapEnd += sz;
             heapSz -= sz;
@@ -180,7 +180,7 @@ void AJ_PoolFree(void* mem)
         for (i = 0; i < numPools; ++i, ++p) {
             if ((ptrdiff_t)mem < (ptrdiff_t)p->endOfPool) {
                 MemBlock* block = (MemBlock*)mem;
-                block->next = p->freeList;
+                block->next = (MemBlock*)p->freeList;
                 p->freeList = block;
                 AJ_InfoPrintf(("AJ_PoolFree pool[%d]\n", heapConfig[i].size));
 #ifndef NDEBUG
@@ -220,7 +220,7 @@ void* AJ_PoolRealloc(void* mem, size_t newSz)
                         /*
                          * Put old block on the free list
                          */
-                        block->next = p->freeList;
+                        block->next = (MemBlock*)p->freeList;
                         p->freeList = block;
 #ifndef NDEBUG
                         --p->use;

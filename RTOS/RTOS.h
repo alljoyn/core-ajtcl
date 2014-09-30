@@ -192,5 +192,6 @@ void AJ_EnterCriticalRegion(void);
  * exit the critical region and enable interrupts if needed
  */
 void AJ_LeaveCriticalRegion(void);
-
+void AJ_PlatformInit(void);
+void AllJoyn_Start(unsigned long arg);
 #endif /* RTOS_H_ */

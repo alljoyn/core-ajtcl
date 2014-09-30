@@ -60,4 +60,37 @@ void WMI_MarshalHeader(AJ_BufList* packet, uint8_t endpoint, uint8_t flags);
  */
 void WSL_MarshalPacket(AJ_BufList* packet, wsl_wmi_command_list command, ...);
 
+/**
+ * Marshal a IPv6 sendTo packet.
+ *
+ * @param packet    The buf list where the marshalled data will be stored
+ * @param sock      The socket your sending the packet over
+ * @param data      Pointer to the data your sending
+ * @param size      Size of the data your sending
+ * @param addr      Endpoint address your sending to
+ * @param port      The port your sending over
+ */
+void WMI_MarshalSendTo6(AJ_BufList* packet, uint32_t sock, AJ_BufNode* data, uint16_t size, uint8_t* addr, uint16_t port);
+
+/**
+ * Marshal a IPv4 sendTo packet.
+ *
+ * @param packet    The buf list where the marshalled data will be stored
+ * @param sock      The socket your sending the packet over
+ * @param data      Pointer to the data your sending
+ * @param size      Size of the data your sending
+ * @param addr      Endpoint address your sending to
+ * @param port      The port your sending over
+ */
+void WMI_MarshalSendTo(AJ_BufList* packet, uint32_t sock, AJ_BufNode* data, uint16_t size, uint32_t addr, uint16_t port);
+
+/**
+ * Marshal a IPv4 send packet.
+ *
+ * @param packet    The buf list where the marshalled data will be stored
+ * @param sock      The socket your sending the packet over
+ * @param data      Pointer to the data your sending
+ * @param size      Size of the data your sending
+ */
+void WMI_MarshalSend(AJ_BufList* packet, uint32_t sock, AJ_BufNode* data, uint16_t size);
 #endif /* AJ_WSL_MARSHAL_H_ */

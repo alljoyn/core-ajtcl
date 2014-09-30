@@ -21,12 +21,16 @@
 #ifndef AJ_WSL_NET_H_
 #define AJ_WSL_NET_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "aj_target.h"
 #include "aj_wsl_target.h"
 #include "aj_status.h"
-
+#ifndef __cplusplus
 #pragma pack(push, 1)
-
+#endif
 typedef uint8_t AJ_WSL_SOCKNUM;
 
 #define AJ_WSL_SCAN_LIST_SIZE 30
@@ -271,5 +275,142 @@ AJ_EXPORT AJ_Status AJ_WSL_NET_ip6config_router_prefix(const uint8_t* ipv6addr, 
  */
 AJ_EXPORT AJ_Status AJ_WSL_NET_ipconfig_dhcp_pool(const uint32_t* startIP, const uint32_t* endIP, uint32_t leaseTime);
 
+/**
+ * Get an initialized scan item
+ *
+ * @return              A new scan item
+ */
+wsl_scan_item* WSL_InitScanItem(void);
+
+/**
+ * Push an interrupted work item onto the front of the queue. Used to break
+ * out of receive if needed.
+ *
+ * @param sock          Socket to send the interrupted call to
+ */
+void AJ_WSL_NET_signal_interrupted(AJ_WSL_SOCKNUM sock);
+
+/**
+ * Select (poll) for data over a socket. This will return when data is available.
+ *
+ * @param sock          Socket to poll for data on
+ * @param timeout       Timeout
+ *
+ * @return              1 if data is avaliable
+ *                      <1 if there was an error
+ */
+int16_t AJ_WSL_NET_socket_select(AJ_WSL_SOCKNUM sock, uint32_t timeout);
+
+/**
+ * Send UDP data over IPv6
+ *
+ * @param socket        The socket to send over
+ * @param data          Pointer to the data your sending
+ * @param size          Size of the data your sending
+ * @param addr          Endpoint address your sending to
+ * @param port          Port your sending over
+ * @param timeout       Timeout value (unused)
+ *
+ * @return              Number of bytes sent
+ */
+int16_t AJ_WSL_NET_socket_sendto6(uint32_t socket, uint8_t* data, uint16_t size, uint8_t* addr, uint16_t port, uint32_t timeout);
+
+/**
+ * Bind an IPv4 address to a port
+ *
+ * @param sock          Opened socket
+ * @param addr          Address to bind to
+ * @param port          Port to bind to
+ *
+ * @return              AJ_OK if the port was successfully bound.
+ */
+AJ_Status AJ_WSL_NET_socket_bind(AJ_WSL_SOCKNUM sock, uint32_t addr, uint16_t port);
+
+/**
+ * Bind an IPv6 address to a port
+ *
+ * @param sock          Opened socket
+ * @param addr          Address to bind to
+ * @param port          Port to bind to
+ *
+ * @return              AJ_OK if the port was successfully bound.
+ */
+AJ_Status AJ_WSL_NET_socket_bind6(AJ_WSL_SOCKNUM sock, uint8_t* addr, uint16_t port);
+
+/**
+ * Configure your IPv6 address
+ *
+ * @param mode          Mode (DHCP, Static)
+ * @param globalAddr    Global IPv6 address (returned if DHCP, provided if static)
+ * @param localAddr     Local IPv6 address (returned if DHCP, provided if static)
+ * @param gateway       Gateway IPv6 address (returned if DHCP, provided if static)
+ * @param exAddr        External Address (returned if DHCP, provided if static)
+ * @param linkPrefix    Link prefix
+ * @param globalPrefix  Global prefix
+ * @param gwPrefix
+ * @param gblPrefixExt  Global prefix extension
+ *
+ * @return              AJ_OK on success
+ */
+AJ_Status AJ_WSL_ip6config(uint32_t mode, uint8_t* globalAddr, uint8_t* localAddr, uint8_t* gateway, uint8_t* exAddr, uint32_t linkPrefix, uint32_t globalPrefix, uint32_t gwPrefix, uint32_t glbPrefixExt);
+
+/**
+ * Add a cipher key. Used for WEP security
+ *
+ * @param keyIndex      Index where the target will hold the key
+ * @param key           Pointer to the hex key
+ * @param keyLength     Length of the key
+ *
+ * @return              AJ_OK on success
+ */
+void AJ_WSL_NET_add_cipher_key(uint8_t keyIndex, uint8_t* key, uint8_t keyLength);
+
+/**
+ * Set the passphrase for WPA and WPA2 security
+ *
+ * @param SSID          SSID for this passphrase
+ * @param passphrase    ASCII passphrase
+ * @param passLen       Length of the passphrase
+ *
+ * @return              AJ_OK on success
+ */
+AJ_Status AJ_WSL_NET_SetPassphrase(const char* SSID, const char* passphrase, uint32_t passLen);
+
+/**
+ * Set the power mode on the target
+ *
+ * @param mode          Mode to set
+ *
+ * @return              AJ_OK if the mode was set sucessfully
+ */
+AJ_Status AJ_WSL_NET_SetPowerMode(uint8_t mode);
+
+/**
+ * Initialize the scan list for scanning SSID's
+ */
+void AJ_WSL_InitScanList(void);
+
+/**
+ * Stop an already started SSID scan
+ */
+void AJ_WSL_NET_scan_stop(void);
+
+/**
+ * Set the softAP to hidden
+ *
+ * @param hidden        1 for hidden, 0 for not hidden
+ */
+AJ_Status AJ_WSL_NET_SetHiddenAP(uint8_t hidden);
+
+/**
+ * Print the list of scanned SSID's
+ */
+void WSL_PrintScanSorted(void);
+#ifndef __cplusplus
 #pragma pack(pop)
+#endif
+
+#ifdef __cplusplus
+}
+#endif
 #endif /* AJ_WSL_NET_H_ */

@@ -20,6 +20,10 @@
 #ifndef AJ_WSL_TASKS_H_
 #define AJ_WSL_TASKS_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "aj_target.h"
 #include "aj_wsl_target.h"
 #include "aj_status.h"
@@ -31,6 +35,8 @@
 
 AJ_EXPORT void AJ_WSL_MBoxListenAndProcessTask(void* parameters);
 
-struct AJ_TaskHandle* AJ_WSL_MBoxListenHandle;
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* AJ_WSL_TASKS_H_ */

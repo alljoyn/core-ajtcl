@@ -25,6 +25,7 @@
 #include "aj_wsl_wmi.h"
 #include "aj_buf.h"
 #include "aj_debug.h"
+#include "aj_wsl_unmarshal.h"
 
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
@@ -60,7 +61,7 @@ void AJ_WSL_HTC_ProcessInterruptCause(void)
     uint16_t cause = 0;
     AJ_Status status = AJ_ERR_SPI_READ;
 
-    status = AJ_WSL_SPI_RegisterRead(AJ_WSL_SPI_REG_INTR_CAUSE, &cause);
+    status = AJ_WSL_SPI_RegisterRead(AJ_WSL_SPI_REG_INTR_CAUSE, (uint8_t*)&cause);
     AJ_ASSERT(status == AJ_OK);
     cause = LE16_TO_CPU(cause);
     if (cause & AJ_WSL_SPI_REG_INTR_CAUSE_DATA_AVAILABLE) {

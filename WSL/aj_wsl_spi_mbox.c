@@ -26,6 +26,7 @@
 #include "aj_wsl_htc.h"
 #include "aj_buf.h"
 #include "RTOS.h"
+#include "aj_bsp.h"
 
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
@@ -51,7 +52,7 @@ AJ_Status AJ_WSL_GetDMABufferSize(uint16_t* dmaSize)
 {
     AJ_Status status = AJ_ERR_SPI_READ;
     uint16_t size = 0;
-    status = AJ_WSL_SPI_RegisterRead(AJ_WSL_SPI_REG_DMA_SIZE, &size);
+    status = AJ_WSL_SPI_RegisterRead(AJ_WSL_SPI_REG_DMA_SIZE, (uint8_t*)&size);
     *dmaSize = size & ((1 << 12) - 1);
 
     return status;
@@ -69,7 +70,7 @@ AJ_Status AJ_WSL_GetWriteBufferSpaceAvailable(uint16_t* spaceAvailable)
 {
     AJ_Status status = AJ_ERR_SPI_READ;
     uint16_t space = 0;
-    status = AJ_WSL_SPI_RegisterRead(AJ_WSL_SPI_REG_WRBUF_SPC_AVA, &space);
+    status = AJ_WSL_SPI_RegisterRead(AJ_WSL_SPI_REG_WRBUF_SPC_AVA, (uint8_t*)&space);
     *spaceAvailable = space & ((1 << 12) - 1);
     AJ_InfoPrintf(("write buffer space available: %x %d\n", space, *spaceAvailable));
     return status;
@@ -79,7 +80,7 @@ AJ_Status AJ_WSL_GetReadBufferSpaceAvailable(uint16_t* spaceAvailable)
 {
     AJ_Status status = AJ_ERR_SPI_READ;
     uint16_t space = 0;
-    status = AJ_WSL_SPI_RegisterRead(AJ_WSL_SPI_REG_RDBUF_BYTE_AVA, &space);
+    status = AJ_WSL_SPI_RegisterRead(AJ_WSL_SPI_REG_RDBUF_BYTE_AVA, (uint8_t*)&space);
     *spaceAvailable = space & ((1 << 12) - 1);
 
     return status;
@@ -186,14 +187,14 @@ void AJ_WSL_SPI_ReadIntoBuffer(uint16_t bytesToRead, uint8_t** buf)
     // write the register
     rc = AJ_SPI_WRITE(AJ_WSL_SPI_DEVICE, *((uint8_t*)&send + 1), AJ_WSL_SPI_PCS, AJ_WSL_SPI_CONTINUE);
     AJ_ASSERT(rc == SPI_OK);
-    rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, &toss, &pcs); // toss.
+    rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, (uint8_t*)&toss, pcs); // toss.
     AJ_ASSERT(rc == SPI_OK);
     rc = AJ_SPI_WRITE(AJ_WSL_SPI_DEVICE, *(uint8_t*)&send, AJ_WSL_SPI_PCS, AJ_WSL_SPI_END);
     AJ_ASSERT(rc == SPI_OK);
-    rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, &toss, &pcs); // toss.
+    rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, (uint8_t*)&toss, pcs); // toss.
     AJ_ASSERT(rc == SPI_OK);
 
-    AJ_WSL_SPI_DMATransfer((uint32_t)*buf, bytesToRead, 0);
+    AJ_WSL_SPI_DMATransfer((uint8_t*)*buf, bytesToRead, 0);
 }
 
 
@@ -223,7 +224,7 @@ AJ_EXPORT AJ_Status AJ_WSL_ReadFromMBox(uint8_t box, uint16_t* len, uint8_t** bu
     do {
 
         //3. INTERNAL read from RDBUF_BYTE_AVA register.
-        status = AJ_WSL_SPI_RegisterRead(AJ_WSL_SPI_REG_RDBUF_BYTE_AVA, &bytesInBuffer);
+        status = AJ_WSL_SPI_RegisterRead(AJ_WSL_SPI_REG_RDBUF_BYTE_AVA, (uint8_t*)&bytesInBuffer);
 
         AJ_ASSERT(status == AJ_OK);
         //bytesInBuffer = CPU_TO_BE16(bytesInBuffer);
@@ -231,11 +232,11 @@ AJ_EXPORT AJ_Status AJ_WSL_ReadFromMBox(uint8_t box, uint16_t* len, uint8_t** bu
         // The first few bytes of the packet can now be examined and the right amount of data read from the target
         //4. Internal read from RDBUF_LOOKAHEAD1 register
         //5. Internal read from RDBUF_LOOKAHEAD2 register. From the 4 bytes we have read from RDBUF_LOOKAHEAD registers, get the packet size.
-        status = AJ_WSL_SPI_RegisterRead(AJ_WSL_SPI_REG_RDBUF_LOOKAHEAD1, &lookAhead);
+        status = AJ_WSL_SPI_RegisterRead(AJ_WSL_SPI_REG_RDBUF_LOOKAHEAD1, (uint8_t*)&lookAhead);
         AJ_ASSERT(status == AJ_OK);
         lookAhead = CPU_TO_BE16(lookAhead);
 
-        status = AJ_WSL_SPI_RegisterRead(AJ_WSL_SPI_REG_RDBUF_LOOKAHEAD2, &payloadLength);
+        status = AJ_WSL_SPI_RegisterRead(AJ_WSL_SPI_REG_RDBUF_LOOKAHEAD2, (uint8_t*)&payloadLength);
         AJ_ASSERT(status == AJ_OK);
         payloadLength = CPU_TO_BE16(payloadLength);
 
@@ -277,11 +278,11 @@ AJ_Status AJ_WSL_SPI_RegisterRead(uint16_t reg, uint8_t* spi_data)
     /* Test write: should return OK. */
     rc = AJ_SPI_WRITE(AJ_WSL_SPI_DEVICE, *((uint8_t*)&send + 1), AJ_WSL_SPI_PCS, AJ_WSL_SPI_CONTINUE);
     AJ_ASSERT(rc == SPI_OK);
-    rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, spi_data, &pcs); // toss.
+    rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, spi_data, pcs); // toss.
     AJ_ASSERT(rc == SPI_OK);
     rc = AJ_SPI_WRITE(AJ_WSL_SPI_DEVICE, *(uint8_t*)&send, AJ_WSL_SPI_PCS, AJ_WSL_SPI_END);
     AJ_ASSERT(rc == SPI_OK);
-    rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, spi_data, &pcs); // toss.
+    rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, spi_data, pcs); // toss.
     AJ_ASSERT(rc == SPI_OK);
 
     // read the first byte of response
@@ -289,7 +290,7 @@ AJ_Status AJ_WSL_SPI_RegisterRead(uint16_t reg, uint8_t* spi_data)
     AJ_ASSERT(rc == SPI_OK);
     if (rc == SPI_OK) {
         /* Test read: should return OK with what is sent. */
-        rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, spi_data, &pcs);
+        rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, spi_data, pcs);
         AJ_ASSERT(rc == SPI_OK);
         status = AJ_OK;
     }
@@ -300,7 +301,7 @@ AJ_Status AJ_WSL_SPI_RegisterRead(uint16_t reg, uint8_t* spi_data)
     AJ_ASSERT(rc == SPI_OK);
     if (rc == SPI_OK) {
         /* Test read: should return OK with what is sent. */
-        rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, spi_data, &pcs);
+        rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, spi_data, pcs);
         AJ_ASSERT(rc == SPI_OK);
         status = AJ_OK;
     }
@@ -315,7 +316,7 @@ AJ_Status AJ_WSL_SPI_RegisterWrite(uint16_t reg, uint16_t spi_data)
     wsl_spi_command send;
     AJ_Status status = AJ_ERR_SPI_WRITE;
     uint8_t pcs = AJ_WSL_SPI_PCS;
-    uint16_t toss;
+    uint8_t toss;
     uint8_t* bytePoint = (uint8_t*)&spi_data;
     // initialize an SPI CMD structure with the register of interest
     send.cmd_rx = AJ_WSL_SPI_WRITE;
@@ -326,17 +327,17 @@ AJ_Status AJ_WSL_SPI_RegisterWrite(uint16_t reg, uint16_t spi_data)
 
     rc = AJ_SPI_WRITE(AJ_WSL_SPI_DEVICE, *((uint8_t*)&send + 1), AJ_WSL_SPI_PCS, AJ_WSL_SPI_CONTINUE);
     AJ_ASSERT(rc == SPI_OK);
-    rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, &toss, &pcs); // toss.
+    rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, &toss, pcs); // toss.
     AJ_ASSERT(rc == SPI_OK);
     rc = AJ_SPI_WRITE(AJ_WSL_SPI_DEVICE, *(uint8_t*)&send, AJ_WSL_SPI_PCS, AJ_WSL_SPI_END);
     AJ_ASSERT(rc == SPI_OK);
-    rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, &toss, &pcs); // toss.
+    rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, &toss, pcs); // toss.
     AJ_ASSERT(rc == SPI_OK);
 
     if (rc == SPI_OK) {
         rc = AJ_SPI_WRITE(AJ_WSL_SPI_DEVICE, *(bytePoint + 1), AJ_WSL_SPI_PCS, AJ_WSL_SPI_END);
         AJ_ASSERT(rc == SPI_OK);
-        rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, &toss, &pcs);
+        rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, &toss, pcs);
         AJ_ASSERT(rc == SPI_OK);
         if (rc == SPI_OK) {
             status = AJ_OK;
@@ -345,7 +346,7 @@ AJ_Status AJ_WSL_SPI_RegisterWrite(uint16_t reg, uint16_t spi_data)
     if (rc == SPI_OK) {
         rc = AJ_SPI_WRITE(AJ_WSL_SPI_DEVICE, *(bytePoint) & 0xFF, AJ_WSL_SPI_PCS, AJ_WSL_SPI_END);
         AJ_ASSERT(rc == SPI_OK);
-        rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, &toss, &pcs);
+        rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, &toss, pcs);
         AJ_ASSERT(rc == SPI_OK);
         if (rc == SPI_OK) {
             status = AJ_OK;
@@ -360,7 +361,7 @@ AJ_Status AJ_WSL_SPI_DMAWriteStart(uint16_t targetAddress)
     aj_spi_status rc;
     wsl_spi_command send;
     AJ_Status status = AJ_ERR_SPI_WRITE;
-    uint16_t toss;
+    uint8_t toss;
     uint8_t pcs = AJ_WSL_SPI_PCS;
 
     // initialize an SPI CMD structure with the register of interest
@@ -371,11 +372,11 @@ AJ_Status AJ_WSL_SPI_DMAWriteStart(uint16_t targetAddress)
     // write the register
     rc = AJ_SPI_WRITE(AJ_WSL_SPI_DEVICE, *((uint8_t*)&send + 1), AJ_WSL_SPI_PCS, AJ_WSL_SPI_CONTINUE);
     AJ_ASSERT(rc == SPI_OK);
-    rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, &toss, &pcs); // toss.
+    rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, &toss, pcs); // toss.
     AJ_ASSERT(rc == SPI_OK);
     rc = AJ_SPI_WRITE(AJ_WSL_SPI_DEVICE, *(uint8_t*)&send, AJ_WSL_SPI_PCS, AJ_WSL_SPI_END);
     AJ_ASSERT(rc == SPI_OK);
-    rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, &toss, &pcs); // toss.
+    rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, &toss, pcs); // toss.
     AJ_ASSERT(rc == SPI_OK);
     if (rc == SPI_OK) {
         status = AJ_OK;
@@ -390,7 +391,7 @@ AJ_Status AJ_WSL_SPI_DMAWrite16(uint16_t targetAddress, uint16_t len, uint16_t* 
     aj_spi_status rc;
     wsl_spi_command send;
     AJ_Status status = AJ_ERR_SPI_WRITE;
-    uint16_t toss;
+    uint8_t toss;
     uint8_t pcs = AJ_WSL_SPI_PCS;
     uint8_t* bytePoint = (uint8_t*)spi_data;
 
@@ -402,18 +403,18 @@ AJ_Status AJ_WSL_SPI_DMAWrite16(uint16_t targetAddress, uint16_t len, uint16_t* 
     // write the register
     rc = AJ_SPI_WRITE(AJ_WSL_SPI_DEVICE, *((uint8_t*)&send + 1), AJ_WSL_SPI_PCS, AJ_WSL_SPI_CONTINUE);
     AJ_ASSERT(rc == SPI_OK);
-    rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, &toss, &pcs); // toss.
+    rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, &toss, pcs); // toss.
     AJ_ASSERT(rc == SPI_OK);
     rc = AJ_SPI_WRITE(AJ_WSL_SPI_DEVICE, *(uint8_t*)&send, AJ_WSL_SPI_PCS, AJ_WSL_SPI_END);
     AJ_ASSERT(rc == SPI_OK);
-    rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, &toss, &pcs); // toss.
+    rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, &toss, pcs); // toss.
     AJ_ASSERT(rc == SPI_OK);
     if (rc == SPI_OK) {
         while ((rc == SPI_OK) && (len > 1)) {
             /* Test read: should return OK with what is sent. */
             rc = AJ_SPI_WRITE(AJ_WSL_SPI_DEVICE, *bytePoint, AJ_WSL_SPI_PCS, AJ_WSL_SPI_CONTINUE);
             AJ_ASSERT(rc == SPI_OK);
-            rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, &toss, &pcs);
+            rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, &toss, pcs);
             AJ_ASSERT(rc == SPI_OK);
             bytePoint++;
             len = len - 1;
@@ -421,7 +422,7 @@ AJ_Status AJ_WSL_SPI_DMAWrite16(uint16_t targetAddress, uint16_t len, uint16_t* 
         if (rc == SPI_OK) {
             rc = AJ_SPI_WRITE(AJ_WSL_SPI_DEVICE, *bytePoint, AJ_WSL_SPI_PCS, AJ_WSL_SPI_END);
             AJ_ASSERT(rc == SPI_OK);
-            rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, &toss, &pcs);
+            rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, &toss, pcs);
             AJ_ASSERT(rc == SPI_OK);
         }
         if (rc == SPI_OK) {
@@ -439,7 +440,7 @@ AJ_Status AJ_WSL_SPI_DMARead16(uint16_t targetAddress, uint16_t len, uint16_t* s
     wsl_spi_command send;
     AJ_Status status = AJ_ERR_SPI_READ;
     uint8_t pcs = AJ_WSL_SPI_PCS;
-    uint16_t toss;
+    uint8_t toss;
     uint8_t* bytePoint = (uint8_t*)spi_data;
 
     // initialize an SPI CMD structure with the register of interest
@@ -450,11 +451,11 @@ AJ_Status AJ_WSL_SPI_DMARead16(uint16_t targetAddress, uint16_t len, uint16_t* s
     // write the register
     rc = AJ_SPI_WRITE(AJ_WSL_SPI_DEVICE, *((uint8_t*)&send + 1), AJ_WSL_SPI_PCS, AJ_WSL_SPI_CONTINUE);
     AJ_ASSERT(rc == SPI_OK);
-    rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, &toss, &pcs); // toss.
+    rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, &toss, pcs); // toss.
     AJ_ASSERT(rc == SPI_OK);
     rc = AJ_SPI_WRITE(AJ_WSL_SPI_DEVICE, *(uint8_t*)&send, AJ_WSL_SPI_PCS, AJ_WSL_SPI_END);
     AJ_ASSERT(rc == SPI_OK);
-    rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, &toss, &pcs); // toss.
+    rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, &toss, pcs); // toss.
     AJ_ASSERT(rc == SPI_OK);
 
 
@@ -462,7 +463,7 @@ AJ_Status AJ_WSL_SPI_DMARead16(uint16_t targetAddress, uint16_t len, uint16_t* s
         /* Test read: should return OK with what is sent. */
         rc = AJ_SPI_WRITE(AJ_WSL_SPI_DEVICE, 0 /*xFF*/, AJ_WSL_SPI_PCS, AJ_WSL_SPI_CONTINUE);
         AJ_ASSERT(rc == SPI_OK);
-        rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, bytePoint, &pcs);
+        rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, bytePoint, pcs);
         AJ_ASSERT(rc == SPI_OK);
         bytePoint++;
         len = len - 1;
@@ -470,7 +471,7 @@ AJ_Status AJ_WSL_SPI_DMARead16(uint16_t targetAddress, uint16_t len, uint16_t* s
     if (rc == SPI_OK) {
         rc = AJ_SPI_WRITE(AJ_WSL_SPI_DEVICE, 0 /*xFF*/, AJ_WSL_SPI_PCS, AJ_WSL_SPI_END);
         AJ_ASSERT(rc == SPI_OK);
-        rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, bytePoint, &pcs);
+        rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, bytePoint, pcs);
         AJ_ASSERT(rc == SPI_OK);
     }
     if (rc == SPI_OK) {
@@ -488,11 +489,11 @@ AJ_Status AJ_WSL_SPI_WriteByte8(uint8_t spi_data, uint8_t end)
     aj_spi_status rc;
     AJ_Status status = AJ_ERR_SPI_WRITE;
     uint8_t pcs = AJ_WSL_SPI_PCS;
-    uint16_t toss;
+    uint8_t toss;
 
     rc = AJ_SPI_WRITE(AJ_WSL_SPI_DEVICE, (uint16_t)spi_data, AJ_WSL_SPI_PCS, end);
     AJ_ASSERT(rc == SPI_OK);
-    rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, &toss, &pcs);
+    rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, &toss, pcs);
     AJ_ASSERT(rc == SPI_OK);
     if (rc == SPI_OK) {
         status = AJ_OK;
@@ -508,20 +509,20 @@ AJ_Status AJ_WSL_SPI_WriteByte16(uint16_t spi_data, uint8_t end)
     aj_spi_status rc;
     AJ_Status status = AJ_ERR_SPI_WRITE;
     uint8_t pcs = AJ_WSL_SPI_PCS;
-    uint16_t toss;
+    uint8_t toss;
 
     rc = AJ_SPI_WRITE(AJ_WSL_SPI_DEVICE, spi_data, AJ_WSL_SPI_PCS, end);
     AJ_ASSERT(rc == SPI_OK);
-    rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, &toss, &pcs);
+    rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, &toss, pcs);
     AJ_ASSERT(rc == SPI_OK);
 
     rc = AJ_SPI_WRITE(AJ_WSL_SPI_DEVICE, spi_data & 0xFF, AJ_WSL_SPI_PCS, AJ_WSL_SPI_CONTINUE);
     AJ_ASSERT(rc == SPI_OK);
-    rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, &toss, &pcs); // toss.
+    rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, &toss, pcs); // toss.
     AJ_ASSERT(rc == SPI_OK);
     rc = AJ_SPI_WRITE(AJ_WSL_SPI_DEVICE, spi_data >> 8, AJ_WSL_SPI_PCS, AJ_WSL_SPI_END);
     AJ_ASSERT(rc == SPI_OK);
-    rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, &toss, &pcs); // toss.
+    rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, &toss, pcs); // toss.
     AJ_ASSERT(rc == SPI_OK);
 
     if (rc == SPI_OK) {
@@ -535,7 +536,7 @@ AJ_Status AJ_WSL_SPI_HostControlRegisterWrite(uint32_t targetRegister, uint8_t i
     aj_spi_status rc;
     wsl_spi_command send;
     AJ_Status status = AJ_ERR_SPI_WRITE;
-    uint16_t toss;
+    uint8_t toss;
     uint8_t pcs = AJ_WSL_SPI_PCS;
 
     // write the size
@@ -549,11 +550,11 @@ AJ_Status AJ_WSL_SPI_HostControlRegisterWrite(uint32_t targetRegister, uint8_t i
     // write the register, one byte at a time, in the right order
     rc = AJ_SPI_WRITE(AJ_WSL_SPI_DEVICE, *((uint8_t*)&send + 1), AJ_WSL_SPI_PCS, AJ_WSL_SPI_CONTINUE);
     AJ_ASSERT(rc == SPI_OK);
-    rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, &toss, &pcs); // toss.
+    rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, &toss, pcs); // toss.
     AJ_ASSERT(rc == SPI_OK);
     rc = AJ_SPI_WRITE(AJ_WSL_SPI_DEVICE, *(uint8_t*)&send, AJ_WSL_SPI_PCS, AJ_WSL_SPI_END);
     AJ_ASSERT(rc == SPI_OK);
-    rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, &toss, &pcs); // toss.
+    rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, &toss, pcs); // toss.
     AJ_ASSERT(rc == SPI_OK);
 
 
@@ -561,7 +562,7 @@ AJ_Status AJ_WSL_SPI_HostControlRegisterWrite(uint32_t targetRegister, uint8_t i
         while ((rc == SPI_OK) && (cbLen > 1)) {
             rc = AJ_SPI_WRITE(AJ_WSL_SPI_DEVICE, *spi_data, AJ_WSL_SPI_PCS, AJ_WSL_SPI_CONTINUE);
             AJ_ASSERT(rc == SPI_OK);
-            rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, &toss, &pcs);
+            rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, &toss, pcs);
             AJ_ASSERT(rc == SPI_OK);
             spi_data++;
             cbLen = cbLen - 1;
@@ -570,7 +571,7 @@ AJ_Status AJ_WSL_SPI_HostControlRegisterWrite(uint32_t targetRegister, uint8_t i
         if (rc == SPI_OK) {
             rc = AJ_SPI_WRITE(AJ_WSL_SPI_DEVICE, *spi_data, AJ_WSL_SPI_PCS, AJ_WSL_SPI_END);
             AJ_ASSERT(rc == SPI_OK);
-            rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, &toss, &pcs);
+            rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, &toss, pcs);
             AJ_ASSERT(rc == SPI_OK);
         }
 
@@ -637,11 +638,11 @@ AJ_Status AJ_WSL_SPI_HostControlRegisterRead(uint32_t targetRegister, uint8_t in
     // write the register, one byte at a time, in the right order
     rc = AJ_SPI_WRITE(AJ_WSL_SPI_DEVICE, *((uint8_t*)&send + 1), AJ_WSL_SPI_PCS, AJ_WSL_SPI_CONTINUE);
     AJ_ASSERT(rc == SPI_OK);
-    rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, spi_data, &pcs); // toss.
+    rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, spi_data, pcs); // toss.
     AJ_ASSERT(rc == SPI_OK);
     rc = AJ_SPI_WRITE(AJ_WSL_SPI_DEVICE, *(uint8_t*)&send, AJ_WSL_SPI_PCS, AJ_WSL_SPI_END);
     AJ_ASSERT(rc == SPI_OK);
-    rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, spi_data, &pcs); // toss.
+    rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, spi_data, pcs); // toss.
     AJ_ASSERT(rc == SPI_OK);
 
 
@@ -651,7 +652,7 @@ AJ_Status AJ_WSL_SPI_HostControlRegisterRead(uint32_t targetRegister, uint8_t in
             /* Test read: should return OK with what is sent. */
             rc = AJ_SPI_WRITE(AJ_WSL_SPI_DEVICE, 0, AJ_WSL_SPI_PCS, AJ_WSL_SPI_CONTINUE);
             AJ_ASSERT(rc == SPI_OK);
-            rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, spi_data, &pcs);
+            rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, spi_data, pcs);
             AJ_ASSERT(rc == SPI_OK);
             spi_data++;
             cbLen = cbLen - 1;
@@ -659,7 +660,7 @@ AJ_Status AJ_WSL_SPI_HostControlRegisterRead(uint32_t targetRegister, uint8_t in
         if (rc == SPI_OK) {
             rc = AJ_SPI_WRITE(AJ_WSL_SPI_DEVICE, 0, AJ_WSL_SPI_PCS, AJ_WSL_SPI_END);
             AJ_ASSERT(rc == SPI_OK);
-            rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, spi_data, &pcs);
+            rc = AJ_SPI_READ(AJ_WSL_SPI_DEVICE, spi_data, pcs);
             AJ_ASSERT(rc == SPI_OK);
         }
         if (rc == SPI_OK) {

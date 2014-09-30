@@ -28,6 +28,7 @@
 #include "aj_wsl_wmi.h"
 #include "aj_debug.h"
 #include "aj_target_rtos.h"
+#include <stdio.h>
 
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
@@ -244,7 +245,7 @@ static AJ_Status AJ_ConnectWiFiHelper(const char* ssid, AJ_WiFiSecurityType secT
         }
 
         if (secType == AJ_WIFI_SECURITY_WEP) {
-            AJ_WSL_NET_add_cipher_key(0, passphrase, 5);
+            AJ_WSL_NET_add_cipher_key(0, (uint8_t*)passphrase, 5);
         } else {
             status = AJ_WSL_NET_SetPassphrase(ssid, passphrase, strlen(passphrase));
         }

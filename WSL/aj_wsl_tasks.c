@@ -177,7 +177,7 @@ static void write_BOOT_PARAM(void)
     // now read back the value from the data port.
     AJ_WSL_SPI_HostControlRegisterRead(AJ_WSL_SPI_TARGET_VALUE, TRUE, 4, (uint8_t*)&spi_API);
     spi_API = LE32_TO_CPU(spi_API);
-    AJ_InfoPrintf(("cycles read back          was %ld \n", spi_API));
+    //AJ_InfoPrintf(("cycles read back          was %ld \n", spi_API));
 
 
     // read the flash is present value
@@ -197,7 +197,7 @@ static void write_BOOT_PARAM(void)
         AJ_WSL_SPI_HostControlRegisterRead(AJ_WSL_SPI_TARGET_VALUE, TRUE, 4, (uint8_t*)&spi_API);
         spi_API = LE32_TO_CPU(spi_API);
 
-        AJ_InfoPrintf(("host if flash is present read back          was %ld \n", spi_API));
+        //AJ_InfoPrintf(("host if flash is present read back          was %ld \n", spi_API));
 
     }
 
@@ -232,7 +232,7 @@ static void write_BOOT_PARAM(void)
     AJ_WSL_SPI_HostControlRegisterRead(AJ_WSL_SPI_TARGET_VALUE, TRUE, 4, (uint8_t*)&spi_API);
     spi_API = LE32_TO_CPU(spi_API);
     AJ_WSL_MBOX_BLOCK_SIZE = spi_API;
-    AJ_InfoPrintf(("block size           was %ld \n", spi_API));
+    //AJ_InfoPrintf(("block size           was %ld \n", spi_API));
 
 
 
@@ -247,6 +247,8 @@ static void write_BOOT_PARAM(void)
     while (!(spi_API16 & 1)) {
         AJ_WSL_SPI_RegisterRead(AJ_WSL_SPI_REG_SPI_STATUS, (uint8_t*)&spi_API16);
         spi_API16 = LE16_TO_CPU(spi_API16);
+        uint16_t space = 0;
+        AJ_WSL_SPI_RegisterRead(AJ_WSL_SPI_REG_WRBUF_SPC_AVA, (uint8_t*)&space);
     }
     // clear the read and write interrupt cause register
     spi_API = (1 << 9) | (1 << 8);
@@ -286,6 +288,7 @@ void AJ_WSL_MBoxListenAndProcessTask(void* parameters)
     // loop and process all of the responses
     while (1) {
         AJ_Status status;
+
         AJ_WSL_HTC_ProcessInterruptCause();
 
         uint8_t i;
@@ -319,7 +322,7 @@ void AJ_WSL_MBoxListenAndProcessTask(void* parameters)
                     if (item->itemType == AJ_WSL_WORKITEM(AJ_WSL_WORKITEM_SOCKET, WSL_NET_DATA_TX)) {
                         wsl_work_item** ppWork;
                         wsl_work_item* sockWork;
-                        sockWork = AJ_WSL_Malloc(sizeof(wsl_work_item));
+                        sockWork = (wsl_work_item*)AJ_WSL_Malloc(sizeof(wsl_work_item));
                         memset(sockWork, 0, sizeof(wsl_work_item));
                         sockWork->itemType = item->itemType;
                         sockWork->endpoint = item->endpoint;
