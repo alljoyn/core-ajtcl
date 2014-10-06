@@ -15,6 +15,7 @@
 import os
 import shutil
 import platform
+import distutils.sysconfig
 
 if platform.system() == 'Linux':
     default_target = 'linux'
@@ -40,6 +41,7 @@ vars.Add(PathVariable('ATMEL_DIR', 'Directory for ATMEL source code', os.environ
 vars.Add(PathVariable('FREE_RTOS_DIR','Directory to FreeRTOS source code', os.environ.get('FREE_RTOS_DIR'), PathVariable.PathIsDir))
 vars.Add(PathVariable('ARM_TOOLCHAIN_DIR', 'Path to the GNU ARM toolchain bin folder', os.environ.get('ARM_TOOLCHAIN_DIR'), PathVariable.PathIsDir))
 vars.Add(PathVariable('STM_SRC_DIR', 'Path to the source code for the STM32 microcontroller', os.environ.get('STM_SRC_DIR'), PathVariable.PathIsDir))
+vars.Add(ListVariable('LANG', 'Target language bindings to generate', None, ['python'] ))
 
 if default_msvc_version:
     vars.Add(EnumVariable('MSVC_VERSION', 'MSVC compiler version - Windows', default_msvc_version, allowed_values=('8.0', '9.0', '10.0', '11.0', '11.0Exp', '12.0', '12.0Exp')))
@@ -76,6 +78,10 @@ if restrict != '':
     else:
         print 'Invalid value for DEBUG_RESTRICT'
         Exit(0)
+
+if env.get('LANG') and not env.WhereIs('swig'):
+    print('SWIG missing in path')
+    Exit(1)
 
 
 # Define compile/link options only for win32/linux.
@@ -404,6 +410,17 @@ if env['TARG'] in [ 'win32', 'linux', 'darwin' ]:
     env.StaticLibrary('ajtcl_st', srcs)
     env['aj_obj'] = env.StaticObject(srcs)
     env['aj_shobj'] = env.SharedObject(srcs)
+
+    # Build language bindings
+    for lang in env.get('LANG',{}):
+        swig_env = env.Clone()
+        swig_env.Append(SWIGFLAGS=['-'+lang])
+        swig_env.Append(SWIGPATH=['inc/','target/'+env['TARG']])
+        if lang == 'python':
+            swig_env.Append(CPPPATH=[distutils.sysconfig.get_python_inc()])
+            swig_env.Replace(SHLIBPREFIX="")
+            ret = swig_env.SharedLibrary('_alljoyn', ['swig/alljoyn.i', srcs])
+            swig_env.Install('./', 'swig/alljoyn.py')
 
 if env['AJWSL'] == 'due':
     env['aj_obj'] = env.Object(env['aj_srcs'] + env['aj_sw_crypto'] + env['aj_malloc'] + env['aj_crypto_ecc'] + env['aj_external_sha2'])
