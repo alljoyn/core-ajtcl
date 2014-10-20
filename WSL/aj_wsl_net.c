@@ -278,6 +278,7 @@ void AJ_WSL_NET_StackInit(void)
 }
 
 #define AJ_WSL_CONNECT_WAIT 500
+#define AJ_WSL_CONNECT_TIMEOUT 20000
 
 AJ_EXPORT AJ_Status AJ_WSL_NET_connect(const char* SSID, const char* passphrase, WSL_NET_AUTH_MODE auth, WSL_NET_CRYPTO_TYPE crypto, uint8_t softAP)
 {
@@ -294,52 +295,38 @@ AJ_EXPORT AJ_Status AJ_WSL_NET_connect(const char* SSID, const char* passphrase,
 
     if (!softAP) {
         if (auth != WSL_NET_AUTH_NONE) {
-            // Do a scan of just the SSID you want
-            AJ_WSL_SetProbedSSID(SSID, 1);
-
-            {
-                AJ_BufList* start_scan;
-                uint8_t found = 0;
-                int i;
-                AJ_WSL_NET_set_scan_params();
-
-                while (!found) {
-                    wsl_work_item* item;
-                    AJ_InfoPrintf(("AJ_WSL_NET_scan(): START_SCAN\n"));
-                    start_scan = AJ_BufListCreate();
-                    AJ_WSL_SetProbedSSID(SSID, 1);
-                    AJ_WSL_NET_set_scan_params();
-                    AJ_WSL_NET_BSS_FILTER(6);
-                    WSL_MarshalPacket(start_scan, WSL_START_SCAN, 0, 0, 0, 0, 0, 0, 0, 0);
-                    WMI_MarshalHeader(start_scan, 1, 1);
-                    AJ_WSL_WMI_PadPayload(start_scan);
-                    //AJ_BufListPrintDumpContinuous(start_scan);
-                    AJ_WSL_WMI_QueueWorkItem(0, AJ_WSL_WORKITEM(AJ_WSL_WORKITEM_NETWORK, WSL_NET_SCAN), AJ_WSL_HTC_DATA_ENDPOINT1, start_scan);
-
-                    status = AJ_WSL_WMI_WaitForWorkItem(0, AJ_WSL_WORKITEM(AJ_WSL_WORKITEM_NETWORK, WSL_NET_SCAN), &item);
-                    AJ_WSL_WMI_FreeWorkItem(item);
-
-                    // Get the new list (just of the SSID provided in the connect command)
-                    AJ_WSL_NET_scan_stop();
-                    list = (wsl_scan_list*)AJ_WSL_GetScanList();
-                    if (list->size == 0) {
-                        AJ_AlwaysPrintf(("Could not find access point %s\n", SSID));
-                        WSL_ClearScanList(list);
-                        AJ_Sleep(AJ_WSL_CONNECT_WAIT);
-                        continue;
-                    }
-                    WSL_PrintScanSorted();
-
-
-                    // Find the SSID you want to connect to in the second scan list
-                    for (i = 0; i < list->size; i++) {
-                        if (0 == strcmp(list->list[i].ssid, SSID)) {
-                            memcpy(&bss_mac, list->list[i].bssid, 6);
-                            found = 1;
-                            break;
-                        }
-                    }
+            AJ_Time timer;
+            uint8_t found = 0;
+            int i;
+            AJ_InitTimer(&timer);
+            while (!found) {
+                AJ_WSL_InitScanList();
+                AJ_WSL_SetProbedSSID(SSID, 1);
+                AJ_WSL_NET_scan();
+                AJ_WSL_NET_scan_stop();
+                if (AJ_GetElapsedTime(&timer, TRUE) > AJ_WSL_CONNECT_TIMEOUT) {
+                    AJ_ErrPrintf(("AJ_WSL_NET_connect() Could not find the access point %s\n", SSID));
+                    return AJ_ERR_FAILURE;
+                }
+                if (list->size == 0) {
                     WSL_ClearScanList(list);
+                    AJ_Sleep(AJ_WSL_CONNECT_WAIT);
+                    continue;
+                }
+                // Find the SSID you want to connect to in the second scan list
+                for (i = 0; i < list->size; i++) {
+                    if (0 == strcmp(list->list[i].ssid, SSID)) {
+                        memcpy(&bss_mac, list->list[i].bssid, 6);
+                        found = 1;
+                        break;
+                    }
+                }
+                WSL_ClearScanList(list);
+            }
+            if (crypto != WSL_NET_CRYPTO_WEP) {
+                status = AJ_WSL_NET_SetPassphrase(SSID, passphrase, strlen(passphrase));
+                if (status != AJ_OK) {
+                    return status;
                 }
             }
         }
@@ -441,7 +428,7 @@ AJ_Status AJ_WSL_ip6config(uint32_t mode, uint8_t* globalAddr, uint8_t* localAdd
                 uint32_t _ipv4mask = 0;
                 uint32_t _ipv4gateway = 0;
 
-                WMI_Unmarshal(item->node->buffer, "quuuuuuuu6666uuuu", &WMIEvent, &reserved, &_command, &_handle, &_error, &_mode, _ipv4, _ipv4mask, _ipv4gateway, localAddr, globalAddr, gateway, exAddr, &linkPrefix, &globalPrefix, &gwPrefix, &glbPrefixExt);
+                WMI_Unmarshal(item->node->buffer, "quuuuuuuu6666uuuu", &WMIEvent, &reserved, &_command, &_handle, &_error, &_mode, &_ipv4, &_ipv4mask, &_ipv4gateway, localAddr, globalAddr, gateway, exAddr, &linkPrefix, &globalPrefix, &gwPrefix, &glbPrefixExt);
                 //AJ_DumpBytes("IPV6", item->node->buffer, 0x60);
             } else {
                 AJ_WarnPrintf(("AJ_WSL_ip6config(): BAD WORK ITEM RECEIVED\n"));

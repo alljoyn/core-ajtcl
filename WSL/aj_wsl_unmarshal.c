@@ -42,7 +42,7 @@ wsl_scan_item* WMI_UnmarshalScan(void* data)
     for (i = 0; i < 6; i++) {         //MAC is bytes 16 through 22
         scan->bssid[i] = *(ptr + 16 + i);
     }
-    scan->ssid = (char*)AJ_WSL_Malloc(sizeof(char*) * *(ptr + 37) + 1);
+    scan->ssid = (char*)AJ_WSL_Malloc(sizeof(char) * *(ptr + 37) + 1);
     for (i = 0; i < *(ptr + 37); i++) {
         scan->ssid[i] = *(ptr + 38 + i);
     }

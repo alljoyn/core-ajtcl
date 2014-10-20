@@ -328,6 +328,7 @@ volatile uint8_t g_b_spi_interrupt_tx_ready = false;
 /** RX interrupt occurred */
 volatile uint8_t g_b_spi_interrupt_rx_ready = false;
 
+extern struct AJ_TaskHandle* AJ_WSL_MBoxListenHandle;
 /**
  * SPI interrupt service routine
  */

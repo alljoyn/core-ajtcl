@@ -246,11 +246,6 @@ static AJ_Status AJ_ConnectWiFiHelper(const char* ssid, AJ_WiFiSecurityType secT
 
         if (secType == AJ_WIFI_SECURITY_WEP) {
             AJ_WSL_NET_add_cipher_key(0, (uint8_t*)passphrase, 5);
-        } else {
-            status = AJ_WSL_NET_SetPassphrase(ssid, passphrase, strlen(passphrase));
-        }
-        if (status != AJ_OK) {
-            return status;
         }
     }
     /*
@@ -268,7 +263,7 @@ static AJ_Status AJ_ConnectWiFiHelper(const char* ssid, AJ_WiFiSecurityType secT
      */
     AJ_WSL_connectState = AJ_WIFI_CONNECTING;
 
-    AJ_WSL_NET_connect(ssid, passphrase, secMode, cipher, FALSE);
+    status = AJ_WSL_NET_connect(ssid, passphrase, secMode, cipher, FALSE);
     return status;
 }
 
