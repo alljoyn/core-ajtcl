@@ -435,12 +435,12 @@ AJ_Status AJ_BusHandleBusMessage(AJ_Message* msg)
         break;
 
     case AJ_METHOD_GET_DESCRIPTION_LANG:
-        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_METHOD_INTROSPECT\n"));
+        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_METHOD_GET_DESCRIPTION_LANG\n"));
         status = AJ_HandleGetDescriptionLanguages(msg, &reply);
         break;
 
     case AJ_METHOD_INTROSPECT_WITH_DESC:
-        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_METHOD_INTROSPECT\n"));
+        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_METHOD_INTROSPECT_WITH_DESC\n"));
         AJ_UnmarshalArgs(msg, "s", &languageTag);
         status = AJ_HandleIntrospectRequest(msg, &reply, languageTag);
         break;

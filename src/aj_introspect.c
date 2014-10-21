@@ -734,13 +734,17 @@ AJ_Status AJ_HandleGetDescriptionLanguages(const AJ_Message* msg, AJ_Message* re
     AJ_Arg languageListArray;
     const char* const* languageTag;
 
+    status = AJ_MarshalReplyMsg(msg, reply);
+
     if (status == AJ_OK) {
         status = AJ_MarshalContainer(reply, &languageListArray, AJ_ARG_ARRAY);
     }
     if (status == AJ_OK) {
         languageTag = languageList;
-        while (languageTag++ && status == AJ_OK) {
+
+        while ((NULL != *languageTag) && status == AJ_OK) {
             status = AJ_MarshalArgs(reply, "s", *languageTag);
+            languageTag++;
         }
     }
     if (status == AJ_OK) {
