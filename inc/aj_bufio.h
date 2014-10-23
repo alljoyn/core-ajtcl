@@ -60,11 +60,15 @@ typedef AJ_Status (*AJ_RxFunc)(struct _AJ_IOBuffer* buf, uint32_t len, uint32_t 
 #define AJ_IO_BUF_RX     1 /**< I/O direction is receive */
 #define AJ_IO_BUF_TX     2 /**< I/O direction is send */
 
+#define AJ_IO_BUF_AJ     1 /**< send/receive data to/from AJ */
+#define AJ_IO_BUF_MDNS   2 /**< send/receive data to/from mDNS */
+
 /**
  * A type for managing a receive or transmit buffer
  */
 typedef struct _AJ_IOBuffer {
     uint8_t direction;  /**< I/O buffer is either a Tx buffer or an Rx buffer */
+    uint8_t flags;      /**< ports to send to or receive on */
     uint16_t bufSize;   /**< Size of the data buffer */
     uint8_t* bufStart;  /**< Start for the data buffer */
     uint8_t* readPtr;   /**< Current position in buf for reading data */
@@ -102,6 +106,7 @@ typedef struct _AJ_IOBuffer {
     do { \
         (iobuf)->readPtr = (iobuf)->bufStart; \
         (iobuf)->writePtr = (iobuf)->bufStart; \
+        (iobuf)->flags = 0; \
     } while (0)
 
 /**

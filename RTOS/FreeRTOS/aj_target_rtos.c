@@ -400,6 +400,26 @@ uint16_t AJ_EphemeralPort(void)
     return 49152 + random % (65535 - 49152);
 }
 
+AJ_Status AJ_IntToString(int32_t val, char* buf, size_t buflen)
+{
+    AJ_Status status = AJ_OK;
+    int c = snprintf(buf, buflen, "%d", val);
+    if (c <= 0 || c > buflen) {
+        status = AJ_ERR_RESOURCES;
+    }
+    return status;
+}
+
+AJ_Status AJ_InetToString(uint32_t addr, char* buf, size_t buflen)
+{
+    AJ_Status status = AJ_OK;
+    int c = snprintf(buf, buflen, "%u.%u.%u.%u", (addr & 0xFF000000) >> 24, (addr & 0x00FF0000) >> 16, (addr & 0x0000FF00) >> 8, (addr & 0x000000FF));
+    if (c <= 0 || c > buflen) {
+        status = AJ_ERR_RESOURCES;
+    }
+    return status;
+}
+
 /*
  *  This function is called when a malloc failure is detected
  */

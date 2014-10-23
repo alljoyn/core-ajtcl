@@ -236,6 +236,28 @@ uint64_t AJ_ByteSwap64(uint64_t x);
 }
 #endif
 /**
+ * Convert integer to decimal string representation
+ *
+ * @param val    The integer to convert
+ * @param buf    The input buffer where converted string is stored
+ * @param buflen The size of the input buffer
+ *
+ * @return AJ_OK on success, AJ_ERR_RESOURCES if input buffer too short
+ */
+AJ_Status AJ_IntToString(int32_t val, char* buf, size_t buflen);
+
+/**
+ * Convert AF_INET address to dotted decimal string representation
+ *
+ * @param val    The address to convert
+ * @param buf    The input buffer where converted string is stored
+ * @param buflen The size of the input buffer
+ *
+ * @return AJ_OK on success, AJ_ERR_RESOURCES if input buffer too short
+ */
+AJ_Status AJ_InetToString(uint32_t addr, char* buf, size_t buflen);
+
+/**
  * @}
  */
 #endif
