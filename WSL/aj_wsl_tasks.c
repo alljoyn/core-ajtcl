@@ -307,8 +307,8 @@ void AJ_WSL_MBoxListenAndProcessTask(void* parameters)
                 }
 
                 // pull a work item off of a socket queue and send it
-                AJ_QueuePull(AJ_WSL_SOCKET_CONTEXT[i].workTxQueue, &item, 0);
-                if (!item) {
+                status = AJ_QueuePull(AJ_WSL_SOCKET_CONTEXT[i].workTxQueue, &item, 0);
+                if (!item || (status != AJ_OK) || !item->list) {
                     break;
                 } else {
                     //AJ_AlwaysPrintf(("AJ_WSL_MBoxListenAndProcessTask: %x\n", item->itemType));
