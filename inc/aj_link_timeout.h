@@ -6,7 +6,7 @@
  * @{
  */
 /******************************************************************************
- * Copyright (c) 2013, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2013-2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -55,6 +55,23 @@ void AJ_NotifyLinkActive();
  */
 AJ_EXPORT
 AJ_Status AJ_BusLinkStateProc(AJ_BusAttachment* bus);
+
+/**
+ * Set the idle timeouts from the Routing node to the TCL.
+ *
+ * @param bus        The bus attachment to which the app is connected to
+ * @param idleTo     Requested Idle Timeout for the link. i.e. time after which the Routing node
+ *                   must send a DBus ping to Leaf node in case of inactivity.
+ *                   Use 0 to leave unchanged.
+ * @param probeTo    Requested Probe timeout. The time from the Routing node sending the DBus
+ *                   ping to the expected response.
+ *                   Use 0 to leave unchanged.
+ * @return  Return AJ_Status
+ *         - AJ_OK if the request was sent
+ *         - An error status otherwise
+ */
+AJ_EXPORT
+AJ_Status AJ_SetIdleTimeouts(AJ_BusAttachment* bus, uint32_t idleTo, uint32_t probeTo);
 
 /**
  * @}
