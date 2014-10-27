@@ -373,6 +373,8 @@ int AJ_Main()
             AJ_InfoPrintf(("StartService returned AJ_OK\n"));
             AJ_InfoPrintf(("Connected to Daemon:%s\n", AJ_GetUniqueName(&bus)));
 
+            AJ_SetIdleTimeouts(&bus, 10, 4);
+
             connected = TRUE;
 #ifdef SECURE_OBJECT
             status = AJ_SetObjectFlags("/org/alljoyn/alljoyn_test", AJ_OBJ_FLAG_SECURE, 0);
@@ -471,6 +473,17 @@ int AJ_Main()
             case AJ_REPLY_ID(AJ_METHOD_ADVERTISE_NAME):
                 if (msg.hdr->msgType == AJ_MSG_ERROR) {
                     status = AJ_ERR_FAILURE;
+                }
+                break;
+
+            case AJ_REPLY_ID(AJ_METHOD_BUS_SET_IDLE_TIMEOUTS):
+                {
+                    if (msg.hdr->msgType == AJ_MSG_ERROR) {
+                        status = AJ_ERR_FAILURE;
+                    }
+                    uint32_t disposition, idleTo, probeTo;
+                    AJ_UnmarshalArgs(&msg, "uuu", &disposition, &idleTo, &probeTo);
+                    AJ_InfoPrintf(("SetIdleTimeouts response disposition=%u idleTimeout=%u probeTimeout=%u\n", disposition, idleTo, probeTo));
                 }
                 break;
 
