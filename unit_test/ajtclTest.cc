@@ -17,8 +17,10 @@
  ******************************************************************************/
 
 #include <gtest/gtest.h>
+extern "C" {
 #include <aj_target.h>
 #include "aj_debug.h"
+}
 /** Main entry point */
 int main(int argc, char**argv, char**envArg)
 {

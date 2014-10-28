@@ -53,8 +53,16 @@
 #define HOST_IS_BIG_ENDIAN     TRUE
 #endif
 
-#define AJ_Printf(fmat, ...) \
-    do { printf(fmat, ## __VA_ARGS__); fflush(stdout); } while (0)
+/**
+ * Set or clear the log file for debug output.
+ *
+ * @param file   A file path or NULL if clearing the log file.
+ * @param maxLen Maximum length the log file is allowed to grow. The log file is periodically
+ *               truncated to keep the length between maxLen / 2 and maxLen. Zero means no limit.
+ */
+int AJ_SetLogFile(const char* file, uint32_t maxLen);
+
+void AJ_Printf(const char* fmat, ...);
 
 #ifndef NDEBUG
 extern uint8_t dbgCONFIGUREME;

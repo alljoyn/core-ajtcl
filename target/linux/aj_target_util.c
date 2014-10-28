@@ -24,6 +24,7 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <byteswap.h>
+#include <stdarg.h>
 #include <aj_debug.h>
 #include "aj_target.h"
 #include "aj_util.h"
@@ -242,4 +243,56 @@ uint32_t AJ_ByteSwap32(uint32_t x)
 uint64_t AJ_ByteSwap64(uint64_t x)
 {
     return bswap_64(x);
+}
+
+static FILE* logFile = NULL;
+static uint32_t logLim = 0;
+
+int AJ_SetLogFile(const char* file, uint32_t maxLen)
+{
+    if (logFile) {
+        fclose(logFile);
+    }
+    if (!file) {
+        logFile = NULL;
+    } else {
+        logFile = fopen(file, "w+");
+        if (!logFile) {
+            return -1;
+        }
+        logLim = maxLen / 2;
+    }
+    return 0;
+}
+
+void AJ_Printf(const char* fmat, ...)
+{
+    va_list args;
+
+    va_start(args, fmat);
+    if (logFile) {
+        vfprintf(logFile, fmat, args);
+        if (logLim) {
+            /*
+             * Don't allow the log file to grow to more than 2 x logLim bytes
+             */
+            long pos = ftell(logFile);
+            if (pos >= (2 * logLim)) {
+                void* buf = malloc(logLim);
+                if (buf) {
+                    fseek(logFile, -logLim, SEEK_CUR);
+                    fread(buf, logLim, 1, logFile);
+                    fseek(logFile, 0, SEEK_SET);
+                    ftruncate(fileno(logFile), 0);
+                    fwrite(buf, logLim, 1, logFile);
+                    free(buf);
+                }
+            }
+        }
+        fflush(logFile);
+    } else {
+        vprintf(fmat, args);
+        fflush(stdout);
+    }
+    va_end(args);
 }
