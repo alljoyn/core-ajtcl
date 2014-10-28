@@ -533,7 +533,7 @@ AJ_Status AJ_WSL_WMI_WaitForWorkItem(uint32_t socket, uint8_t command, wsl_work_
 //    AJ_AlwaysPrintf(("WaitForWorkItem: %x\n", command));
     //wsl_work_item* item;
     status = AJ_QueuePull(AJ_WSL_SOCKET_CONTEXT[socket].workRxQueue, item, AJ_TIMER_FOREVER);
-    if (*item) {
+    if ((status == AJ_OK) && item && *item) {
         if ((status == AJ_OK) && ((*item)->itemType == WSL_NET_INTERUPT)) {
             // We don't care about the interrupted signal for any calls using this function
             AJ_WSL_WMI_FreeWorkItem((*item));
@@ -556,17 +556,21 @@ AJ_Status AJ_WSL_WMI_WaitForWorkItem(uint32_t socket, uint8_t command, wsl_work_
                 AJ_QueueReset(AJ_WSL_SOCKET_CONTEXT[i].workRxQueue);
                 AJ_QueueReset(AJ_WSL_SOCKET_CONTEXT[i].workTxQueue);
             }
+            AJ_WSL_WMI_FreeWorkItem((*item));
             return AJ_ERR_LINK_DEAD;
         } else if ((status == AJ_OK) && ((*item)->itemType == WSL_NET_DATA_RX)) {
             // If we got data we want to save it and not throw it away, its still not what we
-            // wanted so we return AJ_ERR_NULL
+            // wanted so we can free the work item as it wont be needed at a higher level
             if ((*item)->node->length) {
                 AJ_BufNode* new_node = AJ_BufNodeCreateAndTakeOwnership((*item)->node);
                 AJ_BufListPushTail(AJ_WSL_SOCKET_CONTEXT[socket].stashedRxList, new_node);
+                AJ_WSL_WMI_FreeWorkItem((*item));
                 return AJ_ERR_NULL;
             }
         } else {
             AJ_WarnPrintf(("AJ_WSL_WMI_WaitForWorkItem(): Received incorrect work item %x, wanted %x\n", (*item)->itemType, command));
+            // Wrong work item, but return NULL because we can free the item internally
+            AJ_WSL_WMI_FreeWorkItem((*item));
             return AJ_ERR_NULL;
         }
     }
