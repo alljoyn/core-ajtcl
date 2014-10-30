@@ -73,7 +73,7 @@
 #endif
 
 #if !(defined(AJ_MAX_OBJECT_LISTS))
-#define AJ_MAX_OBJECT_LISTS      (8)               //maximum number of object lists        (aj_introspect.c)
+#define AJ_MAX_OBJECT_LISTS      (9)               //maximum number of object lists        (aj_introspect.c)
 #endif
 
 /* Crypto */
