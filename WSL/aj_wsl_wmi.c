@@ -527,17 +527,20 @@ AJ_Status AJ_WSL_WMI_QueueWorkItem(uint32_t socket, uint8_t command, uint8_t end
  * This function just returns the work item. If there is data inside that you want
  * you have to unmarshal it after you receive the work item.
  */
-AJ_Status AJ_WSL_WMI_WaitForWorkItem(uint32_t socket, uint8_t command, wsl_work_item** item)
+AJ_Status AJ_WSL_WMI_WaitForWorkItem(uint32_t socket, uint8_t command, wsl_work_item** item, uint32_t timeout)
 {
     AJ_Status status;
+    AJ_Time timer;
+    AJ_InitTimer(&timer);
 //    AJ_AlwaysPrintf(("WaitForWorkItem: %x\n", command));
     //wsl_work_item* item;
-    status = AJ_QueuePull(AJ_WSL_SOCKET_CONTEXT[socket].workRxQueue, item, AJ_TIMER_FOREVER);
+    status = AJ_QueuePull(AJ_WSL_SOCKET_CONTEXT[socket].workRxQueue, item, timeout);
+    timeout -= AJ_GetElapsedTime(&timer, TRUE);
     if ((status == AJ_OK) && item && *item) {
         if ((status == AJ_OK) && ((*item)->itemType == WSL_NET_INTERUPT)) {
             // We don't care about the interrupted signal for any calls using this function
             AJ_WSL_WMI_FreeWorkItem((*item));
-            status = AJ_QueuePull(AJ_WSL_SOCKET_CONTEXT[socket].workRxQueue, item, AJ_TIMER_FOREVER);
+            status = AJ_QueuePull(AJ_WSL_SOCKET_CONTEXT[socket].workRxQueue, item, timeout);
         }
         if ((status == AJ_OK) && ((*item)->itemType == command)) {
             //AJ_InfoPrintf(("AJ_WSL_WMI_WaitForWorkItem(): Received work item\n"));

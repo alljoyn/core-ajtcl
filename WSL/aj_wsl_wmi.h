@@ -236,8 +236,9 @@ AJ_Status AJ_WSL_WMI_QueueWorkItem(uint32_t socket, uint8_t command, uint8_t end
  * @param socket        Socket that the work item was sent to
  * @param command       Command the was sent
  * @param item          Address of the work item pointer
+ * @param timeout       Milliseconds to wait for this work item
  */
-AJ_Status AJ_WSL_WMI_WaitForWorkItem(uint32_t socket, uint8_t command, wsl_work_item** item);
+AJ_Status AJ_WSL_WMI_WaitForWorkItem(uint32_t socket, uint8_t command, wsl_work_item** item, uint32_t timeout);
 
 /**
  * Free a work item pointer. This frees everything inside the work item structure
