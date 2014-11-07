@@ -2,7 +2,7 @@
  * @file
  */
 /******************************************************************************
- * Copyright (c) 2012-2013, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2012-2013, 2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -30,6 +30,8 @@
 #include "aj_disco.h"
 #include "aj_debug.h"
 #include "aj_config.h"
+#include "aj_connect.h"
+
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
  * (usually in debugger).
