@@ -87,13 +87,13 @@ typedef enum {
 /*
  * link establishment packets
  */
-static const char ConnPkt[LINK_PACKET_SIZE] = "CONN";
-static const char AcptPkt[LINK_PACKET_SIZE] = "ACPT";
-static const char NegoPkt[LINK_PACKET_SIZE] = "NEGO";
-static const char NrspPkt[LINK_PACKET_SIZE] = "NRSP";
-static const char ResuPkt[LINK_PACKET_SIZE] = "RESU";
-static const char DiscPkt[LINK_PACKET_SIZE] = "DISC";
-static const char DrspPkt[LINK_PACKET_SIZE] = "DRSP";
+static const char ConnPkt[LINK_PACKET_SIZE] = { 'C', 'O', 'N', 'N' };
+static const char AcptPkt[LINK_PACKET_SIZE] = { 'A', 'C', 'P', 'T' };
+static const char NegoPkt[LINK_PACKET_SIZE] = { 'N', 'E', 'G', 'O' };
+static const char NrspPkt[LINK_PACKET_SIZE] = { 'N', 'R', 'S', 'P' };
+static const char ResuPkt[LINK_PACKET_SIZE] = { 'R', 'E', 'S', 'U' };
+static const char DiscPkt[LINK_PACKET_SIZE] = { 'D', 'I', 'S', 'C' };
+static const char DrspPkt[LINK_PACKET_SIZE] = { 'D', 'R', 'S', 'P' };
 
 /**
  * Time to send the LinkPacket
