@@ -1,5 +1,9 @@
 #ifndef _AJ_KEYEXCHANGE_H
 #define _AJ_KEYEXCHANGE_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 /**
  * @file aj_keyexchange.h
  * @defgroup aj_keyexchange Implementation of Key Exchange mechanisms
@@ -45,6 +49,9 @@ typedef struct _AJ_KeyExchange {
  */
 extern AJ_KeyExchange AJ_KeyExchangeECDHE;
 
+#ifdef __cplusplus
+}
+#endif
 /**
  * @}
  */

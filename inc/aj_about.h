@@ -1,5 +1,9 @@
 #ifndef _AJ_ABOUT_H
 #define _AJ_ABOUT_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 /**
  * @file aj_about.h
  * @defgroup aj_about Bus Attachment
@@ -156,6 +160,9 @@ void AJ_AboutSetShouldAnnounce();
  */
 void AJ_AboutSetAnnounceObjects(AJ_Object* objList);
 
+#ifdef __cplusplus
+}
+#endif
 /**
  * @}
  */

@@ -1,5 +1,9 @@
 #ifndef _AJ_CRYPTO_SHA2_H
 #define _AJ_CRYPTO_SHA2_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 /**
  * @file aj_crypto_sha2.h
  * @defgroup aj_crypto SHA-256 Cryptographic Support
@@ -138,5 +142,9 @@ void AJ_SHA256_Update();
 void AJ_SHA256_GetDigest();
 
 #endif /* NOPROTO */
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

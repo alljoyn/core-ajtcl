@@ -1,5 +1,9 @@
 #ifndef _AJ_WIFI_CTRL_H
 #define _AJ_WIFI_CTRL_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 /**
  * @file
  */
@@ -150,5 +154,8 @@ AJ_Status AJ_GetIPAddress(uint32_t* ip, uint32_t* mask, uint32_t* gateway);
  */
 AJ_Status AJ_SetIPAddress(uint32_t ip, uint32_t mask, uint32_t gateway);
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif

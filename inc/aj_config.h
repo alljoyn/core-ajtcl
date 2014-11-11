@@ -1,5 +1,9 @@
 #ifndef _AJ_CONFIG_H
 #define _AJ_CONFIG_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 /**
  * @file aj_config.h
  * @defgroup aj_config Configuration
@@ -94,4 +98,9 @@
 #elif HOST_IS_BIG_ENDIAN
 #define HOST_ENDIANESS AJ_BIG_ENDIAN
 #endif
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif //AJ_CONFIG_H

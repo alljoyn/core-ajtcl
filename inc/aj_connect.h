@@ -1,5 +1,9 @@
 #ifndef _AJ_CONNECT_H
 #define _AJ_CONNECT_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 /**
  * @file aj_connect.h
  * @defgroup aj_connect Bus Connection Management
@@ -131,6 +135,9 @@ uint8_t AJ_IsRoutingNodeBlacklisted(AJ_Service* service);
  */
 void AJ_InitRoutingNodeBlacklist();
 
+#ifdef __cplusplus
+}
+#endif
 /**
  * @}
  */

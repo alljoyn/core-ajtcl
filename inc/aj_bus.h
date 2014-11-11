@@ -1,5 +1,9 @@
 #ifndef _AJ_BUS_H
 #define _AJ_BUS_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 /**
  * @file aj_bus.h
  * @defgroup aj_bus Bus Attachment
@@ -539,6 +543,9 @@ AJ_Status AJ_BusPropSet(AJ_Message* msg, AJ_BusPropSetCallback callback, void* c
  */
 AJ_Status AJ_BusEnableSecurity(AJ_BusAttachment* bus, const uint32_t* suites, size_t numsuites);
 
+#ifdef __cplusplus
+}
+#endif
 /**
  * @}
  */

@@ -1,5 +1,9 @@
 #ifndef _AJ_GUID_H
 #define _AJ_GUID_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 /**
  * @file aj_guid.h
  * @defgroup aj_guid Globally Unique Identifier Support
@@ -7,7 +11,7 @@
  * @file
  */
 /******************************************************************************
- * Copyright (c) 2012-2013, 2013, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2012-2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -146,6 +150,9 @@ AJ_Status AJ_GetSessionKey(const char* name, uint8_t* key, uint8_t* role);
  */
 AJ_Status AJ_GetGroupKey(const char* name, uint8_t* key);
 
+#ifdef __cplusplus
+}
+#endif
 /**
  * @}
  */

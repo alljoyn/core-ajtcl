@@ -1,12 +1,16 @@
 #ifndef _AJ_MSG_H
 #define _AJ_MSG_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 /**
  * @file aj_msg.h
  * @defgroup aj_msg Message Marshaling and Unmarshaling
  * @{
  */
 /******************************************************************************
- * Copyright (c) 2012-2013, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2012-2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -575,6 +579,9 @@ AJ_Status AJ_MarshalCloseContainer(AJ_Message* msg, AJ_Arg* arg);
 AJ_EXPORT
 AJ_Status AJ_MarshalVariant(AJ_Message* msg, const char* sig);
 
+#ifdef __cplusplus
+}
+#endif
 /**
  * @}
  */

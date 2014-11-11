@@ -1,5 +1,9 @@
 #ifndef _AJ_LINK_TIMEOUT_H
 #define _AJ_LINK_TIMEOUT_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 /**
  * @file aj_link_timeout.h
  * @defgroup aj_link_timeout Daemon Connection Keepalive Support
@@ -73,6 +77,9 @@ AJ_Status AJ_BusLinkStateProc(AJ_BusAttachment* bus);
 AJ_EXPORT
 AJ_Status AJ_SetIdleTimeouts(AJ_BusAttachment* bus, uint32_t idleTo, uint32_t probeTo);
 
+#ifdef __cplusplus
+}
+#endif
 /**
  * @}
  */

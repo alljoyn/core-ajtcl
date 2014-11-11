@@ -1,5 +1,9 @@
 #ifndef _AJ_HELPER_H
 #define _AJ_HELPER_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 /**
  * @file aj_helper.h
  * @defgroup aj_helper Helper Functions
@@ -214,6 +218,9 @@ AJ_Status AJ_StartClientByInterface(AJ_BusAttachment* bus,
                                     char* serviceName,
                                     const AJ_SessionOpts* opts);
 
+#ifdef __cplusplus
+}
+#endif
 /**
  * @}
  */

@@ -1,6 +1,9 @@
 #ifndef _AJ_NVRAM_H_
 #define _AJ_NVRAM_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 /**
  * @file aj_nvram.h
  * @defgroup aj_nvram Non-Volatile RAM Management
@@ -152,6 +155,9 @@ uint8_t AJ_NVRAM_Exist(uint16_t id);
  */
 AJ_Status AJ_NVRAM_Delete(uint16_t id);
 
+#ifdef __cplusplus
+}
+#endif
 /**
  * @}
  */

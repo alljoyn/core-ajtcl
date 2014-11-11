@@ -1,9 +1,6 @@
 #ifndef _ALLJOYN_H
 #define _ALLJOYN_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 /**
  * @file alljoyn.h
  * @defgroup alljoyn Conveniently Include AllJoyn Headers
@@ -39,9 +36,6 @@ extern "C" {
 #include "aj_about.h"
 #include "aj_helper.h"
 
-#ifdef __cplusplus
-}
-#endif
 /**
  * @}
  */

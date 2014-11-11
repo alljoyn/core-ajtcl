@@ -1,5 +1,9 @@
 #ifndef _AJ_UTIL_H
 #define _AJ_UTIL_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 /**
  * @file aj_util.h
  * @defgroup aj_util Utility Functions
@@ -228,6 +232,9 @@ uint16_t AJ_ByteSwap16(uint16_t x);
 uint32_t AJ_ByteSwap32(uint32_t x);
 uint64_t AJ_ByteSwap64(uint64_t x);
 
+#ifdef __cplusplus
+}
+#endif
 /**
  * @}
  */

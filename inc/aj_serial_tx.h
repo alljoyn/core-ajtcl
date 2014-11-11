@@ -1,10 +1,14 @@
 #ifndef _AJ_SERIAL_TX_H
 #define _AJ_SERIAL_TX_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 /**
  * @file
  */
 /******************************************************************************
- * Copyright (c) 2013, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2013-2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -90,4 +94,9 @@ void SendAck();
 void AJ_FillTxBufferList();
 
 #endif /* AJ_SERIAL_CONNECTION */
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif /* _AJ_SERIAL_TX_H */
