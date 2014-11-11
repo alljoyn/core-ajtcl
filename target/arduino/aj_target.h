@@ -103,4 +103,6 @@ extern uint8_t dbgTARGET_UTIL;
  */
 #define AJ_Reboot()
 
+#define AJ_CreateNewGUID AJ_RandBytes
+
 #endif
