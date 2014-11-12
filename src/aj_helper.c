@@ -331,7 +331,7 @@ AJ_Status AJ_StartService(AJ_BusAttachment* bus,
                 status = AJ_ERR_FAILURE;
             } else {
                 AJ_InfoPrintf(("AJ_StartService(): AJ_BusAdvertiseName()\n"));
-                status = AJ_BusAdvertiseName(bus, name, AJ_TRANSPORT_ANY, AJ_BUS_START_ADVERTISING, 0);
+                status = AJ_BusAdvertiseName(bus, name, (opts != NULL) ? opts->transports : AJ_TRANSPORT_ANY, AJ_BUS_START_ADVERTISING, 0);
             }
             break;
 
