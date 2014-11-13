@@ -107,7 +107,7 @@ AJ_Status AJ_BusRequestName(AJ_BusAttachment* bus, const char* name, uint32_t fl
 #define AJ_TRANSPORT_UDP       0x0100    /**< Transport using the AllJoyn Reliable Datagram Protocol (flavor of reliable UDP) */
 #define AJ_TRANSPORT_IP        (AJ_TRANSPORT_TCP | AJ_TRANSPORT_UDP) /**< Let the system decide which to use */
 
-#define AJ_TRANSPORT_ANY       (AJ_TRANSPORT_ALL & ~AJ_TRANSPORT_UDP)   /**< ANY non-EXPERIMENTAL transport */
+#define AJ_TRANSPORT_ANY       (AJ_TRANSPORT_ALL)   /**< ANY non-EXPERIMENTAL transport */
 
 /**
  * Make a method call to release a previously requested well known name.
