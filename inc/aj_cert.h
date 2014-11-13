@@ -1,5 +1,9 @@
 #ifndef _AJ_CERT_H
 #define _AJ_CERT_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 /**
  * @file
  *
@@ -174,5 +178,9 @@ AJ_Status AJ_SignCertificate(AJ_Certificate* certificate, const ecc_privatekey* 
  *
  */
 AJ_Status AJ_VerifyCertificate(AJ_Certificate* certificate);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

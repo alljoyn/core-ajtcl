@@ -1,5 +1,9 @@
 #ifndef _AJ_INIT_H
 #define _AJ_INIT_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 /**
  * @file aj_init.h
  * @defgroup aj_init Initialization
@@ -7,7 +11,7 @@
  * @file
  */
 /******************************************************************************
- * Copyright (c) 2012, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2012, 2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -30,6 +34,9 @@
  */
 AJ_EXPORT void AJ_Initialize(void);
 
+#ifdef __cplusplus
+}
+#endif
 /**
  * @}
  */

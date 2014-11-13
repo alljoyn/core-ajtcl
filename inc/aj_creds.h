@@ -1,5 +1,9 @@
 #ifndef _AJ_CREDS_H
 #define _AJ_CREDS_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 /**
  * @file aj_creds.h
  * @defgroup aj_creads Credentials Management
@@ -203,6 +207,9 @@ AJ_Status AJ_DeleteLocalCredential(const uint16_t credType, const uint16_t id);
  */
 AJ_Status AJ_CredentialExpired(AJ_PeerCred* cred);
 
+#ifdef __cplusplus
+}
+#endif
 /**
  * @}
  */

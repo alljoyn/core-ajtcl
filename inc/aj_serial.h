@@ -1,5 +1,9 @@
 #ifndef _AJ_SERIAL_H
 #define _AJ_SERIAL_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 /**
  * @file
  */
@@ -215,4 +219,9 @@ AJ_Status AJ_SerialRecv(uint8_t* buffer,
 void AJ_SerialDisconnect(void);
 
 #endif /* AJ_SERIAL_CONNECTION */
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif /* _AJ_SERIAL_H */

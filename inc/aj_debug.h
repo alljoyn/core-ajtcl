@@ -1,5 +1,9 @@
 #ifndef _AJ_DEBUG_H
 #define _AJ_DEBUG_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 /******************************************************************************
  * Copyright (c) 2012-2014, AllSeen Alliance. All rights reserved.
  *
@@ -347,6 +351,9 @@ int _AJ_DbgHeader(AJ_DebugLevel level, const char* file, int line);
  */
 AJ_EXPORT const char* AJ_StatusText(AJ_Status status);
 
+#ifdef __cplusplus
+}
+#endif
 /**
  * @}
  */

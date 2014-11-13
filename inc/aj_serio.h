@@ -1,12 +1,16 @@
 #ifndef _AJ_SERIO_H
 #define _AJ_SERIO_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 /**
  * @file aj_serio.h
  * @defgroup aj_serio Serial Input/Output
  * @{
  */
 /******************************************************************************
- * Copyright (c) 2012-2013, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2012-2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -114,5 +118,9 @@ void AJ_ResumeRX();
 void AJ_TX(uint8_t* buf, uint32_t len);
 void AJ_PauseTX();
 void AJ_ResumeTX();
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _AJ_SERIO_H */

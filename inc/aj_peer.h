@@ -1,5 +1,9 @@
 #ifndef _AJ_PEER_H
 #define _AJ_PEER_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 /**
  * @file aj_peer.h
  * @defgroup aj_peer Implementation of org.alljoyn.Bus.Peer Object
@@ -217,6 +221,9 @@ void AJ_ClearAuthContext();
 #define AUTH_SUITE_ECDHE_PSK    (AUTH_KEYX_ECDHE | 0x0002)
 #define AUTH_SUITE_ECDHE_ECDSA  (AUTH_KEYX_ECDHE | 0x0004)
 
+#ifdef __cplusplus
+}
+#endif
 /**
  * @}
  */

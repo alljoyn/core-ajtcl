@@ -1,12 +1,16 @@
 #ifndef _AJ_BUFIO_H
 #define _AJ_BUFIO_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 /**
  * @file aj_bufio.h
  * @defgroup aj_bufio Buffer Input/Output
  * @{
  */
 /******************************************************************************
- * Copyright (c) 2012-2013, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2012-2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -118,5 +122,9 @@ void AJ_IOBufInit(AJ_IOBuffer* ioBuf, uint8_t* buffer, uint32_t bufLen, uint8_t 
  * @param preserve Data (if any) at front of buffer that must be preserved
  */
 void AJ_IOBufRebase(AJ_IOBuffer* ioBuf, size_t preserve);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

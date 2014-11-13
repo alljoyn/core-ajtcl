@@ -1,5 +1,9 @@
 #ifndef _AJ_INTROSPECT_H
 #define _AJ_INTROSPECT_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 /**
  * @file aj_introspect.h
  * @defgroup aj_introspect Introspection Support
@@ -536,6 +540,9 @@ void AJ_PrintXMLWithDescriptions(const AJ_Object* objs, const char* languageTag)
 typedef AJ_Status (*AJ_MutterHook)(AJ_Message* msg, uint32_t msgId, uint8_t msgType);
 #endif
 
+#ifdef __cplusplus
+}
+#endif
 /**
  * @}
  */

@@ -1,5 +1,9 @@
 #ifndef _AJ_CRYPTO_ECC_H
 #define _AJ_CRYPTO_ECC_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 /**
  * @file aj_crypto_ecc.h
  * @defgroup aj_crypto Cryptographic Support
@@ -132,5 +136,9 @@ AJ_Status AJ_DSAVerifyDigest(const uint8_t* digest, const ecc_signature* sig, co
  *          - AJ_ERR_SECURITY otherwise
  */
 AJ_Status AJ_DSAVerify(const uint8_t* buf, uint16_t len, const ecc_signature* sig, const ecc_publickey* pubKey);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

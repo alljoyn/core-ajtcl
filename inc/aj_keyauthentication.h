@@ -1,5 +1,9 @@
 #ifndef _AJ_KEYAUTHENTICATION_H
 #define _AJ_KEYAUTHENTICATION_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 /**
  * @file aj_keyauthentication.h
  * @defgroup aj_keyauthentication Implementation of Key Authentication mechanisms
@@ -58,6 +62,9 @@ void AJ_PSK_SetPwdCallback(AJ_AuthPwdFunc pwdcallback);
 extern AJ_KeyAuthentication AJ_KeyAuthenticationNULL;
 #endif
 
+#ifdef __cplusplus
+}
+#endif
 /**
  * @}
  */
