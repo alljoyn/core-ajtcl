@@ -1,9 +1,6 @@
 #ifndef _AJ_CRC16_H
 #define _AJ_CRC16_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 /**
  * @file
  */
@@ -25,7 +22,9 @@ extern "C" {
 
 #include "aj_target.h"
 
-
+#ifdef __cplusplus
+extern "C" {
+#endif
 /**
  * Computes a 16-bit CRC on a buffer. The caller provides the context for the running CRC.
  *

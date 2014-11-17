@@ -1,9 +1,6 @@
 #ifndef _AJ_NVRAM_H_
 #define _AJ_NVRAM_H_
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 /**
  * @file aj_nvram.h
  * @defgroup aj_nvram Non-Volatile RAM Management
@@ -26,6 +23,10 @@ extern "C" {
  ******************************************************************************/
 
 #include "alljoyn.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define AJ_NVRAM_ID_CREDS_MAX        0x0FFF   /**< Last NVRAM ID reserved for AllJoyn credentials management */
 #define AJ_NVRAM_ID_RESERVED_MAX     0x7FFF   /**< Last NVRAM ID reserved for AllJoyn framework and services use */

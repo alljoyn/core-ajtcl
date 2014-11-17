@@ -1,9 +1,6 @@
 #ifndef _AJ_CONNECT_H
 #define _AJ_CONNECT_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 /**
  * @file aj_connect.h
  * @defgroup aj_connect Bus Connection Management
@@ -29,6 +26,10 @@ extern "C" {
 #include "aj_status.h"
 #include "aj_bus.h"
 #include "aj_disco.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
  * Set the minimum acceptable routing node protocol version.

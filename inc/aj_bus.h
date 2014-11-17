@@ -1,9 +1,6 @@
 #ifndef _AJ_BUS_H
 #define _AJ_BUS_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 /**
  * @file aj_bus.h
  * @defgroup aj_bus Bus Attachment
@@ -30,6 +27,10 @@ extern "C" {
 #include "aj_status.h"
 #include "aj_util.h"
 #include "aj_auth_listener.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
  * Forward declarations

@@ -20,15 +20,16 @@
 #ifndef AJ_WSL_SPI_H_
 #define AJ_WSL_SPI_H_
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include "aj_target.h"
 #include "aj_status.h"
 #include "aj_wsl_target.h"
 #include "aj_wsl_spi_constants.h"
 #include "aj_buf.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #pragma pack(push, 1)
 
 /*

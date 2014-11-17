@@ -20,14 +20,14 @@
 #ifndef AJ_WSL_TARGET_H__
 #define AJ_WSL_TARGET_H__
 
+#include "aj_target_platform.h"
+#include "aj_target.h"
+#include "aj_RTOS.h"
+#include "aj_status.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include "aj_target_platform.h"
-#include "aj_target.h"
-#include "RTOS.h"
-#include "aj_status.h"
 
 void AJ_WSL_ModuleInit(void);
 AJ_Status AJ_WSL_DriverStart(void);

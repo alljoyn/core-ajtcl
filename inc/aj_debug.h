@@ -1,9 +1,6 @@
 #ifndef _AJ_DEBUG_H
 #define _AJ_DEBUG_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 /******************************************************************************
  * Copyright (c) 2012-2014, AllSeen Alliance. All rights reserved.
  *
@@ -167,6 +164,10 @@ extern "C" {
 
 #include "aj_target.h"
 #include "aj_msg.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
  * Always print a message in a fashion similar to other conditional log outputs.

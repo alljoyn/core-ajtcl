@@ -34,16 +34,16 @@
 #ifndef AJ_TARGET_RTOS_H_
 #define AJ_TARGET_RTOS_H_
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-#include "RTOS.h"
+#include "aj_rtos.h"
 #include "FreeRTOS.h"
 #include "task.h"
 #include "queue.h"
 #include "timers.h"
 #include "semphr.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef struct _AJ_FW_Version {
     uint32_t host_ver;

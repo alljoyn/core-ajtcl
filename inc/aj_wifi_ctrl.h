@@ -1,9 +1,6 @@
 #ifndef _AJ_WIFI_CTRL_H
 #define _AJ_WIFI_CTRL_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 /**
  * @file
  */
@@ -24,6 +21,10 @@ extern "C" {
  ******************************************************************************/
 #include "aj_target.h"
 #include "aj_status.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef enum {
     AJ_WIFI_IDLE,

@@ -1,9 +1,6 @@
 #ifndef _AJ_SERIO_H
 #define _AJ_SERIO_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 /**
  * @file aj_serio.h
  * @defgroup aj_serio Serial Input/Output
@@ -27,6 +24,10 @@ extern "C" {
 
 #include "aj_target.h"
 #include "aj_status.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define AJ_SERIO_RX     1 /**< The receive direction (from the wire) of the serial I/O subsystem */
 #define AJ_SERIO_TX     2 /**< The transmit direction (to the wire) of the serial I/O subsystem */

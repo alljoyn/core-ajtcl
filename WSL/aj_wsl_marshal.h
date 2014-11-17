@@ -24,6 +24,10 @@
 #include "aj_wsl_spi_constants.h"
 #include <stdarg.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * Marshal a list of arguments into a AJ_BufList.
  *
@@ -93,4 +97,9 @@ void WMI_MarshalSendTo(AJ_BufList* packet, uint32_t sock, AJ_BufNode* data, uint
  * @param size      Size of the data your sending
  */
 void WMI_MarshalSend(AJ_BufList* packet, uint32_t sock, AJ_BufNode* data, uint16_t size);
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif /* AJ_WSL_MARSHAL_H_ */

@@ -1,9 +1,6 @@
 #ifndef _AJ_SERIAL_TX_H
 #define _AJ_SERIAL_TX_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 /**
  * @file
  */
@@ -28,6 +25,9 @@ extern "C" {
 #include "aj_status.h"
 #include "aj_serial.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
  * This function initializes the serial transport layer.
@@ -93,10 +93,10 @@ void SendAck();
  */
 void AJ_FillTxBufferList();
 
-#endif /* AJ_SERIAL_CONNECTION */
-
 #ifdef __cplusplus
 }
 #endif
+
+#endif /* AJ_SERIAL_CONNECTION */
 
 #endif /* _AJ_SERIAL_TX_H */

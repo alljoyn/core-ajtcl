@@ -1,9 +1,6 @@
 #ifndef _AJ_CRYPTO_H
 #define _AJ_CRYPTO_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 /**
  * @file aj_crypto.h
  * @defgroup aj_crypto Cryptographic Support
@@ -27,6 +24,10 @@ extern "C" {
 
 #include "aj_target.h"
 #include "aj_status.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
  * Implements AES-CCM (Counter with CBC-MAC) encryption as described in RFC 3610. The message in

@@ -1,9 +1,6 @@
 #ifndef _AJ_DISCO_H
 #define _AJ_DISCO_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 /**
  * @file
  */
@@ -25,6 +22,10 @@ extern "C" {
 
 #include "aj_target.h"
 #include "aj_bufio.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
  * Information about the remote service

@@ -1,9 +1,6 @@
 #ifndef _AJ_AUTH_LISTENER_H
 #define _AJ_AUTH_LISTENER_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 /**
  * @file aj_auth_listener.h
  * @defgroup aj_auth_listener Authentication Listener
@@ -29,6 +26,10 @@ extern "C" {
 #include "aj_net.h"
 #include "aj_status.h"
 #include "aj_util.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /*
  * Command for auth listener callback

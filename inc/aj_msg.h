@@ -1,9 +1,6 @@
 #ifndef _AJ_MSG_H
 #define _AJ_MSG_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 /**
  * @file aj_msg.h
  * @defgroup aj_msg Message Marshaling and Unmarshaling
@@ -29,6 +26,10 @@ extern "C" {
 #include "aj_status.h"
 #include "aj_bus.h"
 #include "aj_util.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /*
  * Message argument types

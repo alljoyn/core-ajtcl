@@ -1,9 +1,6 @@
 #ifndef _AJ_CERT_H
 #define _AJ_CERT_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 /**
  * @file
  *
@@ -29,6 +26,10 @@ extern "C" {
 #include "aj_guid.h"
 #include "aj_crypto_ecc.h"
 #include "aj_crypto_sha2.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define MAX_NUM_CERTIFICATES 2
 

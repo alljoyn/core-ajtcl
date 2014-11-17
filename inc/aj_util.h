@@ -1,9 +1,6 @@
 #ifndef _AJ_UTIL_H
 #define _AJ_UTIL_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 /**
  * @file aj_util.h
  * @defgroup aj_util Utility Functions
@@ -27,6 +24,10 @@ extern "C" {
 
 #include "aj_target.h"
 #include "aj_status.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
  * Structure for holding a time

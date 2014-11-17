@@ -21,9 +21,6 @@
 
 #include <stdlib.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 #define AJ_EXPORT
 
 #include <stdint.h>
@@ -34,6 +31,10 @@ extern "C" {
 #include <string.h>
 #include "assert.h"
 #include "aj_connect.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #ifndef TRUE
 #define TRUE (1)

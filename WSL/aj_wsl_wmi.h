@@ -19,10 +19,6 @@
 #ifndef AJ_WSL_WMI_H_
 #define AJ_WSL_WMI_H_
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include "aj_target.h"
 #include "aj_wsl_target.h"
 #include "aj_wsl_net.h"
@@ -30,6 +26,10 @@ extern "C" {
 #include "aj_target_platform.h"
 #include "aj_target_rtos.h"
 #include "aj_wsl_spi_constants.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 void AJ_WSL_WMI_ModuleInit(void);
 // prototype for functions that are invoked for wifi connection status

@@ -1,9 +1,6 @@
 #ifndef _AJ_ABOUT_H
 #define _AJ_ABOUT_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 /**
  * @file aj_about.h
  * @defgroup aj_about Bus Attachment
@@ -28,6 +25,10 @@ extern "C" {
 #include "aj_target.h"
 #include "aj_status.h"
 #include "aj_util.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
  * Prototype for a function provided by the property store for getting ANNOUNCE and ABOUT properties

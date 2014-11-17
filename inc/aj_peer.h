@@ -1,9 +1,6 @@
 #ifndef _AJ_PEER_H
 #define _AJ_PEER_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 /**
  * @file aj_peer.h
  * @defgroup aj_peer Implementation of org.alljoyn.Bus.Peer Object
@@ -27,6 +24,10 @@ extern "C" {
 
 #include "aj_target.h"
 #include "aj_msg.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
  * Handle an exchange guids message

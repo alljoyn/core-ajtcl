@@ -1,9 +1,6 @@
 #ifndef _AJ_BUFIO_H
 #define _AJ_BUFIO_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 /**
  * @file aj_bufio.h
  * @defgroup aj_bufio Buffer Input/Output
@@ -27,6 +24,10 @@ extern "C" {
 
 #include "aj_target.h"
 #include "aj_status.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /*
  * Forward declaration

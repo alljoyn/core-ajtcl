@@ -1,9 +1,6 @@
 #ifndef _AJ_MSG_PRIV_H
 #define _AJ_MSG_PRIV_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 /**
  * @file aj_msg_priv.h
  * @defgroup aj_msg_priv Non-public Message Marshaling and Unmarshaling APIs
@@ -27,6 +24,9 @@ extern "C" {
 
 #include <alljoyn.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
  * Returns the signature of the next arg to be unmarshalled.

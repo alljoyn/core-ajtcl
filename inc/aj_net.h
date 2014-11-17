@@ -1,9 +1,6 @@
 #ifndef _AJ_NET_H
 #define _AJ_NET_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 /**
  * @file aj_net.h
  * @defgroup aj_net Network Send and Receive
@@ -28,6 +25,10 @@ extern "C" {
 #include "aj_target.h"
 #include "aj_status.h"
 #include "aj_bufio.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define AJ_ADDR_IPV4  0x04      /**< ip4 address */
 #define AJ_ADDR_IPV6  0x60      /**< ip6 address */
@@ -78,9 +79,16 @@ AJ_Status AJ_Net_Send(AJ_IOBuffer* txBuf);
  */
 AJ_Status AJ_Net_Recv(AJ_IOBuffer* rxBuf, uint32_t len, uint32_t timeout);
 
+/**
+ * Function that signals AJ_Net_Recv() to bail out early if it
+ * is blocking on select.
+ */
+void AJ_Net_Interrupt(void);
+
 #ifdef __cplusplus
 }
 #endif
+
 /**
  * @}
  */

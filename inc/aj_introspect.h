@@ -1,9 +1,6 @@
 #ifndef _AJ_INTROSPECT_H
 #define _AJ_INTROSPECT_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 /**
  * @file aj_introspect.h
  * @defgroup aj_introspect Introspection Support
@@ -29,6 +26,10 @@ extern "C" {
 #include "aj_status.h"
 #include "aj_bus.h"
 #include "aj_msg.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
  * Support for introspection

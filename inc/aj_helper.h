@@ -1,9 +1,6 @@
 #ifndef _AJ_HELPER_H
 #define _AJ_HELPER_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 /**
  * @file aj_helper.h
  * @defgroup aj_helper Helper Functions
@@ -28,6 +25,10 @@ extern "C" {
 
 #include "aj_status.h"
 #include "aj_bus.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define AJ_JOINSESSION_REPLY_SUCCESS              1   /**< JoinSession reply: Success */
 #define AJ_JOINSESSION_REPLY_NO_SESSION           2   /**< JoinSession reply: Session with given name does not exist */

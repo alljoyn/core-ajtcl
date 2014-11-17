@@ -25,7 +25,7 @@
 #include "aj_wsl_spi.h"
 #include "aj_wsl_htc.h"
 #include "aj_buf.h"
-#include "RTOS.h"
+#include "aj_rtos.h"
 #include "aj_bsp.h"
 
 /**
