@@ -33,6 +33,12 @@ static const char ServiceName[] = "org.alljoyn.Bus.signal_sample";
 static const char ServicePath[] = "/";
 static const uint16_t ServicePort = 25;
 
+/*
+ * Buffer to hold the full service name. This buffer must be big enough to hold
+ * a possible 255 characters plus a null terminator (256 bytes)
+ */
+static char fullServiceName[AJ_MAX_SERVICE_NAME_SIZE];
+
 /**
  * The interface name followed by the method signatures.
  * This sample changes a property in the signal_service sample.
@@ -84,7 +90,7 @@ AJ_Status SendNewName(AJ_BusAttachment* bus, uint32_t sessionId, char*newName)
     AJ_Status status;
     AJ_Message msg;
 
-    status = AJ_MarshalMethodCall(bus, &msg, PRX_SET_PROP, ServiceName, sessionId, 0, METHOD_TIMEOUT);
+    status = AJ_MarshalMethodCall(bus, &msg, PRX_SET_PROP, fullServiceName, sessionId, 0, METHOD_TIMEOUT);
 
     if (status == AJ_OK) {
         status = AJ_MarshalPropertyArgs(&msg, PRX_SET_NAME);
@@ -124,14 +130,15 @@ int main(int argc, char*argv[])
             AJ_Message msg;
 
             if (!connected) {
-                status = AJ_StartClient(&bus,
-                                        NULL,
-                                        CONNECT_TIMEOUT,
-                                        FALSE,
-                                        ServiceName,
-                                        ServicePort,
-                                        &sessionId,
-                                        NULL);
+                status = AJ_StartClientByName(&bus,
+                                              NULL,
+                                              CONNECT_TIMEOUT,
+                                              FALSE,
+                                              ServiceName,
+                                              ServicePort,
+                                              &sessionId,
+                                              NULL,
+                                              fullServiceName);
 
                 if (status == AJ_OK) {
                     AJ_InfoPrintf(("StartClient returned %d, sessionId=%u.\n", status, sessionId));
@@ -155,7 +162,7 @@ int main(int argc, char*argv[])
                     done = TRUE;
                     AJ_AlwaysPrintf(("Name on the interface '%s' at service '%s' was set to '%s'.\n",
                                      InterfaceName,
-                                     ServiceName,
+                                     fullServiceName,
                                      newName));
                     break;
 

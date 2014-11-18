@@ -33,6 +33,12 @@ static const char ServiceName[] = "org.alljoyn.Bus.signal_sample";
 static const char ServicePath[] = "/";
 static const uint16_t ServicePort = 25;
 
+/*
+ * Buffer to hold the full service name. This buffer must be big enough to hold
+ * a possible 255 characters plus a null terminator (256 bytes)
+ */
+static char fullServiceName[AJ_MAX_SERVICE_NAME_SIZE];
+
 /**
  * The interface name followed by the method signatures.
  * This sample receives a signal of a property change in the sample signal_service.
@@ -109,14 +115,15 @@ int AJ_Main(void)
         AJ_Message msg;
 
         if (!connected) {
-            status = AJ_StartClient(&bus,
-                                    NULL,
-                                    CONNECT_TIMEOUT,
-                                    FALSE,
-                                    ServiceName,
-                                    ServicePort,
-                                    &sessionId,
-                                    NULL);
+            status = AJ_StartClientByName(&bus,
+                                          NULL,
+                                          CONNECT_TIMEOUT,
+                                          FALSE,
+                                          ServiceName,
+                                          ServicePort,
+                                          &sessionId,
+                                          NULL,
+                                          fullServiceName);
 
             if (status == AJ_OK) {
                 AJ_InfoPrintf(("StartClient returned %d, sessionId=%u.\n", status, sessionId));

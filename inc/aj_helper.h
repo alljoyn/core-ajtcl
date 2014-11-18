@@ -171,7 +171,9 @@ AJ_Status AJ_StartService(AJ_BusAttachment* bus,
                           const AJ_SessionOpts* opts);
 
 /**
- * Initializes an AllJoyn client and connect to a service
+ * @deprecated
+ * Initializes an AllJoyn client and connect to a service. Note that this function is deprecated
+ * and AJ_StartClientByName() should be used instead.
  *
  * @param bus            The bus attachment
  * @param daemonName     Name of a specific daemon service to connect to, NULL for the default name.
@@ -195,6 +197,33 @@ AJ_Status AJ_StartClient(AJ_BusAttachment* bus,
                          const AJ_SessionOpts* opts);
 
 /**
+ * Initializes an AllJoyn client and connect to a service
+ *
+ * @param bus            The bus attachment
+ * @param daemonName     Name of a specific daemon service to connect to, NULL for the default name.
+ * @param timeout        How long to spend attempting to find a remote service to connect to.
+ * @param connected      Whether the bus attachment is already connected to the daemon bus.
+ * @param name           The name of the service to connect to.
+ * @param port           The service port to connect to.
+ * @param[out] sessionId The session id returned if the connection was successful
+ * @param opts           The session option setting.
+ * @param[out] fullName  This buffer passed in will be filled with the full service name if the connection
+ *                       was successful. The buffer should be of size AJ_MAX_SERVICE_NAME_SIZE or buffer overflow may occur.
+ *
+ * @return AJ_OK if connection was successfully established
+ */
+AJ_EXPORT
+AJ_Status AJ_StartClientByName(AJ_BusAttachment* bus,
+                               const char* daemonName,
+                               uint32_t timeout,
+                               uint8_t connected,
+                               const char* name,
+                               uint16_t port,
+                               uint32_t* sessionId,
+                               const AJ_SessionOpts* opts,
+                               char* fullName);
+
+/**
  * Initialize an AllJoyn client, discover service by interface name, and connect.
  *
  * @param bus            The bus attachment
@@ -203,7 +232,7 @@ AJ_Status AJ_StartClient(AJ_BusAttachment* bus,
  * @param connected      Whether the bus attachment is already connected to the daemon bus.
  * @param interfaces     Find a service that implements these interface(s) (NULL-terminated list of names)
  * @param[out] sessionId The session id if the connection was successful
- * @param[out] serviceName The service name if the connection was successful (supply array of size AJ_MAX_NAME_SIZE+1)
+ * @param[out] uniqueName The unique name of the service if the connection was successful (supply array of size AJ_MAX_NAME_SIZE+1)
  * @param opts           The session option setting.
  *
  * @return AJ_OK if connection was successfully established
@@ -215,7 +244,7 @@ AJ_Status AJ_StartClientByInterface(AJ_BusAttachment* bus,
                                     uint8_t connected,
                                     const char** interfaces,
                                     uint32_t* sessionId,
-                                    char* serviceName,
+                                    char* uniqueName,
                                     const AJ_SessionOpts* opts);
 
 #ifdef __cplusplus

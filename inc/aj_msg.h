@@ -119,6 +119,11 @@ extern "C" {
 #define AJ_HDR_SESSION_ID            0x13  /**< Session id header field type */
 
 /**
+ * Maximum string length of a service (including null terminator)
+ */
+#define AJ_MAX_SERVICE_NAME_SIZE 256
+
+/**
  * Type for a message argument
  */
 struct _AJ_Arg {

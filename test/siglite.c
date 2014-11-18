@@ -323,6 +323,10 @@ int AJ_Main()
     uint8_t connected = FALSE;
     uint32_t sessionId = 0;
     AJ_Status authStatus = AJ_ERR_NULL;
+    /*
+     * Buffer to hold the full service name. The buffer size must be AJ_MAX_SERVICE_NAME_SIZE.
+     */
+    char fullServiceName[AJ_MAX_SERVICE_NAME_SIZE];
 
 #ifdef SECURE_INTERFACE
     uint32_t suites[16];
@@ -382,12 +386,12 @@ int AJ_Main()
 
         if (!connected) {
 #ifndef NGNS
-            status = AJ_StartClient(&bus, NULL, CONNECT_TIMEOUT, FALSE, testServiceName, testServicePort, &sessionId, NULL);
+            status = AJ_StartClientByName(&bus, NULL, CONNECT_TIMEOUT, FALSE, testServiceName, testServicePort, &sessionId, NULL, fullServiceName);
 #else
-            status = AJ_StartClientByInterface(&bus, NULL, CONNECT_TIMEOUT, FALSE, testInterfaceNames, &sessionId, testServiceName, NULL);
+            status = AJ_StartClientByInterface(&bus, NULL, CONNECT_TIMEOUT, FALSE, testInterfaceNames, &sessionId, fullServiceName, NULL);
 #endif
             if (status == AJ_OK) {
-                AJ_AlwaysPrintf(("StartClient returned %d, sessionId=%u, serviceName=%s\n", status, sessionId, testServiceName));
+                AJ_AlwaysPrintf(("StartClient returned %d, sessionId=%u, serviceName=%s\n", status, sessionId, fullServiceName));
                 AJ_AlwaysPrintf(("Connected to Daemon:%s\n", AJ_GetUniqueName(&bus)));
                 connected = TRUE;
 #ifdef SECURE_INTERFACE
@@ -400,7 +404,7 @@ int AJ_Main()
                     status = AJ_ClearCredentials();
                     AJ_ASSERT(AJ_OK == status);
                 }
-                status = AJ_BusAuthenticatePeer(&bus, testServiceName, AuthCallback, &authStatus);
+                status = AJ_BusAuthenticatePeer(&bus, fullServiceName, AuthCallback, &authStatus);
                 if (status != AJ_OK) {
                     AJ_AlwaysPrintf(("AJ_BusAuthenticatePeer returned %d\n", status));
                 }
@@ -425,7 +429,7 @@ int AJ_Main()
 
         status = AJ_UnmarshalMsg(&bus, &msg, UNMARSHAL_TIMEOUT);
         if (status == AJ_ERR_TIMEOUT) {
-            status = AppDoWork(&bus, sessionId, testServiceName);
+            status = AppDoWork(&bus, sessionId, fullServiceName);
             continue;
         }
 

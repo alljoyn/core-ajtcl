@@ -374,7 +374,8 @@ AJ_Status StartClient(AJ_BusAttachment* bus,
                       const char** interfaces,
                       uint32_t* sessionId,
                       char* serviceName,
-                      const AJ_SessionOpts* opts)
+                      const AJ_SessionOpts* opts,
+                      char* fullName)
 {
     AJ_Status status = AJ_OK;
     AJ_Time timer;
@@ -517,8 +518,14 @@ AJ_Status StartClient(AJ_BusAttachment* bus,
                 AJ_Arg arg;
                 AJ_UnmarshalArg(&msg, &arg);
                 AJ_InfoPrintf(("FoundAdvertisedName(%s)\n", arg.val.v_string));
-                found = TRUE;
-                status = AJ_BusJoinSession(bus, arg.val.v_string, port, opts);
+                if (!found) {
+                    if (fullName) {
+                        strncpy(fullName, arg.val.v_string, arg.len);
+                        fullName[arg.len] = '\0';
+                    }
+                    found = TRUE;
+                    status = AJ_BusJoinSession(bus, arg.val.v_string, port, opts);
+                }
             }
             break;
 
@@ -590,6 +597,19 @@ AJ_Status StartClient(AJ_BusAttachment* bus,
     return status;
 }
 
+AJ_Status AJ_StartClientByName(AJ_BusAttachment* bus,
+                               const char* daemonName,
+                               uint32_t timeout,
+                               uint8_t connected,
+                               const char* name,
+                               uint16_t port,
+                               uint32_t* sessionId,
+                               const AJ_SessionOpts* opts,
+                               char* fullName)
+{
+    return StartClient(bus, daemonName, timeout, connected, name, port, NULL, sessionId, NULL, opts, fullName);
+}
+
 AJ_Status AJ_StartClient(AJ_BusAttachment* bus,
                          const char* daemonName,
                          uint32_t timeout,
@@ -599,7 +619,8 @@ AJ_Status AJ_StartClient(AJ_BusAttachment* bus,
                          uint32_t* sessionId,
                          const AJ_SessionOpts* opts)
 {
-    return StartClient(bus, daemonName, timeout, connected, name, port, NULL, sessionId, NULL, opts);
+    AJ_WarnPrintf(("AJ_StartClient(): This function is deprecated. Please use AJ_StartClientByName() instead\n"));
+    return StartClient(bus, daemonName, timeout, connected, name, port, NULL, sessionId, NULL, opts, NULL);
 }
 
 AJ_Status AJ_StartClientByInterface(AJ_BusAttachment* bus,
@@ -608,8 +629,8 @@ AJ_Status AJ_StartClientByInterface(AJ_BusAttachment* bus,
                                     uint8_t connected,
                                     const char** interfaces,
                                     uint32_t* sessionId,
-                                    char* serviceName,
+                                    char* uniqueName,
                                     const AJ_SessionOpts* opts)
 {
-    return StartClient(bus, daemonName, timeout, connected, NULL, 0, interfaces, sessionId, serviceName, opts);
+    return StartClient(bus, daemonName, timeout, connected, NULL, 0, interfaces, sessionId, uniqueName, opts, NULL);
 }

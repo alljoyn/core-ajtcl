@@ -140,7 +140,7 @@ void HandleSignal(AJ_Message*msg) {
     }
 }
 
-static AJ_Status SendSignal(AJ_BusAttachment* bus, uint32_t sessionId)
+static AJ_Status SendSignal(AJ_BusAttachment* bus, uint32_t sessionId, char* fullServiceName)
 {
     AJ_Status status = AJ_OK;
     AJ_Message msg;
@@ -153,7 +153,7 @@ static AJ_Status SendSignal(AJ_BusAttachment* bus, uint32_t sessionId)
     int remaining = 0;
     uint8_t data = 0;
 
-    status = AJ_MarshalSignal(bus, &msg, APP_MY_SIGNAL, ServiceName, sessionId, 0, 0);
+    status = AJ_MarshalSignal(bus, &msg, APP_MY_SIGNAL, fullServiceName, sessionId, 0, 0);
     if (AJ_OK == status) {
         status = AJ_MarshalArgs(&msg, "u", current_signal_number);
 
@@ -234,10 +234,10 @@ static AJ_Status SendSignal(AJ_BusAttachment* bus, uint32_t sessionId)
     return status;
 }
 
-static void AppDoWork(void)
+static void AppDoWork(char* fullServiceName)
 {
     if (g_prop_ok_to_send) {
-        if (AJ_OK != SendSignal(&g_bus, g_sessionId)) {
+        if (AJ_OK != SendSignal(&g_bus, g_sessionId, fullServiceName)) {
             AJ_Printf("ERROR: Sending signal failed.\n");
         } else {
             g_prop_ok_to_send = FALSE;
@@ -251,6 +251,10 @@ void AJ_Main(void)
 {
     AJ_Status status = AJ_OK;
     uint8_t connected = FALSE;
+    /*
+     * Buffer to hold the full service name. The buffer size must be AJ_MAX_SERVICE_NAME_SIZE.
+     */
+    char fullServiceName[AJ_MAX_SERVICE_NAME_SIZE];
 
     AJ_Initialize();
 
@@ -261,7 +265,7 @@ void AJ_Main(void)
         AJ_Message msg;
 
         if (!connected) {
-            status = AJ_StartClient(&g_bus, DaemonName, CONNECT_TIMEOUT, 0, ServiceName, ServicePort, &g_sessionId, NULL);
+            status = AJ_StartClientByName(&g_bus, DaemonName, CONNECT_TIMEOUT, 0, ServiceName, ServicePort, &g_sessionId, NULL, fullServiceName);
             if (AJ_OK == status) {
                 AJ_Printf("StartClient returned %s, sessionId=%u\n", AJ_StatusText(status), g_sessionId);
                 AJ_Printf("Connected to Daemon: %s\n", AJ_GetUniqueName(&g_bus));
@@ -278,7 +282,7 @@ void AJ_Main(void)
         }
 
         if (AJ_ERR_TIMEOUT == status) {
-            AppDoWork();
+            AppDoWork(fullServiceName);
             continue;
         }
 
