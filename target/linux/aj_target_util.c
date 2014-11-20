@@ -45,6 +45,29 @@ void AJ_Sleep(uint32_t time)
 
 }
 
+#ifndef NDEBUG
+AJ_Status _AJ_GetDebugTime(AJ_Time* timer)
+{
+    static int useEpoch = -1;
+    char* env;
+    struct timespec now;
+    AJ_Status status = AJ_ERR_RESOURCES;
+
+    if (useEpoch == -1) {
+        env = getenv("ER_DEBUG_EPOCH");
+        useEpoch = env && (strcmp(env, "1") == 0);
+    }
+
+    if (useEpoch) {
+        clock_gettime(CLOCK_REALTIME, &now);
+        timer->seconds = now.tv_sec;
+        timer->milliseconds = now.tv_nsec / 1000000;
+        status = AJ_OK;
+    }
+    return status;
+}
+#endif
+
 uint32_t AJ_GetElapsedTime(AJ_Time* timer, uint8_t cumulative)
 {
     uint32_t elapsed;
