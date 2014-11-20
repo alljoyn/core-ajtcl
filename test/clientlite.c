@@ -384,13 +384,10 @@ int AJ_Main()
     uint8_t connected = FALSE;
     uint32_t sessionId = 0;
     AJ_Status authStatus = AJ_ERR_NULL;
-
-#ifdef SECURE_INTERFACE
-    uint32_t suites[16];
+    uint8_t enablepwd = FALSE;
+    uint32_t suites[AJ_AUTH_SUITES_NUM];
     size_t numsuites = 0;
     uint8_t clearkeys = FALSE;
-    uint8_t enablepwd = FALSE;
-#endif
 
 #ifdef MAIN_ALLOWS_ARGS
 #if defined(SECURE_INTERFACE) || defined(SECURE_OBJECT)
@@ -427,6 +424,9 @@ int AJ_Main()
         }
     }
 #endif
+#else
+    suites[numsuites++] = AUTH_SUITE_ECDHE_ECDSA;
+    clearkeys = TRUE;
 #endif
 
     /*

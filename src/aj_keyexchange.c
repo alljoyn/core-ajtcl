@@ -27,7 +27,7 @@
 #include "aj_debug.h"
 #include "aj_keyexchange.h"
 #include "aj_crypto_ecc.h"
-#include "aj_cert.h"
+#include "aj_creds.h"
 
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
@@ -45,18 +45,20 @@ uint8_t dbgKEYEXCHANGE = 0;
 
 static AJ_Status ECDHE_Init(AJ_SHA256_Context* hash);
 static AJ_Status ECDHE_Marshal(AJ_Message* msg);
-static AJ_Status ECDHE_Unmarshal(AJ_Message* msg, uint8_t** secret, size_t* secretlen);
+static AJ_Status ECDHE_Unmarshal(AJ_Message* msg);
+static void ECDHE_GetSecret(uint8_t** secret, size_t* secretlen);
 
 AJ_KeyExchange AJ_KeyExchangeECDHE = {
     ECDHE_Init,
     ECDHE_Marshal,
-    ECDHE_Unmarshal
+    ECDHE_Unmarshal,
+    ECDHE_GetSecret
 };
 
 typedef struct _AJ_ECDHEContext {
-    ecc_publickey publickey;
-    ecc_privatekey privatekey;
-    uint8_t secret[sizeof (ecc_secret)];
+    AJ_KeyInfo pub;
+    AJ_KeyInfo prv;
+    uint8_t secret[SHA256_DIGEST_LENGTH];
     AJ_SHA256_Context* hash;
 } AJ_ECDHEContext;
 
@@ -66,77 +68,66 @@ static AJ_ECDHEContext ecdhectx;
 static AJ_Status ECDHE_Init(AJ_SHA256_Context* hash)
 {
     ecdhectx.hash = hash;
-    return AJ_GenerateDHKeyPair(&ecdhectx.publickey, &ecdhectx.privatekey);
+    return AJ_KeyInfoGenerate(&ecdhectx.pub, &ecdhectx.prv, KEY_USE_SIG);
 }
 
 static AJ_Status ECDHE_Marshal(AJ_Message* msg)
 {
     AJ_Status status;
-    uint8_t b8[1 + sizeof (ecc_publickey)];
 
-    AJ_InfoPrintf(("AJ_ECDHE_Marshal(msg=0x%p)\n", msg));
+    AJ_InfoPrintf(("AJ_ECDHE_Marshal(msg=%p)\n", msg));
 
-    status = AJ_MarshalVariant(msg, "ay");
-    if (AJ_OK != status) {
-        AJ_ErrPrintf(("AJ_ECDHE_Marshal(msg=0x%p): Marshal variant error\n", msg));
-        return status;
-    }
-    b8[0] = ECC_NIST_P256;
-    AJ_BigEndianEncodePublicKey(&ecdhectx.publickey, &b8[1]);
-    status = AJ_MarshalArgs(msg, "ay", b8, sizeof (b8));
-    if (AJ_OK != status) {
-        AJ_ErrPrintf(("AJ_ECDHE_Marshal(msg=0x%p): Marshal key material error\n", msg));
-        return status;
-    }
-    AJ_SHA256_Update(ecdhectx.hash, b8, sizeof (b8));
+    status = AJ_MarshalVariant(msg, "(yv)");
+    status = AJ_KeyInfoMarshal(&ecdhectx.pub, msg, ecdhectx.hash);
 
-    return AJ_OK;
+    return status;
 }
 
-static AJ_Status ECDHE_Unmarshal(AJ_Message* msg, uint8_t** secret, size_t* secretlen)
+static AJ_Status ECDHE_Unmarshal(AJ_Message* msg)
 {
     AJ_Status status;
+    AJ_KeyInfo pub;
     char* variant;
-    uint8_t* data;
-    size_t datalen;
-    ecc_publickey publickey;
-    ecc_secret tmp;
+    ecc_secret sec;
+    uint8_t buf[KEY_ECC_SEC_SZ];
+    AJ_SHA256_Context ctx;
 
-    AJ_InfoPrintf(("AJ_ECDHE_Unmarshal(msg=0x%p)\n", msg));
+    AJ_InfoPrintf(("AJ_ECDHE_Unmarshal(msg=%p)\n", msg));
 
     status = AJ_UnmarshalVariant(msg, (const char**) &variant);
     if (AJ_OK != status) {
-        AJ_InfoPrintf(("AJ_ECDHE_Unmarshal(msg=0x%p): Unmarshal variant error\n", msg));
         return status;
     }
-    if (0 != strncmp(variant, "ay", 2)) {
-        AJ_InfoPrintf(("AJ_ECDHE_Unmarshal(msg=0x%p): Invalid variant\n", msg));
-        return AJ_ERR_SECURITY;
+    if (0 != strncmp(variant, "(yv)", 4)) {
+        return AJ_ERR_INVALID;
     }
-    status = AJ_UnmarshalArgs(msg, "ay", &data, &datalen);
+    status = AJ_KeyInfoUnmarshal(&pub, msg, ecdhectx.hash);
     if (AJ_OK != status) {
-        AJ_InfoPrintf(("AJ_ECDHE_Unmarshal(msg=0x%p): Unmarshal key material error\n", msg));
         return status;
     }
-    if (1 + sizeof (ecc_publickey) != datalen) {
-        AJ_InfoPrintf(("AJ_ECDHE_Unmarshal(msg=0x%p): Invalid key material\n", msg));
+    if (KEY_USE_SIG != pub.use) {
         return AJ_ERR_SECURITY;
     }
-    if (ECC_NIST_P256 != data[0]) {
-        AJ_InfoPrintf(("AJ_ECDHE_Unmarshal(msg=0x%p): Invalid curve\n", msg));
-        return AJ_ERR_SECURITY;
-    }
-    AJ_SHA256_Update(ecdhectx.hash, data, datalen);
 
-    AJ_BigEndianDecodePublicKey(&publickey, &data[1]);
-    status = AJ_GenerateShareSecret(&publickey, &ecdhectx.privatekey, &tmp);
+    status = AJ_GenerateShareSecret(&pub.key.publickey, &ecdhectx.prv.key.privatekey, &sec);
     if (AJ_OK != status) {
-        AJ_InfoPrintf(("AJ_ECDHE_Unmarshal(msg=0x%p): Generate secret error\n", msg));
         return status;
     }
-    AJ_BigEndianEncodePublicKey(&tmp, ecdhectx.secret);
-    *secret = ecdhectx.secret;
-    *secretlen = sizeof (ecdhectx.secret);
+    AJ_BigvalEncode(&sec.x, buf, KEY_ECC_SZ);
+    AJ_BigvalEncode(&sec.y, buf + KEY_ECC_SZ, KEY_ECC_SZ);
+
+    //Hash the point
+    AJ_SHA256_Init(&ctx);
+    AJ_SHA256_Update(&ctx, (const uint8_t*) buf, sizeof (buf));
+    AJ_SHA256_Final(&ctx, ecdhectx.secret);
 
     return status;
+}
+
+static void ECDHE_GetSecret(uint8_t** secret, size_t* secretlen)
+{
+    AJ_InfoPrintf(("AJ_ECDHE_GetSecret(secret=%p, secretlen=%p)\n", secret, secretlen));
+
+    *secret = ecdhectx.secret;
+    *secretlen = sizeof (ecdhectx.secret);
 }

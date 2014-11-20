@@ -261,13 +261,13 @@ AJ_Status AJ_SignCertificate(AJ_Certificate* certificate, const ecc_privatekey* 
 
     switch (certificate->version) {
     case 0:
-        status = AJ_DSASignDigest(certificate->digest, issuer_private, &certificate->signature);
+        status = AJ_ECDSASignDigest(certificate->digest, issuer_private, &certificate->signature);
         break;
 
     case 1:
     case 2:
         status = CertificateDigest(certificate, digest);
-        status = AJ_DSASignDigest(digest, issuer_private, &certificate->signature);
+        status = AJ_ECDSASignDigest(digest, issuer_private, &certificate->signature);
         break;
     }
 
@@ -281,13 +281,13 @@ AJ_Status AJ_VerifyCertificate(AJ_Certificate* certificate)
 
     switch (certificate->version) {
     case 0:
-        status = AJ_DSAVerifyDigest(certificate->digest, &certificate->signature, &certificate->issuer);
+        status = AJ_ECDSAVerifyDigest(certificate->digest, &certificate->signature, &certificate->issuer);
         break;
 
     case 1:
     case 2:
         status = CertificateDigest(certificate, digest);
-        status = AJ_DSAVerifyDigest(digest, &certificate->signature, &certificate->issuer);
+        status = AJ_ECDSAVerifyDigest(digest, &certificate->signature, &certificate->issuer);
         break;
     }
 

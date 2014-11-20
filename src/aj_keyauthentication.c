@@ -25,11 +25,13 @@
 
 #include "aj_target.h"
 #include "aj_debug.h"
-#include "aj_keyauthentication.h"
-#include "aj_cert.h"
-#include "aj_peer.h"
-#include "aj_creds.h"
+#include "aj_asn1.h"
 #include "aj_auth_listener.h"
+#include "aj_cert.h"
+#include "aj_creds.h"
+#include "aj_keyauthentication.h"
+#include "aj_peer.h"
+#include "aj_x509.h"
 
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
@@ -45,20 +47,24 @@ static AJ_Status ComputeVerifier(const char* label, uint8_t* buffer, size_t buff
 static AJ_Status ECDSA_Init(AJ_AuthListenerFunc authlistener, const uint8_t* mastersecret, size_t mastersecretlen, AJ_SHA256_Context* hash);
 static AJ_Status ECDSA_Marshal(AJ_Message* msg, uint8_t role);
 static AJ_Status ECDSA_Unmarshal(AJ_Message* msg, uint8_t role);
+static AJ_GUID* ECDSA_GetGuild();
 static AJ_Status ECDSA_Final(uint32_t* expiration);
+static AJ_Status ECDSA_CleanUp();
 
 AJ_KeyAuthentication AJ_KeyAuthenticationECDSA = {
     ECDSA_Init,
     ECDSA_Marshal,
     ECDSA_Unmarshal,
-    ECDSA_Final
+    ECDSA_GetGuild,
+    ECDSA_Final,
+    ECDSA_CleanUp
 };
 
 typedef struct _ECDSAContext {
-    AJ_Certificate* certchain;
-    size_t certchainlen;
-    ecc_privatekey prv_key;
-    ecc_publickey pub_key;
+    AJ_KeyInfo pub;
+    AJ_KeyInfo prv;
+    AJ_GUID* issuer;
+    AJ_GUID* guild;
 } ECDSAContext;
 static ECDSAContext ecdsactx;
 #endif
@@ -68,12 +74,16 @@ static AJ_Status PSK_Init(AJ_AuthListenerFunc authlistener, const uint8_t* maste
 static AJ_Status PSK_Marshal(AJ_Message* msg, uint8_t role);
 static AJ_Status PSK_Unmarshal(AJ_Message* msg, uint8_t role);
 static AJ_Status PSK_Final(uint32_t* expiration);
+static AJ_GUID* PSK_GetGuild();
+static AJ_Status PSK_CleanUp();
 
 AJ_KeyAuthentication AJ_KeyAuthenticationPSK = {
     PSK_Init,
     PSK_Marshal,
     PSK_Unmarshal,
-    PSK_Final
+    PSK_GetGuild,
+    PSK_Final,
+    PSK_CleanUp
 };
 
 #define AUTH_VERIFIER_LEN SHA256_DIGEST_LENGTH
@@ -91,13 +101,17 @@ static PSKContext pskctx;
 static AJ_Status NULL_Init(AJ_AuthListenerFunc authlistener, const uint8_t* mastersecret, size_t mastersecretlen, AJ_SHA256_Context* hash);
 static AJ_Status NULL_Marshal(AJ_Message* msg, uint8_t role);
 static AJ_Status NULL_Unmarshal(AJ_Message* msg, uint8_t role);
+static AJ_GUID* NULL_GetGuild();
 static AJ_Status NULL_Final(uint32_t* expiration);
+static AJ_Status NULL_CleanUp();
 
 AJ_KeyAuthentication AJ_KeyAuthenticationNULL = {
     NULL_Init,
     NULL_Marshal,
     NULL_Unmarshal,
-    NULL_Final
+    NULL_GetGuild,
+    NULL_Final,
+    NULL_CleanUp
 };
 #endif
 
@@ -136,10 +150,6 @@ static AJ_Status ComputeVerifier(const char* label, uint8_t* buffer, size_t buff
 static AJ_Status ECDSA_Init(AJ_AuthListenerFunc authlistener, const uint8_t* mastersecret, size_t mastersecretlen, AJ_SHA256_Context* hash)
 {
     AJ_Status status = AJ_OK;
-    AJ_Credential cred;
-    AJ_PeerCred* prvcred;
-    size_t chainlen;
-    uint8_t keypair;
 
     AJ_InfoPrintf(("AJ_ECDSA_Init()\n"));
 
@@ -148,165 +158,53 @@ static AJ_Status ECDSA_Init(AJ_AuthListenerFunc authlistener, const uint8_t* mas
     kactx.mastersecretlen = mastersecretlen;
     kactx.hash = hash;
     kactx.authlistener = authlistener;
+    ecdsactx.issuer = NULL;
+    ecdsactx.guild = NULL;
 
     /*
-     * Load private key if available
+     * Load key pair if available
      */
-    status = AJ_GetLocalCredential(AJ_CRED_TYPE_DSA_PRIVATE, DSA_PRV_KEY_ID, &prvcred);
-    if (AJ_OK == status) {
-        if (!prvcred || (sizeof (ecc_privatekey) != prvcred->dataLen)) {
-            AJ_WarnPrintf(("AJ_ECDSA_Init(): Invalid stored credential\n"));
-            AJ_FreeCredential(prvcred);
-            return AJ_ERR_SECURITY;
-        }
-        status = AJ_CredentialExpired(prvcred);
-        if (AJ_ERR_KEY_EXPIRED == status) {
-            /*
-             * Key expired - delete it
-             */
-            AJ_DeleteLocalCredential(AJ_CRED_TYPE_DSA_PRIVATE, DSA_PRV_KEY_ID);
-            AJ_InfoPrintf(("AJ_ECDSA_Init(): Private key expired\n"));
-        } else {
-            memcpy(&ecdsactx.prv_key, prvcred->data, sizeof (ecc_privatekey));
-            kactx.expiration = prvcred->expiration;
-        }
-        AJ_FreeCredential(prvcred);
-
-        status = AJ_GetLocalCredential(AJ_CRED_TYPE_DSA_PUBLIC, DSA_PUB_KEY_ID, &prvcred);
-        if (!prvcred || (sizeof (ecc_publickey) != prvcred->dataLen)) {
-            AJ_WarnPrintf(("AJ_ECDSA_Init(): Invalid stored credential\n"));
-            AJ_FreeCredential(prvcred);
-            return AJ_ERR_SECURITY;
-        }
-        status = AJ_CredentialExpired(prvcred);
-        if (AJ_ERR_KEY_EXPIRED == status) {
-            /*
-             * Key expired - delete it
-             */
-            AJ_DeleteLocalCredential(AJ_CRED_TYPE_DSA_PUBLIC, DSA_PUB_KEY_ID);
-            AJ_InfoPrintf(("AJ_ECDSA_Init(): Public key expired\n"));
-        } else {
-            memcpy(&ecdsactx.pub_key, prvcred->data, sizeof (ecc_publickey));
-            kactx.expiration = prvcred->expiration;
-        }
-        AJ_FreeCredential(prvcred);
-    }
+    status = AJ_KeyInfoGetLocal(&ecdsactx.pub, AJ_CRED_TYPE_ECDSA_PUB);
     if (AJ_OK != status) {
-        /*
-         * Request key pair
-         */
-        status = authlistener(AUTH_SUITE_ECDHE_ECDSA, AJ_CRED_PRV_KEY, &cred);
-        keypair = 0;
-        if (AJ_OK == status) {
-            if (sizeof (ecc_privatekey) != cred.len) {
-                AJ_WarnPrintf(("AJ_ECDSA_Init(): Invalid credential\n"));
-                return AJ_ERR_SECURITY;
-            }
-            memcpy(&ecdsactx.prv_key, cred.data, sizeof (ecdsactx.prv_key));
-            kactx.expiration = cred.expiration;
-            keypair++;
-        }
-        status = authlistener(AUTH_SUITE_ECDHE_ECDSA, AJ_CRED_PUB_KEY, &cred);
-        if (AJ_OK == status) {
-            if (sizeof (ecc_publickey) != cred.len) {
-                AJ_WarnPrintf(("AJ_ECDSA_Init(): Invalid credential\n"));
-                return AJ_ERR_SECURITY;
-            }
-            memcpy(&ecdsactx.pub_key, cred.data, sizeof (ecdsactx.pub_key));
-            keypair++;
-        }
-        if (!keypair) {
-            /*
-             * Application didn't supply key pair - generate one
-             */
-            status = AJ_GenerateDSAKeyPair(&ecdsactx.pub_key, &ecdsactx.prv_key);
-            if (AJ_OK != status) {
-                AJ_WarnPrintf(("AJ_ECDSA_Init(): Generate DSA key pair error\n"));
-                return AJ_ERR_SECURITY;
-            }
-            /*
-             * Default key pair expiration is long
-             */
-            kactx.expiration = 0xFFFFFFFF;
-            keypair = 2;
-        }
-        if (2 != keypair) {
-            /*
-             * Application only supplied one key
-             */
-            AJ_WarnPrintf(("AJ_ECDSA_Init(): Only one key provided\n"));
-            return AJ_ERR_SECURITY;
-        }
-        /*
-         * Store the DSA key pair
-         */
-        status = AJ_StoreLocalCredential(AJ_CRED_TYPE_DSA_PRIVATE, DSA_PRV_KEY_ID, (uint8_t*) &ecdsactx.prv_key, sizeof (ecc_privatekey), kactx.expiration);
+        status = AJ_KeyInfoGenerate(&ecdsactx.pub, &ecdsactx.prv, KEY_USE_SIG);
         if (AJ_OK != status) {
-            AJ_WarnPrintf(("AJ_ECDSA_Init(): Store local credential error\n"));
-            return AJ_ERR_SECURITY;
+            return status;
         }
-        status = AJ_StoreLocalCredential(AJ_CRED_TYPE_DSA_PUBLIC, DSA_PUB_KEY_ID, (uint8_t*) &ecdsactx.pub_key, sizeof (ecc_publickey), kactx.expiration);
+        status = AJ_KeyInfoSetLocal(&ecdsactx.pub, AJ_CRED_TYPE_ECDSA_PUB);
         if (AJ_OK != status) {
-            AJ_WarnPrintf(("AJ_ECDSA_Init(): Store local credential error\n"));
-            return AJ_ERR_SECURITY;
+            return status;
         }
-    }
-
-    /*
-     * Request certificate chain - there may not be one
-     */
-    status = authlistener(AUTH_SUITE_ECDHE_ECDSA, AJ_CRED_CERT_CHAIN, &cred);
-    if (AJ_OK == status) {
-        chainlen = cred.len;
-        ecdsactx.certchainlen = chainlen;
-        ecdsactx.certchain = NULL;
-        if (chainlen) {
-            ecdsactx.certchain = (AJ_Certificate*) AJ_Malloc(chainlen);
-            if (!ecdsactx.certchain) {
-                AJ_WarnPrintf(("AJ_ECDSA_Init(): AJ_ERR_RESOURCES\n"));
-                return AJ_ERR_RESOURCES;
-            }
-            memcpy(ecdsactx.certchain, cred.data, cred.len);
+        status = AJ_KeyInfoSetLocal(&ecdsactx.prv, AJ_CRED_TYPE_ECDSA_PRV);
+        if (AJ_OK != status) {
+            return status;
+        }
+    } else {
+        status = AJ_KeyInfoGetLocal(&ecdsactx.prv, AJ_CRED_TYPE_ECDSA_PRV);
+        if (AJ_OK != status) {
+            return status;
         }
     }
 
     return status;
 }
 
-static AJ_Status ECDSA_MarshalCertificate(AJ_Message* msg, AJ_Certificate* certificate, uint8_t role)
+static AJ_Status ECDSA_MarshalCertificate(AJ_Message* msg, uint16_t type)
 {
     AJ_Status status;
-    AJ_Arg struct1;
-    uint8_t* b8;
+    AJ_PeerHead head;
+    AJ_PeerBody body;
 
-    AJ_InfoPrintf(("AJ_ECDSA_MarshalCertificate(msg=0x%p)\n", msg));
-
-    if (certificate->version > MAX_NUM_CERTIFICATES) {
-        AJ_WarnPrintf(("AJ_ECDSA_MarshalCertificate(msg=0x%p): Invalid certificate version\n", msg));
-        return AJ_ERR_SECURITY;
+    head.type = type;
+    //TODO use one that matches a TA on the other peer.
+    head.id.size = 0;
+    head.id.data = NULL;
+    status = AJ_GetCredential(&head, &body);
+    if (AJ_OK == status) {
+        AJ_DumpBytes("CERTIFICATE", body.data.data, body.data.size);
+        status = AJ_MarshalArgs(msg, "(ay)", body.data.data, body.data.size);
+        AJ_SHA256_Update(kactx.hash, body.data.data, body.data.size);
+        AJ_PeerBodyFree(&body);
     }
-    b8 = (uint8_t*) AJ_Malloc(certificate->size);
-    if (!b8) {
-        AJ_WarnPrintf(("AJ_ECDSA_MarshalCertificate(msg=0x%p): AJ_ERR_RESOURCS\n", msg));
-        return AJ_ERR_RESOURCES;
-    }
-    status = AJ_BigEndianEncodeCertificate(certificate, b8, certificate->size);
-    if (AJ_OK != status) {
-        AJ_WarnPrintf(("AJ_ECDSA_MarshalCertificate(msg=0x%p): Encode certificate error\n", msg));
-        status = AJ_ERR_SECURITY;
-        goto Exit;
-    }
-
-    status = AJ_MarshalContainer(msg, &struct1, AJ_ARG_STRUCT);
-    status = AJ_MarshalArgs(msg, "ay", b8, certificate->size);
-    status = AJ_MarshalCloseContainer(msg, &struct1);
-
-    if (AUTH_CLIENT == role) {
-        AJ_SHA256_Update(kactx.hash, b8, certificate->size);
-    }
-
-Exit:
-    AJ_Free(b8);
 
     return status;
 }
@@ -315,12 +213,12 @@ AJ_Status ECDSA_Marshal(AJ_Message* msg, uint8_t role)
 {
     AJ_Status status;
     AJ_Arg array1;
-    AJ_Certificate* certificate;
-    AJ_Certificate* chain = ecdsactx.certchain;
-    int chainlen = ecdsactx.certchainlen;
+    AJ_Arg struct1;
+    AJ_SigInfo sig;
     uint8_t verifier[SHA256_DIGEST_LENGTH];
+    uint8_t fmt = CERT_FMT_X509_DER;
 
-    AJ_InfoPrintf(("AJ_ECDSA_Marshal(msg=0x%p)\n", msg));
+    AJ_InfoPrintf(("AJ_ECDSA_Marshal(msg=%p)\n", msg));
 
     if (AUTH_CLIENT == role) {
         status = ComputeVerifier("client finished", verifier, sizeof (verifier));
@@ -328,105 +226,40 @@ AJ_Status ECDSA_Marshal(AJ_Message* msg, uint8_t role)
         status = ComputeVerifier("server finished", verifier, sizeof (verifier));
     }
     if (AJ_OK != status) {
-        AJ_WarnPrintf(("AJ_ECDSA_Marshal(msg=0x%p): Compute verifier error\n", msg));
+        AJ_WarnPrintf(("AJ_ECDSA_Marshal(msg=%p): Compute verifier error\n", msg));
         return AJ_ERR_SECURITY;
     }
+    AJ_DumpBytes("VERIFIER", verifier, sizeof (verifier));
 
     /*
-     * Create leaf certificate and sign
+     * Create signature info binding key to verifier
      */
-    certificate = (AJ_Certificate*) AJ_Malloc(sizeof (AJ_Certificate));
-    if (!certificate) {
-        AJ_WarnPrintf(("AJ_ECDSA_Marshal(msg=0x%p): AJ_ERR_RESOURCES\n", msg));
-        return AJ_ERR_RESOURCES;
-    }
-    status = AJ_CreateCertificate(certificate, 0, &ecdsactx.pub_key, NULL, NULL, verifier, 0);
-    if (AJ_OK != status) {
-        AJ_WarnPrintf(("AJ_ECDSA_Marshal(msg=0x%p): Create certificate error\n", msg));
-        goto Exit;
-    }
-    status = AJ_SignCertificate(certificate, &ecdsactx.prv_key);
-    if (AJ_OK != status) {
-        AJ_WarnPrintf(("AJ_ECDSA_Marshal(msg=0x%p): Sign certificate error\n", msg));
-        goto Exit;
-    }
+    sig.fmt = SIG_FMT_ALLJOYN;
+    sig.alg = SIG_ALG_ECDSA_SHA256;
+    status = AJ_ECDSASignDigest(verifier, &ecdsactx.prv.key.privatekey, &sig.signature);
+    status = AJ_MarshalVariant(msg, "(yvyv)");
+    status = AJ_MarshalContainer(msg, &struct1, AJ_ARG_STRUCT);
 
+    /*
+     * Marshal signature info
+     */
+    AJ_DumpBytes("SIGNATURE", (uint8_t*) &sig, sizeof (AJ_SigInfo));
+    status = AJ_SigInfoMarshal(&sig, msg, kactx.hash);
+    status = AJ_MarshalArgs(msg, "y", fmt);
     status = AJ_MarshalVariant(msg, "a(ay)");
     status = AJ_MarshalContainer(msg, &array1, AJ_ARG_ARRAY);
+    AJ_SHA256_Update(kactx.hash, &fmt, 1);
 
     /*
-     * Marshal leaf certificate
+     * We only handle sending one certificate at the moment.
+     * For now, we'll just prioritise membership certificates.
      */
-    status = ECDSA_MarshalCertificate(msg, certificate, role);
+    status = ECDSA_MarshalCertificate(msg, AJ_CRED_TYPE_X509_DER_MBR);
     if (AJ_OK != status) {
-        AJ_WarnPrintf(("AJ_ECDSA_Marshal(msg=0x%p): Marshal certificate error\n", msg));
-        goto Exit;
-    }
-
-    /*
-     * Marshal chain certificates
-     */
-    while (chainlen > 0) {
-        if (chainlen < sizeof (AJ_Certificate)) {
-            AJ_WarnPrintf(("AJ_ECDSA_Marshal(msg=0x%p): Invalid certificate chain\n", msg));
-            status = AJ_ERR_SECURITY;
-            goto Exit;
-        }
-        status = ECDSA_MarshalCertificate(msg, chain, role);
-        if (AJ_OK != status) {
-            AJ_WarnPrintf(("AJ_ECDSA_Marshal(msg=0x%p): Marshal certificate error\n", msg));
-            goto Exit;
-        }
-        chain++;
-        chainlen -= sizeof (AJ_Certificate);
+        status = ECDSA_MarshalCertificate(msg, AJ_CRED_TYPE_X509_DER_IDN);
     }
     status = AJ_MarshalCloseContainer(msg, &array1);
-
-Exit:
-    AJ_Free(certificate);
-
-    return status;
-}
-
-static AJ_Status ECDSA_UnmarshalCertificate(AJ_Message* msg, AJ_Certificate* certificate, uint8_t role)
-{
-    AJ_Status status;
-    AJ_Arg struct1;
-    uint8_t* b8;
-    size_t b8len;
-
-    AJ_InfoPrintf(("AJ_ECDSA_UnmarshalCertificate(msg=0x%p)\n", msg));
-
-    status = AJ_UnmarshalContainer(msg, &struct1, AJ_ARG_STRUCT);
-    if (AJ_OK != status) {
-        if (AJ_ERR_NO_MORE != status) {
-            AJ_WarnPrintf(("AJ_ECDSA_UnmarshalCertificate(msg=0x%p): Unmarshal container error\n", msg));
-        }
-        return status;
-    }
-    status = AJ_UnmarshalArgs(msg, "ay", &b8, &b8len);
-    if (AJ_OK != status) {
-        AJ_WarnPrintf(("AJ_ECDSA_UnmarshalCertificate(msg=0x%p): Unmarshal error\n", msg));
-        return AJ_ERR_SECURITY;
-    }
-    status = AJ_BigEndianDecodeCertificate(certificate, b8, b8len);
-    if (AJ_OK != status) {
-        AJ_WarnPrintf(("AJ_ECDSA_UnmarshalCertificate(msg=0x%p): Decode certificate error\n", msg));
-        return AJ_ERR_SECURITY;
-    }
-    if (certificate->version > MAX_NUM_CERTIFICATES) {
-        AJ_WarnPrintf(("AJ_ECDSA_UnmarshalCertificate(msg=0x%p): Invalid certificate version\n", msg));
-        return AJ_ERR_SECURITY;
-    }
-    status = AJ_UnmarshalCloseContainer(msg, &struct1);
-    if (AJ_OK != status) {
-        AJ_WarnPrintf(("AJ_ECDSA_UnmarshalCertificate(msg=0x%p): Unmarshal container error\n", msg));
-        return AJ_ERR_SECURITY;
-    }
-
-    if (AUTH_SERVER == role) {
-        AJ_SHA256_Update(kactx.hash, b8, certificate->size);
-    }
+    status = AJ_MarshalCloseContainer(msg, &struct1);
 
     return status;
 }
@@ -435,186 +268,171 @@ AJ_Status ECDSA_Unmarshal(AJ_Message* msg, uint8_t role)
 {
     AJ_Status status;
     AJ_Arg array1;
-    AJ_Credential credential;
-    AJ_Certificate* certificate;
-    uint8_t* b8;
-    uint8_t verifier[SHA256_DIGEST_LENGTH];
+    AJ_Arg struct1;
+    AJ_SHA256_Context ctx;
+    uint8_t digest[SHA256_DIGEST_LENGTH];
     char* variant;
-    ecc_publickey issuer;
-    AJ_Validity validity;
-    uint8_t trusted = 0;
-    uint8_t isfirst = 1;
-    uint8_t delegate = 0;
+    uint8_t valid = 0;
+    uint8_t fmt;
+    DER_Element der;
+    AJ_KeyInfo pub;
+    AJ_SigInfo sig;
+    AJ_GUID* issuer;
+    AJ_GUID* guild = NULL;
+    X509Certificate certificate;
+    ecc_signature* signature;
 
-    AJ_InfoPrintf(("AJ_ECDSA_Unmarshal(msg=0x%p)\n", msg));
+    AJ_InfoPrintf(("AJ_ECDSA_Unmarshal(msg=%p)\n", msg));
 
     if (AUTH_CLIENT == role) {
-        status = ComputeVerifier("server finished", verifier, sizeof (verifier));
+        status = ComputeVerifier("server finished", digest, sizeof (digest));
     } else {
-        status = ComputeVerifier("client finished", verifier, sizeof (verifier));
+        status = ComputeVerifier("client finished", digest, sizeof (digest));
     }
     if (AJ_OK != status) {
-        AJ_WarnPrintf(("AJ_ECDSA_Unmarshal(msg=0x%p): Compute verifier error\n", msg));
+        AJ_WarnPrintf(("AJ_ECDSA_Unmarshal(msg=%p): Compute verifier error\n", msg));
         return AJ_ERR_SECURITY;
     }
+    AJ_DumpBytes("VERIFIER", digest, sizeof (digest));
 
     status = AJ_UnmarshalVariant(msg, (const char**) &variant);
     if (AJ_OK != status) {
-        AJ_InfoPrintf(("AJ_ECDSA_Unmarshal(msg=0x%p): Unmarshal variant error\n", msg));
-        return AJ_ERR_SECURITY;
+        return status;
+    }
+    if (0 != strncmp(variant, "(yvyv)", 6)) {
+        return AJ_ERR_INVALID;
+    }
+
+    status = AJ_UnmarshalContainer(msg, &struct1, AJ_ARG_STRUCT);
+    if (AJ_OK != status) {
+        return status;
+    }
+
+    /*
+     * Unmarshal signature info
+     */
+    status = AJ_SigInfoUnmarshal(&sig, msg, kactx.hash);
+    if (AJ_OK != status) {
+        return status;
+    }
+    issuer = (AJ_GUID*) AJ_GUID_Find(msg->sender);
+    signature = &sig.signature;
+
+    status = AJ_UnmarshalArgs(msg, "y", &fmt);
+    if (AJ_OK != status) {
+        return status;
+    }
+    if (CERT_FMT_X509_DER != fmt) {
+        AJ_ErrPrintf(("AJ_ECDSA_Unmarshal(msg=%p): DER encoding expected\n", msg));
+        return AJ_ERR_INVALID;
+    }
+    AJ_SHA256_Update(kactx.hash, &fmt, 1);
+    status = AJ_UnmarshalVariant(msg, (const char**) &variant);
+    if (AJ_OK != status) {
+        return status;
     }
     if (0 != strncmp(variant, "a(ay)", 5)) {
-        AJ_InfoPrintf(("AJ_ECDSA_Unmarshal(msg=0x%p): Invalid variant\n", msg));
-        return AJ_ERR_SECURITY;
+        return AJ_ERR_INVALID;
     }
-
     status = AJ_UnmarshalContainer(msg, &array1, AJ_ARG_ARRAY);
     if (AJ_OK != status) {
-        AJ_InfoPrintf(("AJ_ECDSA_Unmarshal(msg=0x%p): Unmarshal container error\n", msg));
-        return AJ_ERR_SECURITY;
+        return status;
     }
-
-    /*
-     * Unmarshal leaf certificate
-     */
-    certificate = (AJ_Certificate*) AJ_Malloc(sizeof (AJ_Certificate));
-    if (!certificate) {
-        AJ_InfoPrintf(("AJ_ECDSA_Unmarshal(msg=0x%p): AJ_ERR_RESOURCES\n", msg));
-        return AJ_ERR_RESOURCES;
-    }
-    status = ECDSA_UnmarshalCertificate(msg, certificate, role);
-    if (AJ_OK != status) {
-        AJ_InfoPrintf(("AJ_ECDSA_Unmarshal(msg=0x%p): Unmarshal certificate error\n", msg));
-        goto Exit;
-    }
-    /*
-     * Leaf certificate must be type 0
-     */
-    if (0 != certificate->version) {
-        AJ_InfoPrintf(("AJ_ECDSA_Unmarshal(msg=0x%p): Invalid certificate version %X\n", msg, certificate->version));
-        status = AJ_ERR_SECURITY;
-        goto Exit;
-    }
-
-    /*
-     * Verify the leaf certificate
-     */
-    if (0 != memcmp(&certificate->digest, verifier, sizeof (verifier))) {
-        AJ_InfoPrintf(("AJ_ECDSA_Unmarshal(msg=0x%p): Invalid verifier\n", msg));
-        status = AJ_ERR_SECURITY;
-        goto Exit;
-    }
-    status = AJ_VerifyCertificate(certificate);
-    if (AJ_OK != status) {
-        AJ_InfoPrintf(("AJ_ECDSA_Unmarshal(msg=0x%p): Invalid certificate\n", msg));
-        goto Exit;
-    }
-    memcpy(&issuer, &certificate->issuer, sizeof (ecc_publickey));
-    validity.validfrom = 0x00000000;
-    validity.validto   = 0xFFFFFFFF;
 
     /*
      * Unmarshal certificate chain - verify as we go
      */
     while (AJ_OK == status) {
         /*
-         * Ask the application if we trust the issuer
+         * Check if we have the public key for the issuer (stored trust anchor).
+         * If not, we need to get it from the next certificate in the chain.
          */
-        if (!trusted) {
-            b8 = (uint8_t*) AJ_Malloc(sizeof (issuer));
-            if (!b8) {
-                AJ_InfoPrintf(("AJ_ECDSA_Unmarshal(msg=0x%p): AJ_ERR_RESOURCES\n", msg));
-                status = AJ_ERR_RESOURCES;
-                goto Exit;
-            }
-            AJ_BigEndianEncodePublicKey(&issuer, b8);
-            credential.data = b8;
-            credential.len  = sizeof (ecc_publickey);
-            status = kactx.authlistener(AUTH_SUITE_ECDHE_ECDSA, AJ_CRED_CERT_TRUST, &credential);
+        status = AJ_KeyInfoGet(&pub, AJ_CRED_TYPE_ECDSA_CA_PUB, issuer);
+        if (AJ_OK == status) {
+            AJ_DumpBytes("ISSUER   ", (uint8_t*) issuer, sizeof (AJ_GUID));
+            AJ_DumpBytes("PUBLICKEY", (uint8_t*) &pub, sizeof (AJ_KeyInfo));
+            status = AJ_ECDSAVerifyDigest(digest, signature, &pub.key.publickey);
             if (AJ_OK == status) {
-                trusted = 1;
+                AJ_InfoPrintf(("AJ_ECDSA_Unmarshal(msg=%p): Certificate valid\n", msg));
+                valid = 1;
+                status = AJ_ERR_NO_MORE;
+                break;
             }
-            AJ_Free(b8);
+            /*
+             * If not valid, either the signature is incorrect or the stored key is incorrect.
+             * We could error here.
+             */
+        }
+        guild = NULL;
+
+        status = AJ_UnmarshalArgs(msg, "(ay)", &der.data, &der.size);
+        if (AJ_OK != status) {
+            // No more in array
+            break;
+        }
+        AJ_DumpBytes("CERTIFICATE", der.data, der.size);
+        AJ_SHA256_Update(kactx.hash, der.data, der.size);
+        status = AJ_X509DecodeCertificateDER(&certificate, &der);
+        if (AJ_OK != status) {
+            return status;
         }
 
-        status = ECDSA_UnmarshalCertificate(msg, certificate, role);
-        if (AJ_OK != status) {
+        /*
+         * Check subject is previous issuer
+         */
+        if (0 != memcmp(issuer, &certificate.subject, sizeof (AJ_GUID))) {
+            status = AJ_ERR_SECURITY;
             break;
         }
 
         /*
-         * Check the chaining conditions
+         * Get the subject public key and verify previous
          */
-        if (0 == certificate->version) {
-            AJ_InfoPrintf(("AJ_ECDSA_Unmarshal(msg=0x%p): Invalid certificate version %X\n", msg, certificate->version));
-            status = AJ_ERR_SECURITY;
-            goto Exit;
-        }
-        if (!isfirst && !delegate) {
-            AJ_InfoPrintf(("AJ_ECDSA_Unmarshal(msg=0x%p): Certificate delegation invalid\n", msg));
-            status = AJ_ERR_SECURITY;
-            goto Exit;
-        }
-        if (0 != memcmp(&issuer, &certificate->subject, sizeof (ecc_publickey))) {
-            AJ_InfoPrintf(("AJ_ECDSA_Unmarshal(msg=0x%p): Certificate chaining invalid\n", msg));
-            status = AJ_ERR_SECURITY;
-            goto Exit;
+        status = AJ_ECDSAVerifyDigest(digest, signature, &certificate.publickey);
+        if (AJ_OK != status) {
+            AJ_InfoPrintf(("AJ_ECDSA_Unmarshal(msg=%p): Certificate invalid\n", msg));
+            break;
         }
 
-        status = AJ_VerifyCertificate(certificate);
-        if (AJ_OK != status) {
-            AJ_InfoPrintf(("AJ_ECDSA_Unmarshal(msg=0x%p): Invalid certificate\n", msg));
-            goto Exit;
-        }
-        isfirst = 0;
-        memcpy(&issuer, &certificate->issuer, sizeof (ecc_publickey));
         /*
-         * If parent certificate has a shorter validity, use that instead
+         * Update current issuer, digest and signature
          */
-        if (certificate->validity.validfrom > validity.validfrom) {
-            validity.validfrom = certificate->validity.validfrom;
-        }
-        if (certificate->validity.validto < validity.validto) {
-            validity.validto = certificate->validity.validto;
-        }
+        issuer = &certificate.issuer;
+        guild = &certificate.guild;
+        AJ_SHA256_Init(&ctx);
+        AJ_SHA256_Update(&ctx, (const uint8_t*) certificate.tbs.data, certificate.tbs.size);
+        AJ_SHA256_Final(&ctx, digest);
+        signature = &certificate.signature;
     }
-    if (AJ_ERR_NO_MORE == status) {
-        status = AJ_UnmarshalCloseContainer(msg, &array1);
-        if (AJ_OK != status) {
-            AJ_InfoPrintf(("AJ_ECDSA_Unmarshal(msg=0x%p): Unmarshal container error\n", msg));
-            goto Exit;
-        }
+    if (AJ_ERR_NO_MORE != status) {
+        return status;
     }
+    status = AJ_UnmarshalCloseContainer(msg, &array1);
     if (AJ_OK != status) {
-        AJ_InfoPrintf(("AJ_ECDSA_Unmarshal(msg=0x%p): Unmarshal certificate error\n", msg));
-        goto Exit;
+        return status;
     }
-    if (trusted) {
-        /*
-         * Notify the application what the root certificate was
-         */
-        b8 = (uint8_t*) AJ_Malloc(certificate->size);
-        if (!b8) {
-            AJ_InfoPrintf(("AJ_ECDSA_Unmarshal(msg=0x%p): AJ_ERR_RESOURCES\n", msg));
-            status = AJ_ERR_RESOURCES;
-            goto Exit;
+    status = AJ_UnmarshalCloseContainer(msg, &struct1);
+    if (AJ_OK != status) {
+        return status;
+    }
+    if (valid) {
+        status = AJ_OK;
+        if (guild) {
+            ecdsactx.guild = (AJ_GUID*) AJ_Malloc(sizeof (AJ_GUID));
+            AJ_ASSERT(ecdsactx.guild);
+            memcpy(ecdsactx.guild, guild, sizeof (AJ_GUID));
+            AJ_DumpBytes("GUILD", (uint8_t*) ecdsactx.guild, sizeof (AJ_GUID));
         }
-        status = AJ_BigEndianEncodeCertificate(certificate, b8, certificate->size);
-        if (AJ_OK == status) {
-            credential.data = b8;
-            credential.len  = certificate->size;
-            kactx.authlistener(AUTH_SUITE_ECDHE_ECDSA, AJ_CRED_CERT_ROOT, &credential);
-        }
-        AJ_Free(b8);
     } else {
-        AJ_InfoPrintf(("AJ_ECDSA_Unmarshal(msg=0x%p): Certificate issuer not trusted\n", msg));
         status = AJ_ERR_SECURITY;
     }
 
-Exit:
-    AJ_Free(certificate);
-
     return status;
+}
+
+AJ_GUID* ECDSA_GetGuild()
+{
+    return ecdsactx.guild;
 }
 
 AJ_Status ECDSA_Final(uint32_t* expiration)
@@ -622,10 +440,21 @@ AJ_Status ECDSA_Final(uint32_t* expiration)
     AJ_InfoPrintf(("AJ_ECDSA_Final()\n"));
 
     *expiration = kactx.expiration;
-    if (ecdsactx.certchain) {
-        AJ_Free(ecdsactx.certchain);
+
+    return AJ_OK;
+}
+
+AJ_Status ECDSA_CleanUp()
+{
+    AJ_InfoPrintf(("AJ_ECDSA_CleanUp()\n"));
+    if (ecdsactx.issuer) {
+        AJ_Free(ecdsactx.issuer);
+        ecdsactx.issuer = NULL;
     }
-    ecdsactx.certchain = NULL;
+    if (ecdsactx.guild) {
+        AJ_Free(ecdsactx.guild);
+        ecdsactx.guild = NULL;
+    }
 
     return AJ_OK;
 }
@@ -665,16 +494,9 @@ static AJ_Status PSK_Marshal(AJ_Message* msg, uint8_t role)
     uint8_t verifier[AUTH_VERIFIER_LEN];
     const char* anon = "<anonymous>";
 
-    AJ_InfoPrintf(("AJ_PSK_Marshal(msg=0x%p)\n", msg));
+    AJ_InfoPrintf(("AJ_PSK_Marshal(msg=%p)\n", msg));
 
-    if (pskctx.hint) {
-        /*
-         * Client has set it.
-         */
-        cred.mask = AJ_CRED_PUB_KEY;
-        cred.data = pskctx.hint;
-        cred.len  = pskctx.hintlen;
-    } else {
+    if (!pskctx.hint) {
         /*
          * Client to set it.
          */
@@ -686,7 +508,7 @@ static AJ_Status PSK_Marshal(AJ_Message* msg, uint8_t role)
             pskctx.hintlen = cred.len;
             pskctx.hint = (uint8_t*) AJ_Malloc(pskctx.hintlen);
             if (!pskctx.hint) {
-                AJ_WarnPrintf(("AJ_PSK_Marshal(msg=0x%p): AJ_ERR_RESOURCES\n", msg));
+                AJ_WarnPrintf(("AJ_PSK_Marshal(msg=%p): AJ_ERR_RESOURCES\n", msg));
                 return AJ_ERR_RESOURCES;
             }
             memcpy(pskctx.hint, cred.data, pskctx.hintlen);
@@ -697,12 +519,15 @@ static AJ_Status PSK_Marshal(AJ_Message* msg, uint8_t role)
             pskctx.hintlen = strlen(anon);
             pskctx.hint = (uint8_t*) AJ_Malloc(pskctx.hintlen);
             if (!pskctx.hint) {
-                AJ_WarnPrintf(("AJ_PSK_Marshal(msg=0x%p): AJ_ERR_RESOURCES\n", msg));
+                AJ_WarnPrintf(("AJ_PSK_Marshal(msg=%p): AJ_ERR_RESOURCES\n", msg));
                 return AJ_ERR_RESOURCES;
             }
             memcpy(pskctx.hint, anon, pskctx.hintlen);
         }
     }
+    cred.mask = AJ_CRED_PUB_KEY;
+    cred.data = pskctx.hint;
+    cred.len  = pskctx.hintlen;
     if (pskctx.psk) {
         /*
          * Already saved PSK
@@ -710,13 +535,13 @@ static AJ_Status PSK_Marshal(AJ_Message* msg, uint8_t role)
     } else if (kactx.authlistener) {
         status = kactx.authlistener(AUTH_SUITE_ECDHE_PSK, AJ_CRED_PRV_KEY, &cred);
         if (AJ_OK != status) {
-            AJ_WarnPrintf(("AJ_PSK_Marshal(msg=0x%p): No PSK supplied\n", msg));
+            AJ_WarnPrintf(("AJ_PSK_Marshal(msg=%p): No PSK supplied\n", msg));
             return AJ_ERR_SECURITY;
         }
         pskctx.psklen = cred.len;
         pskctx.psk = (uint8_t*) AJ_Malloc(pskctx.psklen);
         if (!pskctx.psk) {
-            AJ_WarnPrintf(("AJ_PSK_Marshal(msg=0x%p): AJ_ERR_RESOURCES\n", msg));
+            AJ_WarnPrintf(("AJ_PSK_Marshal(msg=%p): AJ_ERR_RESOURCES\n", msg));
             return AJ_ERR_RESOURCES;
         }
         memcpy(pskctx.psk, cred.data, pskctx.psklen);
@@ -728,13 +553,13 @@ static AJ_Status PSK_Marshal(AJ_Message* msg, uint8_t role)
          */
         pskctx.psk = (uint8_t*) AJ_Malloc(16);
         if (!pskctx.psk) {
-            AJ_WarnPrintf(("AJ_PSK_Marshal(msg=0x%p): AJ_ERR_RESOURCES\n", msg));
+            AJ_WarnPrintf(("AJ_PSK_Marshal(msg=%p): AJ_ERR_RESOURCES\n", msg));
             return AJ_ERR_RESOURCES;
         }
         pskctx.psklen = pskctx.pwdcallback(pskctx.psk, 16);
         kactx.expiration = 0xFFFFFFFF;
     } else {
-        AJ_WarnPrintf(("AJ_PSK_Marshal(msg=0x%p): No PSK supplied\n", msg));
+        AJ_WarnPrintf(("AJ_PSK_Marshal(msg=%p): No PSK supplied\n", msg));
         return AJ_ERR_SECURITY;
     }
 
@@ -747,7 +572,7 @@ static AJ_Status PSK_Marshal(AJ_Message* msg, uint8_t role)
         status = ComputeVerifier("server finished", verifier, sizeof (verifier));
     }
     if (AJ_OK != status) {
-        AJ_WarnPrintf(("AJ_PSK_Marshal(msg=0x%p): Compute verifier error\n", msg));
+        AJ_WarnPrintf(("AJ_PSK_Marshal(msg=%p): Compute verifier error\n", msg));
         return AJ_ERR_SECURITY;
     }
     status = AJ_MarshalVariant(msg, "(ayay)");
@@ -767,41 +592,41 @@ static AJ_Status PSK_Unmarshal(AJ_Message* msg, uint8_t role)
     size_t remotehintlen;
     size_t remotesiglen;
 
-    AJ_InfoPrintf(("AJ_PSK_Unmarshal(msg=0x%p)\n", msg));
+    AJ_InfoPrintf(("AJ_PSK_Unmarshal(msg=%p)\n", msg));
 
     status = AJ_UnmarshalVariant(msg, (const char**) &variant);
     if (AJ_OK != status) {
-        AJ_InfoPrintf(("AJ_PSK_Unmarshal(msg=0x%p): Unmarshal variant error\n", msg));
+        AJ_InfoPrintf(("AJ_PSK_Unmarshal(msg=%p): Unmarshal variant error\n", msg));
         return AJ_ERR_SECURITY;
     }
     if (0 != strncmp(variant, "(ayay)", 6)) {
-        AJ_InfoPrintf(("AJ_PSK_Unmarshal(msg=0x%p): Invalid variant\n", msg));
+        AJ_InfoPrintf(("AJ_PSK_Unmarshal(msg=%p): Invalid variant\n", msg));
         return AJ_ERR_SECURITY;
     }
     status = AJ_UnmarshalArgs(msg, "(ayay)", &remotehint, &remotehintlen, &remotesig, &remotesiglen);
     if (AJ_OK != status) {
-        AJ_InfoPrintf(("AJ_PSK_Unmarshal(msg=0x%p): Unmarshal error\n", msg));
+        AJ_InfoPrintf(("AJ_PSK_Unmarshal(msg=%p): Unmarshal error\n", msg));
         return AJ_ERR_SECURITY;
     }
     if (AUTH_VERIFIER_LEN != remotesiglen) {
-        AJ_InfoPrintf(("AJ_PSK_Unmarshal(msg=0x%p): Invalid signature size\n", msg));
+        AJ_InfoPrintf(("AJ_PSK_Unmarshal(msg=%p): Invalid signature size\n", msg));
         return AJ_ERR_SECURITY;
     }
 
     if (pskctx.hint) {
         if (pskctx.hintlen != remotehintlen) {
-            AJ_InfoPrintf(("AJ_PSK_Unmarshal(msg=0x%p): Invalid hint size\n", msg));
+            AJ_InfoPrintf(("AJ_PSK_Unmarshal(msg=%p): Invalid hint size\n", msg));
             return AJ_ERR_SECURITY;
         }
         if (0 != memcmp(pskctx.hint, remotehint, pskctx.hintlen)) {
-            AJ_InfoPrintf(("AJ_PSK_Unmarshal(msg=0x%p): Invalid hint\n", msg));
+            AJ_InfoPrintf(("AJ_PSK_Unmarshal(msg=%p): Invalid hint\n", msg));
             return AJ_ERR_SECURITY;
         }
     } else {
         pskctx.hintlen = remotehintlen;
         pskctx.hint = (uint8_t*) AJ_Malloc(pskctx.hintlen);
         if (!pskctx.hint) {
-            AJ_WarnPrintf(("AJ_PSK_Unmarshal(msg=0x%p): AJ_ERR_RESOURCES\n", msg));
+            AJ_WarnPrintf(("AJ_PSK_Unmarshal(msg=%p): AJ_ERR_RESOURCES\n", msg));
             return AJ_ERR_RESOURCES;
         }
         memcpy(pskctx.hint, remotehint, pskctx.hintlen);
@@ -816,13 +641,13 @@ static AJ_Status PSK_Unmarshal(AJ_Message* msg, uint8_t role)
         cred.len  = pskctx.hintlen;
         status = kactx.authlistener(AUTH_SUITE_ECDHE_PSK, AJ_CRED_PRV_KEY, &cred);
         if (AJ_OK != status) {
-            AJ_WarnPrintf(("AJ_PSK_Unmarshal(msg=0x%p): No PSK supplied\n", msg));
+            AJ_WarnPrintf(("AJ_PSK_Unmarshal(msg=%p): No PSK supplied\n", msg));
             return AJ_ERR_SECURITY;
         }
         pskctx.psklen = cred.len;
         pskctx.psk = (uint8_t*) AJ_Malloc(pskctx.psklen);
         if (!pskctx.psk) {
-            AJ_WarnPrintf(("AJ_PSK_Unmarshal(msg=0x%p): AJ_ERR_RESOURCES\n", msg));
+            AJ_WarnPrintf(("AJ_PSK_Unmarshal(msg=%p): AJ_ERR_RESOURCES\n", msg));
             return AJ_ERR_RESOURCES;
         }
         memcpy(pskctx.psk, cred.data, pskctx.psklen);
@@ -834,13 +659,13 @@ static AJ_Status PSK_Unmarshal(AJ_Message* msg, uint8_t role)
          */
         pskctx.psk = (uint8_t*) AJ_Malloc(16);
         if (!pskctx.psk) {
-            AJ_WarnPrintf(("AJ_PSK_Unmarshal(msg=0x%p): AJ_ERR_RESOURCES\n", msg));
+            AJ_WarnPrintf(("AJ_PSK_Unmarshal(msg=%p): AJ_ERR_RESOURCES\n", msg));
             return AJ_ERR_RESOURCES;
         }
         pskctx.psklen = pskctx.pwdcallback(pskctx.psk, 16);
         kactx.expiration = 0xFFFFFFFF;
     } else {
-        AJ_WarnPrintf(("AJ_PSK_Unmarshal(msg=0x%p): No PSK supplied\n", msg));
+        AJ_WarnPrintf(("AJ_PSK_Unmarshal(msg=%p): No PSK supplied\n", msg));
         return AJ_ERR_SECURITY;
     }
 
@@ -853,11 +678,11 @@ static AJ_Status PSK_Unmarshal(AJ_Message* msg, uint8_t role)
         AJ_SHA256_Update(kactx.hash, verifier, sizeof (verifier));
     }
     if (AJ_OK != status) {
-        AJ_WarnPrintf(("AJ_PSK_Unmarshal(msg=0x%p): Compute verifier error\n", msg));
+        AJ_WarnPrintf(("AJ_PSK_Unmarshal(msg=%p): Compute verifier error\n", msg));
         return AJ_ERR_SECURITY;
     }
     if (0 != memcmp(verifier, remotesig, AUTH_VERIFIER_LEN)) {
-        AJ_InfoPrintf(("AJ_PSK_Unmarshal(msg=0x%p): Invalid verifier\n", msg));
+        AJ_InfoPrintf(("AJ_PSK_Unmarshal(msg=%p): Invalid verifier\n", msg));
         return AJ_ERR_SECURITY;
     }
 
@@ -869,6 +694,19 @@ AJ_Status PSK_Final(uint32_t* expiration)
     AJ_InfoPrintf(("AJ_PSK_Final()\n"));
 
     *expiration = kactx.expiration;
+
+    return AJ_OK;
+}
+
+AJ_GUID* PSK_GetGuild()
+{
+    return NULL;
+}
+
+AJ_Status PSK_CleanUp()
+{
+    AJ_InfoPrintf(("AJ_PSK_CleanUp()\n"));
+
     if (pskctx.hint) {
         AJ_Free(pskctx.hint);
         pskctx.hint = NULL;
@@ -885,7 +723,7 @@ AJ_Status PSK_Final(uint32_t* expiration)
 #ifdef AUTH_NULL
 static AJ_Status NULL_Init(AJ_AuthListenerFunc authlistener, const uint8_t* mastersecret, size_t mastersecretlen, AJ_SHA256_Context* hash)
 {
-    AJ_Status status;
+    AJ_Status status = AJ_OK;
     AJ_Credential cred;
 
     AJ_InfoPrintf(("AJ_NULL_Init()\n"));
@@ -905,7 +743,7 @@ static AJ_Status NULL_Marshal(AJ_Message* msg, uint8_t role)
     AJ_Status status;
     uint8_t verifier[AUTH_VERIFIER_LEN];
 
-    AJ_InfoPrintf(("AJ_NULL_Marshal(msg=0x%p)\n", msg));
+    AJ_InfoPrintf(("AJ_NULL_Marshal(msg=%p)\n", msg));
 
     if (AUTH_CLIENT == role) {
         status = ComputeVerifier("client finished", verifier, sizeof (verifier));
@@ -913,7 +751,7 @@ static AJ_Status NULL_Marshal(AJ_Message* msg, uint8_t role)
         status = ComputeVerifier("server finished", verifier, sizeof (verifier));
     }
     if (AJ_OK != status) {
-        AJ_WarnPrintf(("AJ_NULL_Marshal(msg=0x%p): Compute verifier error\n", msg));
+        AJ_WarnPrintf(("AJ_NULL_Marshal(msg=%p): Compute verifier error\n", msg));
         return AJ_ERR_SECURITY;
     }
     status = AJ_MarshalVariant(msg, "ay");
@@ -931,7 +769,7 @@ static AJ_Status NULL_Unmarshal(AJ_Message* msg, uint8_t role)
     uint8_t* remotesig;
     size_t remotesiglen;
 
-    AJ_InfoPrintf(("AJ_NULL_Unmarshal(msg=0x%p)\n", msg));
+    AJ_InfoPrintf(("AJ_NULL_Unmarshal(msg=%p)\n", msg));
 
     if (AUTH_CLIENT == role) {
         status = ComputeVerifier("server finished", verifier, sizeof (verifier));
@@ -939,30 +777,30 @@ static AJ_Status NULL_Unmarshal(AJ_Message* msg, uint8_t role)
         status = ComputeVerifier("client finished", verifier, sizeof (verifier));
     }
     if (AJ_OK != status) {
-        AJ_WarnPrintf(("AJ_NULL_Unmarshal(msg=0x%p): Compute verifier error\n", msg));
+        AJ_WarnPrintf(("AJ_NULL_Unmarshal(msg=%p): Compute verifier error\n", msg));
         return AJ_ERR_SECURITY;
     }
 
     status = AJ_UnmarshalVariant(msg, (const char**) &variant);
     if (AJ_OK != status) {
-        AJ_InfoPrintf(("AJ_NULL_Unmarshal(msg=0x%p): Unmarshal variant error\n", msg));
+        AJ_InfoPrintf(("AJ_NULL_Unmarshal(msg=%p): Unmarshal variant error\n", msg));
         return AJ_ERR_SECURITY;
     }
     if (0 != strncmp(variant, "ay", 4)) {
-        AJ_InfoPrintf(("AJ_NULL_Unmarshal(msg=0x%p): Invalid variant\n", msg));
+        AJ_InfoPrintf(("AJ_NULL_Unmarshal(msg=%p): Invalid variant\n", msg));
         return AJ_ERR_SECURITY;
     }
     status = AJ_UnmarshalArgs(msg, "ay", &remotesig, &remotesiglen);
     if (AJ_OK != status) {
-        AJ_InfoPrintf(("AJ_NULL_Unmarshal(msg=0x%p): Unmarshal error\n", msg));
+        AJ_InfoPrintf(("AJ_NULL_Unmarshal(msg=%p): Unmarshal error\n", msg));
         return AJ_ERR_SECURITY;
     }
     if (AUTH_VERIFIER_LEN != remotesiglen) {
-        AJ_InfoPrintf(("AJ_NULL_Unmarshal(msg=0x%p): Invalid signature size\n", msg));
+        AJ_InfoPrintf(("AJ_NULL_Unmarshal(msg=%p): Invalid signature size\n", msg));
         return AJ_ERR_SECURITY;
     }
     if (0 != memcmp(verifier, remotesig, AUTH_VERIFIER_LEN)) {
-        AJ_InfoPrintf(("AJ_NULL_Unmarshal(msg=0x%p): Invalid verifier\n", msg));
+        AJ_InfoPrintf(("AJ_NULL_Unmarshal(msg=%p): Invalid verifier\n", msg));
         return AJ_ERR_SECURITY;
     }
     AJ_SHA256_Update(kactx.hash, verifier, sizeof (verifier));
@@ -975,6 +813,19 @@ AJ_Status NULL_Final(uint32_t* expiration)
     AJ_InfoPrintf(("AJ_NULL_Final()\n"));
 
     *expiration = kactx.expiration;
+
+    return AJ_OK;
+}
+
+AJ_GUID* NULL_GetGuild()
+{
+    return NULL;
+}
+
+AJ_Status NULL_CleanUp()
+{
+    AJ_InfoPrintf(("AJ_NULL_CleanUp()\n"));
+
     return AJ_OK;
 }
 #endif

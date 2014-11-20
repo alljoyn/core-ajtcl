@@ -84,9 +84,10 @@
 #define AJ_METHOD_GEN_SESSION_KEY      AJ_BUS_MESSAGE_ID(2, 1, 1)    /**< method for generate session key */
 #define AJ_METHOD_EXCHANGE_GROUP_KEYS  AJ_BUS_MESSAGE_ID(2, 1, 2)    /**< method for exchange group keys */
 #define AJ_METHOD_AUTH_CHALLENGE       AJ_BUS_MESSAGE_ID(2, 1, 3)    /**< method for auth challenge */
-#define AJ_METHOD_EXCHANGE_SUITES      AJ_BUS_MESSAGE_ID(2, 1, 4)    /**< method for exchange suites*/
-#define AJ_METHOD_KEY_EXCHANGE         AJ_BUS_MESSAGE_ID(2, 1, 5)    /**< method for key exchange*/
-#define AJ_METHOD_KEY_AUTHENTICATION   AJ_BUS_MESSAGE_ID(2, 1, 6)    /**< method for authenticating key exchange*/
+#define AJ_METHOD_EXCHANGE_SUITES      AJ_BUS_MESSAGE_ID(2, 1, 4)    /**< method for exchange suites */
+#define AJ_METHOD_KEY_EXCHANGE         AJ_BUS_MESSAGE_ID(2, 1, 5)    /**< method for key exchange */
+#define AJ_METHOD_KEY_AUTHENTICATION   AJ_BUS_MESSAGE_ID(2, 1, 6)    /**< method for authenticating key exchange */
+#define AJ_METHOD_SEND_MEMBERSHIPS     AJ_BUS_MESSAGE_ID(2, 1, 7)    /**< method for exchanging membership authorisations */
 
 /*
  * Members of interface org.freedesktop.DBus.Introspectable
@@ -139,6 +140,24 @@
 #define AJ_METHOD_ABOUT_ICON_GET_URL           AJ_BUS_MESSAGE_ID(6, 1, 3)
 #define AJ_METHOD_ABOUT_ICON_GET_CONTENT       AJ_BUS_MESSAGE_ID(6, 1, 4)
 
+/*
+ * Members of /security/PermissionMgmt interface org.alljoyn.Security.PermissionMgmt
+ */
+#define AJ_METHOD_SECURITY_CLAIM               AJ_BUS_MESSAGE_ID(7, 0, 0)    /**< method for claiming an application */
+#define AJ_METHOD_SECURITY_INSTALL_POLICY      AJ_BUS_MESSAGE_ID(7, 0, 1)    /**< method for installing a policy */
+#define AJ_METHOD_SECURITY_REMOVE_POLICY       AJ_BUS_MESSAGE_ID(7, 0, 2)    /**< method for removing a policy */
+#define AJ_METHOD_SECURITY_GET_POLICY          AJ_BUS_MESSAGE_ID(7, 0, 3)    /**< method for getting a policy */
+#define AJ_METHOD_SECURITY_INSTALL_IDENTITY    AJ_BUS_MESSAGE_ID(7, 0, 4)    /**< method for installing an identity */
+#define AJ_METHOD_SECURITY_REMOVE_IDENTITY     AJ_BUS_MESSAGE_ID(7, 0, 5)    /**< method for removing an identity */
+#define AJ_METHOD_SECURITY_GET_IDENTITY        AJ_BUS_MESSAGE_ID(7, 0, 6)    /**< method for getting an identity */
+#define AJ_METHOD_SECURITY_INSTALL_MEMBERSHIP  AJ_BUS_MESSAGE_ID(7, 0, 7)    /**< method for installing a membership */
+#define AJ_METHOD_SECURITY_INSTALL_AUTHDATA    AJ_BUS_MESSAGE_ID(7, 0, 8)    /**< method for installing a membership authorisation */
+#define AJ_METHOD_SECURITY_REMOVE_MEMBERSHIP   AJ_BUS_MESSAGE_ID(7, 0, 9)    /**< method for removing a membership */
+/*
+ * Members of /security/PermissionMgmt interface org.alljoyn.Security.PermissionMgmt.Notification
+ */
+#define AJ_SIGNAL_SECURITY_NOTIFY_CONFIG       AJ_BUS_MESSAGE_ID(7, 1, 0)
+
 /**
  * Message identifier that indicates a message was invalid.
  */
@@ -162,17 +181,18 @@ extern const char AJ_BusDestination[16];
 /*
  * Error message strings
  */
-extern const char AJ_ErrSecurityViolation[34];    /**< Error security violation string */
-extern const char AJ_ErrTimeout[24];              /**< Error timeout string */
-extern const char AJ_ErrRejected[25];             /**< Error rejected string */
-extern const char AJ_ErrResources[26];            /**< Error resource string */
-extern const char AJ_ErrServiceUnknown[42];       /**< Error service unknown string */
+extern const char AJ_ErrSecurityViolation[34];     /**< Error security violation string */
+extern const char AJ_ErrAuthorisationRequired[38]; /**< Error authorisation required string */
+extern const char AJ_ErrTimeout[24];               /**< Error timeout string */
+extern const char AJ_ErrRejected[25];              /**< Error rejected string */
+extern const char AJ_ErrResources[26];             /**< Error resource string */
+extern const char AJ_ErrServiceUnknown[42];        /**< Error service unknown string */
 
-extern const char AJ_ErrUpdateNotAllowed[35];     /**< Error update not allowed string */
-extern const char AJ_ErrInvalidValue[31];         /**< Error invalid value string */
-extern const char AJ_ErrFeatureNotAvailable[38];  /**< Error feature not available string */
-extern const char AJ_ErrMaxSizeExceeded[34];      /**< Error max size exceeded string */
-extern const char AJ_ErrLanguageNotSuppored[39];  /**< Error language not supported string */
+extern const char AJ_ErrUpdateNotAllowed[35];      /**< Error update not allowed string */
+extern const char AJ_ErrInvalidValue[31];          /**< Error invalid value string */
+extern const char AJ_ErrFeatureNotAvailable[38];   /**< Error feature not available string */
+extern const char AJ_ErrMaxSizeExceeded[34];       /**< Error max size exceeded string */
+extern const char AJ_ErrLanguageNotSuppored[39];   /**< Error language not supported string */
 
 /**
  * The properties interface. This interface must be included in the property lists of all local and
@@ -209,7 +229,7 @@ extern const char* const AJ_AllSeenIntrospectionIface[4];
 /**
  * The standard objects that implement AllJoyn core functionality
  */
-extern const AJ_Object AJ_StandardObjects[8];
+extern const AJ_Object AJ_StandardObjects[9];
 
 /**
  * @}

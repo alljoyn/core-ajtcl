@@ -31,7 +31,6 @@ AJ_Status TestNVRAM();
 AJ_Status TestCreds();
 extern void AJ_NVRAM_Layout_Print();
 
-static uint16_t count = 1;
 static uint16_t tid1 = 15;
 static uint16_t tid2 = 16;
 static uint16_t tid3 = 17;
@@ -91,7 +90,7 @@ AJ_Status TestCreds()
     AJ_GUID localGuid;
     AJ_GUID remoteGuid;
     char str[33];
-    AJ_PeerCred*peerCredRead;
+    AJ_PeerCred cred;
     int i = 0;
     AJ_GUID peerGuid;
     uint8_t secretLen = 24;
@@ -127,46 +126,40 @@ AJ_Status TestCreds()
 
     AJ_GUID_ToString(&remoteGuid, hex, 100);
     AJ_AlwaysPrintf(("AJ_GetPeerCredential guid %s\n", hex));
-    status = AJ_GetPeerCredential(&remoteGuid, &peerCredRead);
+    status = AJ_GetPeerCredential(&remoteGuid, &cred);
     if (AJ_OK != status) {
         AJ_AlwaysPrintf(("AJ_GetPeerCredential failed = %d\n", status));
         return status;
     }
 
-    if (0 != memcmp(peerCredRead->id, &peerGuid, peerCredRead->idLen)) {
-        AJ_AlwaysPrintf(("The retrieved credential does not match\n"));
-        AJ_FreeCredential(peerCredRead);
-        return AJ_ERR_FAILURE;
-
-    }
-    if (peerCredRead->dataLen != secretLen) {
+    if (cred.body.data.size != secretLen) {
         AJ_AlwaysPrintf(("no match for secretLen got %d expected %d\n",
-                         peerCredRead->dataLen, secretLen));
-        AJ_FreeCredential(peerCredRead);
+                         cred.body.data.size, secretLen));
+        AJ_PeerBodyFree(&cred.body);
         return AJ_ERR_FAILURE;
     }
     if (secretLen > 0) {
-        if (0 != memcmp(peerCredRead->data, secret, secretLen)) {
+        if (0 != memcmp(cred.body.data.data, secret, secretLen)) {
             AJ_AlwaysPrintf(("no match for secret\n"));
-            AJ_FreeCredential(peerCredRead);
+            AJ_PeerBodyFree(&cred.body);
             return AJ_ERR_FAILURE;
         }
     }
-    if (peerCredRead->expiration != expiration) {
+    if (cred.body.expiration != expiration) {
         AJ_AlwaysPrintf(("no match for expiration got %d expected %d\n",
-                         peerCredRead->expiration, expiration));
-        AJ_FreeCredential(peerCredRead);
+                         cred.body.expiration, expiration));
+        AJ_PeerBodyFree(&cred.body);
         return AJ_ERR_FAILURE;
     }
 
     status = AJ_DeletePeerCredential(&remoteGuid);
     if (AJ_OK != status) {
         AJ_AlwaysPrintf(("AJ_DeleteCredential failed = %d\n", status));
-        AJ_FreeCredential(peerCredRead);
+        AJ_PeerBodyFree(&cred.body);
         return status;
     }
 
-    AJ_FreeCredential(peerCredRead);
+    AJ_PeerBodyFree(&cred.body);
     if (AJ_ERR_FAILURE == AJ_GetPeerCredential(&remoteGuid, NULL)) {
         status = AJ_OK;
     } else {
@@ -184,79 +177,65 @@ AJ_Status TestCreds()
     AJ_InfoPrintf(("TestCreds() Layout Print\n"));
     AJ_NVRAM_Layout_Print();
     AJ_AlwaysPrintf(("TestCreds done.\n"));
+
     return status;
 }
 
-AJ_Status TestECCCreds()
+AJ_Status TestKeyInfoCreds()
 {
-    AJ_Status status = AJ_OK;
-    ecc_publickey publicKey;
-    ecc_privatekey privateKey;
-    uint16_t privateKeyID = 1;
-    uint16_t publicKeyID = 2;
-    AJ_PeerCred* privateKeyCred;
-    AJ_PeerCred* publicKeyCred;
+    AJ_Status status;
+    AJ_KeyInfo pub1;
+    AJ_KeyInfo pub2;
+    AJ_KeyInfo prv1;
+    AJ_KeyInfo prv2;
+    AJ_KeyInfo test;
+    AJ_GUID guid;
+    char hex[1 + 2 * sizeof (AJ_GUID)];
 
-    AJ_AlwaysPrintf(("Start TestECCCreds\n"));
-    AJ_NVRAM_Layout_Print();
+    AJ_AlwaysPrintf(("Start TestKeyInfoCreds\n"));
 
-    status = AJ_GenerateDSAKeyPair(&publicKey, &privateKey);
-    if (AJ_OK != status) {
-        AJ_AlwaysPrintf(("AJ_GenerateDSAKeyPair failed = %d\n", status));
-        return status;
-    }
+    memset(&pub1, 0, sizeof (AJ_KeyInfo));
+    memset(&pub2, 0, sizeof (AJ_KeyInfo));
+    memset(&prv1, 0, sizeof (AJ_KeyInfo));
+    memset(&prv2, 0, sizeof (AJ_KeyInfo));
 
-    status = AJ_StoreLocalCredential(AJ_CRED_TYPE_DSA_PRIVATE, privateKeyID, (uint8_t*) &privateKey, sizeof(privateKey), 0xFFFFFFFF);
-    if (AJ_OK != status) {
-        AJ_AlwaysPrintf(("AJ_StoreLocalCredential failed = %d\n", status));
-        return status;
-    }
-    status = AJ_GetLocalCredential(AJ_CRED_TYPE_DSA_PRIVATE, privateKeyID, &privateKeyCred);
-    if (AJ_OK != status) {
-        AJ_AlwaysPrintf(("AJ_GetLocalCredential failed = %d\n", status));
-        return status;
-    }
-    if (!privateKeyCred) {
-        AJ_AlwaysPrintf(("AJ_GetLocalCredential failed = %d\n", status));
-        return AJ_ERR_FAILURE;
-    }
-    if (privateKeyCred->dataLen != sizeof(privateKey)) {
-        AJ_AlwaysPrintf(("Retrieved private key length %d does not match the original %zu\n", privateKeyCred->dataLen, sizeof(privateKey)));
-        AJ_FreeCredential(privateKeyCred);
-        return AJ_ERR_FAILURE;
-    }
-    if (memcmp(privateKeyCred->data, &privateKey, sizeof(privateKey)) != 0) {
-        AJ_AlwaysPrintf(("Retrieved private key does not match the original\n"));
-    }
-    AJ_FreeCredential(privateKeyCred);
+    status = AJ_KeyInfoGenerate(&pub1, &prv1, KEY_USE_SIG);
+    AJ_ASSERT(AJ_OK == status);
+    status = AJ_KeyInfoSetLocal(&pub1, AJ_CRED_TYPE_ECDSA_PUB);
+    AJ_ASSERT(AJ_OK == status);
+    status = AJ_KeyInfoSetLocal(&prv1, AJ_CRED_TYPE_ECDSA_PRV);
+    AJ_ASSERT(AJ_OK == status);
+    memset(&test, 0, sizeof (AJ_KeyInfo));
+    status = AJ_KeyInfoGetLocal(&test, AJ_CRED_TYPE_ECDSA_PUB);
+    AJ_ASSERT(AJ_OK == status);
+    AJ_ASSERT(0 == memcmp(&pub1, &test, sizeof (AJ_KeyInfo)));
+    memset(&test, 0, sizeof (AJ_KeyInfo));
+    status = AJ_KeyInfoGetLocal(&test, AJ_CRED_TYPE_ECDSA_PRV);
+    AJ_ASSERT(AJ_OK == status);
+    AJ_ASSERT(0 == memcmp(&prv1, &test, sizeof (AJ_KeyInfo)));
 
-    status = AJ_StoreLocalCredential(AJ_CRED_TYPE_DSA_PUBLIC, publicKeyID, (uint8_t*) &publicKey, sizeof(publicKey), 0xFFFFFFFF);
-    if (AJ_OK != status) {
-        AJ_AlwaysPrintf(("AJ_StoreLocalCredential failed = %d\n", status));
-        return status;
-    }
-    status = AJ_GetLocalCredential(AJ_CRED_TYPE_DSA_PUBLIC, publicKeyID, &publicKeyCred);
-    if (AJ_OK != status) {
-        AJ_AlwaysPrintf(("AJ_GetLocalCredential failed = %d\n", status));
-        return status;
-    }
-    if (!publicKeyCred) {
-        AJ_AlwaysPrintf(("AJ_GetLocalCredential failed = %d\n", status));
-        return AJ_ERR_FAILURE;
-    }
-    if (publicKeyCred->dataLen != sizeof(publicKey)) {
-        AJ_AlwaysPrintf(("Retrieved private key length %d does not match the original %zu\n", publicKeyCred->dataLen, sizeof(publicKey)));
-        return AJ_ERR_FAILURE;
-    }
-    if (memcmp(publicKeyCred->data, &publicKey, sizeof(publicKey)) != 0) {
-        AJ_AlwaysPrintf(("Retrieved private key does not match the original\n"));
-    }
-    AJ_FreeCredential(publicKeyCred);
-    AJ_NVRAM_Layout_Print();
-    AJ_AlwaysPrintf(("TestECCCreds done.\n"));
+    AJ_RandBytes(guid.val, sizeof (guid));
+    AJ_DumpBytes("GUID", guid.val, sizeof (guid));
+    AJ_GUID_ToString(&guid, hex, 100);
+    AJ_AlwaysPrintf(("KeyInfo guid %s\n", hex));
+
+    status = AJ_KeyInfoGenerate(&pub2, &prv2, KEY_USE_SIG);
+    AJ_ASSERT(AJ_OK == status);
+    status = AJ_KeyInfoSet(&pub2, AJ_CRED_TYPE_ECDSA_PUB, &guid);
+    AJ_ASSERT(AJ_OK == status);
+    status = AJ_KeyInfoSet(&prv2, AJ_CRED_TYPE_ECDSA_PRV, &guid);
+    AJ_ASSERT(AJ_OK == status);
+    memset(&test, 0, sizeof (AJ_KeyInfo));
+    status = AJ_KeyInfoGet(&test, AJ_CRED_TYPE_ECDSA_PUB, &guid);
+    AJ_ASSERT(AJ_OK == status);
+    AJ_ASSERT(0 == memcmp(&pub2, &test, sizeof (AJ_KeyInfo)));
+    memset(&test, 0, sizeof (AJ_KeyInfo));
+    status = AJ_KeyInfoGet(&test, AJ_CRED_TYPE_ECDSA_PRV, &guid);
+    AJ_ASSERT(AJ_OK == status);
+    AJ_ASSERT(0 == memcmp(&prv2, &test, sizeof (AJ_KeyInfo)));
+
     return status;
 }
-
 
 AJ_Status TestExist()
 {
@@ -287,7 +266,6 @@ AJ_Status TestObsWrite()
     AJ_Status status = AJ_OK;
     AJ_NV_DATASET* nvramHandle;
     AJOBS_Info_Test info;
-    int nTest;
     size_t size = sizeof(info);
     char* ssid[] = { "abcdefghABCDEFGH", "aaaaaaaa", "bbbbbbbb", "cccccccc", "dddddddd", "eeeeeeee", "ffffffff", "gggggggg", "hhhhhhhh", "iiiiiiii",
                      "jjjjjjjj", "kkkkkkkk", "llllllll", "mmmmmmmm", "nnnnnnnn", "oooooooo", "pppppppp", "qqqqqqqq", "rrrrrrrr", "ssssssss",
@@ -615,7 +593,6 @@ AJ_Status TestNvramDelete()
 
         if (AJ_NVRAM_Exist(AJ_NVRAM_ID_FOR_APPS)) {
             AJOBS_Info_Test emptyInfo;
-            AJ_Status status = AJ_OK;
             size_t size = sizeof(AJOBS_Info_Test);
 
             memset(&emptyInfo, 0, sizeof(emptyInfo));
@@ -753,7 +730,7 @@ _TEST_NVRAM_EXIT:
 int AJ_Main()
 {
     AJ_Status status = AJ_OK;
-    static uint16_t oRand = 0;
+    int count = 0;
     while (status == AJ_OK) {
         AJ_AlwaysPrintf(("AJ Initialize\n"));
         AJ_Initialize();
@@ -830,9 +807,10 @@ int AJ_Main()
         AJ_Sleep(3000);
 #endif
 
-        status = TestECCCreds();
-        AJ_InfoPrintf(("\nECC STATUS %u, NVRAMTEST RUN %u TIMES\n", status, count++));
+        status = TestKeyInfoCreds();
+        AJ_InfoPrintf(("\nKEYINFO STATUS %u, NVRAMTEST RUN %u TIMES\n", status, count++));
         AJ_ASSERT(status == AJ_OK);
+        status = AJ_ERR_NULL;
     }
     return 0;
 }

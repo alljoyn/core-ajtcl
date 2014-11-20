@@ -89,7 +89,7 @@ AJ_Status AJ_GenerateShareSecret(ecc_publickey* peerPublicKey, ecc_privatekey* p
  * @return  - AJ_OK if the key pair is successfully generated
  *          - AJ_ERR_SECURITY otherwise
  */
-AJ_Status AJ_GenerateDSAKeyPair(ecc_publickey* publicKey, ecc_privatekey* privateKey);
+AJ_Status AJ_GenerateECDSAKeyPair(ecc_publickey* publicKey, ecc_privatekey* privateKey);
 
 /**
  * Sign a digest using the DSA key
@@ -99,7 +99,7 @@ AJ_Status AJ_GenerateDSAKeyPair(ecc_publickey* publicKey, ecc_privatekey* privat
  * @return  - AJ_OK if the signing process succeeds
  *          - AJ_ERR_SECURITY otherwise
  */
-AJ_Status AJ_DSASignDigest(const uint8_t* digest, const ecc_privatekey* signingPrivateKey, ecc_signature* sig);
+AJ_Status AJ_ECDSASignDigest(const uint8_t* digest, const ecc_privatekey* signingPrivateKey, ecc_signature* sig);
 
 /**
  * Sign a buffer using the DSA key
@@ -110,7 +110,7 @@ AJ_Status AJ_DSASignDigest(const uint8_t* digest, const ecc_privatekey* signingP
  * @return  - AJ_OK if the signing process succeeds
  *          - AJ_ERR_SECURITY otherwise
  */
-AJ_Status AJ_DSASign(const uint8_t* buf, uint16_t len, const ecc_privatekey* signingPrivateKey, ecc_signature* sig);
+AJ_Status AJ_ECDSASign(const uint8_t* buf, uint16_t len, const ecc_privatekey* signingPrivateKey, ecc_signature* sig);
 
 /**
  * Verify DSA signature of a digest
@@ -120,7 +120,7 @@ AJ_Status AJ_DSASign(const uint8_t* buf, uint16_t len, const ecc_privatekey* sig
  * @return  - AJ_OK if the signature verification succeeds
  *          - AJ_ERR_SECURITY otherwise
  */
-AJ_Status AJ_DSAVerifyDigest(const uint8_t* digest, const ecc_signature* sig, const ecc_publickey* pubKey);
+AJ_Status AJ_ECDSAVerifyDigest(const uint8_t* digest, const ecc_signature* sig, const ecc_publickey* pubKey);
 
 /**
  * Verify DSA signature of a buffer
@@ -131,6 +131,22 @@ AJ_Status AJ_DSAVerifyDigest(const uint8_t* digest, const ecc_signature* sig, co
  * @return  - AJ_OK if the signature verification succeeds
  *          - AJ_ERR_SECURITY otherwise
  */
-AJ_Status AJ_DSAVerify(const uint8_t* buf, uint16_t len, const ecc_signature* sig, const ecc_publickey* pubKey);
+AJ_Status AJ_ECDSAVerify(const uint8_t* buf, uint16_t len, const ecc_signature* sig, const ecc_publickey* pubKey);
+
+/**
+ * Encode Bigval to big-endian byte array
+ * @param src    The input bigval
+ * @param tgt    The output buffer
+ * @param tgtlen The output buffer length
+ */
+void AJ_BigvalEncode(const bigval_t* src, uint8_t* tgt, size_t tgtlen);
+
+/**
+ * Decode Bigval from big-endian byte array
+ * @param src    The input buffer
+ * @param tgt    The output bigval
+ * @param srclen The input buffer length
+ */
+void AJ_BigvalDecode(const uint8_t* src, bigval_t* tgt, size_t srclen);
 
 #endif

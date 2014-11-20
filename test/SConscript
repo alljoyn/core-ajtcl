@@ -1,4 +1,4 @@
-# Copyright (c) 2013, AllSeen Alliance. All rights reserved.
+# Copyright (c) 2013-2014 AllSeen Alliance. All rights reserved.
 #
 #    Permission to use, copy, modify, and/or distribute this software for any
 #    purpose with or without fee is hereby granted, provided that the above
@@ -16,23 +16,23 @@ Import('env')
 
 # Build the test programs on win32/linux
 if env['TARG'] == 'win32' or env['TARG'] == 'linux' or env['TARG'] == 'linux-uart' or env['TARG'] == 'darwin':
-    env.Program('mutter', ['mutter.c'] + env['aj_obj'])
-    env.Program('ajlite', ['ajlite.c'] + env['aj_obj'])
-    env.Program('aestest', ['aestest.c'] + env['aj_obj'])
     env.Program('aesbench', ['aesbench.c'] + env['aj_obj'])
-    env.Program('svclite', ['svclite.c'] + env['aj_obj'])
-    env.Program('clientlite', ['clientlite.c'] + env['aj_obj'])
-    env.Program('siglite', ['siglite.c'] + env['aj_obj'])
-    env.Program('sessions', ['sessions.c'] + env['aj_obj'])
-    env.Program('sessionslite', ['sessionslite.c'] + env['aj_obj'])
-    env.Program('nvramtest', ['nvramtest.c'] + env['aj_obj'])
-    env.Program('nvramdump', ['nvramdump.c'] + env['aj_obj'])
-    env.Program('nvrampersistencetest', ['nvrampersistencetest.c'] + env['aj_obj'])
+    env.Program('aestest', ['aestest.c'] + env['aj_obj'])
+    env.Program('ajlite', ['ajlite.c'] + env['aj_obj'])
+    env.Program('base64', ['base64.c'] + env['aj_obj'])
     env.Program('bastress2', ['bastress2.c'] + env['aj_obj'])
     env.Program('certificate', ['certificate.c'] + env['aj_obj'])
-    env.Program('base64', ['base64.c'] + env['aj_obj'])
+    env.Program('clientlite', ['clientlite.c'] + env['aj_obj'])
     env.Program('codisco', ['codisco.c'] + env['aj_obj'])
+    env.Program('mutter', ['mutter.c'] + env['aj_obj'])
+    env.Program('nvramdump', ['nvramdump.c'] + env['aj_obj'])
+    env.Program('nvrampersistencetest', ['nvrampersistencetest.c'] + env['aj_obj'])
+    env.Program('nvramtest', ['nvramtest.c'] + env['aj_obj'])
+    env.Program('sessions', ['sessions.c'] + env['aj_obj'])
+    env.Program('sessionslite', ['sessionslite.c'] + env['aj_obj'])
+    env.Program('siglite', ['siglite.c'] + env['aj_obj'])
     env.Program('sigtest', ['sigtest.c'] + env['aj_obj'])
+    env.Program('svclite', ['svclite.c'] + env['aj_obj'])
 
     if env['TARG'] == 'linux-uart':
         env.Program('timertest', ['timertest.c'] + env['aj_obj'])

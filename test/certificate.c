@@ -68,7 +68,7 @@ int AJ_Main(int ac, char** av)
     /*
      * Create an owner key pair
      */
-    AJ_GenerateDSAKeyPair(&root_pubkey, &root_prvkey);
+    AJ_GenerateECDSAKeyPair(&root_pubkey, &root_prvkey);
 
     b8 = (uint8_t*) AJ_Malloc(sizeof (ecc_publickey));
     AJ_ASSERT(b8);
@@ -89,7 +89,7 @@ int AJ_Main(int ac, char** av)
     AJ_RandBytes((uint8_t*) &guild, sizeof (AJ_GUID));
 
     for (i = 0; i < num; i++) {
-        AJ_GenerateDSAKeyPair(&peer_pubkey, &peer_prvkey);
+        AJ_GenerateECDSAKeyPair(&peer_pubkey, &peer_prvkey);
 
         b8 = (uint8_t*) AJ_Malloc(sizeof (ecc_publickey));
         AJ_ASSERT(b8);

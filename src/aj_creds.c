@@ -30,6 +30,7 @@
 #include "aj_nvram.h"
 #include "aj_debug.h"
 #include "aj_config.h"
+#include "aj_crypto_sha2.h"
 
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
@@ -39,23 +40,220 @@
 uint8_t dbgCREDS = 0;
 #endif
 
-static AJ_Status FreeCredentialContent(AJ_PeerCred* cred)
+static void PeerFieldFree(AJ_PeerField* field)
 {
-    if (!cred) {
-        return AJ_OK;
+    if (field && field->data) {
+        AJ_Free(field->data);
+        field->data = NULL;
     }
-    if ((cred->idLen > 0) && cred->id) {
-        AJ_Free(cred->id);
-        cred->idLen = 0;
+}
+
+static AJ_Status PeerFieldGet(AJ_PeerField* field, uint8_t size, AJ_NV_DATASET* handle)
+{
+    /* Read size */
+    field->size = 0;
+    if (size != AJ_NVRAM_Read(&field->size, size, handle)) {
+        return AJ_ERR_FAILURE;
     }
-    if ((cred->associationLen > 0) && cred->association) {
-        AJ_Free(cred->association);
-        cred->associationLen = 0;
+    /* Read data */
+    field->data = NULL;
+    if (field->size) {
+        field->data = (uint8_t*) AJ_Malloc(field->size);
+        if (!field->data) {
+            return AJ_ERR_FAILURE;
+        }
+        if (field->size != AJ_NVRAM_Read(field->data, field->size, handle)) {
+            return AJ_ERR_FAILURE;
+        }
     }
-    if ((cred->dataLen > 0) && cred->data) {
-        AJ_Free(cred->data);
-        cred->dataLen = 0;
+
+    return AJ_OK;
+}
+
+static AJ_Status PeerFieldSet(const AJ_PeerField* field, uint8_t size, AJ_NV_DATASET* handle)
+{
+    /* Write size */
+    if (size != AJ_NVRAM_Write((uint8_t*) &field->size, size, handle)) {
+        return AJ_ERR_FAILURE;
     }
+    /* Write data */
+    if (field->size) {
+        if (field->size != AJ_NVRAM_Write((uint8_t*) field->data, field->size, handle)) {
+            return AJ_ERR_FAILURE;
+        }
+    }
+
+    return AJ_OK;
+}
+
+static AJ_Status PeerHeadGet(AJ_PeerHead* head, AJ_NV_DATASET* handle)
+{
+    AJ_Status status;
+
+    /* Read type */
+    if (sizeof (head->type) != AJ_NVRAM_Read(&head->type, sizeof (head->type), handle)) {
+        return AJ_ERR_FAILURE;
+    }
+    /* Read id */
+    status = PeerFieldGet(&head->id, sizeof (uint8_t), handle);
+    if (AJ_OK != status) {
+        return AJ_ERR_FAILURE;
+    }
+
+    return status;
+}
+
+void AJ_PeerHeadFree(AJ_PeerHead* head)
+{
+    AJ_InfoPrintf(("AJ_PeerHeadFree(head=%p)\n", head));
+
+    if (head) {
+        PeerFieldFree(&head->id);
+    }
+}
+
+static AJ_Status PeerHeadSet(const AJ_PeerHead* head, AJ_NV_DATASET* handle)
+{
+    AJ_Status status;
+
+    /* Write type */
+    if (sizeof (head->type) != AJ_NVRAM_Write((uint8_t*) &head->type, sizeof (head->type), handle)) {
+        return AJ_ERR_FAILURE;
+    }
+    /* Write id */
+    status = PeerFieldSet(&head->id, sizeof (uint8_t), handle);
+    if (AJ_OK != status) {
+        return AJ_ERR_FAILURE;
+    }
+
+    return status;
+}
+
+void AJ_PeerBodyFree(AJ_PeerBody* body)
+{
+    AJ_InfoPrintf(("AJ_PeerBodyFree(body=%p)\n", body));
+
+    if (body) {
+        PeerFieldFree(&body->association);
+        PeerFieldFree(&body->data);
+    }
+}
+
+static AJ_Status PeerBodyGet(AJ_PeerBody* body, AJ_NV_DATASET* handle)
+{
+    AJ_Status status;
+
+    /* Read expiration */
+    if (sizeof (body->expiration) != AJ_NVRAM_Read(&body->expiration, sizeof (body->expiration), handle)) {
+        return AJ_ERR_FAILURE;
+    }
+    /* Read association */
+    status = PeerFieldGet(&body->association, sizeof (uint8_t), handle);
+    if (AJ_OK != status) {
+        return AJ_ERR_FAILURE;
+    }
+    /* Read data */
+    status = PeerFieldGet(&body->data, sizeof (uint16_t), handle);
+    if (AJ_OK != status) {
+        return AJ_ERR_FAILURE;
+    }
+
+    return status;
+}
+
+static AJ_Status PeerBodySet(const AJ_PeerBody* body, AJ_NV_DATASET* handle)
+{
+    AJ_Status status;
+
+    /* Write expiration */
+    if (sizeof (body->expiration) != AJ_NVRAM_Write((uint8_t*) &body->expiration, sizeof (body->expiration), handle)) {
+        return AJ_ERR_FAILURE;
+    }
+    /* Write association */
+    status = PeerFieldSet(&body->association, sizeof (uint8_t), handle);
+    if (AJ_OK != status) {
+        return AJ_ERR_FAILURE;
+    }
+    /* Write data */
+    status = PeerFieldSet(&body->data, sizeof (uint16_t), handle);
+    if (AJ_OK != status) {
+        return AJ_ERR_FAILURE;
+    }
+
+    return status;
+}
+
+static size_t PeerCredSize(const AJ_PeerCred* cred)
+{
+    // type(2):idLen(1):id(idLen):expiration(4):assLen(1):ass(assLen):dataLen(2):data(dataLen)
+    return sizeof (cred->head.type) +
+           sizeof (cred->head.id.size) + cred->head.id.size +
+           sizeof (cred->body.expiration) +
+           sizeof (cred->body.association.size) + cred->body.association.size +
+           sizeof (cred->body.data.size) + cred->body.data.size;
+}
+
+void AJ_PeerCredFree(AJ_PeerCred* cred)
+{
+    AJ_InfoPrintf(("AJ_PeerCredFree(cred=%p)\n", cred));
+
+    if (cred) {
+        AJ_PeerHeadFree(&cred->head);
+        AJ_PeerBodyFree(&cred->body);
+    }
+}
+
+AJ_Status AJ_ReadCredential(AJ_PeerCred* cred, uint16_t slot)
+{
+    AJ_Status status;
+    AJ_NV_DATASET* handle;
+
+    AJ_InfoPrintf(("AJ_ReadCredential(cred=%p, slot=%d)\n", cred, slot));
+
+    memset(cred, 0, sizeof (AJ_PeerCred));
+    handle = AJ_NVRAM_Open(slot, "r", 0);
+    if (!handle) {
+        return AJ_ERR_FAILURE;
+    }
+    status = PeerHeadGet(&cred->head, handle);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+    status = PeerBodyGet(&cred->body, handle);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+
+Exit:
+    AJ_NVRAM_Close(handle);
+
+    return status;
+}
+
+AJ_Status AJ_SetCredential(const AJ_PeerCred* cred, uint16_t slot)
+{
+    AJ_Status status = AJ_OK;
+    AJ_NV_DATASET* handle;
+    size_t len;
+
+    AJ_InfoPrintf(("AJ_SetCredential(cred=%p, slot=%d)\n", cred, slot));
+
+    len = PeerCredSize(cred);
+    handle = AJ_NVRAM_Open(slot, "w", len);
+    if (!handle) {
+        return AJ_ERR_FAILURE;
+    }
+    status = PeerHeadSet(&cred->head, handle);
+    if (AJ_OK != status) {
+        AJ_NVRAM_Close(handle);
+        return AJ_ERR_FAILURE;
+    }
+    status = PeerBodySet(&cred->body, handle);
+    if (AJ_OK != status) {
+        AJ_NVRAM_Close(handle);
+        return AJ_ERR_FAILURE;
+    }
+    AJ_NVRAM_Close(handle);
 
     return AJ_OK;
 }
@@ -63,8 +261,6 @@ static AJ_Status FreeCredentialContent(AJ_PeerCred* cred)
 static uint16_t FindCredsEmptySlot()
 {
     uint16_t id = AJ_CREDS_NV_ID_BEGIN;
-
-    AJ_InfoPrintf(("FindCredsEmptySlot()\n"));
 
     for (; id < AJ_CREDS_NV_ID_END; id++) {
         if (!AJ_NVRAM_Exist(id)) {
@@ -75,421 +271,185 @@ static uint16_t FindCredsEmptySlot()
     return 0;
 }
 
-static AJ_Status ReadRemainderOfCredential(AJ_NV_DATASET* handle, AJ_PeerCred* cred)
+static AJ_Status CompareHead(const AJ_PeerHead* head, const AJ_PeerHead* test)
 {
-    size_t size, toRead;
-
-    /* Read expiration */
-    toRead = sizeof(cred->expiration);
-    size = AJ_NVRAM_Read(&cred->expiration, toRead, handle);
-    if (toRead != size) {
-        AJ_ErrPrintf(("ReadRemainderOfCredential(): AJ_ERR_FAILURE on read failure of field expiration\n"));
-        return AJ_ERR_FAILURE;
+    if (head->type != test->type) {
+        return AJ_ERR_INVALID;
     }
-    /* Read association length */
-    toRead = sizeof(cred->associationLen);
-    size = AJ_NVRAM_Read(&cred->associationLen, toRead, handle);
-    if (toRead != size) {
-        AJ_ErrPrintf(("ReadRemainderOfCredential(): AJ_ERR_FAILURE on read failure\n"));
-        return AJ_ERR_FAILURE;
+    if (0 == head->id.size) {
+        return AJ_OK;
     }
-    if (cred->associationLen > 0) {
-        cred->association = (uint8_t*) AJ_Malloc(cred->associationLen);
-        if (!cred->association) {
-            AJ_ErrPrintf(("ReadRemainderOfCredential(): AJ_ERR_FAILURE on memory allocation failure of size %d\n", cred->associationLen));
-            return AJ_ERR_FAILURE;
-        }
-        /* Read association */
-        toRead = cred->associationLen;
-        size = AJ_NVRAM_Read(cred->association, toRead, handle);
-        if (toRead != size) {
-            AJ_ErrPrintf(("ReadRemainderOfCredential(): AJ_ERR_FAILURE on read failure on field association\n"));
-            return AJ_ERR_FAILURE;
-        }
+    if (head->id.size != test->id.size) {
+        return AJ_ERR_INVALID;
     }
-    /* Read data length */
-    toRead = sizeof(cred->dataLen);
-    size = AJ_NVRAM_Read(&cred->dataLen, toRead, handle);
-    if (toRead != size) {
-        AJ_ErrPrintf(("ReadRemainderOfCredential(): AJ_ERR_FAILURE on read failure on field dataLen\n"));
-        return AJ_ERR_FAILURE;
-    }
-    if (cred->dataLen > 0) {
-        cred->data = (uint8_t*) AJ_Malloc(cred->dataLen);
-        if (!cred->data) {
-            AJ_ErrPrintf(("ReadRemainderOfCredential(): AJ_ERR_FAILURE on memory allocation failure for size %d\n", cred->dataLen));
-            return AJ_ERR_FAILURE;
-        }
-        /* Read data */
-        toRead = cred->dataLen;
-        size = AJ_NVRAM_Read(cred->data, toRead, handle);
-        if (toRead != size) {
-            AJ_ErrPrintf(("ReadRemainderOfCredential(): AJ_ERR_FAILURE on read failure on field data\n"));
-            return AJ_ERR_FAILURE;
-        }
+    if (0 != memcmp(head->id.data, test->id.data, head->id.size)) {
+        return AJ_ERR_INVALID;
     }
     return AJ_OK;
 }
 
-static uint16_t FindCredential(const uint16_t credType, const uint8_t* credId, uint8_t credIdLen, AJ_PeerCred** credHolder)
+static uint16_t FindCredential(const AJ_PeerHead* head, AJ_PeerBody* body)
 {
     AJ_Status status;
     uint16_t slot = AJ_CREDS_NV_ID_BEGIN;
+    AJ_PeerHead test;
     AJ_NV_DATASET* handle;
-    uint16_t localCredType;
-    uint8_t localCredIdLen;
-    uint8_t* localCredId;
-    AJ_PeerCred* cred;
-    int32_t idMatch;
 
-    AJ_InfoPrintf(("FindCredential(type=0x%04X, id=0x%p, len=%d)\n", credType, credId, credIdLen));
-
-    for (; slot < AJ_CREDS_NV_ID_END; slot++) {
-        if (AJ_NVRAM_Exist(slot)) {
-            handle = AJ_NVRAM_Open(slot, "r", 0);
-            if (!handle) {
-                AJ_ErrPrintf(("FindCredential(): fail to open data set with slot = %d\n", slot));
-                continue;
-            }
-            /* Read type */
-            if (sizeof(localCredType) != AJ_NVRAM_Read(&localCredType, sizeof(localCredType), handle)) {
-                AJ_ErrPrintf(("FindCredential(): fail to read credential type %zu bytes from data set with slot = %d\n", sizeof(credType), slot));
-                AJ_NVRAM_Close(handle);
-                continue;
-            }
-            if (localCredType != credType) {
-                AJ_NVRAM_Close(handle);
-                continue;
-            }
-            /* Read id length */
-            if (sizeof(localCredIdLen) != AJ_NVRAM_Read(&localCredIdLen, sizeof(localCredIdLen), handle)) {
-                AJ_ErrPrintf(("FindCredential(): fail to read slot length %zu bytes from data set with slot = %d\n", sizeof(localCredIdLen), slot));
-                AJ_NVRAM_Close(handle);
-                continue;
-            }
-            if (localCredIdLen != credIdLen) {
-                AJ_NVRAM_Close(handle);
-                continue;
-            }
-            if (!localCredIdLen) {
-                AJ_NVRAM_Close(handle);
-                continue;
-            }
-            localCredId = (uint8_t*) AJ_Malloc(localCredIdLen);
-            if (!localCredId) {
-                AJ_ErrPrintf(("FindCredential(): AJ_ERR_RESOURCES\n"));
-                AJ_NVRAM_Close(handle);
-                return AJ_ERR_RESOURCES;
-            }
-            /* Read id */
-            if (localCredIdLen != AJ_NVRAM_Read(localCredId, localCredIdLen, handle)) {
-                AJ_ErrPrintf(("FindCredential(): fail to read slot %u bytes from data set with slot = %d\n", localCredIdLen, slot));
-                AJ_NVRAM_Close(handle);
-                AJ_Free(localCredId);
-                continue;
-            }
-
-            idMatch = memcmp(localCredId, credId, credIdLen);
-            if (idMatch != 0) {
-                /* no match */
-                AJ_Free(localCredId);
-                AJ_NVRAM_Close(handle);
-                continue;
-            }
-            if (!credHolder) {
-                /* short query */
-                AJ_Free(localCredId);
-                AJ_NVRAM_Close(handle);
-                return slot;  /* short query */
-            }
-            /* full query */
-            cred = (AJ_PeerCred*) AJ_Malloc(sizeof(AJ_PeerCred));
-            if (!cred) {
-                AJ_Free(localCredId);
-                AJ_NVRAM_Close(handle);
-                return AJ_ERR_RESOURCES;
-            }
-            cred->type = localCredType;
-            cred->idLen = localCredIdLen;
-            cred->id = localCredId;
-            cred->dataLen = 0;
-            cred->associationLen = 0;
-            status = ReadRemainderOfCredential(handle, cred);
-            AJ_NVRAM_Close(handle);
-            if (status != AJ_OK) {
-                AJ_ErrPrintf(("FindCredential(): AJ_ERR_FAILURE on read failure \n"));
-                AJ_FreeCredential(cred);
-                return 0;
-            }
-            *credHolder = cred;
-            return slot;  /* found */
-        }
-    }
-    return 0; /* not found */
-}
-
-AJ_Status AJ_GetCredential(const uint16_t credType, const uint8_t* id, uint8_t idLen, AJ_PeerCred** customCredHolder)
-{
-    uint16_t slot = FindCredential(credType, id, idLen, customCredHolder);
-
-    AJ_InfoPrintf(("AJ_GetCredential(type=0x%04X, id=0x%p, len=%d)\n", credType, id, idLen));
-
-    if (slot) {
-        return AJ_OK;
-    }
-
-    return AJ_ERR_FAILURE;
-}
-
-static size_t GetCredentialSize(AJ_PeerCred* cred)
-{
-    // type(2):idLen(1):id(idLen):expiration(4):assLen(1):ass(assLen):dataLen(2):data(dataLen)
-    return sizeof(cred->type) +
-           sizeof(cred->idLen) + cred->idLen +
-           sizeof(cred->expiration) +
-           sizeof(cred->associationLen) + cred->associationLen +
-           sizeof(cred->dataLen) + cred->dataLen;
-}
-
-static AJ_Status UpdateCred(AJ_PeerCred* aCred, uint16_t slot)
-{
-    AJ_Status status = AJ_OK;
-    AJ_NV_DATASET* handle;
-    size_t len;
-    size_t size, toWrite;
-
-    AJ_InfoPrintf(("UpdateCred(aCred=0x%p, slot=%d)\n", aCred, slot));
-
-    if (!aCred) {
-        AJ_ErrPrintf(("UpdateCred(): AJ_ERR_FAILURE on null credential\n"));
-        return AJ_ERR_FAILURE;
-    }
-    len = GetCredentialSize(aCred);
-    handle = AJ_NVRAM_Open(slot, "w", len);
-    if (!handle) {
-        AJ_ErrPrintf(("UpdateCred(): AJ_ERR_FAILURE\n"));
-        return AJ_ERR_FAILURE;
-    }
-
-    /* Write type */
-    toWrite = sizeof(aCred->type);
-    size = AJ_NVRAM_Write(&aCred->type, toWrite, handle);
-    if (toWrite != size) {
-        AJ_ErrPrintf(("UpdateCred(): AJ_ERR_FAILURE on write failure on type field\n"));
-        goto Exit;
-    }
-    /* Write id length and optional id */
-    toWrite = sizeof(aCred->idLen);
-    size = AJ_NVRAM_Write(&aCred->idLen, toWrite, handle);
-    if (toWrite != size) {
-        AJ_ErrPrintf(("UpdateCred(): AJ_ERR_FAILURE on write failure on idLen field\n"));
-        goto Exit;
-    }
-    if (aCred->idLen > 0) {
-        toWrite = aCred->idLen;
-        size = AJ_NVRAM_Write(aCred->id, toWrite, handle);
-        if (toWrite != size) {
-            AJ_ErrPrintf(("UpdateCred(): AJ_ERR_FAILURE on write failure on id field\n"));
-            goto Exit;
-        }
-    }
-    /* Write expiration */
-    toWrite = sizeof(aCred->expiration);
-    size = AJ_NVRAM_Write(&aCred->expiration, toWrite, handle);
-    if (toWrite != size) {
-        AJ_ErrPrintf(("UpdateCred(): AJ_ERR_FAILURE on write failure on field expiration\n"));
-        goto Exit;
-    }
-    /* Write association length and optional association */
-    toWrite = sizeof(aCred->associationLen);
-    size = AJ_NVRAM_Write(&aCred->associationLen, toWrite, handle);
-    if (toWrite != size) {
-        AJ_ErrPrintf(("UpdateCred(): AJ_ERR_FAILURE on write failure on field associationLen\n"));
-        goto Exit;
-    }
-    if (aCred->associationLen > 0) {
-        toWrite = aCred->associationLen;
-        size = AJ_NVRAM_Write(aCred->association, toWrite, handle);
-        if (toWrite != size) {
-            AJ_ErrPrintf(("UpdateCred(): AJ_ERR_FAILURE on write failure on field association\n"));
-            goto Exit;
-        }
-    }
-    /* Write data length and optional data */
-    toWrite = sizeof(aCred->dataLen);
-    size = AJ_NVRAM_Write(&aCred->dataLen, toWrite, handle);
-    if (toWrite != size) {
-        AJ_ErrPrintf(("UpdateCred(): AJ_ERR_FAILURE on write failure on field dataLen\n"));
-        goto Exit;
-    }
-    if (aCred->dataLen > 0) {
-        toWrite = aCred->dataLen;
-        size = AJ_NVRAM_Write(aCred->data, toWrite, handle);
-        if (toWrite != size) {
-            AJ_ErrPrintf(("UpdateCred(): AJ_ERR_FAILURE on write failure on field data\n"));
-            goto Exit;
-        }
-    }
-    status = AJ_NVRAM_Close(handle);
-    return status;
-
-Exit:
-    status = AJ_NVRAM_Close(handle);
-    status = AJ_ERR_FAILURE;
-
-    return status;
-}
-
-/*
- * Finds the oldest credential and deletes it
- * @param[out] deleteSlot holder for the slot of deleted credential or zero if not deleted
- * @return AJ_OK if there is no reading error.
- */
-static AJ_Status AJ_DeleteOldestCredential(uint16_t* deleteSlot)
-{
-    AJ_Status status = AJ_ERR_INVALID;
-    uint16_t slot = AJ_CREDS_NV_ID_BEGIN;
-    AJ_NV_DATASET* handle;
-    uint16_t oldestslot = 0;
-    uint32_t oldestexp = 0xFFFFFFFF;
-    uint16_t localCredType;
-    uint8_t localCredIdLen;
-    uint8_t* localCredId;
-    AJ_PeerCred cred;
-
-    AJ_InfoPrintf(("AJ_DeleteOldestCredential()\n"));
-
-    *deleteSlot = 0;
     for (; slot < AJ_CREDS_NV_ID_END; slot++) {
         if (!AJ_NVRAM_Exist(slot)) {
             continue;
         }
         handle = AJ_NVRAM_Open(slot, "r", 0);
         if (!handle) {
-            AJ_ErrPrintf(("AJ_DeleteOldestCredential(): fail to open data set with slot = %d\n", slot));
-            continue;
+            return 0;
         }
-        /* Read type */
-        if (sizeof(localCredType) != AJ_NVRAM_Read(&localCredType, sizeof(localCredType), handle)) {
-            AJ_ErrPrintf(("AJ_DeleteOldestCredential(): fail to read credential type %zu bytes from data set with slot = %d\n", sizeof(localCredType), slot));
+        status = PeerHeadGet(&test, handle);
+        if (AJ_OK != status) {
+            AJ_NVRAM_Close(handle);
+            return 0;
+        }
+        status = CompareHead(head, &test);
+        if (AJ_OK != status) {
             AJ_NVRAM_Close(handle);
             continue;
         }
-        /* Read id length */
-        if (sizeof(localCredIdLen) != AJ_NVRAM_Read(&localCredIdLen, sizeof(localCredIdLen), handle)) {
-            AJ_ErrPrintf(("AJ_DeleteOldestCredential(): fail to read slot length %zu bytes from data set with slot = %d\n", sizeof(localCredIdLen), slot));
-            AJ_NVRAM_Close(handle);
-            continue;
+        AJ_PeerHeadFree(&test);
+        /* Found */
+        if (body) {
+            status = PeerBodyGet(body, handle);
+            if (AJ_OK != status) {
+                slot = 0;
+            }
         }
-        if (!localCredIdLen) {
-            AJ_ErrPrintf(("AJ_DeleteOldestCredential(): id length is zero in slot %d\n", slot));
-            AJ_NVRAM_Close(handle);
-            continue;
-        }
-        localCredId = (uint8_t*) AJ_Malloc(localCredIdLen);
-        if (!localCredId) {
-            AJ_ErrPrintf(("AJ_DeleteOldestCredential(): AJ_ERR_RESOURCES\n"));
-            AJ_NVRAM_Close(handle);
-            continue;
-        }
-        /* Read id */
-        if (localCredIdLen != AJ_NVRAM_Read(localCredId, localCredIdLen, handle)) {
-            AJ_ErrPrintf(("AJ_DeleteOldestCredential(): fail to read slot %u bytes from data set with slot = %d\n", localCredIdLen, slot));
-            AJ_NVRAM_Close(handle);
-            AJ_Free(localCredId);
-            continue;
-        }
-
-        /* full query */
-        cred.type = localCredType;
-        cred.idLen = localCredIdLen;
-        cred.id = localCredId;
-        cred.dataLen = 0;
-        cred.associationLen = 0;
-        status = ReadRemainderOfCredential(handle, &cred);
         AJ_NVRAM_Close(handle);
-        if (status != AJ_OK) {
-            AJ_ErrPrintf(("AJ_DeleteOldestCredential(): AJ_ERR_FAILURE on read failure \n"));
-            return status;
-        }
+        return slot;
+    }
 
-        /* if older and type GENERIC (master secret) */
-        if ((cred.expiration <= oldestexp) && (AJ_CRED_TYPE_GENERIC == cred.type)) {
-            oldestexp = cred.expiration;
+    return 0; /* not found */
+}
+
+static uint16_t FindCredentialData(const AJ_PeerCred* cred)
+{
+    AJ_Status status;
+    uint16_t slot = AJ_CREDS_NV_ID_BEGIN;
+    AJ_PeerHead head;
+    AJ_PeerBody body;
+    AJ_NV_DATASET* handle;
+
+    for (; slot < AJ_CREDS_NV_ID_END; slot++) {
+        if (!AJ_NVRAM_Exist(slot)) {
+            continue;
+        }
+        handle = AJ_NVRAM_Open(slot, "r", 0);
+        if (!handle) {
+            return 0;
+        }
+        status = PeerHeadGet(&head, handle);
+        if (AJ_OK != status) {
+            AJ_NVRAM_Close(handle);
+            return 0;
+        }
+        if (cred->head.type != head.type) {
+            AJ_PeerHeadFree(&head);
+            AJ_NVRAM_Close(handle);
+            continue;
+        }
+        AJ_PeerHeadFree(&head);
+        status = PeerBodyGet(&body, handle);
+        if (AJ_OK != status) {
+            AJ_NVRAM_Close(handle);
+            return 0;
+        }
+        if (cred->body.data.size != body.data.size) {
+            AJ_PeerBodyFree(&body);
+            AJ_NVRAM_Close(handle);
+            continue;
+        }
+        if (0 != memcmp(cred->body.data.data, body.data.data, body.data.size)) {
+            AJ_PeerBodyFree(&body);
+            AJ_NVRAM_Close(handle);
+            continue;
+        }
+        /* Found */
+        AJ_PeerBodyFree(&body);
+        AJ_NVRAM_Close(handle);
+        return slot;
+    }
+
+    return 0; /* not found */
+}
+
+static uint16_t DeleteOldestCredential()
+{
+    AJ_Status status = AJ_ERR_INVALID;
+    uint16_t slot = AJ_CREDS_NV_ID_BEGIN;
+    uint16_t oldestslot = 0;
+    uint32_t oldestexp = 0xFFFFFFFF;
+    AJ_PeerCred cred;
+
+    AJ_InfoPrintf(("DeleteOldestCredential()\n"));
+
+    for (; slot < AJ_CREDS_NV_ID_END; slot++) {
+        if (!AJ_NVRAM_Exist(slot)) {
+            continue;
+        }
+        status = AJ_ReadCredential(&cred, slot);
+        if (AJ_OK != status) {
+            AJ_ErrPrintf(("DeleteOldestCredential(): fail to read type and id\n"));
+            return AJ_ERR_FAILURE;
+        }
+        if (AJ_CRED_TYPE_GENERIC != cred.head.type) {
+            AJ_PeerCredFree(&cred);
+            continue;
+        }
+        /* If older */
+        if (cred.body.expiration <= oldestexp) {
+            oldestexp = cred.body.expiration;
             oldestslot = slot;
         }
-        FreeCredentialContent(&cred);
     }
 
     if (oldestslot) {
-        AJ_InfoPrintf(("AJ_DeleteOldestCredential(): slot=%d exp=0x%08X\n", oldestslot, oldestexp));
+        AJ_InfoPrintf(("DeleteOldestCredential(): slot=%d exp=0x%08X\n", oldestslot, oldestexp));
         AJ_NVRAM_Delete(oldestslot);
     }
 
-    *deleteSlot = oldestslot;
-    return AJ_OK;
+    return oldestslot;
 }
 
-AJ_Status AJ_StoreCredential(AJ_PeerCred* aCred)
+AJ_Status AJ_GetCredential(const AJ_PeerHead* head, AJ_PeerBody* body)
 {
-    AJ_Status status = AJ_OK;
-    uint16_t slot;
-    uint32_t len;
-
-    AJ_InfoPrintf(("AJ_StoreCredential(aCred=0x%p)\n", aCred));
-
-    slot = FindCredential(aCred->type, aCred->id, aCred->idLen, NULL);
-    if (!slot) {
-        /*
-         * Check there is sufficient space left.
-         * If there isn't, keep deleting oldest credential until there is.
-         */
-        len = GetCredentialSize(aCred);
-        len = WORD_ALIGN(len);
-        slot = FindCredsEmptySlot();
-        while ((AJ_OK == status) && (!slot || (len >= AJ_NVRAM_GetSizeRemaining()))) {
-            AJ_InfoPrintf(("AJ_StoreCredential(aCred=0x%p): Remaining %d Required %d Slot %d\n", aCred, AJ_NVRAM_GetSizeRemaining(), len, slot));
-            status = AJ_DeleteOldestCredential(&slot);
-        }
-    }
-
-    if (slot) {
-        status = UpdateCred(aCred, slot);
-    } else {
-        status = AJ_ERR_FAILURE;
-        AJ_ErrPrintf(("AJ_StoreCredential(aCred=0x%p): AJ_ERR_FAILURE\n", aCred));
-    }
-
-    return status;
+    AJ_InfoPrintf(("AJ_GetCredential(head=%p, body=%p)\n", head, body));
+    return FindCredential(head, body) ? AJ_OK : AJ_ERR_UNKNOWN;
 }
 
-AJ_Status AJ_StorePeerSecret(const AJ_GUID* peerGuid, const uint8_t* secret,
+AJ_Status AJ_StorePeerSecret(const AJ_GUID* guid, const uint8_t* secret,
                              const uint8_t len, uint32_t expiration)
 {
     AJ_PeerCred cred;
     AJ_Status status;
 
-    AJ_InfoPrintf(("AJ_StorePeerSecret(peerGuid=0x%p, secret=0x%p, len=%d, expiration=0x%08X)\n", peerGuid, secret, len, expiration));
+    AJ_InfoPrintf(("AJ_StorePeerSecret(guid=%p, secret=%p, len=%d, expiration=0x%08X)\n", guid, secret, len, expiration));
 
-    cred.type = AJ_CRED_TYPE_GENERIC;
-    cred.idLen = sizeof(AJ_GUID);
-    cred.id = (uint8_t*) peerGuid;
-    cred.expiration = expiration;
-    cred.associationLen = 0;
-    cred.association = NULL;
-    cred.dataLen = len;
-    cred.data = (uint8_t*) secret;
+    cred.head.type = AJ_CRED_TYPE_GENERIC;
+    cred.head.id.size = sizeof (AJ_GUID);
+    cred.head.id.data = (uint8_t*) guid;
+    cred.body.expiration = expiration;
+    cred.body.association.size = 0;
+    cred.body.association.data = NULL;
+    cred.body.data.size = len;
+    cred.body.data.data = (uint8_t*) secret;
     status = AJ_StoreCredential(&cred);
 
     return status;
 }
 
-AJ_Status AJ_DeleteCredential(const uint16_t credType, const uint8_t* id, uint8_t idLen)
+AJ_Status AJ_DeleteCredential(const AJ_PeerHead* head)
 {
     AJ_Status status = AJ_ERR_FAILURE;
-    uint16_t slot = FindCredential(credType, id, idLen, NULL);
+    uint16_t slot = FindCredential(head, NULL);
 
-    AJ_InfoPrintf(("AJ_DeleteCredential(type=0x%04X, id=0x%p, len=%d\n", credType, id, idLen));
+    AJ_InfoPrintf(("AJ_DeleteCredential(head=%p)\n", head));
 
     if (slot > 0) {
         status = AJ_NVRAM_Delete(slot);
@@ -498,9 +458,15 @@ AJ_Status AJ_DeleteCredential(const uint16_t credType, const uint8_t* id, uint8_
     return status;
 }
 
-AJ_Status AJ_DeletePeerCredential(const AJ_GUID* peerGuid)
+AJ_Status AJ_DeletePeerCredential(const AJ_GUID* guid)
 {
-    return AJ_DeleteCredential(AJ_CRED_TYPE_GENERIC, peerGuid->val, sizeof(AJ_GUID));
+    AJ_PeerHead head;
+
+    head.type = AJ_CRED_TYPE_GENERIC;
+    head.id.size = sizeof (AJ_GUID);
+    head.id.data = (uint8_t*) guid;
+
+    return AJ_DeleteCredential(&head);
 }
 
 AJ_Status AJ_ClearCredentials(void)
@@ -519,36 +485,31 @@ AJ_Status AJ_ClearCredentials(void)
     return status;
 }
 
-AJ_Status AJ_GetPeerCredential(const AJ_GUID* peerGuid, AJ_PeerCred** peerCredHolder)
+AJ_Status AJ_GetPeerCredential(const AJ_GUID* guid, AJ_PeerCred* cred)
 {
-    return AJ_GetCredential(AJ_CRED_TYPE_GENERIC, peerGuid->val, sizeof(peerGuid->val), peerCredHolder);
+    AJ_InfoPrintf(("AJ_GetPeerCredential(guid=%p, cred=%p)\n", guid, cred));
+
+    cred->head.type = AJ_CRED_TYPE_GENERIC;
+    cred->head.id.size = sizeof (AJ_GUID);
+    cred->head.id.data = (uint8_t*) guid;
+
+    return AJ_GetCredential(&cred->head, &cred->body);
 }
 
-AJ_Status AJ_GetLocalGUID(AJ_GUID* localGuid)
+AJ_Status AJ_GetLocal(uint16_t slot, uint8_t* data, size_t len)
 {
     AJ_Status status = AJ_ERR_FAILURE;
     AJ_NV_DATASET* handle;
 
-    AJ_InfoPrintf(("AJ_GetLocalGUID(localGuid=0x%p)\n", localGuid));
+    AJ_InfoPrintf(("AJ_GetLocal(slot=%d, data=%p, len=%zu)\n", slot, data, len));
 
-    if (AJ_NVRAM_Exist(AJ_LOCAL_GUID_NV_ID)) {
-        handle = AJ_NVRAM_Open(AJ_LOCAL_GUID_NV_ID, "r", 0);
+    if (AJ_NVRAM_Exist(slot)) {
+        handle = AJ_NVRAM_Open(slot, "r", 0);
         if (handle) {
-            if (sizeof(AJ_GUID) == AJ_NVRAM_Read(localGuid, sizeof(AJ_GUID), handle)) {
+            if (len == AJ_NVRAM_Read(data, len, handle)) {
                 status = AJ_OK;
             } else {
-                AJ_ErrPrintf(("AJ_GetLocalGUID(): fail to read slot length %zu bytes from slot = %d\n", sizeof(AJ_GUID), AJ_LOCAL_GUID_NV_ID));
-            }
-            status = AJ_NVRAM_Close(handle);
-        }
-    } else {
-        AJ_RandBytes((uint8_t*)localGuid, sizeof(AJ_GUID));
-        handle = AJ_NVRAM_Open(AJ_LOCAL_GUID_NV_ID, "w", sizeof(AJ_GUID));
-        if (handle) {
-            if (sizeof(AJ_GUID) == AJ_NVRAM_Write(localGuid, sizeof(AJ_GUID), handle)) {
-                status = AJ_OK;
-            } else {
-                AJ_ErrPrintf(("AJ_GetLocalGUID(): fail to write slot length %zu bytes to slot = %d\n", sizeof(AJ_GUID), AJ_LOCAL_GUID_NV_ID));
+                AJ_ErrPrintf(("AJ_GetLocal(): fail to read slot length %zu bytes from slot = %d\n", len, slot));
             }
             status = AJ_NVRAM_Close(handle);
         }
@@ -557,43 +518,45 @@ AJ_Status AJ_GetLocalGUID(AJ_GUID* localGuid)
     return status;
 }
 
-AJ_Status AJ_FreeCredential(AJ_PeerCred* cred)
+AJ_Status AJ_SetLocal(uint16_t slot, uint8_t* data, size_t len)
 {
-    if (!cred) {
-        return AJ_OK;
+    AJ_Status status = AJ_ERR_FAILURE;
+    AJ_NV_DATASET* handle;
+
+    AJ_InfoPrintf(("AJ_SetLocal(slot=%d, data=%p, len=%zu)\n", slot, data, len));
+
+    handle = AJ_NVRAM_Open(slot, "w", len);
+    if (handle) {
+        if (len == AJ_NVRAM_Write(data, len, handle)) {
+            status = AJ_OK;
+        } else {
+            AJ_ErrPrintf(("AJ_SetLocal(): fail to write slot length %zu bytes to slot = %d\n", len, slot));
+        }
+        status = AJ_NVRAM_Close(handle);
     }
-    FreeCredentialContent(cred);
-    AJ_Free(cred);
 
-    return AJ_OK;
+    return status;
 }
 
-AJ_Status AJ_StoreLocalCredential(const uint16_t credType, const uint16_t id, const uint8_t* data, const uint8_t len, uint32_t expiration)
+AJ_Status AJ_GetLocalGUID(AJ_GUID* guid)
 {
-    AJ_PeerCred cred;
+    AJ_Status status;
 
-    AJ_InfoPrintf(("AJ_StoreLocalCredential(type=0x%04X, id=0x%p, data=0x%p, len=%d, expiration=0x%08X)\n", credType, &id, data, len, expiration));
+    AJ_InfoPrintf(("AJ_GetLocalGUID(guid=%p)\n", guid));
 
-    cred.type = credType;
-    cred.idLen = sizeof(id);
-    cred.id = (uint8_t*) &id;
-    cred.expiration = expiration;
-    cred.associationLen = 0;
-    cred.association = 0;
-    cred.dataLen = len;
-    cred.data = (uint8_t*) data;
+    status = AJ_GetLocal(AJ_LOCAL_GUID_NV_ID, (uint8_t*) guid, sizeof (AJ_GUID));
+    if (AJ_OK != status) {
+        AJ_RandBytes((uint8_t*) guid, sizeof (AJ_GUID));
+        status = AJ_SetLocalGUID(guid);
+    }
 
-    return AJ_StoreCredential(&cred);
+    return status;
 }
 
-AJ_Status AJ_GetLocalCredential(const uint16_t credType, const uint16_t id, AJ_PeerCred** credHolder)
+AJ_Status AJ_SetLocalGUID(AJ_GUID* guid)
 {
-    return AJ_GetCredential(credType, (const uint8_t*) &id, sizeof(id), credHolder);
-}
-
-AJ_Status AJ_DeleteLocalCredential(const uint16_t credType, const uint16_t id)
-{
-    return AJ_DeleteCredential(credType, (const uint8_t*) &id, sizeof(id));
+    AJ_InfoPrintf(("AJ_SetLocalGUID(guid=%p)\n", guid));
+    return AJ_SetLocal(AJ_LOCAL_GUID_NV_ID, (uint8_t*) guid, sizeof (AJ_GUID));
 }
 
 AJ_Status AJ_CredentialExpired(AJ_PeerCred* cred)
@@ -606,9 +569,752 @@ AJ_Status AJ_CredentialExpired(AJ_PeerCred* cred)
         return AJ_ERR_INVALID;
     }
 
-    if (cred->expiration > now.seconds) {
+    if (cred->body.expiration > now.seconds) {
         return AJ_OK;
     }
 
     return AJ_ERR_KEY_EXPIRED; /* expires */
+}
+
+AJ_Status AJ_StoreCredential(AJ_PeerCred* cred)
+{
+    AJ_Status status = AJ_OK;
+    uint16_t slot;
+    uint32_t len;
+
+    AJ_InfoPrintf(("AJ_StoreCredential(cred=%p)\n", cred));
+
+    if (!cred) {
+        return AJ_ERR_FAILURE;
+    }
+
+    slot = FindCredential(&cred->head, NULL);
+    if (!slot) {
+        /*
+         * Check there is sufficient space left.
+         * If there isn't, keep deleting oldest credential until there is.
+         */
+        len = PeerCredSize(cred);
+        len = WORD_ALIGN(len);
+        slot = FindCredsEmptySlot();
+        while ((AJ_OK == status) && (!slot || (len >= AJ_NVRAM_GetSizeRemaining()))) {
+            AJ_InfoPrintf(("AJ_StoreCredential(cred=%p): Remaining %d Required %d Slot %d\n", cred, AJ_NVRAM_GetSizeRemaining(), len, slot));
+            slot = DeleteOldestCredential();
+        }
+    }
+
+    if (slot) {
+        status = AJ_SetCredential(cred, slot);
+    } else {
+        status = AJ_ERR_FAILURE;
+    }
+
+    return status;
+}
+
+AJ_Status AJ_KeyInfoGet(AJ_KeyInfo* key, uint16_t type, const AJ_GUID* guid)
+{
+    AJ_Status status;
+    AJ_PeerHead head;
+    AJ_PeerBody body;
+
+    memset(key, 0, sizeof (AJ_KeyInfo));
+    head.type = type;
+    head.id.size = sizeof (AJ_GUID);
+    head.id.data = (uint8_t*) guid->val;
+    status = AJ_GetCredential(&head, &body);
+    if (AJ_OK == status) {
+        status = AJ_KeyInfoDeserialize(key, type, body.data.data, body.data.size);
+        AJ_PeerBodyFree(&body);
+    }
+
+    return status;
+}
+
+AJ_Status AJ_KeyInfoSet(const AJ_KeyInfo* key, uint16_t type, const AJ_GUID* guid)
+{
+    AJ_Status status;
+    AJ_PeerCred cred;
+    uint8_t* b8;
+    size_t b8len;
+
+    switch (type) {
+    case AJ_CRED_TYPE_ECDSA_CA_PUB:
+    case AJ_CRED_TYPE_ECDSA_SIG_PUB:
+        b8len = KEY_INFO_PUB_SZ;
+        break;
+
+    case AJ_CRED_TYPE_ECDSA_CA_PRV:
+    case AJ_CRED_TYPE_ECDSA_SIG_PRV:
+        b8len = KEY_INFO_PRV_SZ;
+        break;
+
+    default:
+        return AJ_ERR_INVALID;
+    }
+
+    b8 = AJ_Malloc(b8len);
+    if (!b8) {
+        return AJ_ERR_RESOURCES;
+    }
+
+    AJ_KeyInfoSerialize(key, type, b8, b8len);
+    cred.head.type = type;
+    cred.head.id.size = sizeof (AJ_GUID);
+    cred.head.id.data = (uint8_t*) guid->val;
+    cred.body.expiration = 0xFFFFFFFF;
+    cred.body.association.size = 0;
+    cred.body.association.data = NULL;
+    cred.body.data.size = b8len;
+    cred.body.data.data = b8;
+
+    status = AJ_StoreCredential(&cred);
+    AJ_Free(b8);
+
+    return status;
+}
+
+AJ_Status AJ_KeyInfoGetLocal(AJ_KeyInfo* key, uint16_t type)
+{
+    AJ_Status status;
+    AJ_GUID guid;
+
+    status = AJ_GetLocalGUID(&guid);
+    if (AJ_OK != status) {
+        return status;
+    }
+    status = AJ_KeyInfoGet(key, type, &guid);
+
+    return status;
+}
+
+AJ_Status AJ_KeyInfoSetLocal(const AJ_KeyInfo* key, uint16_t type)
+{
+    AJ_Status status;
+    AJ_GUID guid;
+
+    status = AJ_GetLocalGUID(&guid);
+    if (AJ_OK != status) {
+        return status;
+    }
+    status = AJ_KeyInfoSet(key, type, &guid);
+
+    return status;
+}
+
+AJ_Status AJ_KeyInfoSerialize(const AJ_KeyInfo* key, uint16_t type, uint8_t* b8, size_t len)
+{
+    AJ_Status status = AJ_ERR_INVALID;
+
+    if ((NULL == key) || (NULL == b8)) {
+        return AJ_ERR_INVALID;
+    }
+
+    if (len < (5 + sizeof (AJ_GUID))) {
+        return AJ_ERR_RESOURCES;
+    }
+    *b8++ = key->fmt;
+    memcpy(b8, key->kid, sizeof (AJ_GUID));
+    b8 += sizeof (AJ_GUID);
+    *b8++ = key->use;
+    *b8++ = key->kty;
+    *b8++ = key->alg;
+    *b8++ = key->crv;
+    switch (type) {
+    case AJ_CRED_TYPE_ECDSA_CA_PUB:
+    case AJ_CRED_TYPE_ECDSA_SIG_PUB:
+        if (len < KEY_INFO_PUB_SZ) {
+            return AJ_ERR_RESOURCES;
+        }
+        AJ_BigvalEncode(&key->key.publickey.x, b8, KEY_ECC_SZ);
+        b8 += KEY_ECC_SZ;
+        AJ_BigvalEncode(&key->key.publickey.y, b8, KEY_ECC_SZ);
+        b8 += KEY_ECC_SZ;
+        status = AJ_OK;
+        break;
+
+    case AJ_CRED_TYPE_ECDSA_CA_PRV:
+    case AJ_CRED_TYPE_ECDSA_SIG_PRV:
+        if (len < KEY_INFO_PRV_SZ) {
+            return AJ_ERR_RESOURCES;
+        }
+        AJ_BigvalEncode(&key->key.privatekey, b8, KEY_ECC_SZ);
+        b8 += KEY_ECC_SZ;
+        status = AJ_OK;
+        break;
+    }
+
+    return status;
+}
+
+AJ_Status AJ_KeyInfoDeserialize(AJ_KeyInfo* key, uint16_t type, const uint8_t* b8, size_t len)
+{
+    AJ_Status status = AJ_ERR_INVALID;
+
+    if ((NULL == key) || (NULL == b8)) {
+        return AJ_ERR_INVALID;
+    }
+
+    if (len < (5 + sizeof (AJ_GUID))) {
+        return AJ_ERR_RESOURCES;
+    }
+    key->fmt = *b8++;
+    memcpy(key->kid, b8, sizeof (AJ_GUID));
+    b8 += sizeof (AJ_GUID);
+    key->use = *b8++;
+    key->kty = *b8++;
+    key->alg = *b8++;
+    key->crv = *b8++;
+    switch (type) {
+    case AJ_CRED_TYPE_ECDSA_CA_PUB:
+    case AJ_CRED_TYPE_ECDSA_SIG_PUB:
+        if (len < KEY_INFO_PUB_SZ) {
+            return AJ_ERR_RESOURCES;
+        }
+        AJ_BigvalDecode(b8, &key->key.publickey.x, KEY_ECC_SZ);
+        b8 += KEY_ECC_SZ;
+        AJ_BigvalDecode(b8, &key->key.publickey.y, KEY_ECC_SZ);
+        b8 += KEY_ECC_SZ;
+        status = AJ_OK;
+        break;
+
+    case AJ_CRED_TYPE_ECDSA_CA_PRV:
+    case AJ_CRED_TYPE_ECDSA_SIG_PRV:
+        if (len < KEY_INFO_PRV_SZ) {
+            return AJ_ERR_RESOURCES;
+        }
+        AJ_BigvalDecode(b8, &key->key.privatekey, KEY_ECC_SZ);
+        b8 += KEY_ECC_SZ;
+        status = AJ_OK;
+        break;
+    }
+
+    return status;
+}
+
+AJ_Status AJ_KeyInfoMarshal(const AJ_KeyInfo* key, AJ_Message* msg, AJ_SHA256_Context* hash)
+{
+    AJ_Status status = AJ_ERR_INVALID;
+    uint8_t x[KEY_ECC_SZ];
+    uint8_t y[KEY_ECC_SZ];
+
+    AJ_BigvalEncode(&key->key.publickey.x, x, KEY_ECC_SZ);
+    AJ_BigvalEncode(&key->key.publickey.y, y, KEY_ECC_SZ);
+    if (hash) {
+        AJ_SHA256_Update(hash, x, KEY_ECC_SZ);
+        AJ_SHA256_Update(hash, y, KEY_ECC_SZ);
+    }
+
+    status = AJ_MarshalArgs(msg,
+                            "(yv)", key->fmt,
+                            "(ayyyv)", (uint8_t*) key->kid, sizeof (AJ_GUID), key->use, key->kty,
+                            "(yyv)", key->alg, key->crv,
+                            "(ayay)", x, KEY_ECC_SZ, y, KEY_ECC_SZ);
+
+    return status;
+}
+
+static AJ_Status AJ_KeyInfoUnmarshalCrv(AJ_KeyInfo* key, AJ_Message* msg, AJ_SHA256_Context* hash)
+{
+    AJ_Status status;
+    uint8_t* x;
+    uint8_t* y;
+    size_t xlen;
+    size_t ylen;
+
+    status = AJ_UnmarshalArgs(msg, "(ayay)", &x, &xlen, &y, &ylen);
+    if (AJ_OK != status) {
+        return status;
+    }
+    if ((KEY_ECC_SZ != xlen) || (KEY_ECC_SZ != ylen)) {
+        return AJ_ERR_INVALID;
+    }
+    AJ_BigvalDecode(x, &key->key.publickey.x, KEY_ECC_SZ);
+    AJ_BigvalDecode(y, &key->key.publickey.y, KEY_ECC_SZ);
+    if (hash) {
+        AJ_SHA256_Update(hash, x, KEY_ECC_SZ);
+        AJ_SHA256_Update(hash, y, KEY_ECC_SZ);
+    }
+
+    return status;
+}
+
+static AJ_Status AJ_KeyInfoUnmarshalTyp(AJ_KeyInfo* key, AJ_Message* msg, AJ_SHA256_Context* hash)
+{
+    AJ_Status status = AJ_ERR_INVALID;
+    AJ_Arg container;
+    char* variant;
+
+    status = AJ_UnmarshalContainer(msg, &container, AJ_ARG_STRUCT);
+    if (AJ_OK != status) {
+        return status;
+    }
+    status = AJ_UnmarshalArgs(msg, "yy", &key->alg, &key->crv);
+    if (KEY_ALG_ECDSA_SHA256 != key->alg) {
+        return AJ_ERR_INVALID;
+    }
+    if (KEY_CRV_NISTP256 != key->crv) {
+        return AJ_ERR_INVALID;
+    }
+    status = AJ_UnmarshalVariant(msg, (const char**) &variant);
+    if (AJ_OK != status) {
+        return status;
+    }
+    if (0 != strncmp(variant, "(ayay)", 6)) {
+        return AJ_ERR_INVALID;
+    }
+    status = AJ_KeyInfoUnmarshalCrv(key, msg, hash);
+    if (AJ_OK != status) {
+        return status;
+    }
+    status = AJ_UnmarshalCloseContainer(msg, &container);
+
+    return status;
+}
+
+static AJ_Status AJ_KeyInfoUnmarshalFmt(AJ_KeyInfo* key, AJ_Message* msg, AJ_SHA256_Context* hash)
+{
+    AJ_Status status = AJ_ERR_INVALID;
+    AJ_Arg container;
+    char* variant;
+    uint8_t* kid;
+    size_t kidlen;
+
+    status = AJ_UnmarshalContainer(msg, &container, AJ_ARG_STRUCT);
+    if (AJ_OK != status) {
+        return status;
+    }
+    status = AJ_UnmarshalArgs(msg, "ayyy", &kid, &kidlen, &key->use, &key->kty);
+    if (KEY_TYP_ECC != key->kty) {
+        return AJ_ERR_INVALID;
+    }
+    //TODO: are we requiring kid length to be sizeof GUID?
+    if (sizeof (AJ_GUID) < kidlen) {
+        return AJ_ERR_INVALID;
+    }
+    memcpy(key->kid, kid, kidlen);
+    status = AJ_UnmarshalVariant(msg, (const char**) &variant);
+    if (AJ_OK != status) {
+        return status;
+    }
+    if (0 != strncmp(variant, "(yyv)", 5)) {
+        return AJ_ERR_INVALID;
+    }
+    status = AJ_KeyInfoUnmarshalTyp(key, msg, hash);
+    if (AJ_OK != status) {
+        return status;
+    }
+    status = AJ_UnmarshalCloseContainer(msg, &container);
+
+    return status;
+}
+
+AJ_Status AJ_KeyInfoUnmarshal(AJ_KeyInfo* key, AJ_Message* msg, AJ_SHA256_Context* hash)
+{
+    AJ_Status status = AJ_ERR_INVALID;
+    AJ_Arg container;
+    char* variant;
+
+    memset(key, 0, sizeof (AJ_KeyInfo));
+    status = AJ_UnmarshalContainer(msg, &container, AJ_ARG_STRUCT);
+    if (AJ_OK != status) {
+        return status;
+    }
+    status = AJ_UnmarshalArgs(msg, "y", &key->fmt);
+    if (AJ_OK != status) {
+        return status;
+    }
+    if (KEY_FMT_ALLJOYN != key->fmt) {
+        return AJ_ERR_INVALID;
+    }
+    status = AJ_UnmarshalVariant(msg, (const char**) &variant);
+    if (AJ_OK != status) {
+        return status;
+    }
+    if (0 != strncmp(variant, "(ayyyv)", 7)) {
+        return AJ_ERR_INVALID;
+    }
+    status = AJ_KeyInfoUnmarshalFmt(key, msg, hash);
+    if (AJ_OK != status) {
+        return status;
+    }
+    status = AJ_UnmarshalCloseContainer(msg, &container);
+
+    return status;
+}
+
+AJ_Status AJ_KeyInfoGenerate(AJ_KeyInfo* pub, AJ_KeyInfo* prv, uint8_t use)
+{
+    AJ_Status status;
+    AJ_GUID guid;
+
+    AJ_InfoPrintf(("AJ_KeyInfoGenerate(pub=%p, prv=%p, use=%x)\n", pub, prv, use));
+
+    memset(pub, 0, sizeof (AJ_KeyInfo));
+    memset(prv, 0, sizeof (AJ_KeyInfo));
+
+    status = AJ_GetLocalGUID(&guid);
+    if (AJ_OK != status) {
+        return status;
+    }
+    memcpy(pub->kid, (uint8_t*) &guid, sizeof (AJ_GUID));
+    memcpy(prv->kid, (uint8_t*) &guid, sizeof (AJ_GUID));
+
+    pub->fmt = KEY_FMT_ALLJOYN;
+    pub->use = use;
+    pub->kty = KEY_TYP_ECC;
+    pub->alg = KEY_ALG_ECDSA_SHA256;
+    pub->crv = KEY_CRV_NISTP256;
+
+    prv->fmt = KEY_FMT_ALLJOYN;
+    prv->use = use;
+    prv->kty = KEY_TYP_ECC;
+    prv->alg = KEY_ALG_ECDSA_SHA256;
+    prv->crv = KEY_CRV_NISTP256;
+
+    status = AJ_GenerateECDSAKeyPair(&pub->key.publickey, &prv->key.privatekey);
+
+    return status;
+}
+
+AJ_Status AJ_SigInfoSerialize(const AJ_SigInfo* sig, uint8_t* b8, size_t len)
+{
+    size_t req = SIG_INFO_SZ;
+
+    if ((NULL == sig) || (NULL == b8)) {
+        return AJ_ERR_INVALID;
+    }
+    if (len < req) {
+        return AJ_ERR_INVALID;
+    }
+    *b8++ = sig->fmt;
+    *b8++ = sig->alg;
+    AJ_BigvalEncode(&sig->signature.r, b8, KEY_ECC_SZ);
+    b8 += KEY_ECC_SZ;
+    AJ_BigvalEncode(&sig->signature.s, b8, KEY_ECC_SZ);
+    b8 += KEY_ECC_SZ;
+
+    return AJ_OK;
+}
+
+AJ_Status AJ_SigInfoDeserialize(AJ_SigInfo* sig, const uint8_t* b8, size_t len)
+{
+    size_t req = SIG_INFO_SZ;
+
+    if ((NULL == sig) || (NULL == b8)) {
+        return AJ_ERR_INVALID;
+    }
+    if (len < req) {
+        return AJ_ERR_INVALID;
+    }
+    sig->fmt = *b8++;
+    sig->alg = *b8++;
+    AJ_BigvalDecode(b8, &sig->signature.r, KEY_ECC_SZ);
+    b8 += KEY_ECC_SZ;
+    AJ_BigvalDecode(b8, &sig->signature.s, KEY_ECC_SZ);
+    b8 += KEY_ECC_SZ;
+
+    return AJ_OK;
+}
+
+AJ_Status AJ_SigInfoMarshal(const AJ_SigInfo* sig, AJ_Message* msg, AJ_SHA256_Context* hash)
+{
+    AJ_Status status = AJ_ERR_INVALID;
+    uint8_t r[KEY_ECC_SZ];
+    uint8_t s[KEY_ECC_SZ];
+
+    AJ_BigvalEncode(&sig->signature.r, r, KEY_ECC_SZ);
+    AJ_BigvalEncode(&sig->signature.s, s, KEY_ECC_SZ);
+    if (hash) {
+        AJ_SHA256_Update(hash, r, KEY_ECC_SZ);
+        AJ_SHA256_Update(hash, s, KEY_ECC_SZ);
+    }
+
+    status = AJ_MarshalArgs(msg,
+                            "yv", sig->fmt,
+                            "(yv)", sig->alg,
+                            "(ayay)", r, KEY_ECC_SZ, s, KEY_ECC_SZ);
+
+    return status;
+}
+
+static AJ_Status AJ_SigInfoUnmarshalAlg(AJ_SigInfo* sig, AJ_Message* msg, AJ_SHA256_Context* hash)
+{
+    AJ_Status status = AJ_ERR_INVALID;
+    uint8_t* r;
+    uint8_t* s;
+    size_t rlen;
+    size_t slen;
+
+    status = AJ_UnmarshalArgs(msg, "(ayay)", &r, &rlen, &s, &slen);
+    if (AJ_OK != status) {
+        return status;
+    }
+    if ((KEY_ECC_SZ != rlen) || (KEY_ECC_SZ != slen)) {
+        return AJ_ERR_INVALID;
+    }
+    AJ_BigvalDecode(r, &sig->signature.r, KEY_ECC_SZ);
+    AJ_BigvalDecode(s, &sig->signature.s, KEY_ECC_SZ);
+    if (hash) {
+        AJ_SHA256_Update(hash, r, KEY_ECC_SZ);
+        AJ_SHA256_Update(hash, s, KEY_ECC_SZ);
+    }
+
+    return status;
+}
+
+static AJ_Status AJ_SigInfoUnmarshalFmt(AJ_SigInfo* sig, AJ_Message* msg, AJ_SHA256_Context* hash)
+{
+    AJ_Status status = AJ_ERR_INVALID;
+    AJ_Arg container;
+    char* variant;
+
+    status = AJ_UnmarshalContainer(msg, &container, AJ_ARG_STRUCT);
+    if (AJ_OK != status) {
+        return status;
+    }
+    status = AJ_UnmarshalArgs(msg, "y", &sig->alg);
+    if (SIG_ALG_ECDSA_SHA256 != sig->alg) {
+        return AJ_ERR_INVALID;
+    }
+    status = AJ_UnmarshalVariant(msg, (const char**) &variant);
+    if (AJ_OK != status) {
+        return status;
+    }
+    if (0 != strncmp(variant, "(ayay)", 6)) {
+        return AJ_ERR_INVALID;
+    }
+    status = AJ_SigInfoUnmarshalAlg(sig, msg, hash);
+    if (AJ_OK != status) {
+        return status;
+    }
+    status = AJ_UnmarshalCloseContainer(msg, &container);
+
+    return status;
+}
+
+AJ_Status AJ_SigInfoUnmarshal(AJ_SigInfo* sig, AJ_Message* msg, AJ_SHA256_Context* hash)
+{
+    AJ_Status status = AJ_ERR_INVALID;
+    char* variant;
+
+    memset(sig, 0, sizeof (AJ_SigInfo));
+    status = AJ_UnmarshalArgs(msg, "y", &sig->fmt);
+    if (AJ_OK != status) {
+        return status;
+    }
+    if (KEY_FMT_ALLJOYN != sig->fmt) {
+        return AJ_ERR_INVALID;
+    }
+    status = AJ_UnmarshalVariant(msg, (const char**) &variant);
+    if (AJ_OK != status) {
+        return status;
+    }
+    if (0 != strncmp(variant, "(yv)", 4)) {
+        return AJ_ERR_INVALID;
+    }
+    status = AJ_SigInfoUnmarshalFmt(sig, msg, hash);
+
+    return status;
+}
+
+AJ_Status AJ_TrustAnchorsMarshal(AJ_Message* msg, uint8_t found, AJ_SHA256_Context* hash)
+{
+    AJ_Status status;
+    uint16_t slot = AJ_CREDS_NV_ID_BEGIN;
+    AJ_PeerHead head;
+    AJ_PeerBody body;
+    AJ_NV_DATASET* handle;
+    AJ_Arg container;
+    AJ_KeyInfo pub;
+
+    AJ_InfoPrintf(("AJ_TrustAnchorsMarshal(msg=%p)\n", msg));
+
+    status = AJ_MarshalVariant(msg, "a(yv)");
+    status = AJ_MarshalContainer(msg, &container, AJ_ARG_ARRAY);
+
+    /*
+     * If trust anchors were found on the other side, send ours.
+     * Otherwise, send an empty array.
+     * If we can't mutually authenticate, we don't want them to try.
+     */
+    if (found) {
+        for (; slot < AJ_CREDS_NV_ID_END; slot++) {
+            if (!AJ_NVRAM_Exist(slot)) {
+                continue;
+            }
+            handle = AJ_NVRAM_Open(slot, "r", 0);
+            if (!handle) {
+                return AJ_ERR_FAILURE;
+            }
+            status = PeerHeadGet(&head, handle);
+            if (AJ_OK != status) {
+                AJ_NVRAM_Close(handle);
+                return AJ_ERR_FAILURE;
+            }
+            if (AJ_CRED_TYPE_ECDSA_CA_PUB != head.type) {
+                AJ_PeerHeadFree(&head);
+                AJ_NVRAM_Close(handle);
+                continue;
+            }
+            status = PeerBodyGet(&body, handle);
+            if (AJ_OK != status) {
+                AJ_PeerHeadFree(&head);
+                AJ_NVRAM_Close(handle);
+                return AJ_ERR_FAILURE;
+            }
+            AJ_DumpBytes("TA", body.data.data, body.data.size);
+            status = AJ_KeyInfoDeserialize(&pub, head.type, body.data.data, body.data.size);
+            if (AJ_OK != status) {
+                AJ_PeerHeadFree(&head);
+                AJ_PeerBodyFree(&body);
+                AJ_NVRAM_Close(handle);
+                return AJ_ERR_FAILURE;
+            }
+            status = AJ_KeyInfoMarshal(&pub, msg, hash);
+            AJ_PeerHeadFree(&head);
+            AJ_PeerBodyFree(&body);
+            AJ_NVRAM_Close(handle);
+            if (AJ_OK != status) {
+                return status;
+            }
+        }
+    }
+
+    status = AJ_MarshalCloseContainer(msg, &container);
+
+    return status;
+}
+
+AJ_Status AJ_TrustAnchorsUnmarshal(AJ_Message* msg, uint8_t* found, AJ_GUID* ta, AJ_SHA256_Context* hash)
+{
+    AJ_Status status;
+    char* variant;
+    AJ_Arg container;
+    AJ_PeerCred cred;
+    AJ_KeyInfo pub;
+    uint8_t b8[KEY_INFO_PUB_SZ];
+
+    AJ_InfoPrintf(("AJ_TrustAnchorsUnmarshal(msg=%p)\n", msg));
+
+    *found = 0;
+    status = AJ_UnmarshalVariant(msg, (const char**) &variant);
+    if (AJ_OK != status) {
+        return status;
+    }
+    if (0 != strncmp(variant, "a(yv)", 5)) {
+        return AJ_ERR_INVALID;
+    }
+    status = AJ_UnmarshalContainer(msg, &container, AJ_ARG_ARRAY);
+    if (AJ_OK != status) {
+        return status;
+    }
+    while (AJ_OK == status) {
+        status = AJ_KeyInfoUnmarshal(&pub, msg, hash);
+        if (AJ_OK != status) {
+            break;
+        }
+        /*
+         * See if I have a trust anchor the same.
+         * This should really check for a matching certificate
+         * (one that is signed by their trust anchor).
+         * Assumption at the moment is that our certificate issuers
+         * are also our trust anchors.
+         */
+        status = AJ_KeyInfoSerialize(&pub, AJ_CRED_TYPE_ECDSA_CA_PUB, b8, sizeof (b8));
+        if (AJ_OK != status) {
+            break;
+        }
+        cred.head.type = AJ_CRED_TYPE_ECDSA_CA_PUB;
+        cred.head.id.data = NULL;
+        cred.head.id.size = 0;
+        cred.body.data.data = b8;
+        cred.body.data.size = sizeof (b8);
+        if (FindCredentialData(&cred)) {
+            AJ_InfoPrintf(("AJ_TrustAnchorsUnmarshal(msg=%p, found=%p): Trust anchor found\n", msg, found));
+            AJ_DumpBytes("TA", b8, sizeof (b8));
+            *found = 1;
+        }
+    }
+    if (AJ_ERR_NO_MORE != status) {
+        return status;
+    }
+    status = AJ_UnmarshalCloseContainer(msg, &container);
+
+    return status;
+}
+
+AJ_Status AJ_AuthDataMarshal(AJ_Message* msg)
+{
+    AJ_Status status;
+    uint16_t slot = AJ_CREDS_NV_ID_BEGIN;
+    AJ_PeerHead head;
+    AJ_NV_DATASET* handle;
+    AJ_Arg container;
+
+    AJ_InfoPrintf(("AJ_AuthDataMarshal(msg=%p)\n", msg));
+
+    status = AJ_MarshalVariant(msg, "a(yv)");
+    status = AJ_MarshalContainer(msg, &container, AJ_ARG_ARRAY);
+
+    for (; slot < AJ_CREDS_NV_ID_END; slot++) {
+        if (!AJ_NVRAM_Exist(slot)) {
+            continue;
+        }
+        handle = AJ_NVRAM_Open(slot, "r", 0);
+        if (!handle) {
+            return AJ_ERR_FAILURE;
+        }
+        status = PeerHeadGet(&head, handle);
+        if (AJ_OK != status) {
+            AJ_NVRAM_Close(handle);
+            return AJ_ERR_FAILURE;
+        }
+        if (AJ_CRED_TYPE_AUTHDATA != head.type) {
+            AJ_PeerHeadFree(&head);
+            AJ_NVRAM_Close(handle);
+            continue;
+        }
+        AJ_NVRAM_Close(handle);
+        if (AJ_OK != status) {
+            return status;
+        }
+        return AJ_ERR_INVALID;
+    }
+
+    status = AJ_MarshalCloseContainer(msg, &container);
+
+    return status;
+}
+
+AJ_Status AJ_AuthDataUnmarshal(AJ_Message* msg)
+{
+    AJ_Status status;
+    char* variant;
+    AJ_Arg container;
+    AuthRecord record;
+
+    status = AJ_UnmarshalVariant(msg, (const char**) &variant);
+    if (AJ_OK != status) {
+        return status;
+    }
+    if (0 != strncmp(variant, "a(yv)", 5)) {
+        return AJ_ERR_INVALID;
+    }
+    status = AJ_UnmarshalContainer(msg, &container, AJ_ARG_ARRAY);
+    if (AJ_OK != status) {
+        return status;
+    }
+    while (AJ_OK == status) {
+        status = AJ_AuthRecordUnmarshal(&record, msg);
+        if (AJ_OK != status) {
+            break;
+        }
+    }
+    if (AJ_ERR_NO_MORE != status) {
+        return status;
+    }
+    status = AJ_UnmarshalCloseContainer(msg, &container);
+
+    return status;
 }

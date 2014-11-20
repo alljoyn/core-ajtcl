@@ -64,24 +64,25 @@ AJ_Status RxFunc(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)
 }
 
 static const char* const testSignature[] = {
-    "ays",
-    "a{us}",
-    "u(usu(ii)qsq)yyy",
-    "a(usay)",
-    "aas",
-    "ivi",
-    "v",
-    "v",
-    "(vvvvvv)",
-    "uqay",
-    "a(uuuu)",
-    "a(sss)",
-    "ya{ss}",
-    "yyyyya{ys}",
-    "(iay)",
-    "ia{iv}i",
-    "ay",
-    "a{s(us)}"
+    "ays",  /* 0 */
+    "a{us}",  /* 1 */
+    "u(usu(ii)qsq)yyy",  /* 2 */
+    "a(usay)",  /* 3 */
+    "aas",  /* 4 */
+    "ivi",  /* 5 */
+    "v",  /* 6 */
+    "v",  /* 7 */
+    "(vvvvvv)",  /* 8 */
+    "uqay",  /* 9 */
+    "a(uuuu)",  /* 10 */
+    "a(sss)",  /* 11 */
+    "ya{ss}",  /* 12 */
+    "yyyyya{ys}",  /* 13 */
+    "(iay)",  /* 14 */
+    "ia{iv}i",  /* 15 */
+    "ay",  /* 16 */
+    "a{s(us)}",  /* 17 */
+    "(yva(yay))"  /* 18 */
 };
 
 typedef struct {
@@ -142,6 +143,7 @@ int AJ_Main()
     AJ_Arg array2;
     AJ_Arg struct1;
     AJ_Arg struct2;
+    AJ_Arg struct3;
     size_t sz;
     uint32_t test;
     uint32_t i;
@@ -835,7 +837,93 @@ int AJ_Main()
                 }
             }
             break;
-        }
+
+        case 18:
+            status = AJ_MarshalContainer(&txMsg, &struct1, AJ_ARG_STRUCT);
+            if (status != AJ_OK) {
+                break;
+            }
+            status = AJ_MarshalArgs(&txMsg, "y", 36);
+            if (status != AJ_OK) {
+                break;
+            }
+            status = AJ_MarshalVariant(&txMsg, "a(ii)");
+            if (status != AJ_OK) {
+                break;
+            }
+            status = AJ_MarshalContainer(&txMsg, &array1, AJ_ARG_ARRAY);
+            if (status != AJ_OK) {
+                break;
+            }
+            for (j = 0; j < 16; ++j) {
+#ifdef EXPANDED_FORM
+                status = AJ_MarshalContainer(&txMsg, &struct2, AJ_ARG_STRUCT);
+                if (status != AJ_OK) {
+                    break;
+                }
+                status = AJ_MarshalArgs(&txMsg, "ii", j + 1, (j + 1) * 100);
+                if (status != AJ_OK) {
+                    break;
+                }
+                status = AJ_MarshalCloseContainer(&txMsg, &struct2);
+                if (status != AJ_OK) {
+                    break;
+                }
+
+#else
+                status = AJ_MarshalArgs(&txMsg, "(ii)", j + 1, (j + 1) * 100);
+                if (status != AJ_OK) {
+                    break;
+                }
+#endif
+            }
+            if (status == AJ_OK) {
+                status = AJ_MarshalCloseContainer(&txMsg, &array1);
+                if (status != AJ_OK) {
+                    break;
+                }
+            }
+            status = AJ_MarshalContainer(&txMsg, &array1, AJ_ARG_ARRAY);
+            if (status != AJ_OK) {
+                break;
+            }
+            for (y = 0; y < ArraySize(Fruits); ++y) {
+#ifdef EXPANDED_FORM
+                status = AJ_MarshalContainer(&txMsg, &struct2, AJ_ARG_STRUCT);
+                if (status != AJ_OK) {
+                    break;
+                }
+                status = AJ_MarshalArgs(&txMsg, "y", y);
+                if (status != AJ_OK) {
+                    break;
+                }
+                status = AJ_MarshalArg(&txMsg, AJ_InitArg(&arg, AJ_ARG_BYTE, AJ_ARRAY_FLAG, Fruits[y], strlen(Fruits[y])));
+                if (status != AJ_OK) {
+                    break;
+                }
+                status = AJ_MarshalCloseContainer(&txMsg, &struct2);
+                if (status != AJ_OK) {
+                    break;
+                }
+#else
+                status = AJ_MarshalArgs(&txMsg, "(yay)", y, Fruits[y], strlen(Fruits[y]));
+                if (status != AJ_OK) {
+                    break;
+                }
+#endif
+            }
+            if (status == AJ_OK) {
+                status = AJ_MarshalCloseContainer(&txMsg, &array1);
+                if (status != AJ_OK) {
+                    break;
+                }
+            }
+            status = AJ_MarshalCloseContainer(&txMsg, &struct1);
+            if (status != AJ_OK) {
+                break;
+            }
+            break;
+        } /* Marshal */
         if (status != AJ_OK) {
             AJ_AlwaysPrintf(("Failed %d\n", test));
             break;
@@ -1573,7 +1661,100 @@ int AJ_Main()
                 }
             }
             break;
-        }
+
+        case 18:
+            status = AJ_UnmarshalContainer(&rxMsg, &struct1, AJ_ARG_STRUCT);
+            if (status != AJ_OK) {
+                break;
+            }
+            status = AJ_UnmarshalArgs(&rxMsg, "y", &j);
+            if (status != AJ_OK) {
+                break;
+            }
+            AJ_AlwaysPrintf(("Unmarshal %d\n", j));
+            status = AJ_UnmarshalVariant(&rxMsg, (const char**)&sig);
+            if (status != AJ_OK) {
+                break;
+            }
+            AJ_AlwaysPrintf(("Unmarshal variant %s\n", sig));
+            status = AJ_UnmarshalContainer(&rxMsg, &array1, AJ_ARG_ARRAY);
+            if (status != AJ_OK) {
+                break;
+            }
+            while (status == AJ_OK) {
+                status = AJ_UnmarshalContainer(&rxMsg, &struct2, AJ_ARG_STRUCT);
+                if (status != AJ_OK) {
+                    break;
+                }
+                status = AJ_UnmarshalArgs(&rxMsg, "ii", &j, &k);
+                if (status != AJ_OK) {
+                    break;
+                }
+                AJ_AlwaysPrintf(("Unmarshal[%d] %d\n", j, k));
+                status = AJ_UnmarshalCloseContainer(&rxMsg, &struct2);
+                if (status != AJ_OK) {
+                    break;
+                }
+            }
+            /*
+             * We expect AJ_ERR_NO_MORE
+             */
+            if (status != AJ_ERR_NO_MORE) {
+                break;
+            }
+            status = AJ_UnmarshalCloseContainer(&rxMsg, &array1);
+            if (status != AJ_OK) {
+                break;
+            }
+            status = AJ_UnmarshalContainer(&rxMsg, &array1, AJ_ARG_ARRAY);
+            if (status != AJ_OK) {
+                break;
+            }
+            while (status == AJ_OK) {
+                size_t len;
+                uint8_t* data;
+#ifdef EXPANDED_FORM
+                status = AJ_UnmarshalContainer(&rxMsg, &struct2, AJ_ARG_STRUCT);
+                if (status != AJ_OK) {
+                    break;
+                }
+                status = AJ_UnmarshalArgs(&rxMsg, "y", &y);
+                if (status != AJ_OK) {
+                    break;
+                }
+                status = AJ_UnmarshalArg(&rxMsg, "ay", &data, &len);
+                if (status != AJ_OK) {
+                    break;
+                }
+                status = AJ_UnmarshalCloseContainer(&rxMsg, &struct2);
+                if (status != AJ_OK) {
+                    break;
+                }
+#else
+                status = AJ_UnmarshalArgs(&rxMsg, "(yay)", &u, &data, &len);
+                if (status != AJ_OK) {
+                    break;
+                }
+#endif
+                char buf[20];
+                memcpy(buf, data, len);
+                buf[len] = '\0';
+                AJ_AlwaysPrintf(("Unmarshal %d %s\n", y, buf));
+            }
+            /*
+             * We expect AJ_ERR_NO_MORE
+             */
+            if (status == AJ_ERR_NO_MORE) {
+                status = AJ_UnmarshalCloseContainer(&rxMsg, &array1);
+                if (status != AJ_OK) {
+                    break;
+                }
+            }
+            status = AJ_UnmarshalCloseContainer(&rxMsg, &struct1);
+            if (status != AJ_OK) {
+                break;
+            }
+        } /* Unmarshal */
 
         if (status != AJ_OK) {
             AJ_AlwaysPrintf(("Failed %d\n", test));

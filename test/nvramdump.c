@@ -33,56 +33,11 @@ void printhex(uint8_t*x, size_t n)
     }
 }
 
-static AJ_Status ReadRemainderOfCredential(AJ_NV_DATASET* handle, AJ_PeerCred* cred) {
-    size_t size, toRead;
-    toRead = sizeof(cred->expiration);
-    size = AJ_NVRAM_Read(&cred->expiration, toRead, handle);
-    if (toRead != size) {
-        return AJ_ERR_FAILURE;
-    }
-    toRead = sizeof(cred->associationLen);
-    size = AJ_NVRAM_Read(&cred->associationLen, toRead, handle);
-    if (toRead != size) {
-        return AJ_ERR_FAILURE;
-    }
-    if (cred->associationLen > 0) {
-        cred->association = AJ_Malloc(cred->associationLen);
-        if (!cred->association) {
-            return AJ_ERR_FAILURE;
-        }
-        toRead = cred->associationLen;
-        size = AJ_NVRAM_Read(cred->association, toRead, handle);
-        if (toRead != size) {
-            return AJ_ERR_FAILURE;
-        }
-    }
-    toRead = sizeof(cred->dataLen);
-    size = AJ_NVRAM_Read(&cred->dataLen, toRead, handle);
-    if (toRead != size) {
-        return AJ_ERR_FAILURE;
-    }
-    if (cred->dataLen > 0) {
-        cred->data = AJ_Malloc(cred->dataLen);
-        if (!cred->data) {
-            return AJ_ERR_FAILURE;
-        }
-        toRead = cred->dataLen;
-        size = AJ_NVRAM_Read(cred->data, toRead, handle);
-        if (toRead != size) {
-            return AJ_ERR_FAILURE;
-        }
-    }
-    return AJ_OK;
-}
 AJ_Status DumpNVRAM()
 {
-    uint16_t slot = AJ_CREDS_NV_ID_BEGIN;
-    AJ_NV_DATASET* handle;
-    uint16_t localCredType;
-    uint8_t localCredIdLen;
-    uint8_t* localCredId;
-    AJ_PeerCred* cred;
     AJ_Status status;
+    uint16_t slot = AJ_CREDS_NV_ID_BEGIN;
+    AJ_PeerCred cred;
 
     AJ_NVRAM_Layout_Print();
     AJ_AlwaysPrintf(("Remaining Size %d\n", AJ_NVRAM_GetSizeRemaining()));
@@ -92,59 +47,20 @@ AJ_Status DumpNVRAM()
         if (!AJ_NVRAM_Exist(slot)) {
             continue;
         }
-        handle = AJ_NVRAM_Open(slot, "r", 0);
-        if (!handle) {
-            continue;
+        status = AJ_ReadCredential(&cred, slot);
+        if (AJ_OK == status) {
+            AJ_AlwaysPrintf(("%04X | %04X | ", slot, cred.head.type));
+            printhex(cred.head.id.data, cred.head.id.size);
+            AJ_AlwaysPrintf((" | %08X | ", cred.body.expiration));
+            printhex(cred.body.association.data, cred.body.association.size);
+            AJ_AlwaysPrintf((" | "));
+            printhex(cred.body.data.data, cred.body.data.size);
+            AJ_AlwaysPrintf(("\n"));
+            AJ_PeerCredFree(&cred);
         }
-        if (sizeof(localCredType) != AJ_NVRAM_Read(&localCredType, sizeof(localCredType), handle)) {
-            AJ_NVRAM_Close(handle);
-            continue;
-        }
-        if (sizeof(localCredIdLen) != AJ_NVRAM_Read(&localCredIdLen, sizeof(localCredIdLen), handle)) {
-            AJ_NVRAM_Close(handle);
-            continue;
-        }
-        localCredId = AJ_Malloc(localCredIdLen);
-        if (!localCredId) {
-            AJ_NVRAM_Close(handle);
-            return AJ_ERR_RESOURCES;
-        }
-        if (localCredIdLen != AJ_NVRAM_Read(localCredId, localCredIdLen, handle)) {
-            AJ_Free(localCredId);
-            AJ_NVRAM_Close(handle);
-            continue;
-        }
-
-        cred = AJ_Malloc(sizeof(AJ_PeerCred));
-        if (!cred) {
-            AJ_Free(localCredId);
-            AJ_NVRAM_Close(handle);
-            return AJ_ERR_RESOURCES;
-        }
-        cred->type = localCredType;
-        cred->idLen = localCredIdLen;
-        cred->id = localCredId;
-        cred->dataLen = 0;
-        cred->associationLen = 0;
-        status = ReadRemainderOfCredential(handle, cred);
-        AJ_NVRAM_Close(handle);
-        if (status != AJ_OK) {
-            AJ_FreeCredential(cred);
-            continue;
-        }
-
-        AJ_AlwaysPrintf(("%04X | %04X | ", slot, cred->type));
-        printhex(cred->id, cred->idLen);
-        AJ_AlwaysPrintf((" | %08X | ", cred->expiration));
-        printhex(cred->association, cred->associationLen);
-        AJ_AlwaysPrintf((" | "));
-        printhex(cred->data, cred->dataLen);
-        AJ_AlwaysPrintf(("\n"));
-        AJ_FreeCredential(cred);
     }
     return AJ_OK;
 }
-
 
 int AJ_Main()
 {
@@ -154,6 +70,7 @@ int AJ_Main()
     //AJ_AlwaysPrintf(("Clearing NVRAM\n"));
     status = DumpNVRAM();
     AJ_ASSERT(status == AJ_OK);
+    //AJ_DumpPolicy();
     return 0;
 }
 

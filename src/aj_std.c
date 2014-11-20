@@ -25,6 +25,7 @@ const char AJ_BusDestination[] = "org.alljoyn.Bus";
 
 const char AJ_ErrServiceUnknown[] = "org.freedesktop.DBus.Error.ServiceUnknown";
 const char AJ_ErrSecurityViolation[] = "org.alljoyn.Bus.SecurityViolation";
+const char AJ_ErrAuthorisationRequired[] = "org.alljoyn.Bus.AuthorisationRequired";
 const char AJ_ErrTimeout[] = "org.alljoyn.Bus.Timeout";
 const char AJ_ErrRejected[] = "org.alljoyn.Bus.Rejected";
 const char AJ_ErrResources[] = "org.alljoyn.Bus.Resources";
@@ -57,6 +58,10 @@ static const char AboutIconObjectPath[] = "/About/DeviceIcon";
 static const char AboutIconInterface[] = "org.alljoyn.Icon";
 
 const char AllSeenIntrospectableInterface[] = "#org.allseen.Introspectable";
+
+static const char SecurityObjectPath[] = "/org/allseen/Security/PermissionMgmt";
+static const char SecurityInterface[] = "$org.allseen.Security.PermissionMgmt"; //This is a secure interface
+static const char SecurityNotifyInterface[] = "org.alljoyn.Security.PermissionMgmt.Notification";
 
 const char* const AJ_PropertiesIface[] = {
     DBusPropsInterface,
@@ -154,6 +159,7 @@ static const char* const PeerAuthIface[] = {
     "?ExchangeSuites <au >au",
     "?KeyExchange <u <v >u >v",
     "?KeyAuthentication <v >v",
+    "?SendMemberships <a(yv)",
     "@Mechanisms >s",
     "@Version >u",
     NULL
@@ -178,6 +184,26 @@ static const char* const AboutIconIface[] = {
     NULL
 };
 
+static const char* const SecurityIface[] = {
+    SecurityInterface,
+    "?Claim <(yv) <ay >(yv)",
+    "?InstallPolicy <(yv)",
+    "?RemovePolicy",
+    "?GetPolicy >(yv)",
+    "?InstallIdentity <(yay)",
+    "?RemoveIdentity",
+    "?GetIdentity >(yay)",
+    "?InstallMembership <a(yay)",
+    "?InstallMembershipAuthData <ay <ay <(yv)",
+    "?RemoveMembership <ay <ay",
+    NULL
+};
+
+static const char* const SecurityNotifyIface[] = {
+    SecurityNotifyInterface,
+    "!NotifyConfig >ay >y >u >a(ayay)",
+};
+
 static const AJ_InterfaceDescription PeerIfaces[] = {
     PeerSessionIface,
     PeerAuthIface,
@@ -186,6 +212,12 @@ static const AJ_InterfaceDescription PeerIfaces[] = {
 
 static const AJ_InterfaceDescription BusIfaces[] = {
     BusIface,
+    NULL
+};
+
+static const AJ_InterfaceDescription SecurityIfaces[] = {
+    SecurityIface,
+    SecurityNotifyIface,
     NULL
 };
 
@@ -216,6 +248,9 @@ static const AJ_InterfaceDescription AboutIconIfaces[] = {
     NULL
 };
 
+/*
+ * Ordering of these objects is important
+ */
 const AJ_Object AJ_StandardObjects[] = {
     { DBusObjectPath,      DBusIfaces,      0,                     NULL },
     { BusObjectPath,       BusIfaces,       0,                     NULL },
@@ -224,5 +259,6 @@ const AJ_Object AJ_StandardObjects[] = {
     { DaemonObjectPath,    DaemonIfaces,    0,                     NULL },
     { AboutObjectPath,     AboutIfaces,     AJ_OBJ_FLAG_ANNOUNCED, NULL },
     { AboutIconObjectPath, AboutIconIfaces, AJ_OBJ_FLAG_ANNOUNCED, NULL },
+    { SecurityObjectPath,  SecurityIfaces,  0,                     NULL },
     { NULL,                NULL,            0,                     NULL }
 };

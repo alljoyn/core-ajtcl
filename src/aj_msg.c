@@ -40,6 +40,7 @@
 #include "aj_bus.h"
 #include "aj_debug.h"
 #include "aj_config.h"
+#include "aj_security.h"
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
  * (usually in debugger).
@@ -1082,6 +1083,20 @@ AJ_Status AJ_UnmarshalMsg(AJ_BusAttachment* bus, AJ_Message* msg, uint32_t timeo
          */
         if (status == AJ_OK) {
             status = AJ_IdentifyMessage(msg);
+        }
+        /*
+         * Check policy
+         */
+        //TODO check serial number is consistent??
+        if ((msg->hdr) && (msg->hdr->flags & AJ_FLAG_ENCRYPTED)) {
+            if ((AJ_MSG_METHOD_CALL == msg->hdr->msgType) || (AJ_MSG_SIGNAL == msg->hdr->msgType)) {
+                status = AJ_AuthRecordCheck(msg);
+                if (AJ_OK != status) {
+                    AJ_Message reply;
+                    AJ_MarshalErrorMsg(msg, &reply, AJ_ErrAuthorisationRequired);
+                    AJ_DeliverMsg(&reply);
+                }
+            }
         }
     } else {
         /*

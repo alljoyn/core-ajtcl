@@ -59,14 +59,14 @@ typedef AJ_Status (*AJ_AuthListenerFunc)(uint32_t authmechanism, uint32_t comman
  * Type for a bus attachment
  */
 typedef struct _AJ_BusAttachment {
-    uint16_t aboutPort;          /**< The port to use in announcements */
-    char uniqueName[16];         /**< The unique name returned by the hello message */
-    AJ_NetSocket sock;           /**< Abstracts a network socket */
-    uint32_t serial;             /**< Next outgoing message serial number */
-    AJ_AuthPwdFunc pwdCallback;  /**< Callback for obtaining passwords */
+    uint16_t aboutPort;                        /**< The port to use in announcements */
+    // TODO remove this magic number, should be AJ_MAX_NAME_SIZE + 1?
+    char uniqueName[16];                       /**< The unique name returned by the hello message */
+    AJ_NetSocket sock;                         /**< Abstracts a network socket */
+    uint32_t serial;                           /**< Next outgoing message serial number */
+    AJ_AuthPwdFunc pwdCallback;                /**< Callback for obtaining passwords */
     AJ_AuthListenerFunc authListenerCallback;  /**< Callback for obtaining passwords */
-    uint32_t* suites;              /**< Supported cipher suites */
-    size_t numsuites;             /**< Number of supported cipher suites */
+    uint32_t suites[AJ_AUTH_SUITES_NUM];       /**< Supported cipher suites */
 } AJ_BusAttachment;
 
 /**
@@ -538,6 +538,7 @@ AJ_Status AJ_BusPropSet(AJ_Message* msg, AJ_BusPropSetCallback callback, void* c
  * @return  Return AJ_Status
  */
 AJ_Status AJ_BusEnableSecurity(AJ_BusAttachment* bus, const uint32_t* suites, size_t numsuites);
+uint8_t AJ_IsSuiteEnabled(AJ_BusAttachment* bus, const uint32_t suite);
 
 /**
  * @}

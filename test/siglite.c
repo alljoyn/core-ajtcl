@@ -58,7 +58,6 @@ static const uint32_t NumPings = 10;
 static const uint32_t keyexpiration = 0xFFFFFFFF;
 
 
-
 /*
  * The app should authenticate the peer if one or more interfaces are secure
  * To define a secure interface, prepend '$' before the interface name, eg., "$org.alljoyn.alljoyn_test"
@@ -165,7 +164,7 @@ static AJ_Status IsTrustedIssuer(const char* issuer)
     return AJ_ERR_SECURITY;
 }
 
-static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, AJ_Credential* cred)
+static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, AJ_Credential*cred)
 {
     AJ_Status status = AJ_ERR_INVALID;
 
@@ -329,11 +328,8 @@ int AJ_Main()
     size_t numsuites = 0;
     uint8_t clearkeys = FALSE;
     uint8_t enablepwd = FALSE;
-#endif
 
 #ifdef MAIN_ALLOWS_ARGS
-#ifdef SECURE_INTERFACE
-
     ac--;
     av++;
     /*

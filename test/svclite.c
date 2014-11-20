@@ -333,15 +333,7 @@ static AJ_Status PropSetHandler(AJ_Message* replyMsg, uint32_t propId, void* con
     }
 }
 
-uint32_t MyBusAuthPwdCB(uint8_t* buf, uint32_t bufLen)
-{
-    const char* myPwd = "1234";
-    strncpy((char*)buf, myPwd, bufLen);
-    return (uint32_t)strlen(myPwd);
-}
-
-static const uint32_t suites[3] = { AUTH_SUITE_ECDHE_ECDSA, AUTH_SUITE_ECDHE_PSK, AUTH_SUITE_ECDHE_NULL };
-static const size_t numsuites = 3;
+static const uint32_t suites[] = { AUTH_SUITE_ECDHE_ECDSA, AUTH_SUITE_ECDHE_PSK, AUTH_SUITE_ECDHE_NULL };
 
 #define CONNECT_TIMEOUT    (1000 * 1000)
 #define UNMARSHAL_TIMEOUT  (1000 * 5)
@@ -361,7 +353,6 @@ int AJ_Main()
     AJ_PrintXML(AppObjects);
     AJ_RegisterObjects(AppObjects, NULL);
 
-    SetBusAuthPwdCallback(MyBusAuthPwdCB);
     while (TRUE) {
         AJ_Message msg;
 
@@ -386,7 +377,7 @@ int AJ_Main()
 
             /* Register a callback for providing bus authentication password */
             AJ_BusSetPasswordCallback(&bus, PasswordCallback);
-            AJ_BusEnableSecurity(&bus, suites, numsuites);
+            AJ_BusEnableSecurity(&bus, suites, ArraySize(suites));
             AJ_BusSetAuthListenerCallback(&bus, AuthListenerCallback);
 #endif
 

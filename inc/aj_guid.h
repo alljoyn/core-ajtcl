@@ -7,7 +7,7 @@
  * @file
  */
 /******************************************************************************
- * Copyright (c) 2012-2013, 2013, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2012-2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -28,8 +28,9 @@
 /**
  * Type for a GUID
  */
+#define AJ_GUID_LEN 16
 typedef struct _AJ_GUID {
-    uint8_t val[16];       /**< string for a GUID */
+    uint8_t val[AJ_GUID_LEN];       /**< string for a GUID */
 } AJ_GUID;
 
 /**

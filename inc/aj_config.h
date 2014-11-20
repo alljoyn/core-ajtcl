@@ -40,6 +40,7 @@
 #define AJ_VERIFIER_LEN             12          //Length of the verifier string
 #define AJ_PINX_MASTER_SECRET_LEN   24          //Length of the master secret PINX
 #define AJ_MASTER_SECRET_LEN        48          //Length of the master secret - RFC 5246
+#define AJ_SESSION_KEY_LEN          16          //Length of the session key (for AES128-CCM)
 #define AJ_ADHOC_LEN                16          //AD-HOC maximal passcode length        (aj_auth.h)
 #define AJ_NAME_MAP_GUID_SIZE       4           //aj_guid.c
 #define AJ_MAX_NAME_SIZE            14          //aj_guid.c

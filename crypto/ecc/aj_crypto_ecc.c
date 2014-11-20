@@ -1436,6 +1436,40 @@ ECDH_derive_pt(affine_point_t* tgt, bigval_t const* k, affine_point_t const* Q)
     return (B_TRUE);
 }
 
+void
+AJ_BigvalEncode(const bigval_t* src, uint8_t* tgt, size_t tgtlen)
+{
+    size_t i;
+    uint8_t v;
+    uint8_t highbytes = big_is_negative(src) ? 0xff : 0;
+
+    /* LSbyte to MS_byte */
+    for (i = 0; i < 4 * BIGLEN; ++i) {
+        if (i < tgtlen) {
+            v = src->data[i / 4] >> (8 * (i % 4));
+            ((uint8_t*)tgt)[tgtlen - 1 - i] = v;
+        }
+    }
+    /* i is live */
+    for (; i < tgtlen; ++i) {
+        ((uint8_t*)tgt)[tgtlen - 1 - i] = highbytes;
+    }
+}
+
+void
+AJ_BigvalDecode(const uint8_t* src, bigval_t* tgt, size_t srclen)
+{
+    size_t i;
+    uint8_t v;
+
+    /* zero the bigval_t */
+    memset(tgt->data, 0, BIGLEN);
+    /* scan from LSbyte to MSbyte */
+    for (i = 0; i < srclen && i < 4 * BIGLEN; ++i) {
+        v = ((uint8_t*)src)[srclen - 1 - i];
+        tgt->data[i / 4] |= (uint32_t)v << (8 * (i % 4));
+    }
+}
 
 #ifdef ECDSA
 /*
@@ -1667,7 +1701,7 @@ AJ_Status AJ_GenerateShareSecret(ecc_publickey* peerPublicKey, ecc_privatekey* p
  * @return  - AJ_OK if the key pair is successfully generated
  *          - AJ_ERR_SECURITY otherwise
  */
-AJ_Status AJ_GenerateDSAKeyPair(ecc_publickey* publicKey, ecc_privatekey* privateKey)
+AJ_Status AJ_GenerateECDSAKeyPair(ecc_publickey* publicKey, ecc_privatekey* privateKey)
 {
     if (ECDH_generate(publicKey, privateKey) == 0) {
         return AJ_OK;
@@ -1683,7 +1717,7 @@ AJ_Status AJ_GenerateDSAKeyPair(ecc_publickey* publicKey, ecc_privatekey* privat
  * @return  - AJ_OK if the signing process succeeds
  *          - AJ_ERR_SECURITY otherwise
  */
-AJ_Status AJ_DSASignDigest(const uint8_t* digest, const ecc_privatekey* signingPrivateKey, ecc_signature* sig)
+AJ_Status AJ_ECDSASignDigest(const uint8_t* digest, const ecc_privatekey* signingPrivateKey, ecc_signature* sig)
 {
     bigval_t source;
 
@@ -1703,7 +1737,7 @@ AJ_Status AJ_DSASignDigest(const uint8_t* digest, const ecc_privatekey* signingP
  * @return  - AJ_OK if the signing process succeeds
  *          - AJ_ERR_SECURITY otherwise
  */
-AJ_Status AJ_DSASign(const uint8_t* buf, uint16_t len, const ecc_privatekey* signingPrivateKey, ecc_signature* sig)
+AJ_Status AJ_ECDSASign(const uint8_t* buf, uint16_t len, const ecc_privatekey* signingPrivateKey, ecc_signature* sig)
 {
     AJ_SHA256_Context ctx;
     uint8_t digest[SHA256_DIGEST_LENGTH];
@@ -1712,7 +1746,7 @@ AJ_Status AJ_DSASign(const uint8_t* buf, uint16_t len, const ecc_privatekey* sig
     AJ_SHA256_Update(&ctx, (const uint8_t*) buf, (size_t) len);
     AJ_SHA256_Final(&ctx, digest);
 
-    return AJ_DSASignDigest(digest, signingPrivateKey, sig);
+    return AJ_ECDSASignDigest(digest, signingPrivateKey, sig);
 }
 
 /**
@@ -1723,7 +1757,7 @@ AJ_Status AJ_DSASign(const uint8_t* buf, uint16_t len, const ecc_privatekey* sig
  * @return  - AJ_OK if the signature verification succeeds
  *          - AJ_ERR_SECURITY otherwise
  */
-AJ_Status AJ_DSAVerifyDigest(const uint8_t* digest, const ecc_signature* sig, const ecc_publickey* pubKey)
+AJ_Status AJ_ECDSAVerifyDigest(const uint8_t* digest, const ecc_signature* sig, const ecc_publickey* pubKey)
 {
     bigval_t source;
 
@@ -1743,7 +1777,7 @@ AJ_Status AJ_DSAVerifyDigest(const uint8_t* digest, const ecc_signature* sig, co
  * @return  - AJ_OK if the signature verification succeeds
  *          - AJ_ERR_SECURITY otherwise
  */
-AJ_Status AJ_DSAVerify(const uint8_t* buf, uint16_t len, const ecc_signature* sig, const ecc_publickey* pubKey)
+AJ_Status AJ_ECDSAVerify(const uint8_t* buf, uint16_t len, const ecc_signature* sig, const ecc_publickey* pubKey)
 {
     AJ_SHA256_Context ctx;
     uint8_t digest[SHA256_DIGEST_LENGTH];
@@ -1752,5 +1786,5 @@ AJ_Status AJ_DSAVerify(const uint8_t* buf, uint16_t len, const ecc_signature* si
     AJ_SHA256_Update(&ctx, (const uint8_t*) buf, (size_t) len);
     AJ_SHA256_Final(&ctx, digest);
 
-    return AJ_DSAVerifyDigest(digest, sig, pubKey);
+    return AJ_ECDSAVerifyDigest(digest, sig, pubKey);
 }
