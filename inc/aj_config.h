@@ -73,7 +73,7 @@ extern "C" {
 /* Message identification related */
 
 #if !defined(AJ_NUM_REPLY_CONTEXTS)
-#define AJ_NUM_REPLY_CONTEXTS    (2)               //number of concurrent method calls     (aj_introspect.c)
+#define AJ_NUM_REPLY_CONTEXTS    (3)               //number of concurrent method calls     (aj_introspect.c)
 #endif
 
 #if !(defined(AJ_MAX_OBJECT_LISTS))

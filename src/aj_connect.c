@@ -228,30 +228,39 @@ AJ_Status AJ_Authenticate(AJ_BusAttachment* bus)
             }
             AJ_CloseMsg(&helloResponse);
 
-            // subscribe to the signal NameOwnerChanged and wait for the response
-            status = AJ_BusSetSignalRule(bus, "type='signal',member='NameOwnerChanged',interface='org.freedesktop.DBus'", AJ_BUS_SIGNAL_ALLOW);
+            /*
+             * AJ_GUID needs the NameOwnerChanged signal to clear out entries in
+             * its map.  Prior to router version 10 this means we must set a
+             * signal rule to receive every NameOwnerChanged signal.  With
+             * version 10 the router supports the arg[0,1,...] key in match
+             * rules, allowing us to set a signal rule for just the
+             * NameOwnerChanged signals of entries in the map.  See aj_guid.c
+             * for usage of the arg key.
+             */
+            if (AJ_GetRoutingProtoVersion() < 11) {
+                status = AJ_BusSetSignalRule(bus, "type='signal',member='NameOwnerChanged',interface='org.freedesktop.DBus'", AJ_BUS_SIGNAL_ALLOW);
+                if (status == AJ_OK) {
+                    uint8_t found_reply = FALSE;
+                    AJ_Message msg;
+                    AJ_Time timer;
+                    AJ_InitTimer(&timer);
 
-            if (status == AJ_OK) {
-                uint8_t found_reply = FALSE;
-                AJ_Message msg;
-                AJ_Time timer;
-                AJ_InitTimer(&timer);
+                    while (found_reply == FALSE && AJ_GetElapsedTime(&timer, TRUE) < 3000) {
+                        status = AJ_UnmarshalMsg(bus, &msg, 3000);
+                        if (status == AJ_OK) {
+                            switch (msg.msgId) {
+                            case AJ_REPLY_ID(AJ_METHOD_ADD_MATCH):
+                                found_reply = TRUE;
+                                break;
 
-                while (found_reply == FALSE && AJ_GetElapsedTime(&timer, TRUE) < 3000) {
-                    status = AJ_UnmarshalMsg(bus, &msg, 3000);
-                    if (status == AJ_OK) {
-                        switch (msg.msgId) {
-                        case AJ_REPLY_ID(AJ_METHOD_ADD_MATCH):
-                            found_reply = TRUE;
-                            break;
+                            default:
+                                // ignore everything else
+                                AJ_BusHandleBusMessage(&msg);
+                                break;
+                            }
 
-                        default:
-                            // ignore everything else
-                            AJ_BusHandleBusMessage(&msg);
-                            break;
+                            AJ_CloseMsg(&msg);
                         }
-
-                        AJ_CloseMsg(&msg);
                     }
                 }
             }
@@ -372,9 +381,6 @@ AJ_Status AJ_Connect(AJ_BusAttachment* bus, const char* serviceName, uint32_t ti
         goto ExitConnect;
     }
 
-    // subscribe to the signal NameOwnerChanged and wait for the response
-    status = AJ_BusSetSignalRule(bus, "type='signal',member='NameOwnerChanged',interface='org.freedesktop.DBus'", AJ_BUS_SIGNAL_ALLOW);
-
 ExitConnect:
 
     if (status != AJ_OK) {
@@ -484,10 +490,6 @@ AJ_Status AJ_FindBusAndConnect(AJ_BusAttachment* bus, const char* serviceName, u
         }
     }
 
-    // subscribe to the signal NameOwnerChanged and wait for the response
-    if (status == AJ_OK) {
-        status = AJ_BusSetSignalRule(bus, "type='signal',member='NameOwnerChanged',interface='org.freedesktop.DBus'", AJ_BUS_SIGNAL_ALLOW);
-    }
 
 ExitConnect:
 
