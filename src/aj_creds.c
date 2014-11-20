@@ -542,7 +542,8 @@ AJ_Status AJ_GetLocalGUID(AJ_GUID* localGuid)
             status = AJ_NVRAM_Close(handle);
         }
     } else {
-        AJ_RandBytes((uint8_t*)localGuid, sizeof(AJ_GUID));
+        /* define AJ_CreateNewGUID to AJ_RandBytes in order to generate a random GUID */
+        AJ_CreateNewGUID((uint8_t*)localGuid, sizeof(AJ_GUID));
         handle = AJ_NVRAM_Open(AJ_LOCAL_GUID_NV_ID, "w", sizeof(AJ_GUID));
         if (handle) {
             if (sizeof(AJ_GUID) == AJ_NVRAM_Write(localGuid, sizeof(AJ_GUID), handle)) {
