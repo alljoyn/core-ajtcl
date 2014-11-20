@@ -318,6 +318,22 @@ AJ_Status AJ_BusSetSignalRule(AJ_BusAttachment* bus, const char* ruleString, uin
  * Add a SIGNAL match rule. A rule must be added for every non-session signal that the application
  * is interested in receiving.
  *
+ * @param bus             The bus attachment
+ * @param ruleString      Match rule to be added/removed
+ * @param rule            Either AJ_BUS_SIGNAL_ALLOW or AJ_BUS_SIGNAL_DENY
+ * @param flags         Flags associated with the new rule
+ * @param[out] serialNum  The serial number of the method call
+ *
+ * @return  Return AJ_Status
+ *         - AJ_OK if the request was sent
+ *         - An error status otherwise
+ */
+AJ_Status AJ_BusSetSignalRuleSerial(AJ_BusAttachment* bus, const char* ruleString, uint8_t rule, uint8_t flags, uint32_t* serialNum);
+
+/**
+ * Add a SIGNAL match rule. A rule must be added for every non-session signal that the application
+ * is interested in receiving.
+ *
  * @param bus           The bus attachment
  * @param signalName    The name of the signal.
  * @param interfaceName The name of the interface.

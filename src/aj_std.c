@@ -90,6 +90,7 @@ static const char* const DBusIface[] = {
     "?AddMatch <s",
     "?RemoveMatch <s",
     "?ReleaseName <s >u",
+    "?NameHasOwner <s >b",
     NULL
 
 };

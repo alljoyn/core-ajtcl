@@ -140,7 +140,6 @@ void Do_Connect()
         connected = TRUE;
         AJ_InfoPrintf(("AllJoyn service connected to bus\n"));
         AJ_InfoPrintf(("Connected to Daemon:%s\n", AJ_GetUniqueName(&bus)));
-        AJ_BusSetSignalRule(&bus, "type='signal',member='NameOwnerChanged',interface='org.freedesktop.DBus'", AJ_BUS_SIGNAL_ALLOW);
     }
 }
 /*
