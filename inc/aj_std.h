@@ -47,6 +47,7 @@
 #define AJ_METHOD_ADD_MATCH            AJ_BUS_MESSAGE_ID(0, 0, 6)    /**< method for add match */
 #define AJ_METHOD_REMOVE_MATCH         AJ_BUS_MESSAGE_ID(0, 0, 7)    /**< method for remove match */
 #define AJ_METHOD_RELEASE_NAME         AJ_BUS_MESSAGE_ID(0, 0, 8)    /**< method for release name */
+#define AJ_METHOD_NAME_HAS_OWNER       AJ_BUS_MESSAGE_ID(0, 0, 9)    /**< method for name has owner */
 
 /*
  * Members of /org/alljoyn/Bus interface org.alljoyn.Bus

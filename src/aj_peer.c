@@ -450,7 +450,7 @@ AJ_Status AJ_PeerHandleExchangeGUIDs(AJ_Message* msg, AJ_Message* reply)
         HandshakeComplete(AJ_ERR_SECURITY);
         return AJ_MarshalErrorMsg(msg, reply, AJ_ErrSecurityViolation);
     }
-    status = AJ_GUID_AddNameMapping(&remoteGuid, msg->sender, NULL);
+    status = AJ_GUID_AddNameMapping(msg->bus, &remoteGuid, msg->sender, NULL);
     if (AJ_OK != status) {
         AJ_InfoPrintf(("AJ_PeerHandleExchangeGuids(msg=0x%p, reply=0x%p): Add name mapping error\n", msg, reply));
         HandshakeComplete(AJ_ERR_RESOURCES);
@@ -555,7 +555,7 @@ AJ_Status AJ_PeerHandleExchangeGUIDsReply(AJ_Message* msg)
     /*
      * Two name mappings to add, the well known name, and the unique name from the message.
      */
-    status = AJ_GUID_AddNameMapping(&remoteGuid, msg->sender, authContext.peerName);
+    status = AJ_GUID_AddNameMapping(msg->bus, &remoteGuid, msg->sender, authContext.peerName);
     if (AJ_OK != status) {
         AJ_WarnPrintf(("AJ_PeerHandleExchangeGUIDsReply(msg=0x%p): Add name mapping error\n", msg));
         HandshakeComplete(AJ_ERR_RESOURCES);
