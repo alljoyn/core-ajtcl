@@ -85,6 +85,21 @@ static const char AJ_IPV6_MULTICAST_GROUP[] = "ff02::13a";
 #define AJ_UDP_PORT 9956
 
 /*
+ * IANA-assigned IPv4 multicast group for mDNS.
+ */
+static const char MDNS_IPV4_MULTICAST_GROUP[] = "224.0.0.251";
+
+/*
+ * IANA-assigned IPv6 multicast group for mDNS.
+ */
+static const char MDNS_IPV6_MULTICAST_GROUP[] = "ff02::fb";
+
+/*
+ * IANA-assigned UDP multicast port for mDNS
+ */
+#define MDNS_UDP_PORT 5353
+
+/*
  * Various events for I/O
  */
 static WSAEVENT interruptEvent = WSA_INVALID_EVENT;
@@ -285,8 +300,10 @@ void AJ_Net_Disconnect(AJ_NetSocket* netSock)
 typedef struct {
     SOCKET sock;
     int family;
-
     struct in_addr v4_bcast;
+    uint16_t port;
+    uint8_t is_mdns;
+    uint8_t is_mdnsrecv;
     uint8_t has_mcast4;
 } mcast_info_t;
 
@@ -308,16 +325,23 @@ static AJ_Status AJ_Net_SendTo(AJ_IOBuffer* buf)
         size_t i;
 
         // our router (hopefully) lives on one of the networks but we don't know which one.
-        // send the WhoHas packet to all of them.
+        // send discovery requests to all of them.
         for (i = 0; i < NumMcastSocks; ++i) {
             SOCKET sock = McastSocks[i].sock;
             int family = McastSocks[i].family;
+
+            // if the socket doesn't match the request type skip this socket
+            if ((McastSocks[i].is_mdns == TRUE) && !(buf->flags & AJ_IO_BUF_MDNS) ||
+                (McastSocks[i].is_mdns == FALSE) && !(buf->flags & AJ_IO_BUF_AJ) ||
+                (McastSocks[i].is_mdnsrecv)) {
+                continue;
+            }
 
             if (family == AF_INET6) {
                 struct sockaddr_in6 sin6;
                 memset(&sin6, 0, sizeof(struct sockaddr_in6));
                 sin6.sin6_family = AF_INET6;
-                sin6.sin6_port = htons(AJ_UDP_PORT);
+                sin6.sin6_port = htons(McastSocks[i].port);
                 inet_pton(AF_INET6, AJ_IPV6_MULTICAST_GROUP, &sin6.sin6_addr);
                 ret = sendto(sock, buf->readPtr, tx, 0, (struct sockaddr*) &sin6, sizeof(struct sockaddr_in6));
                 if (ret == SOCKET_ERROR) {
@@ -330,7 +354,7 @@ static AJ_Status AJ_Net_SendTo(AJ_IOBuffer* buf)
                 if (McastSocks[i].has_mcast4) {
                     struct sockaddr_in sin;
                     sin.sin_family = AF_INET;
-                    sin.sin_port = htons(AJ_UDP_PORT);
+                    sin.sin_port = htons(McastSocks[i].port);
                     inet_pton(AF_INET, AJ_IPV4_MULTICAST_GROUP, &sin.sin_addr);
                     memset(&sin.sin_zero, 0, sizeof(sin.sin_zero));
 
@@ -346,7 +370,7 @@ static AJ_Status AJ_Net_SendTo(AJ_IOBuffer* buf)
                 if (McastSocks[i].v4_bcast.s_addr) {
                     struct sockaddr_in bsin;
                     bsin.sin_family = AF_INET;
-                    bsin.sin_port = htons(AJ_UDP_PORT);
+                    bsin.sin_port = htons(McastSocks[i].port);
                     bsin.sin_addr.s_addr = McastSocks[i].v4_bcast.s_addr;
                     ret = sendto(sock, buf->readPtr, tx, 0, (struct sockaddr*) &bsin, sizeof(struct sockaddr_in));
                     if (ret == SOCKET_ERROR) {
@@ -379,20 +403,26 @@ static AJ_Status AJ_Net_RecvFrom(AJ_IOBuffer* buf, uint32_t len, uint32_t timeou
     size_t i;
     const struct timeval tv = { timeout / 1000, 1000 * (timeout % 1000) };
     SOCKET sock;
+    int numSocks = 0;
 
     AJ_InfoPrintf(("AJ_Net_RecvFrom(buf=0x%p, len=%d., timeout=%d.)\n", buf, len, timeout));
 
     assert(buf->direction == AJ_IO_BUF_RX);
     assert(NumMcastSocks > 0);
 
-    // one per interface
+    // we sent the discovery requests out on ALL broadcast and multicast interfaces
+    // now we need to listen on the NS version 1 sockets and the mDNS recv sockets
     FD_ZERO(&fds);
     for (i = 0; i < NumMcastSocks; ++i) {
-        SOCKET sock = McastSocks[i].sock;
-        FD_SET(sock, &fds);
+        if (!McastSocks[i].is_mdns || McastSocks[i].is_mdnsrecv) {
+            SOCKET sock = McastSocks[i].sock;
+            FD_SET(sock, &fds);
+            numSocks++;
+        }
     }
 
-    rc = select(NumMcastSocks, &fds, NULL, NULL, &tv);
+    // wait for discovery response
+    rc = select(numSocks, &fds, NULL, NULL, &tv);
     if (rc == 0) {
         AJ_InfoPrintf(("AJ_Net_RecvFrom(): select() timed out. status=AJ_ERR_TIMEOUT\n"));
         return AJ_ERR_TIMEOUT;
@@ -401,14 +431,19 @@ static AJ_Status AJ_Net_RecvFrom(AJ_IOBuffer* buf, uint32_t len, uint32_t timeou
         return AJ_ERR_READ;
     }
 
-    // we sent the WhoHas packet out on ALL multicast WIFI interfaces
-    // now we need to listen to all of them for a reply
     // ignore multiple replies; only consider the first one to arrive
     rx = min(rx, len);
     for (i = 0; i < NumMcastSocks; ++i) {
-        if (FD_ISSET(McastSocks[i].sock, &fds)) {
-            sock = McastSocks[i].sock;
-            break;
+        if (!McastSocks[i].is_mdns || McastSocks[i].is_mdnsrecv) {
+            if (FD_ISSET(McastSocks[i].sock, &fds)) {
+                sock = McastSocks[i].sock;
+                if (McastSocks[i].is_mdnsrecv) {
+                    buf->flags |= AJ_IO_BUF_MDNS;
+                } else {
+                    buf->flags |= AJ_IO_BUF_AJ;
+                }
+                break;
+            }
         }
     }
 
@@ -434,12 +469,13 @@ static AJ_Status AJ_Net_RecvFrom(AJ_IOBuffer* buf, uint32_t len, uint32_t timeou
  * Need enough space to receive a complete name service packet when used in UDP
  * mode.  NS expects MTU of 1500 subtracts UDP, IP and ethertype overhead.
  * 1500 - 8 -20 - 18 = 1454.  txData buffer size needs to be big enough to hold
- * a NS WHO-HAS for one name (4 + 2 + 256 = 262)
+ * max(NS WHO-HAS for one name (4 + 2 + 256 = 262),
+ *     mDNS query for one name (190 + 5 + 5 + 15 + 256 = 471)) = 471
  */
 static uint8_t rxDataMCast[1454];
-static uint8_t txDataMCast[262];
+static uint8_t txDataMCast[471];
 
-static void Mcast6Up()
+static void Mcast6Up(const char* group, uint16_t port, uint8_t mdns)
 {
     char iface_buffer[sizeof(IP_ADAPTER_ADDRESSES) * 150];
     PIP_ADAPTER_ADDRESSES interfaces = (PIP_ADAPTER_ADDRESSES) iface_buffer;
@@ -456,13 +492,13 @@ static void Mcast6Up()
         struct sockaddr_in6 addr;
         struct ipv6_mreq mreq6;
 
-
         mcast_info_t new_sock;
         new_sock.sock = INVALID_SOCKET;
         new_sock.family = AF_INET6;
         new_sock.has_mcast4 = FALSE;
+        new_sock.is_mdnsrecv = FALSE;
+        new_sock.is_mdns = mdns;
         new_sock.v4_bcast.s_addr = 0;
-
 
         memset(&mreq6, 0, sizeof(struct ipv6_mreq));
 
@@ -479,9 +515,9 @@ static void Mcast6Up()
             continue;
         }
 
-        // bind the socket to the address with ephemeral port
+        // bind the socket to the supplied port
         addr.sin6_family = AF_INET6;
-        addr.sin6_port = htons(0);
+        addr.sin6_port = htons(port);
 
         ret = bind(new_sock.sock, (struct sockaddr*) &addr, sizeof(struct sockaddr_in6));
         if (ret == SOCKET_ERROR) {
@@ -493,7 +529,7 @@ static void Mcast6Up()
 
         // because routers are advertised silently, the reply will be unicast
         // however, Windows forces us to join the multicast group before we can broadcast our WhoHas packets
-        inet_pton(AF_INET6, AJ_IPV6_MULTICAST_GROUP, &mreq6.ipv6mr_multiaddr);
+        inet_pton(AF_INET6, group, &mreq6.ipv6mr_multiaddr);
         mreq6.ipv6mr_interface = interfaces->IfIndex;
 
         ret = setsockopt(new_sock.sock, IPPROTO_IPV6, IPV6_ADD_MEMBERSHIP, (char*) &mreq6, sizeof(mreq6));
@@ -513,7 +549,7 @@ static void Mcast6Up()
 }
 
 
-static void Mcast4Up()
+static void Mcast4Up(uint16_t port, const char* group, uint8_t mdns)
 {
     int ret = 0;
     INTERFACE_INFO interfaces[150];
@@ -544,6 +580,8 @@ static void Mcast4Up()
         new_sock.sock = INVALID_SOCKET;
         new_sock.family = AF_INET;
         new_sock.has_mcast4 = FALSE;
+        new_sock.is_mdnsrecv = FALSE;
+        new_sock.is_mdns = mdns;
         new_sock.v4_bcast.s_addr = 0;
 
         if (!(info->iiFlags & IFF_UP)) {
@@ -576,9 +614,9 @@ static void Mcast4Up()
             struct sockaddr_in sin;
             memset(&mreq, 0, sizeof(struct ip_mreq));
 
-            // bind the socket to the address with ephemeral port
+            // bind the socket to the supplied port
             sin.sin_family = AF_INET;
-            sin.sin_port = htons(0);
+            sin.sin_port = htons(port);
             memcpy(&sin, addr, sizeof(struct sockaddr_in));
 
             ret = bind(new_sock.sock, (struct sockaddr*) &sin, sizeof(sin));
@@ -591,7 +629,7 @@ static void Mcast4Up()
 
             // because routers are advertised silently, the reply will be unicast
             // however, Windows forces us to join the multicast group before we can broadcast our WhoHas packets
-            inet_pton(AF_INET, AJ_IPV4_MULTICAST_GROUP, &mreq.imr_multiaddr);
+            inet_pton(AF_INET, group, &mreq.imr_multiaddr);
             memcpy(&mreq.imr_interface, &sin.sin_addr, sizeof(struct in_addr));
             ret = setsockopt(new_sock.sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char*) &mreq, sizeof(mreq));
             if (ret == SOCKET_ERROR) {
@@ -612,48 +650,141 @@ static void Mcast4Up()
     }
 }
 
+static void MDnsRecvUp(AJ_MCastSocket* mcastSock)
+{
+    int ret = 0;
+    INTERFACE_INFO interfaces[150];
+    DWORD num_bytes, num_ifaces;
+    SOCKET tmp_sock;
+    uint32_t i = 0;
+    struct sockaddr_in sin;
 
-AJ_Status AJ_Net_MCastUp(AJ_NetSocket* netSock)
+    tmp_sock = socket(AF_INET, SOCK_DGRAM, 0);
+    if (tmp_sock == INVALID_SOCKET) {
+        AJ_ErrPrintf(("Mcast4Up(): socket failed. WSAGetLastError()=%0x%x\n", WSAGetLastError()));
+        return;
+    }
+
+    if (SOCKET_ERROR == WSAIoctl(tmp_sock, SIO_GET_INTERFACE_LIST, 0, 0, &interfaces, sizeof(interfaces), &num_bytes, 0, 0)) {
+        AJ_ErrPrintf(("Mcast4Up(): WSAIoctl failed. WSAGetLastError()=%0x%x\n", WSAGetLastError()));
+        return;
+    }
+    closesocket(tmp_sock);
+
+    num_ifaces = num_bytes / sizeof(INTERFACE_INFO);
+    for (i = 0; i < num_ifaces; ++i) {
+        LPINTERFACE_INFO info = &interfaces[i];
+        struct sockaddr_in* addr =  &info->iiAddress.AddressIn;
+        mcast_info_t new_sock;
+
+        new_sock.sock = INVALID_SOCKET;
+        new_sock.family = AF_INET;
+        new_sock.has_mcast4 = FALSE;
+        new_sock.is_mdns = FALSE;
+        new_sock.is_mdnsrecv = TRUE;
+        new_sock.v4_bcast.s_addr = 0;
+
+        if (!(info->iiFlags & IFF_UP)) {
+            continue;
+        }
+
+        // create a socket
+        new_sock.sock = socket(AF_INET, SOCK_DGRAM, 0);
+        if (new_sock.sock == INVALID_SOCKET) {
+            AJ_ErrPrintf(("MDnsRecvUp(): socket() failed. WSAGetLastError()=0x%x\n", WSAGetLastError()));
+            continue;
+        }
+
+        // bind the socket to an ephemeral port
+        sin.sin_family = AF_INET;
+        sin.sin_port = htons(0);
+        memcpy(&sin, addr, sizeof(struct sockaddr_in));
+
+        ret = bind(new_sock.sock, (struct sockaddr*) &sin, sizeof(sin));
+        if (ret == SOCKET_ERROR) {
+            AJ_ErrPrintf(("MDnsRecvUp(): bind() failed. WSAGetLastError()=0x%x\n", WSAGetLastError()));
+            closesocket(new_sock.sock);
+            new_sock.sock = INVALID_SOCKET;
+            continue;
+        }
+
+        // get the IP address we bound to and actual assigned ephemeral port
+        if (mcastSock->mDnsRecvAddr == 0) {
+            struct sockaddr_storage addrBuf;
+            socklen_t addrLen = sizeof(addrBuf);
+            if (getsockname(new_sock.sock, (struct sockaddr*) &addrBuf, &addrLen)) {
+                AJ_ErrPrintf(("MDnsRecvUp(): getsockname for mDnsRecvPort failed"));
+                closesocket(new_sock.sock);
+                new_sock.sock = INVALID_SOCKET;
+                continue;
+            }
+            sin = *((struct sockaddr_in*) &addrBuf);
+            mcastSock->mDnsRecvPort = ntohs(sin.sin_port);
+            mcastSock->mDnsRecvAddr = ntohl(sin.sin_addr.s_addr);
+        }
+        NumMcastSocks++;
+        McastSocks = realloc(McastSocks, NumMcastSocks * sizeof(mcast_info_t));
+        memcpy(&McastSocks[NumMcastSocks - 1], &new_sock, sizeof(mcast_info_t));
+    }
+}
+
+
+AJ_Status AJ_Net_MCastUp(AJ_MCastSocket* mcastSock)
 {
     AJ_Status status = AJ_OK;
+    size_t numMDnsRecvSocks;
     // bring up WinSock
     WinsockCheck();
 
-    AJ_InfoPrintf(("AJ_Net_MCastUp(nexSock=0x%p)\n", netSock));
+    AJ_InfoPrintf(("AJ_Net_MCastUp(mcastSock=0x%p)\n", mcastSock));
 
-    Mcast4Up();
-    Mcast6Up();
-
-    // if we don't have at least one good socket for multicast, error
+    // create the mDNS recv sockets
+    MDnsRecvUp(mcastSock);
     if (NumMcastSocks == 0) {
+        // mDNS recv socket could not be created: fail
+        AJ_ErrPrintf(("AJ_Net_MCastUp(): No mDNS recv socket found.  status=AJ_ERR_READ\n"));
+        return AJ_ERR_READ;
+    }
+    numMDnsRecvSocks = NumMcastSocks;
+
+    // create the sending sockets
+    Mcast4Up(MDNS_IPV4_MULTICAST_GROUP, MDNS_UDP_PORT, TRUE);
+    Mcast6Up(MDNS_IPV4_MULTICAST_GROUP, MDNS_UDP_PORT, TRUE);
+    if (AJ_GetMinProtoVersion() < 10) {
+        Mcast4Up(AJ_IPV4_MULTICAST_GROUP, 0, FALSE);
+        Mcast6Up(AJ_IPV4_MULTICAST_GROUP, 0, FALSE);
+    }
+
+    if (NumMcastSocks == numMDnsRecvSocks) {
+        // not a single sending socket could be created: fail
         AJ_ErrPrintf(("AJ_Net_MCastUp(): No sockets found.  status=AJ_ERR_READ\n"));
+        // clean up the mDNS recv sockets
+        AJ_Net_MCastDown(mcastSock);
         status = AJ_ERR_READ;
     }
 
-
     if (status == AJ_OK) {
-        AJ_IOBufInit(&netSock->rx, rxDataMCast, sizeof(rxDataMCast), AJ_IO_BUF_RX, (void*) McastSocks);
-        netSock->rx.recv = AJ_Net_RecvFrom;
-        AJ_IOBufInit(&netSock->tx, txDataMCast, sizeof(txDataMCast), AJ_IO_BUF_TX, (void*) McastSocks);
-        netSock->tx.send = AJ_Net_SendTo;
+        AJ_IOBufInit(&mcastSock->rx, rxDataMCast, sizeof(rxDataMCast), AJ_IO_BUF_RX, (void*) McastSocks);
+        mcastSock->rx.recv = AJ_Net_RecvFrom;
+        AJ_IOBufInit(&mcastSock->tx, txDataMCast, sizeof(txDataMCast), AJ_IO_BUF_TX, (void*) McastSocks);
+        mcastSock->tx.send = AJ_Net_SendTo;
     }
 
     AJ_InfoPrintf(("AJ_Net_MCastUp(): status=%s\n", AJ_StatusText(status)));
     return status;
 }
 
-void AJ_Net_MCastDown(AJ_NetSocket* netSock)
+void AJ_Net_MCastDown(AJ_MCastSocket* mcastSock)
 {
     size_t i;
-    AJ_InfoPrintf(("AJ_Net_MCastDown(nexSock=0x%p)\n", netSock));
+    AJ_InfoPrintf(("AJ_Net_MCastDown(nexSock=0x%p)\n", mcastSock));
 
-    /*
-     * Leave our multicast group
-     */
+    // shutdown and close all sockets
     for (i = 0; i < NumMcastSocks; ++i) {
         SOCKET sock = McastSocks[i].sock;
 
-        if (McastSocks[i].family == AF_INET) {
+        // leave multicast groups
+        if ((McastSocks[i].family == AF_INET) && !McastSocks[i].is_mdnsrecv) {
             struct ip_mreq mreq;
             inet_pton(AF_INET, AJ_IPV4_MULTICAST_GROUP, &mreq.imr_multiaddr);
             mreq.imr_interface.s_addr = INADDR_ANY;
@@ -665,7 +796,6 @@ void AJ_Net_MCastDown(AJ_NetSocket* netSock)
             setsockopt(sock, IPPROTO_IPV6, IPV6_DROP_MEMBERSHIP, (char*) &mreq6, sizeof(mreq6));
         }
 
-
         shutdown(sock, 0);
         closesocket(sock);
     }
@@ -673,5 +803,5 @@ void AJ_Net_MCastDown(AJ_NetSocket* netSock)
     NumMcastSocks = 0;
     free(McastSocks);
     McastSocks = NULL;
-    memset(netSock, 0, sizeof(AJ_NetSocket));
+    memset(mcastSock, 0, sizeof(AJ_MCastSocket));
 }
