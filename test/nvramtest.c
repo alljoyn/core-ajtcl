@@ -31,7 +31,6 @@ AJ_Status TestNVRAM();
 AJ_Status TestCreds();
 extern void AJ_NVRAM_Layout_Print();
 
-static uint16_t count = 1;
 static uint16_t tid1 = 15;
 static uint16_t tid2 = 16;
 static uint16_t tid3 = 17;
@@ -287,7 +286,6 @@ AJ_Status TestObsWrite()
     AJ_Status status = AJ_OK;
     AJ_NV_DATASET* nvramHandle;
     AJOBS_Info_Test info;
-    int nTest;
     size_t size = sizeof(info);
     char* ssid[] = { "abcdefghABCDEFGH", "aaaaaaaa", "bbbbbbbb", "cccccccc", "dddddddd", "eeeeeeee", "ffffffff", "gggggggg", "hhhhhhhh", "iiiiiiii",
                      "jjjjjjjj", "kkkkkkkk", "llllllll", "mmmmmmmm", "nnnnnnnn", "oooooooo", "pppppppp", "qqqqqqqq", "rrrrrrrr", "ssssssss",
@@ -615,7 +613,6 @@ AJ_Status TestNvramDelete()
 
         if (AJ_NVRAM_Exist(AJ_NVRAM_ID_FOR_APPS)) {
             AJOBS_Info_Test emptyInfo;
-            AJ_Status status = AJ_OK;
             size_t size = sizeof(AJOBS_Info_Test);
 
             memset(&emptyInfo, 0, sizeof(emptyInfo));
@@ -657,6 +654,63 @@ _TEST_NVRAM_DELETE_EXIT:
 
 }
 
+AJ_Status TestNVRAMPeek()
+{
+    AJ_Status status = AJ_OK;
+    AJ_NV_DATASET* handle = NULL;
+    size_t bytes = 0;
+    char buffer[] = "This is a test buffer";
+    uint8_t buffer_raw[32] = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
+                               0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f };
+    char* ptr;
+    uint8_t* ptr_raw;
+    AJ_AlwaysPrintf(("Testing AJ_NVRAM_Peek()\n"));
+    /*
+     * String pointer data test
+     */
+    handle = AJ_NVRAM_Open(999, "w", strlen(buffer) + 1);
+    if (handle) {
+        bytes = AJ_NVRAM_Write(buffer, strlen(buffer) + 1, handle);
+        if (bytes != strlen(buffer) + 1) {
+            return AJ_ERR_FAILURE;
+        }
+    } else {
+        return AJ_ERR_FAILURE;
+    }
+    status = AJ_NVRAM_Close(handle);
+    if (status == AJ_OK) {
+        handle = AJ_NVRAM_Open(999, "r", strlen(buffer) + 1);
+        ptr = (char*)AJ_NVRAM_Peek(handle);
+        if (!ptr || (strcmp(ptr, buffer) != 0)) {
+            AJ_ErrPrintf(("Strings do not match: buffer = %s, return = %s\n", buffer, ptr));
+            return AJ_ERR_FAILURE;
+        }
+        status = AJ_NVRAM_Close(handle);
+    }
+    /*
+     * Raw data pointer test
+     */
+    handle = AJ_NVRAM_Open(1000, "w", ArraySize(buffer_raw));
+    if (handle) {
+        bytes = AJ_NVRAM_Write(buffer_raw, ArraySize(buffer_raw), handle);
+        if (bytes != ArraySize(buffer_raw)) {
+            return AJ_ERR_FAILURE;
+        }
+    }
+    status = AJ_NVRAM_Close(handle);
+    if (status == AJ_OK) {
+        handle = AJ_NVRAM_Open(1000, "r", ArraySize(buffer_raw));
+        ptr_raw = (uint8_t*)AJ_NVRAM_Peek(handle);
+        if (!ptr || (memcmp(buffer_raw, ptr_raw, ArraySize(buffer_raw)) != 0)) {
+            AJ_ErrPrintf(("Raw data does not match\n"));
+            return AJ_ERR_FAILURE;
+        }
+        status = AJ_NVRAM_Close(handle);
+    }
+    AJ_NVRAM_Layout_Print();
+    AJ_AlwaysPrintf(("Testing AJ_NVRAM_Peek() done\n"));
+    return status;
+}
 
 AJ_Status TestNVRAM()
 {
@@ -753,7 +807,6 @@ _TEST_NVRAM_EXIT:
 int AJ_Main()
 {
     AJ_Status status = AJ_OK;
-    static uint16_t oRand = 0;
     while (status == AJ_OK) {
         AJ_AlwaysPrintf(("AJ Initialize\n"));
         AJ_Initialize();
@@ -832,6 +885,10 @@ int AJ_Main()
 
         status = TestECCCreds();
         AJ_InfoPrintf(("\nECC STATUS %u, NVRAMTEST RUN %u TIMES\n", status, count++));
+        AJ_ASSERT(status == AJ_OK);
+
+        status = TestNVRAMPeek();
+        AJ_InfoPrintf(("\nNVRAM Peek STATUS %u\n", status));
         AJ_ASSERT(status == AJ_OK);
     }
     return 0;
