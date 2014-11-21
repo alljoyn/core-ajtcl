@@ -22,6 +22,10 @@
 #include "aj_wsl_wmi.h"
 #include "aj_wsl_net.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /*
  * Basic Types
  */
@@ -118,3 +122,6 @@ wsl_scan_item* WMI_UnmarshalScan(void* data);
 
 WMI_HDR_INFO* WMI_UnmarshalHeader(void* data);
 
+#ifdef __cplusplus
+}
+#endif

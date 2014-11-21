@@ -21,13 +21,14 @@
 #ifndef AJ_WSL_NET_H_
 #define AJ_WSL_NET_H_
 
+#include "aj_target.h"
+#include "aj_wsl_target.h"
+#include "aj_status.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include "aj_target.h"
-#include "aj_wsl_target.h"
-#include "aj_status.h"
 #ifndef __cplusplus
 #pragma pack(push, 1)
 #endif

@@ -1,9 +1,6 @@
 #ifndef _AJ_CREDS_H
 #define _AJ_CREDS_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 /**
  * @file aj_creds.h
  * @defgroup aj_creads Credentials Management
@@ -30,6 +27,9 @@ extern "C" {
 #include "aj_status.h"
 #include "aj_config.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define AJ_CRED_TYPE_GENERIC        1 /** < generic type */
 #define AJ_CRED_TYPE_AES            2 /** < AES type */

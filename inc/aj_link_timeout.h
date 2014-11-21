@@ -1,9 +1,6 @@
 #ifndef _AJ_LINK_TIMEOUT_H
 #define _AJ_LINK_TIMEOUT_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 /**
  * @file aj_link_timeout.h
  * @defgroup aj_link_timeout Daemon Connection Keepalive Support
@@ -26,6 +23,10 @@ extern "C" {
  ******************************************************************************/
 #include <aj_util.h>
 #include <alljoyn.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
  * Enable link timeout for the connection between the application and the daemon bus. If there are

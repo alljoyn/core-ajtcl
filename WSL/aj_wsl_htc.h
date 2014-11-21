@@ -25,6 +25,11 @@
 #include "aj_wsl_spi_constants.h"
 #include "aj_buf.h"
 #include "aj_debug.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #pragma pack(push, 1)
 
 
@@ -72,4 +77,9 @@ void AJ_WSL_HTC_ProcessInterruptCause(void);
 void AJ_WSL_HTC_ProcessIncoming(void);
 
 #pragma pack(pop)
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif /* AJ_WSL_HTC_H_ */

@@ -20,14 +20,14 @@
 #ifndef AJ_WSL_TASKS_H_
 #define AJ_WSL_TASKS_H_
 
+#include "aj_target.h"
+#include "aj_wsl_target.h"
+#include "aj_status.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include "aj_target.h"
-#include "aj_wsl_target.h"
-#include "aj_status.h"
-#include "RTOS.h"
 /**
  * This file contains the task and structure definitions for the WSL "driver" code
  *

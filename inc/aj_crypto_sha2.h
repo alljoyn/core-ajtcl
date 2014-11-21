@@ -1,9 +1,6 @@
 #ifndef _AJ_CRYPTO_SHA2_H
 #define _AJ_CRYPTO_SHA2_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 /**
  * @file aj_crypto_sha2.h
  * @defgroup aj_crypto SHA-256 Cryptographic Support
@@ -29,6 +26,10 @@ extern "C" {
 #include "aj_status.h"
 
 #include "sha2.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef SHA256_CTX AJ_SHA256_Context;
 

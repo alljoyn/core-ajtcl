@@ -1,9 +1,6 @@
 #ifndef _AJ_INIT_H
 #define _AJ_INIT_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 /**
  * @file aj_init.h
  * @defgroup aj_init Initialization
@@ -27,6 +24,10 @@ extern "C" {
  ******************************************************************************/
 
 #include "aj_target.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
  * Initialization for AllJoyn. This function should be called before calling any

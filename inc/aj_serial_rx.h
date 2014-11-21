@@ -1,9 +1,6 @@
 #ifndef _AJ_SERIAL_RX_H
 #define _AJ_SERIAL_RX_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 /**
  * @file
  */
@@ -28,6 +25,10 @@ extern "C" {
 #include "aj_status.h"
 #include "aj_serial.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * This function initializes the receive path
  */
@@ -48,10 +49,10 @@ AJ_Status AJ_SerialRX_Reset(void);
  */
 void AJ_ProcessRxBufferList();
 
-#endif /* AJ_SERIAL_CONNECTION */
-
 #ifdef __cplusplus
 }
 #endif
+
+#endif /* AJ_SERIAL_CONNECTION */
 
 #endif /* _AJ_SERIAL_RX_H */

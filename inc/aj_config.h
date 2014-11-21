@@ -1,9 +1,6 @@
 #ifndef _AJ_CONFIG_H
 #define _AJ_CONFIG_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 /**
  * @file aj_config.h
  * @defgroup aj_config Configuration
@@ -25,6 +22,10 @@ extern "C" {
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 #include "aj_debug.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /* Debug options */
 #define _AJ_AUTH_DEBUG              0           //Enable for authentication debugging

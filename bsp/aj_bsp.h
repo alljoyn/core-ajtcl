@@ -20,11 +20,12 @@
 #ifndef AJ_BSP_H_
 #define AJ_BSP_H_
 
+#include "aj_target.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include "aj_target.h"
 /*
  * This file contains the layer between alljoyn and platform specific code.
  * All the functions in this header need to be implemented in the platform

@@ -1,9 +1,6 @@
 #ifndef _AJ_CRYPTO_ECC_H
 #define _AJ_CRYPTO_ECC_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 /**
  * @file aj_crypto_ecc.h
  * @defgroup aj_crypto Cryptographic Support
@@ -27,6 +24,10 @@ extern "C" {
 
 #include "aj_target.h"
 #include "aj_status.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef enum {B_FALSE, B_TRUE} boolean_t;
 

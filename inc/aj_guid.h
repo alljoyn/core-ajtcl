@@ -1,9 +1,6 @@
 #ifndef _AJ_GUID_H
 #define _AJ_GUID_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 /**
  * @file aj_guid.h
  * @defgroup aj_guid Globally Unique Identifier Support
@@ -29,6 +26,10 @@ extern "C" {
 #include "aj_target.h"
 #include "aj_status.h"
 #include "aj_bus.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
  * Type for a GUID
