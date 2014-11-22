@@ -25,6 +25,7 @@
 #include <pthread.h>
 #include <byteswap.h>
 #include <stdarg.h>
+#include <arpa/inet.h>
 #include <aj_debug.h>
 #include "aj_target.h"
 #include "aj_util.h"
@@ -266,6 +267,26 @@ uint32_t AJ_ByteSwap32(uint32_t x)
 uint64_t AJ_ByteSwap64(uint64_t x)
 {
     return bswap_64(x);
+}
+
+AJ_Status AJ_IntToString(int32_t val, char* buf, size_t buflen)
+{
+    AJ_Status status = AJ_OK;
+    int c = snprintf(buf, buflen, "%d", val);
+    if (c <= 0 || c > buflen) {
+        status = AJ_ERR_RESOURCES;
+    }
+    return status;
+}
+
+AJ_Status AJ_InetToString(uint32_t addr, char* buf, size_t buflen)
+{
+    AJ_Status status = AJ_OK;
+    int c = snprintf((char*)buf, buflen, "%u.%u.%u.%u", (addr & 0xFF000000) >> 24, (addr & 0x00FF0000) >> 16, (addr & 0x0000FF00) >> 8, (addr & 0x000000FF));
+    if (c <= 0 || c > buflen) {
+        status = AJ_ERR_RESOURCES;
+    }
+    return status;
 }
 
 static FILE* logFile = NULL;

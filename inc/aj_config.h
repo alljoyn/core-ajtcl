@@ -54,11 +54,6 @@ extern "C" {
 #define AJ_CREDS_NV_ID_END   (AJ_CREDS_NV_ID_BEGIN + AJ_MAX_CREDS)
 
 /* Timeouts */
-#define AJ_WHO_HAS_TIMEOUT       (1000)            //how long to wait for WHO_HAS response            (aj_disco.c)
-#define AJ_DISCOVER_ATTEMPTS     (10)              //Number of times to discover before backing off   (aj_disco.c)
-#define AJ_FIRST_BACKOFF_TIME    (10 * 1000)       //First back-off timeout for discovering           (aj_disco.c)
-#define AJ_SECOND_BACKOFF_TIME   (20 * 1000)       //Second back-off timeout for discovering          (aj_disco.c)
-#define AJ_THIRD_BACKOFF_TIME    (40 * 1000)       //Third back-off timeout for discovering           (aj_disco.c)
 #define AJ_UNMARSHAL_TIMEOUT     (100 * 1000)      //unmarshal timeout                                (aj_helper.c + aj_msg.c)
 #define AJ_CONNECT_TIMEOUT       (60 * 1000)       //connection timeout                               (aj_helper.c)
 #define AJ_CONNECT_PAUSE         (10 * 1000)       //how long to pause between failed connects        (aj_helper.c)
