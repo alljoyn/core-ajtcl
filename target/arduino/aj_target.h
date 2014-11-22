@@ -105,4 +105,6 @@ extern uint8_t dbgTARGET_UTIL;
 
 #define AJ_CreateNewGUID AJ_RandBytes
 
+#define AJ_GetDebugTime(x) AJ_ERR_RESOURCES
+
 #endif

@@ -92,4 +92,6 @@ extern uint8_t dbgTARGET_UTIL;
  */
 #define MAIN_ALLOWS_ARGS
 
+#define AJ_GetDebugTime(x) _AJ_GetDebugTime(x)
+
 #endif

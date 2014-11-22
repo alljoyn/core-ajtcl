@@ -61,6 +61,16 @@ AJ_EXPORT
 uint32_t AJ_GetElapsedTime(AJ_Time* timer, uint8_t cumulative);
 
 /**
+ * Gets the time for the debug statement.
+ *
+ * @param timer the time for the debug statement.
+ *
+ * @return AJ_OK if the time has been set. An error indicates that the time has not been set and the default debug time should be used.
+ */
+AJ_EXPORT
+AJ_Status _AJ_GetDebugTime(AJ_Time* timer);
+
+/**
  * Initialize a timer
  *
  * @param timer  The timer to initialize
