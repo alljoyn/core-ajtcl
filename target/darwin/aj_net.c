@@ -544,7 +544,7 @@ ExitError:
 
 
 
-AJ_Status AJ_Net_MCastUp(AJ_NetSocket* netSock)
+AJ_Status AJ_Net_MCastUp(AJ_MCastSocket* netSock)
 {
     AJ_Status status = AJ_ERR_READ;
     netContext.udpSock = MCastUp4();
@@ -561,7 +561,7 @@ AJ_Status AJ_Net_MCastUp(AJ_NetSocket* netSock)
     return status;
 }
 
-void AJ_Net_MCastDown(AJ_NetSocket* netSock)
+void AJ_Net_MCastDown(AJ_MCastSocket* netSock)
 {
     NetContext* context = (NetContext*) netSock->rx.context;
     AJ_InfoPrintf(("AJ_Net_MCastDown(nexSock=0x%p)\n", netSock));

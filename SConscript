@@ -219,7 +219,7 @@ elif env['TARG'] == 'bsp':
                 [env['FREE_RTOS_DIR'] + '/Source/portable/GCC/ARM_CM3/port.c']]
     
     if env['AJWSL'] == 'due':
-        rtos_src += [env['FREE_RTOS_DIR'] + '/Source/portable/MemMang/heap_3.c']
+        rtos_src += [env['FREE_RTOS_DIR'] + '/Source/portable/MemMang/heap_4.c']
         
         # Add platform dependent sources
         due_src = [Glob('bsp/due/*.c') + [env['ATMEL_DIR'] + '/common/services/clock/sam3x/sysclk.c',

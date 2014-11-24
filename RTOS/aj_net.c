@@ -67,7 +67,7 @@ static uint8_t AJ_IPV6_MCAST_GROUP[16] = { 0xff, 0x02, 0x00, 0x00, 0x00, 0x00, 0
  * IANA-assigned IPv4 multicast group for mDNS.
  */
 static const char MDNS_IPV4_MULTICAST_GROUP[] = "224.0.0.251";
-#define AJ_IPV4_MCAST_GROUP                   0xe00000fb
+#define MDNS_IPV4_MCAST_GROUP                   0xe00000fb
 
 /*
  * IANA-assigned IPv6 multicast group for mDNS.
@@ -453,8 +453,8 @@ static int MDnsRecvUp(uint16_t* port)
     /*
      * Open socket
      */
-    mcastSock = AJ_WSL_NET_socket_open(WSL_AF_INET, WSL_SOCK_DGRAM, 0);
-    if (mcastSock == INVALID_SOCKET) {
+    mDnsRecvSock = AJ_WSL_NET_socket_open(WSL_AF_INET, WSL_SOCK_DGRAM, 0);
+    if (mDnsRecvSock == INVALID_SOCKET) {
         AJ_ErrPrintf(("MCastUp4(): socket() failed. status=AJ_ERR_READ\n"));
         return INVALID_SOCKET;
     }
@@ -463,7 +463,7 @@ static int MDnsRecvUp(uint16_t* port)
      * Bind ephemeral port
      */
     p = AJ_EphemeralPort();
-    ret = AJ_WSL_NET_socket_bind(mcastSock, 0x00000000, p);
+    ret = AJ_WSL_NET_socket_bind(mDnsRecvSock, 0x00000000, p);
     if (ret < 0) {
         AJ_ErrPrintf(("MDnsRecvUp(): bind() failed: %d. errno=\"%s\", status=AJ_ERR_READ\n", ret, strerror(errno)));
         goto ExitError;
@@ -490,7 +490,7 @@ AJ_Status AJ_Net_MCastUp(AJ_MCastSocket* mcastSock)
         return status;
     }
     mcastSock->mDnsRecvPort = port;
-    if (AJ_GetIPAddress(&ip, &mask, &gateway) != AK_OK) {
+    if (AJ_GetIPAddress(&ip, &mask, &gateway) != AJ_OK) {
         AJ_ErrPrintf(("AJ_Net_MCastUp(): no IP address"));
         goto ExitError;
     }
@@ -519,9 +519,9 @@ AJ_Status AJ_Net_MCastUp(AJ_MCastSocket* mcastSock)
             return AJ_ERR_UNEXPECTED;
         }
 
-        AJ_IOBufInit(&mcastSock->rx, rxDataMCast, rxDataMCastSize, AJ_IO_BUF_RX, &mcastContext);
+        AJ_IOBufInit(&mcastSock->rx, rxDataMCast, rxDataMCastSize, AJ_IO_BUF_RX, &mCastContext);
         mcastSock->rx.recv = AJ_Net_RecvFrom;
-        AJ_IOBufInit(&mcastSock->tx, txDataMCast, txDataMCastSize, AJ_IO_BUF_TX, &mcastContext);
+        AJ_IOBufInit(&mcastSock->tx, txDataMCast, txDataMCastSize, AJ_IO_BUF_TX, &mCastContext);
         mcastSock->tx.send = AJ_Net_SendTo;
         status = AJ_OK;
     }
@@ -563,6 +563,6 @@ void AJ_Net_MCastDown(AJ_MCastSocket* mcastSock)
     /* release the dynamically allocated buffers */
     AJ_Free(mcastSock->rx.bufStart);
     AJ_Free(mcastSock->tx.bufStart);
-    CloseMCastSock(netSock);
+    CloseMCastSock(mcastSock);
 
 }
