@@ -549,7 +549,7 @@ static void Mcast6Up(const char* group, uint16_t port, uint8_t mdns)
 }
 
 
-static void Mcast4Up(uint16_t port, const char* group, uint8_t mdns)
+static void Mcast4Up(const char* group, uint16_t port, uint8_t mdns)
 {
     int ret = 0;
     INTERFACE_INFO interfaces[150];
@@ -749,10 +749,10 @@ AJ_Status AJ_Net_MCastUp(AJ_MCastSocket* mcastSock)
 
     // create the sending sockets
     Mcast4Up(MDNS_IPV4_MULTICAST_GROUP, MDNS_UDP_PORT, TRUE);
-    Mcast6Up(MDNS_IPV4_MULTICAST_GROUP, MDNS_UDP_PORT, TRUE);
+    Mcast6Up(MDNS_IPV6_MULTICAST_GROUP, MDNS_UDP_PORT, TRUE);
     if (AJ_GetMinProtoVersion() < 10) {
         Mcast4Up(AJ_IPV4_MULTICAST_GROUP, 0, FALSE);
-        Mcast6Up(AJ_IPV4_MULTICAST_GROUP, 0, FALSE);
+        Mcast6Up(AJ_IPV6_MULTICAST_GROUP, 0, FALSE);
     }
 
     if (NumMcastSocks == numMDnsRecvSocks) {
