@@ -453,7 +453,7 @@ void AJ_WSL_WMI_ProcessWMIEvent(AJ_BufNode* pNodeHTCBody)
         }
 
     default: {
-            AJ_WarnPrintf(("UNKNOWN WMI EVENT %x\n",  eventID));
+            AJ_InfoPrintf(("UNKNOWN WMI EVENT %x\n",  eventID));
         }
     }
 }
@@ -550,12 +550,19 @@ AJ_Status AJ_WSL_WMI_WaitForWorkItem(uint32_t socket, uint8_t command, wsl_work_
             // Clean up the network queues
             int i;
             for (i = 0; i < AJ_WSL_SOCKET_MAX; i++) {
+                wsl_work_item* clear;
                 AJ_WSL_SOCKET_CONTEXT[i].valid = FALSE;
                 // Removed any stashed data
                 AJ_BufListFree(AJ_WSL_SOCKET_CONTEXT[i].stashedRxList, 1);
                 // Reallocate a new stash
                 AJ_WSL_SOCKET_CONTEXT[i].stashedRxList = AJ_BufListCreate();
                 // Reset the queue, any work items are now invalid since the socket was closed
+                while (AJ_QueuePull(AJ_WSL_SOCKET_CONTEXT[i].workRxQueue, &clear, 0) == AJ_OK) {
+                    AJ_WSL_WMI_FreeWorkItem(clear);
+                }
+                while (AJ_QueuePull(AJ_WSL_SOCKET_CONTEXT[i].workTxQueue, &clear, 0) == AJ_OK) {
+                    AJ_WSL_WMI_FreeWorkItem(clear);
+                }
                 AJ_QueueReset(AJ_WSL_SOCKET_CONTEXT[i].workRxQueue);
                 AJ_QueueReset(AJ_WSL_SOCKET_CONTEXT[i].workTxQueue);
             }

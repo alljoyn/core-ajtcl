@@ -24,6 +24,7 @@
 #include "aj_debug.h"
 #include "aj_wsl_unmarshal.h"
 #include "aj_wsl_wmi.h"
+#include "aj_wifi_ctrl.h"
 
 #define str(x) # x
 #define xstr(x) str(x)
@@ -31,22 +32,75 @@
 #define PRE  0x10
 #define POST 0x00
 
-wsl_scan_item* WMI_UnmarshalScan(void* data)
+#define AJ_WSL_SSID_IE  0x00
+#define AJ_WSL_RSN_IE   0x30
+
+#define AJ_RSSI_BYTE    15  //Byte location where the signal strength is
+#define AJ_MAC_BYTE     16  //Byte location where the mac address is
+#define AJ_80211_START  36  //Byte location where the 802.11 IE section begins
+
+wsl_scan_item* WMI_UnmarshalScan(void* data, uint16_t length)
 {
     wsl_scan_item* scan;
     uint8_t* ptr;
-    int i;
+    uint16_t i = AJ_80211_START; //start of IE section
+    uint8_t hasSecurity = 0;
     ptr = (uint8_t*)data;
     scan = (wsl_scan_item*)WSL_InitScanItem();
-    scan->rssi = *(ptr + 15);
-    for (i = 0; i < 6; i++) {         //MAC is bytes 16 through 22
-        scan->bssid[i] = *(ptr + 16 + i);
+    /*
+     * Get signal strength
+     */
+    scan->rssi = *(ptr + AJ_RSSI_BYTE);
+    /*
+     * Get MAC address
+     */
+    memcpy(scan->bssid, (ptr + AJ_MAC_BYTE), 6);
+    /*
+     * Go through each IE until the packet it over and get what we need
+     * (SSID and RSN).
+     */
+    while (i < (length - AJ_80211_START)) {
+        uint8_t EID;
+        uint8_t EIDlen;
+        EID = *(ptr + i);
+        i++;
+        EIDlen = *(ptr + i);
+        i++;
+        switch (EID) {
+        case (0x00):
+            scan->ssid = (char*)AJ_WSL_Malloc((sizeof(char) * EIDlen) + 1);
+            memcpy(scan->ssid, (ptr + i), EIDlen);
+            scan->ssid[EIDlen] = '\0';
+            i += EIDlen;
+            break;
+
+        case (0x30):
+            /*
+             * 5 bytes into the RSN IE is the security information
+             */
+            if (*(ptr + i + 5) == 2) {
+                scan->secType = AJ_WIFI_SECURITY_WPA;
+                scan->cipherType = AJ_WIFI_CIPHER_TKIP;
+            } else if (*(ptr + i + 5) == 4) {
+                scan->secType = AJ_WIFI_SECURITY_WPA2;
+                scan->cipherType = AJ_WIFI_CIPHER_CCMP;
+            } else {
+                scan->secType = AJ_WIFI_SECURITY_WEP;
+                scan->cipherType = AJ_WIFI_CIPHER_WEP;
+            }
+            hasSecurity = 1;
+            i += EIDlen;
+            break;
+
+        default:
+            i += EIDlen;
+            break;
+        }
     }
-    scan->ssid = (char*)AJ_WSL_Malloc(sizeof(char) * *(ptr + 37) + 1);
-    for (i = 0; i < *(ptr + 37); i++) {
-        scan->ssid[i] = *(ptr + 38 + i);
+    if (!hasSecurity) {
+        scan->secType = AJ_WIFI_SECURITY_NONE;
+        scan->cipherType = AJ_WIFI_CIPHER_NONE;
     }
-    scan->ssid[*(ptr + 37)] = '\0';
     return scan;
 }
 
@@ -139,22 +193,3 @@ int32_t WMI_Unmarshal(void* data, const char* sig, ...)
     va_end(args);
     return ptr - (uint8_t*)data;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

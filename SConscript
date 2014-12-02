@@ -256,7 +256,7 @@ elif env['TARG'] == 'bsp':
                             '-Wl,--end-group', '-L"' + env['ATMEL_DIR'] + '/thirdparty/CMSIS/Lib/GCC"', '-Wl,--gc-sections', '-Wl,-Map,${TARGET.base}.map',
                             '-mcpu=cortex-m3', '-Wl,--entry=Reset_Handler', '-T' + env['ATMEL_DIR'] + '/sam/utils/linker_scripts/sam3x/sam3x8/gcc/flash.ld']
         # Add platform dependent defines
-        env.Append(CPPDEFINES = ['__SAM3X8E__', 'ARM_MATH_CM3=true', 'BOARD=ARDUINO_DUE_X', 'printf=iprintf'])
+        env.Append(CPPDEFINES = ['__SAM3X8E__', 'ARM_MATH_CM3=true', 'BOARD=ARDUINO_DUE_X', 'printf=iprintf', 'AJ_HEAP4'])
 
         if env['VARIANT'] == 'release':
             env.Append(CPPDEFINES = ['NDEBUG'])

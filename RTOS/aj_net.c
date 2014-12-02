@@ -153,19 +153,19 @@ static AJ_Status CloseMCastSock(AJ_MCastSocket* mcastSock)
     MCastContext* context = (MCastContext*)mcastSock->rx.context;
     if (context) {
         if (context->udpSock != INVALID_SOCKET) {
-            close(context->udpSock);
+            AJ_WSL_NET_socket_close(context->udpSock);
         }
         if (context->udp6Sock != INVALID_SOCKET) {
-            close(context->udp6Sock);
+            AJ_WSL_NET_socket_close(context->udp6Sock);
         }
         if (context->mDnsSock != INVALID_SOCKET) {
-            close(context->mDnsSock);
+            AJ_WSL_NET_socket_close(context->mDnsSock);
         }
         if (context->mDns6Sock != INVALID_SOCKET) {
-            close(context->mDns6Sock);
+            AJ_WSL_NET_socket_close(context->mDns6Sock);
         }
         if (context->mDnsRecvSock != INVALID_SOCKET) {
-            close(context->mDnsRecvSock);
+            AJ_WSL_NET_socket_close(context->mDnsRecvSock);
         }
         context->udpSock = context->udp6Sock = context->mDnsSock = context->mDns6Sock = context->mDnsRecvSock = INVALID_SOCKET;
         memset(mcastSock, 0, sizeof(AJ_MCastSocket));
@@ -571,6 +571,7 @@ static int MCastUp6(const char group[], uint16_t port)
 
 static int MDnsRecvUp(uint16_t* port)
 {
+    AJ_Status status;
     uint16_t p;
     int ret;
     int mDnsRecvSock;
@@ -588,8 +589,8 @@ static int MDnsRecvUp(uint16_t* port)
      * Bind ephemeral port
      */
     p = AJ_EphemeralPort();
-    ret = AJ_WSL_NET_socket_bind(mDnsRecvSock, 0x00000000, p);
-    if (ret < 0) {
+    status = AJ_WSL_NET_socket_bind(mDnsRecvSock, 0x00000000, p);
+    if (status != AJ_OK) {
         AJ_ErrPrintf(("MDnsRecvUp(): bind() failed: %d. errno=\"%s\", status=AJ_ERR_READ\n", ret, strerror(errno)));
         goto ExitError;
     }
@@ -597,7 +598,7 @@ static int MDnsRecvUp(uint16_t* port)
     return mDnsRecvSock;
 
 ExitError:
-    close(mDnsRecvSock);
+    AJ_WSL_NET_socket_close(mDnsRecvSock);
     return INVALID_SOCKET;
 }
 
@@ -653,7 +654,7 @@ AJ_Status AJ_Net_MCastUp(AJ_MCastSocket* mcastSock)
     return status;
 
 ExitError:
-    close(mCastContext.mDnsRecvSock);
+    AJ_WSL_NET_socket_close(mCastContext.mDnsRecvSock);
     return status;
 }
 
