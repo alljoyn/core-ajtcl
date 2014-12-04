@@ -307,14 +307,10 @@ typedef struct _MDNSResourceRecord {
     MDNSRData rdata;
 } MDNSResourceRecord;
 
-static AJ_Status ComposeMDnsReq(AJ_IOBuffer* txBuf, const char* prefix, AJ_GUID* guid, uint32_t addr, uint16_t port, uint16_t sidVal)
+static AJ_Status ComposeMDnsReq(AJ_IOBuffer* txBuf, const char* prefix, AJ_GUID* guid, uint16_t sidVal)
 {
     uint16_t dataLength;
-    uint16_t dataLength2;
-    char sidBuf[6];
-    char addrBuf[16];
-    char portBuf[6];
-    char pktLen;
+    int pktLen;
 
     static uint8_t hdr[] = {
         0x00, 0x00, // transId
@@ -366,38 +362,28 @@ static AJ_Status ComposeMDnsReq(AJ_IOBuffer* txBuf, const char* prefix, AJ_GUID*
      * Additional record: sender-info.<guid>.local
      */
     static uint8_t senderinfo[] = {
-        0x0b, 0x73, 0x65, 0x6e, 0x64, 0x65, 0x72, 0x2d, 0x69, 0x6e, 0x66, 0x6f, // sender-info
+        0x0b, 0x73, 0x65, 0x6e, 0x64, 0x65, 0x72, 0x2d,        // sender-info
+        0x69, 0x6e, 0x66, 0x6f,
         0xc0, 0x40,                                            // <guid>.local (compressed)
         0x00, 0x10,                                            // Type (TXT)
         0x00, 0x01,                                            // Class
-        0x00, 0x00, 0x00, 0x78                                 // TTL
-    };
-
-    static uint8_t ajpv[] = {
-        0x07, 0x61, 0x6a, 0x70, 0x76, 0x3d, 0x31, 0x30         // ajpv=10
-    };
-
-    static uint8_t ipv4[] = {
-        0x69, 0x70, 0x76, 0x34, 0x3d                           // ipv4=
-    };
-
-    static uint8_t pv[] = {
-        0x04, 0x70, 0x76, 0x3d, 0x32                           // pv=2
-    };
-
-    static uint8_t sid[] = {
-        0x73, 0x69, 0x64, 0x3d                                 // sid=
-    };
-
-    static uint8_t upcv4[] = {
-        0x75, 0x70, 0x63, 0x76, 0x34, 0x3d                     // upcv4=
+        0x00, 0x00, 0x00, 0x78,                                // TTL
+        0x00, 0x42,                                            // Data Length=66
+        0x09, 0x74, 0x78, 0x74, 0x76, 0x65, 0x72, 0x73,        // txtvers=0
+        0x3d, 0x30,
+        0x07, 0x61, 0x6a, 0x70, 0x76, 0x3d, 0x31, 0x30,        // ajpv=10
+        0x04, 0x70, 0x76, 0x3d, 0x32,                          // pv=2
+        // These next three must be re-written by the net transmit layer
+        0x09, 0x73, 0x69, 0x64, 0x3d, 0x35, 0x35, 0x35,        // sid=55555
+        0x35, 0x35,
+        0x0a, 0x69, 0x70, 0x76, 0x34, 0x3d, 0x35, 0x35,        // ipv4=55555
+        0x35, 0x35, 0x35,
+        0x15, 0x75, 0x70, 0x63, 0x76, 0x34, 0x3d, 0x35,        // upcv4=555.555.555.555
+        0x35, 0x35, 0x2e, 0x35, 0x35, 0x35, 0x2e, 0x35,
+        0x35, 0x35, 0x2e, 0x35, 0x35, 0x35
     };
 
     uint8_t* pkt = (uint8_t*)txBuf->writePtr;
-
-    AJ_IntToString(sidVal, sidBuf, sizeof(sidBuf));
-    AJ_IntToString((int32_t) port, portBuf, sizeof(portBuf));
-    AJ_InetToString(addr, addrBuf, sizeof(addrBuf));
 
     hdr[0] = (sidVal >> 8) & 0xFF;
     hdr[1] = sidVal & 0xFF;
@@ -408,7 +394,7 @@ static AJ_Status ComposeMDnsReq(AJ_IOBuffer* txBuf, const char* prefix, AJ_GUID*
     pkt += sizeof(queries);
 
     /*
-     * Start search TXT record
+     * Append search TXT record with actual GUID and prefix
      */
     memcpy(pkt, search, sizeof(search));
     pkt += sizeof(search);
@@ -427,6 +413,10 @@ static AJ_Status ComposeMDnsReq(AJ_IOBuffer* txBuf, const char* prefix, AJ_GUID*
     memcpy(pkt, txtvers, sizeof(txtvers));
     pkt += sizeof(txtvers);
 
+    if ((sizeof(nameone) + strlen(prefix) + 1) > 255) {
+        AJ_ErrPrintf(("ComposeMDnsReq(): prefix too long: %d\n", strlen(prefix)));
+        return AJ_ERR_INVALID;
+    }
     *pkt++ = sizeof(nameone) + strlen(prefix) + 1;
     memcpy(pkt, nameone, sizeof(nameone));
     pkt += sizeof(nameone);
@@ -435,41 +425,10 @@ static AJ_Status ComposeMDnsReq(AJ_IOBuffer* txBuf, const char* prefix, AJ_GUID*
     *pkt++ = '*';
 
     /*
-     * Start sender-info TXT record
+     * Append sender-info TXT record static fields
      */
     memcpy(pkt, senderinfo, sizeof(senderinfo));
     pkt += sizeof(senderinfo);
-
-    dataLength2 = sizeof(txtvers) + sizeof(ajpv) + 1 + sizeof(ipv4) + strlen(addrBuf) + sizeof(pv) + 1 + sizeof(sid) + strlen(sidBuf) + 1 + sizeof(upcv4) + strlen(portBuf);
-    *pkt++ = (uint8_t) (dataLength2 >> 8);
-    *pkt++ = (uint8_t) (dataLength2 & 0xFF);
-
-    memcpy(pkt, txtvers, sizeof(txtvers));
-    pkt += sizeof(txtvers);
-
-    memcpy(pkt, ajpv, sizeof(ajpv));
-    pkt += sizeof(ajpv);
-
-    *pkt++ = sizeof(ipv4) + strlen(addrBuf);
-    memcpy(pkt, ipv4, sizeof(ipv4));
-    pkt += sizeof(ipv4);
-    memcpy(pkt, addrBuf, strlen(addrBuf));
-    pkt += strlen(addrBuf);
-
-    memcpy(pkt, pv, sizeof(pv));
-    pkt += sizeof(pv);
-
-    *pkt++ = sizeof(sid) + strlen(sidBuf);
-    memcpy(pkt, sid, sizeof(sid));
-    pkt += sizeof(sid);
-    memcpy(pkt, sidBuf, strlen(sidBuf));
-    pkt += strlen(sidBuf);
-
-    *pkt++ = sizeof(upcv4) + strlen(portBuf);
-    memcpy(pkt, upcv4, sizeof(upcv4));
-    pkt += sizeof(upcv4);
-    memcpy(pkt, portBuf, strlen(portBuf));
-    pkt += strlen(portBuf);
 
     pktLen = pkt - txBuf->writePtr;
     txBuf->writePtr += pktLen;
@@ -1041,7 +1000,7 @@ AJ_Status AJ_Discover(const char* prefix, AJ_Service* service, uint32_t timeout)
 
         AJ_IO_BUF_RESET(&sock.tx);
         AJ_InfoPrintf(("AJ_Discover(): mDNS \"%s\"\n", prefix));
-        status = ComposeMDnsReq(&sock.tx, prefix, &guid, sock.mDnsRecvAddr, sock.mDnsRecvPort, searchId);
+        status = ComposeMDnsReq(&sock.tx, prefix, &guid, searchId);
         if (status == AJ_OK) {
             sock.tx.flags |= AJ_IO_BUF_MDNS;
             status = sock.tx.send(&sock.tx);

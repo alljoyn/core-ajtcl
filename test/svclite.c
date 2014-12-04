@@ -42,7 +42,7 @@
  * Turn on per-module debug printing by setting this variable to non-zero value
  * (usually in debugger).
  */
-uint8_t dbgSVCLITE = 0;
+uint8_t dbgSVCLITE = 1;
 
 /*
  * Modify these variables to change the service's behavior
@@ -333,6 +333,75 @@ static AJ_Status PropSetHandler(AJ_Message* replyMsg, uint32_t propId, void* con
     }
 }
 
+#ifdef ANNOUNCE_BASED_DISCOVERY
+#define UUID_LENGTH 16
+#define APP_ID_SIGNATURE "ay"
+
+static AJ_Status MarshalAppId(AJ_Message* msg, const char* appId)
+{
+    AJ_Status status;
+    uint8_t binAppId[UUID_LENGTH];
+    uint32_t sz = strlen(appId);
+
+    if (sz > UUID_LENGTH * 2) { // Crop application id that is too long
+        sz = UUID_LENGTH * 2;
+    }
+    status = AJ_HexToRaw(appId, sz, binAppId, UUID_LENGTH);
+    if (status != AJ_OK) {
+        return status;
+    }
+    status = AJ_MarshalArgs(msg, "{sv}", "AppId", APP_ID_SIGNATURE, binAppId, sz / 2);
+
+    return status;
+}
+
+static AJ_Status AboutPropGetter(AJ_Message* reply, const char* language)
+{
+    AJ_Status status;
+    AJ_Arg array;
+    AJ_GUID theAJ_GUID;
+    char machineIdValue[UUID_LENGTH * 2 + 1];
+    machineIdValue[UUID_LENGTH * 2] = '\0';
+
+    status = AJ_MarshalContainer(reply, &array, AJ_ARG_ARRAY);
+    if (status == AJ_OK) {
+        status = AJ_GetLocalGUID(&theAJ_GUID);
+        if (status == AJ_OK) {
+            AJ_GUID_ToString(&theAJ_GUID, machineIdValue, UUID_LENGTH * 2 + 1);
+        }
+        if (status == AJ_OK) {
+            status = MarshalAppId(reply, &machineIdValue[0]);
+        }
+        if (status == AJ_OK) {
+            status = AJ_MarshalArgs(reply, "{sv}", "AppName", "s", "svclite");
+        }
+        if (status == AJ_OK) {
+            status = AJ_MarshalArgs(reply, "{sv}", "DeviceId", "s", machineIdValue);
+        }
+        if (status == AJ_OK) {
+            status = AJ_MarshalArgs(reply, "{sv}", "DeviceName", "s", "Tester");
+        }
+        if (status == AJ_OK) {
+            status = AJ_MarshalArgs(reply, "{sv}", "Manufacturer", "s", "QCE");
+        }
+        if (status == AJ_OK) {
+            status = AJ_MarshalArgs(reply, "{sv}", "ModelNumber", "s", "1.0");
+        }
+        if (status == AJ_OK) {
+            status = AJ_MarshalArgs(reply, "{sv}", "DefaultLanguage", "s", "en");
+        }
+        if (status == AJ_OK) {
+            status = AJ_MarshalArgs(reply, "{sv}", "AJSoftwareVersion", "s", AJ_GetVersion());
+        }
+    }
+    if (status == AJ_OK) {
+        status = AJ_MarshalCloseContainer(reply, &array);
+    }
+
+    return status;
+}
+#endif
+
 uint32_t MyBusAuthPwdCB(uint8_t* buf, uint32_t bufLen)
 {
     const char* myPwd = "1234";
@@ -360,6 +429,9 @@ int AJ_Main()
 
     AJ_PrintXML(AppObjects);
     AJ_RegisterObjects(AppObjects, NULL);
+#ifdef ANNOUNCE_BASED_DISCOVERY
+    AJ_AboutRegisterPropStoreGetter(AboutPropGetter);
+#endif
 
     SetBusAuthPwdCallback(MyBusAuthPwdCB);
     while (TRUE) {

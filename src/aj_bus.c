@@ -553,6 +553,12 @@ AJ_Status AJ_BusHandleBusMessage(AJ_Message* msg)
         status = AJ_AboutIconHandleGetContent(msg, &reply);
         break;
 
+#ifdef ANNOUNCE_BASED_DISCOVERY
+    case AJ_SIGNAL_ABOUT_ANNOUNCE:
+        status = AJ_AboutHandleAnnounce(msg, NULL, NULL, NULL, NULL);
+        break;
+#endif
+
     default:
         AJ_InfoPrintf(("AJ_BusHandleBusMessage(): default\n"));
         if (msg->hdr->msgType == AJ_MSG_METHOD_CALL) {
