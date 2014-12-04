@@ -719,6 +719,7 @@ static void Mcast4Up(const char* group, uint16_t port, uint8_t mdns, uint16_t re
     DWORD num_bytes, num_ifaces;
     SOCKET tmp_sock;
     uint32_t i = 0;
+    int reuse = 1;
 
     tmp_sock = socket(AF_INET, SOCK_DGRAM, 0);
     if (tmp_sock == INVALID_SOCKET) {
@@ -759,6 +760,14 @@ static void Mcast4Up(const char* group, uint16_t port, uint8_t mdns, uint16_t re
             AJ_ErrPrintf(("Mcast4Up(): socket() failed. WSAGetLastError()=0x%x\n", WSAGetLastError()));
         }
 
+        ret = setsockopt(new_sock.sock, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
+
+        if (ret != 0) {
+            AJ_ErrPrintf(("MCast4Up(): setsockopt(SO_REUSEADDR) failed. errno=\"%s\", status=AJ_ERR_READ\n", strerror(errno)));
+            closesocket(new_sock.sock);
+            new_sock.sock = INVALID_SOCKET;
+            continue;
+        }
         new_sock.v4_addr.s_addr = info->iiAddress.AddressIn.sin_addr.s_addr;
 
         // if this address supports IPV4 broadcast, calculate the subnet bcast address and save it
@@ -784,8 +793,13 @@ static void Mcast4Up(const char* group, uint16_t port, uint8_t mdns, uint16_t re
             // bind the socket to the address with supplied port
             sin.sin_family = AF_INET;
             sin.sin_port = htons(port);
+            // need to bind to INADDR_ANY for mdns
+            if (mdns == TRUE) {
+                sin.sin_addr.s_addr = INADDR_ANY;
+            } else {
+                memcpy(&sin, addr, sizeof(struct sockaddr_in));
+            }
             AJ_InfoPrintf(("MCast4Up(): Binding to port %d and group %s\n", port, group));
-            memcpy(&sin, addr, sizeof(struct sockaddr_in));
 
             ret = bind(new_sock.sock, (struct sockaddr*) &sin, sizeof(sin));
             if (ret == SOCKET_ERROR) {
