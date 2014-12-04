@@ -25,6 +25,7 @@
 
 #include "aj_status.h"
 #include "aj_bus.h"
+#include "aj_about.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -227,14 +228,14 @@ AJ_Status AJ_StartClientByName(AJ_BusAttachment* bus,
 /**
  * Initialize an AllJoyn client, discover service by interface name, and connect.
  *
- * @param bus            The bus attachment
- * @param daemonName     Name of a specific daemon service to connect to, NULL for the default name.
- * @param timeout        How long to spend attempting to find a remote service to connect to.
- * @param connected      Whether the bus attachment is already connected to the daemon bus.
- * @param interfaces     Find a service that implements these interface(s) (NULL-terminated list of names)
- * @param[out] sessionId The session id if the connection was successful
+ * @param bus             The bus attachment
+ * @param daemonName      Name of a specific daemon service to connect to, NULL for the default name.
+ * @param timeout         How long to spend attempting to find a remote service to connect to.
+ * @param connected       Whether the bus attachment is already connected to the daemon bus.
+ * @param interfaces      Find a service that implements these interface(s) (NULL-terminated list of names)
+ * @param[out] sessionId  The session id if the connection was successful
  * @param[out] uniqueName The unique name of the service if the connection was successful (supply array of size AJ_MAX_NAME_SIZE+1)
- * @param opts           The session option setting.
+ * @param opts            The session option setting.
  *
  * @return AJ_OK if connection was successfully established
  */
@@ -247,6 +248,35 @@ AJ_Status AJ_StartClientByInterface(AJ_BusAttachment* bus,
                                     uint32_t* sessionId,
                                     char* uniqueName,
                                     const AJ_SessionOpts* opts);
+
+/**
+ * Initialize an AllJoyn client, discover service by peer description, and connect.
+ *
+ * @param bus               The bus attachment
+ * @param daemonName        Name of a specific daemon service to connect to, NULL for the default name.
+ * @param timeout           How long to spend attempting to find a remote service to connect to.
+ * @param connected         Whether the bus attachment is already connected to the daemon bus.
+ * @param peerDesc          Find a peer that matched the description i.e. that implements thes interface(s) and register match callbacks
+ * @param port              The service port to connect to. If value is 0 use the About port in the Announcement.
+ * @param[out] sessionId    The session id if the connection was successful
+ * @param[out] uniqueName   The unique name of the service if the connection was successful (supply array of size AJ_MAX_NAME_SIZE+1)
+ * @param opts              The session option setting.
+ *
+ * @return AJ_OK if connection was successfully established
+ *
+ * This function is experimental, and as such has not been fully tested.
+ * Please help make it more solid by contributing fixes if you find issues.
+ */
+AJ_EXPORT
+AJ_Status AJ_StartClientByPeerDescription(AJ_BusAttachment* bus,
+                                          const char* daemonName,
+                                          uint32_t timeout,
+                                          uint8_t connected,
+                                          const AJ_AboutPeerDescription* peerDesc,
+                                          uint16_t port,
+                                          uint32_t* sessionId,
+                                          char* uniqueName,
+                                          const AJ_SessionOpts* opts);
 
 #ifdef __cplusplus
 }
