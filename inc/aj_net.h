@@ -73,8 +73,6 @@ AJ_Status AJ_Net_Recv(AJ_IOBuffer* rxBuf, uint32_t len, uint32_t timeout);
 typedef struct _AJ_MCastSocket {
     AJ_IOBuffer tx;
     AJ_IOBuffer rx;
-    uint32_t mDnsRecvAddr;
-    uint32_t mDnsRecvPort;
 } AJ_MCastSocket;
 
 /**

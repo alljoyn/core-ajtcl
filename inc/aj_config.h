@@ -81,6 +81,10 @@ extern "C" {
 
 #define _SO_REUSEPORT               0       //Linux target
 
+/* About client Announcement buffer */
+#define AJ_MAX_NUM_OF_OBJ_DESC      (32)           //number of object descriptions in an Announcement payload (aj_about.c)
+#define AJ_MAX_NUM_OF_INTERFACES    (16)           //number of interfaces per object description in an Annoucement payload (aj_about.c)
+
 /* Below sets the actual #define's based on values above */
 #if _AJ_AUTH_DEBUG
 #define AUTH_DEBUG

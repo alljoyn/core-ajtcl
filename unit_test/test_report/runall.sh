@@ -115,8 +115,9 @@ then
 	options=''
 	# gtest_bin needs to be Windows-style because we use pure Windows Python, not Cygwin Python
 	gtest_bin_p="$( cygpath -wa "$gtest_bin" )"
-	# MBUS-1589: sometimes Windows "home" does not work for keystore tests
+	# sometimes Windows "home" does not work for keystore tests
 	export USERPROFILE="$( cygpath -wa . )"
+	export LOCALAPPDATA="$USERPROFILE"
 else
 	: set up alljoyn-daemon
 	options="--print-address"
