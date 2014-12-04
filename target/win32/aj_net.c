@@ -40,6 +40,7 @@
 #include "aj_bufio.h"
 #include "aj_net.h"
 #include "aj_util.h"
+#include "aj_connect.h"
 #include "aj_debug.h"
 
 /**
