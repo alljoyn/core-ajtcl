@@ -29,7 +29,7 @@
 #include "aj_wsl_net.h"
 #include "aj_wsl_unmarshal.h"
 #include "aj_wsl_marshal.h"
-
+#include "aj_wifi_ctrl.h"
 #include "aj_debug.h"
 
 /**
@@ -48,45 +48,71 @@ uint8_t dbgWSL_NET = 0;
  * Maximum timeout for DHCP
  */
 #define AJ_IPCONFIG_TIMEOUT 60000
+#define AJ_WSL_AF_INET 2
+#define AJ_WSL_TCP 1
+#define AJ_WSL_UDP 2
+
+extern uint32_t AJ_WSL_MBOX_BLOCK_SIZE;
 
 wsl_socket_context AJ_WSL_SOCKET_CONTEXT[5];
 
 static wsl_scan_list list;
 
-// this is a placeholder for a callback function called when a BSSINFO packet arrives
+static AJ_WiFiScanResult wifiCallback = NULL;
+static void* wifiContext;
+static uint8_t maxAPs;
+
+void AJ_WSL_RegisterWiFiCallback(void* context, AJ_WiFiScanResult callback)
+{
+    wifiContext = context;
+    wifiCallback = callback;
+}
+
+void AJ_WSL_UnregisterWiFiCallback(void)
+{
+    wifiCallback = NULL;
+}
+
+/*
+ * Callback function for BSSINFO packets
+ */
 void AJ_WSL_BSSINFO_Recv(AJ_BufNode* node)
 {
     wsl_scan_item* item;
-    item = (wsl_scan_item*)WMI_UnmarshalScan(node->bufferStart);
-    memcpy(&list.list[list.size], item, sizeof(wsl_scan_item));
+    item = (wsl_scan_item*)WMI_UnmarshalScan(node->bufferStart, node->length);
+    memcpy(&list.items[list.size], item, sizeof(wsl_scan_item));
+
+    if (wifiCallback) {
+        wifiCallback(wifiContext, list.items[list.size].ssid, list.items[list.size].bssid, list.items[list.size].rssi, list.items[list.size].secType, list.items[list.size].cipherType);
+    }
     AJ_WSL_Free(item);
     list.size++;
 }
-void WSL_ClearScanList(wsl_scan_list* list)
+
+void WSL_ClearScanList()
 {
     int i;
-    for (i = 0; i < list->size; i++) {
-        AJ_WSL_Free(list->list[i].ssid);
+    for (i = 0; i < list.size; i++) {
+        AJ_WSL_Free(list.items[i].ssid);
     }
-    memset(list->list, 0, sizeof(wsl_scan_item) * AJ_WSL_SCAN_LIST_SIZE);
-    list->size = 0;
+    AJ_WSL_Free(list.items);
+    list.size = 0;
 }
+
 wsl_scan_item* WSL_InitScanItem(void)
 {
     wsl_scan_item* item;
     item = (wsl_scan_item*)AJ_WSL_Malloc(sizeof(wsl_scan_item));
     return item;
 }
-void WSL_InsertScanItem(wsl_scan_list* list, wsl_scan_item* item)
+
+void AJ_WSL_InitScanList(uint8_t maxAP)
 {
-    memcpy(&list->list[list->size], item, sizeof(wsl_scan_item));
-    list->size++;
-}
-void AJ_WSL_InitScanList(void)
-{
+    maxAPs = maxAP;
+    list.items = AJ_WSL_Malloc(sizeof(wsl_scan_item) * maxAPs);
     list.size = 0;
 }
-//Returns an out of bounds address ATM
+
 wsl_scan_item* AJ_WSL_GetScanList(void)
 {
     return (wsl_scan_item*)&list;
@@ -103,27 +129,23 @@ void WSL_PrintScan(void)
 {
     int i;
     for (i = 0; i < list.size; i++) {
-        AJ_AlwaysPrintf(("%-17.17s ", list.list[i].ssid));
-        AJ_AlwaysPrintf(("RSSI: %u ", list.list[i].rssi));
+        AJ_AlwaysPrintf(("%-17.17s ", list.items[i].ssid));
+        AJ_AlwaysPrintf(("RSSI: %u ", list.items[i].rssi));
         AJ_AlwaysPrintf(("BSSID: %02x:%02x:%02x:%02x:%02x:%02x\n",
-                         list.list[i].bssid[0],
-                         list.list[i].bssid[1],
-                         list.list[i].bssid[2],
-                         list.list[i].bssid[3],
-                         list.list[i].bssid[4],
-                         list.list[i].bssid[5]));
+                         list.items[i].bssid[0],
+                         list.items[i].bssid[1],
+                         list.items[i].bssid[2],
+                         list.items[i].bssid[3],
+                         list.items[i].bssid[4],
+                         list.items[i].bssid[5]));
     }
 }
+
 void WSL_PrintScanSorted(void)
 {
-    qsort(&list.list[0], list.size, sizeof(wsl_scan_item), list_compare);
+    qsort(&list.items[0], list.size, sizeof(wsl_scan_item), list_compare);
     WSL_PrintScan();
 }
-#define AJ_WSL_AF_INET 2
-#define AJ_WSL_TCP 1
-#define AJ_WSL_UDP 2
-
-extern uint32_t AJ_WSL_MBOX_BLOCK_SIZE;
 
 void AJ_WSL_WMI_PadPayload(AJ_BufList* bssfilter)
 {
@@ -135,6 +157,7 @@ void AJ_WSL_WMI_PadPayload(AJ_BufList* bssfilter)
         AJ_BufListPushTail(bssfilter, node);
     }
 }
+
 void AJ_WSL_NET_BSS_FILTER(uint8_t flag) {
     AJ_InfoPrintf(("AJ_WSL_NET_BSS_FILTER(): SET_BSS_FILTER\n"));
     AJ_BufList* bssfilter;
@@ -144,6 +167,7 @@ void AJ_WSL_NET_BSS_FILTER(uint8_t flag) {
     AJ_WSL_WMI_PadPayload(bssfilter);
     AJ_WSL_WMI_QueueWorkItem(0, WSL_SET_BSS_FILTER, AJ_WSL_HTC_DATA_ENDPOINT1, bssfilter);
 }
+
 void AJ_WSL_SetProbedSSID(const char* ssid, uint8_t flag)
 {
     AJ_BufList* probed_ssid;
@@ -153,6 +177,7 @@ void AJ_WSL_SetProbedSSID(const char* ssid, uint8_t flag)
     AJ_WSL_WMI_PadPayload(probed_ssid);
     AJ_WSL_WMI_QueueWorkItem(0, WSL_SET_PROBED_SSID, AJ_WSL_HTC_DATA_ENDPOINT1, probed_ssid);
 }
+
 void AJ_WSL_NET_add_cipher_key(uint8_t keyIndex, uint8_t* key, uint8_t keyLength)
 {
     AJ_BufList* add_key;
@@ -164,6 +189,7 @@ void AJ_WSL_NET_add_cipher_key(uint8_t keyIndex, uint8_t* key, uint8_t keyLength
     AJ_WSL_WMI_QueueWorkItem(0, WSL_ADD_CIPHER_KEY, AJ_WSL_HTC_DATA_ENDPOINT1, add_key);
 
 }
+
 void AJ_WSL_NET_set_scan_params(void)
 {
     AJ_BufList* packet;
@@ -180,13 +206,12 @@ AJ_Status AJ_WSL_NET_scan(void)
     AJ_Status status;
     AJ_BufList* start_scan;
     wsl_work_item* item;
-    AJ_WSL_InitScanList();
 
     AJ_WSL_NET_BSS_FILTER(1);
 
     AJ_WSL_NET_set_scan_params();
 
-    AJ_AlwaysPrintf((("AJ_WSL_NET_scan(): START_SCAN\n")));
+    AJ_InfoPrintf((("AJ_WSL_NET_scan(): START_SCAN\n")));
     start_scan = AJ_BufListCreate();
     WSL_MarshalPacket(start_scan, WSL_START_SCAN, 0, 0, 0, 0, 0, 0, 0, 0);
     WMI_MarshalHeader(start_scan, 1, 1);
@@ -196,7 +221,7 @@ AJ_Status AJ_WSL_NET_scan(void)
     status = AJ_WSL_WMI_WaitForWorkItem(0, AJ_WSL_WORKITEM(AJ_WSL_WORKITEM_NETWORK, WSL_NET_SCAN), &item, AJ_NET_TIMEOUT);
     if (item && (status == AJ_OK)) {
         if (item->itemType == WSL_NET_SCAN) {
-            AJ_InfoPrintf(("AJ_WSL_ip6config(): WORK ITEM RECEIVED\n"));
+            AJ_InfoPrintf(("AJ_WSL_NET_scan(): WORK ITEM RECEIVED\n"));
             uint16_t WMIEvent;
             uint32_t toss;
             uint32_t error;
@@ -298,8 +323,8 @@ static uint8_t getMacFromSSID(const char* ssid, uint8_t* mac, wsl_scan_list* lis
 {
     int i;
     for (i = 0; i < list->size; i++) {
-        if (0 == strcmp(list->list[i].ssid, ssid)) {
-            memcpy(mac, list->list[i].bssid, 6);
+        if (0 == strcmp(list->items[i].ssid, ssid)) {
+            memcpy(mac, list->items[i].bssid, 6);
             return 1;
         }
     }
@@ -326,29 +351,27 @@ AJ_EXPORT AJ_Status AJ_WSL_NET_connect(const char* SSID, const char* passphrase,
             uint8_t found = 0;
             AJ_InitTimer(&timer);
             while (!found) {
-                // First check if we have the SSID in a previous scan list
-                if (getMacFromSSID(SSID, bss_mac, list)) {
-                    found = 1;
-                    break;
-                }
-                AJ_WSL_InitScanList();
+                AJ_WSL_InitScanList(AJ_WSL_SCAN_LIST_SIZE);
                 AJ_WSL_SetProbedSSID(SSID, 1);
                 status = AJ_WSL_NET_scan();
                 // Some kind of scan error
                 if (status != AJ_OK) {
+                    WSL_ClearScanList();
                     continue;
                 }
                 AJ_WSL_NET_scan_stop();
                 if (AJ_GetElapsedTime(&timer, TRUE) > AJ_WSL_CONNECT_TIMEOUT) {
                     AJ_ErrPrintf(("AJ_WSL_NET_connect() Could not find the access point %s\n", SSID));
+                    WSL_ClearScanList();
                     return AJ_ERR_FAILURE;
                 }
                 // Find the SSID you want to connect to in the second scan list
                 if (getMacFromSSID(SSID, bss_mac, list)) {
+                    WSL_ClearScanList();
                     found = 1;
                     break;
                 } else {
-                    WSL_ClearScanList(list);
+                    WSL_ClearScanList();
                     AJ_Sleep(AJ_WSL_CONNECT_WAIT);
                     continue;
                 }
@@ -774,6 +797,7 @@ int16_t AJ_WSL_NET_socket_select(AJ_WSL_SOCKNUM sock, uint32_t timeout)
         } else if ((status == AJ_OK) && (peek->itemType == WSL_NET_CLOSE ||
                                          peek->itemType == WSL_NET_DISCONNECT ||
                                          peek->itemType == AJ_WSL_WORKITEM(AJ_WSL_WORKITEM_SOCKET, WSL_SOCK_CLOSE))) {
+            wsl_work_item* clear;
             // Pull the close work item off the queue
             AJ_QueuePull(AJ_WSL_SOCKET_CONTEXT[sock].workRxQueue, &peek, 0);
             // Socket was closed so tear down the connections
@@ -783,6 +807,12 @@ int16_t AJ_WSL_NET_socket_select(AJ_WSL_SOCKNUM sock, uint32_t timeout)
             // Reallocate a new stash
             AJ_WSL_SOCKET_CONTEXT[sock].stashedRxList = AJ_BufListCreate();
             // Reset the queue, any work items are now invalid since the socket was closed
+            while (AJ_QueuePull(AJ_WSL_SOCKET_CONTEXT[sock].workRxQueue, &clear, 0) == AJ_OK) {
+                AJ_WSL_WMI_FreeWorkItem(clear);
+            }
+            while (AJ_QueuePull(AJ_WSL_SOCKET_CONTEXT[sock].workTxQueue, &clear, 0) == AJ_OK) {
+                AJ_WSL_WMI_FreeWorkItem(clear);
+            }
             AJ_QueueReset(AJ_WSL_SOCKET_CONTEXT[sock].workRxQueue);
             AJ_QueueReset(AJ_WSL_SOCKET_CONTEXT[sock].workTxQueue);
             AJ_WSL_WMI_FreeWorkItem(peek);
@@ -833,10 +863,14 @@ int16_t AJ_WSL_NET_socket_recv(AJ_WSL_SOCKNUM sock, uint8_t* buffer, uint32_t si
         return ret;
     }
     if (AJ_WSL_SOCKET_CONTEXT[sock].valid == FALSE) {
+        wsl_work_item* clear;
         // tried to get data from an invalid socket, return the data read from the stash
         AJ_BufListFree(AJ_WSL_SOCKET_CONTEXT[sock].stashedRxList, 1);
         AJ_WSL_SOCKET_CONTEXT[sock].stashedRxList = AJ_BufListCreate();
         //flush the queue
+        while (AJ_QueuePull(AJ_WSL_SOCKET_CONTEXT[sock].workRxQueue, &clear, 0) == AJ_OK) {
+            AJ_WSL_WMI_FreeWorkItem(clear);
+        }
         AJ_QueueReset(AJ_WSL_SOCKET_CONTEXT[sock].workRxQueue);
         return ret;
     }
@@ -878,17 +912,25 @@ int16_t AJ_WSL_NET_socket_recv(AJ_WSL_SOCKNUM sock, uint8_t* buffer, uint32_t si
                 // Clean up the network queues
                 int i;
                 for (i = 0; i < AJ_WSL_SOCKET_MAX; i++) {
+                    wsl_work_item* clear;
                     AJ_WSL_SOCKET_CONTEXT[i].valid = FALSE;
                     // Removed any stashed data
                     AJ_BufListFree(AJ_WSL_SOCKET_CONTEXT[i].stashedRxList, 1);
                     // Reallocate a new stash
                     AJ_WSL_SOCKET_CONTEXT[i].stashedRxList = AJ_BufListCreate();
                     // Reset the queue, any work items are now invalid since the socket was closed
+                    while (AJ_QueuePull(AJ_WSL_SOCKET_CONTEXT[i].workRxQueue, &clear, 0) == AJ_OK) {
+                        AJ_WSL_WMI_FreeWorkItem(clear);
+                    }
+                    while (AJ_QueuePull(AJ_WSL_SOCKET_CONTEXT[i].workTxQueue, &clear, 0) == AJ_OK) {
+                        AJ_WSL_WMI_FreeWorkItem(clear);
+                    }
                     AJ_QueueReset(AJ_WSL_SOCKET_CONTEXT[i].workRxQueue);
                     AJ_QueueReset(AJ_WSL_SOCKET_CONTEXT[i].workTxQueue);
                 }
                 ret = -1;
             } else if ((status == AJ_OK) && (item->itemType == WSL_NET_CLOSE || item->itemType == AJ_WSL_WORKITEM(AJ_WSL_WORKITEM_SOCKET, WSL_SOCK_CLOSE))) {
+                wsl_work_item* clear;
                 // Pull the close work item off the queue
                 AJ_QueuePull(AJ_WSL_SOCKET_CONTEXT[sock].workRxQueue, &item, 0);
                 // Socket was closed so tear down the connections
@@ -898,6 +940,12 @@ int16_t AJ_WSL_NET_socket_recv(AJ_WSL_SOCKNUM sock, uint8_t* buffer, uint32_t si
                 // Reallocate a new stash
                 AJ_WSL_SOCKET_CONTEXT[sock].stashedRxList = AJ_BufListCreate();
                 // Reset the queue, any work items are now invalid since the socket was closed
+                while (AJ_QueuePull(AJ_WSL_SOCKET_CONTEXT[sock].workRxQueue, &clear, 0) == AJ_OK) {
+                    AJ_WSL_WMI_FreeWorkItem(clear);
+                }
+                while (AJ_QueuePull(AJ_WSL_SOCKET_CONTEXT[sock].workTxQueue, &clear, 0) == AJ_OK) {
+                    AJ_WSL_WMI_FreeWorkItem(clear);
+                }
                 AJ_QueueReset(AJ_WSL_SOCKET_CONTEXT[sock].workRxQueue);
                 AJ_QueueReset(AJ_WSL_SOCKET_CONTEXT[sock].workTxQueue);
                 ret = -1;
@@ -1142,7 +1190,7 @@ AJ_Status AJ_WSL_NET_disconnect(void)
     AJ_Status status;
     AJ_BufList* disconnect;
     wsl_work_item* item;
-    AJ_AlwaysPrintf((("AJ_WSL_NET_disconnect(): DISCONNECT\n")));
+    AJ_InfoPrintf((("AJ_WSL_NET_disconnect(): DISCONNECT\n")));
     disconnect = AJ_BufListCreate();
     WSL_MarshalPacket(disconnect, WSL_DISCONNECT, 0, 0, 0, 0, 0, 0, 0, 0);
     WMI_MarshalHeader(disconnect, 1, 1);

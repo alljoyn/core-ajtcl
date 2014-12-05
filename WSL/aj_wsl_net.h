@@ -24,6 +24,7 @@
 #include "aj_target.h"
 #include "aj_wsl_target.h"
 #include "aj_status.h"
+#include "aj_wifi_ctrl.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -34,16 +35,18 @@ extern "C" {
 #endif
 typedef uint8_t AJ_WSL_SOCKNUM;
 
-#define AJ_WSL_SCAN_LIST_SIZE 30
+#define AJ_WSL_SCAN_LIST_SIZE 32
 
 typedef struct _wsl_scan_item {
     char* ssid;
     uint8_t rssi;
     uint8_t bssid[6];
+    uint8_t secType;
+    uint8_t cipherType;
 } wsl_scan_item;
 
 typedef struct _wsl_scan_list {
-    wsl_scan_item list[AJ_WSL_SCAN_LIST_SIZE];
+    wsl_scan_item* items;
     uint16_t size;
 } wsl_scan_list;
 
@@ -105,10 +108,6 @@ typedef enum {
 #define AJ_IPV4_MCAST_GROUP     0xe0000071  //0x710000e0  //224.0.0.113 - Alljoyn Multicast Group
 #define AJ_INADDR_ANY           0x00000000  //0.0.0.0
 
-/*
- * Initiate a wifi scan. This will populate a list of SSID/RSSI/BSSID's
- */
-AJ_EXPORT AJ_Status AJ_WSL_NET_scan(void);
 /**
  * Connect to a wifi network
  *
@@ -388,13 +387,34 @@ AJ_Status AJ_WSL_NET_SetPowerMode(uint8_t mode);
 
 /**
  * Initialize the scan list for scanning SSID's
+ *
+ * @param maxAP         Maximum number of AP's stored in the scan.
  */
-void AJ_WSL_InitScanList(void);
+void AJ_WSL_InitScanList(uint8_t maxAP);
+
+/**
+ * Initiate a wifi scan. This will populate a list of SSID/RSSI/BSSID's
+ */
+AJ_Status AJ_WSL_NET_scan(void);
 
 /**
  * Stop an already started SSID scan
  */
 void AJ_WSL_NET_scan_stop(void);
+
+/**
+ * Clear and free a scan list. This function has to be called after
+ * calling AJ_WSL_InitScanList() or it will leak memory
+ */
+void WSL_ClearScanList();
+
+/**
+ * Get a stored scan list. This function will not return a valid list
+ * unless the scanning functions were called properly.
+ *
+ * @return      A pointer to the list of SSID's
+ */
+wsl_scan_item* AJ_WSL_GetScanList(void);
 
 /**
  * Set the softAP to hidden
@@ -407,6 +427,23 @@ AJ_Status AJ_WSL_NET_SetHiddenAP(uint8_t hidden);
  * Print the list of scanned SSID's
  */
 void WSL_PrintScanSorted(void);
+
+/**
+ * Register a callback function to be called whenever a BSSINFO (scan) packet
+ * is received over the wire.
+ *
+ * @param context       Context pointer
+ * @param callback      Function pointer to the callback function
+ */
+void AJ_WSL_RegisterWiFiCallback(void* context, AJ_WiFiScanResult callback);
+
+/**
+ * Unregister a BSSINFO (scan) callback function. This function should be called
+ * after a scan has completed or else the callback will be called later on
+ * when connecting to an access point.
+ */
+void AJ_WSL_UnregisterWiFiCallback(void);
+
 #ifndef __cplusplus
 #pragma pack(pop)
 #endif
