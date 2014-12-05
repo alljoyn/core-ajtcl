@@ -44,8 +44,6 @@
 uint8_t dbgNET = 0;
 #endif
 
-#define INVALID_SOCKET (-1)
-
 /*
  * IANA assigned IPv4 multicast group for AllJoyn.
  */
