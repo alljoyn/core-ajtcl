@@ -426,27 +426,28 @@ AJ_Status AJ_Net_SendTo(AJ_IOBuffer* buf)
 
 AJ_Status AJ_Net_RecvFrom(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)
 {
-
     AJ_Status status = AJ_OK;
+    int ret;
 
     MCastContext* context = (MCastContext*) buf->context;
     int sock = context->mDnsRecvSock;
     uint32_t poll = min(100, timeout / 2);
     size_t rx = AJ_IO_BUF_SPACE(buf);
 
-    AJ_InfoPrintf(("AJ_Net_RecvFrom(buf=0x%p, len=%ld., timeout=%ld.)\n", buf, len, timeout));
+    AJ_InfoPrintf(("AJ_Net_RecvFrom(buf=0x%p, len=%ld, timeout=%ld)\n", buf, len, timeout));
 
     assert(buf->direction == AJ_IO_BUF_RX);
     assert(context->mDnsRecvSock != INVALID_SOCKET);
-    int ret;
+
     while (1) {
 
         ret = AJ_WSL_NET_socket_recv(sock, buf->writePtr, rx, poll);
-
         if (ret == -1) {
-            // Tried to read from an invalid socket
-            return AJ_ERR_READ;
+            AJ_ErrPrintf(("AJ_Net_RecvFrom(): Invalid socket: %d\n", ret));
+            status = AJ_ERR_READ;
+            break;
         }
+
         if (ret > 0) {
             if (sock == context->mDnsRecvSock) {
                 buf->flags |= AJ_IO_BUF_MDNS;
@@ -454,14 +455,33 @@ AJ_Status AJ_Net_RecvFrom(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)
                 buf->flags |= AJ_IO_BUF_AJ;
             }
             buf->writePtr += ret;
-            return AJ_OK;
+            break;
         }
+
         if (timeout < 100) {
-            AJ_ErrPrintf(("AJ_Net_RecvFrom(): select() timed out. status=AJ_ERR_TIMEOUT\n"));
-            return AJ_ERR_TIMEOUT;
+            AJ_ErrPrintf(("AJ_Net_RecvFrom(): select() timed out.\n"));
+            status = AJ_ERR_TIMEOUT;
+            break;
         }
+
+        // rotate to the next valid socket
+        if (sock == context->mDnsRecvSock) {
+            if (context->udpSock != INVALID_SOCKET) {
+                sock = context->udpSock;
+            } else if (context->udp6Sock != INVALID_SOCKET) {
+                sock = context->udp6Sock;
+            }
+        } else if (sock == context->udpSock) {
+            if (context->udp6Sock != INVALID_SOCKET) {
+                sock = context->udp6Sock;
+            } else {
+                sock = context->mDnsRecvSock;
+            }
+        } else if (sock == context->udp6Sock) {
+            sock = context->mDnsRecvSock;
+        }
+
         timeout -= 100;
-        sock = (sock == context->mDnsRecvSock) ? context->udpSock : ((sock == context->udpSock) ? context->udp6Sock : context->mDnsRecvSock);
     }
 
     AJ_InfoPrintf(("AJ_Net_RecvFrom(): status=%s\n", AJ_StatusText(status)));
