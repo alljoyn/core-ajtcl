@@ -259,7 +259,7 @@ typedef struct _MDNSSrvRData {
 typedef struct _MDNSTextRData {
     char BusNodeName[256];
     char BusNodeTransport[256];
-    char BusNodeProtocolVersion[256];
+    char BusNodeProtocolVersion[8];
 } MDNSTextRData;
 
 typedef union _MDNSRData {
@@ -595,7 +595,7 @@ static size_t ParseMDNSTextRData(uint8_t const* buffer, uint32_t bufsize, MDNSTe
     size_t size = 0;
     memset(textRData->BusNodeName, 0, 256);
     memset(textRData->BusNodeTransport, 0, 256);
-    memset(textRData->BusNodeProtocolVersion, 0, 256);
+    memset(textRData->BusNodeProtocolVersion, 0, 8);
 
     if (bufsize < 2) {
         AJ_ErrPrintf(("ParseMDNSTextRData(): Insufficient bufsize %d", bufsize));
@@ -629,7 +629,9 @@ static size_t ParseMDNSTextRData(uint8_t const* buffer, uint32_t bufsize, MDNSTe
             uint32_t indx = pos - p;
             uint32_t valsz = (sz - indx);
             if (!memcmp(p, "ajpv", 4)) {
-                memcpy(textRData->BusNodeProtocolVersion, pos + 1, valsz);
+                if (valsz < 8) {
+                    memcpy(textRData->BusNodeProtocolVersion, pos + 1, valsz);
+                }
             }
             if (!memcmp(p, "t_", 2) && !textRData->BusNodeName[0]) {
                 memcpy(textRData->BusNodeTransport, pos + 1, valsz);
@@ -785,6 +787,7 @@ static AJ_Status ParseMDNSResp(AJ_IOBuffer* rxBuf, const char* prefix, AJ_Servic
     uint16_t service_port = 0;
     uint8_t bus_addr[3 * 4 + 3 + 1] = { 0 };
     uint8_t service_target[256] = { 0 };
+    MDNSResourceRecord r;
 
     memset(&header, 0, sizeof(MDNSHeader));
     size = ParseMDNSHeader(buffer, bufsize, &header);
@@ -808,7 +811,6 @@ static AJ_Status ParseMDNSResp(AJ_IOBuffer* rxBuf, const char* prefix, AJ_Servic
     p = &buffer[size];
 
     for (i = 0; i < header.qdCount; i++) {
-        MDNSResourceRecord r;
         memset(&r, 0, sizeof(MDNSResourceRecord));
         ret = ParseMDNSResourceRecord(p, bufsize, &r, buffer, paylen, NULL);
         if (ret == 0 || ret > bufsize) {
@@ -821,7 +823,6 @@ static AJ_Status ParseMDNSResp(AJ_IOBuffer* rxBuf, const char* prefix, AJ_Servic
         AJ_InfoPrintf(("Skipping unexpected question in response, will be silently ignored.\n"));
     }
     for (i = 0; i < header.anCount; i++) {
-        MDNSResourceRecord r;
         memset(&r, 0, sizeof(MDNSResourceRecord));
         ret = ParseMDNSResourceRecord(p, bufsize, &r, buffer, paylen, NULL);
         if (ret == 0 || ret > bufsize) {
@@ -853,7 +854,6 @@ static AJ_Status ParseMDNSResp(AJ_IOBuffer* rxBuf, const char* prefix, AJ_Servic
     }
 
     for (i = 0; i < header.m_nsCount; i++) {
-        MDNSResourceRecord r;
         memset(&r, 0, sizeof(MDNSResourceRecord));
         ret = ParseMDNSResourceRecord(p, bufsize, &r, buffer, paylen, NULL);
         if (ret == 0 || ret > bufsize) {
@@ -866,7 +866,6 @@ static AJ_Status ParseMDNSResp(AJ_IOBuffer* rxBuf, const char* prefix, AJ_Servic
         AJ_InfoPrintf(("Skipping non-relevant authority record, will be silently ignored.\n"));
     }
     for (i = 0; i < header.arCount; i++) {
-        MDNSResourceRecord r;
         memset(&r, 0, sizeof(MDNSResourceRecord));
         ret = ParseMDNSResourceRecord(p, bufsize, &r, buffer, paylen, prefix);
         if (ret == 0 || ret > bufsize) {
