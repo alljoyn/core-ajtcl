@@ -32,8 +32,8 @@
 uint8_t dbgABOUT = 0;
 #endif
 
-static const uint8_t aboutVersion = 1;
-static const uint8_t aboutIconVersion = 1;
+#define ABOUT_VERSION      (1)
+#define ABOUT_ICON_VERSION (1)
 
 /*
  * Registered by the Property Store implementation
@@ -96,7 +96,7 @@ void AJ_AboutSetIcon(const uint8_t* data, uint16_t size, const char* mime, const
 static AJ_Status AboutGetProp(AJ_Message* replyMsg, uint32_t propId, void* context)
 {
     if (propId == AJ_PROPERTY_ABOUT_VERSION) {
-        return AJ_MarshalArgs(replyMsg, "q", (uint16_t)aboutVersion);
+        return AJ_MarshalArgs(replyMsg, "q", (uint16_t)ABOUT_VERSION);
     } else {
         return AJ_ERR_UNEXPECTED;
     }
@@ -230,7 +230,7 @@ AJ_Status AJ_AboutAnnounce(AJ_BusAttachment* bus)
     if (status != AJ_OK) {
         goto ErrorExit;
     }
-    status = AJ_MarshalArgs(&announcement, "q", (uint16_t)aboutVersion);
+    status = AJ_MarshalArgs(&announcement, "q", (uint16_t)ABOUT_VERSION);
     if (status != AJ_OK) {
         goto ErrorExit;
     }
@@ -271,7 +271,7 @@ static AJ_Status AboutIconGetProp(AJ_Message* replyMsg, uint32_t propId, void* c
     AJ_Status status = AJ_ERR_UNEXPECTED;
 
     if (propId == AJ_PROPERTY_ABOUT_ICON_VERSION_PROP) {
-        status = AJ_MarshalArgs(replyMsg, "q", (uint16_t)aboutIconVersion);
+        status = AJ_MarshalArgs(replyMsg, "q", (uint16_t)ABOUT_ICON_VERSION);
     } else if (propId == AJ_PROPERTY_ABOUT_ICON_MIMETYPE_PROP) {
         status = AJ_MarshalArgs(replyMsg, "s", icon.mime ? icon.mime : "");
     } else if (propId == AJ_PROPERTY_ABOUT_ICON_SIZE_PROP) {
@@ -568,23 +568,34 @@ static void handleOptionalProp(const char* peerName, const char* key, const char
     }
 }
 
-AJ_Status AJ_AboutHandleAnnounce(AJ_Message* announcement, uint16_t* aboutVersion, uint16_t* aboutPort, char* peerName, uint8_t* relevant)
+AJ_Status AJ_AboutHandleAnnounce(AJ_Message* announcement, uint16_t* outAboutVersion, uint16_t* outAboutPort, char* peerName, uint8_t* outRelevant)
 {
     AJ_Status status = AJ_OK;
     const char* objPath = "/";
     uint16_t peerListCount = 0;
     AJ_AboutObjectDescription objDescs[AJ_MAX_NUM_OF_OBJ_DESC];
     uint16_t objDescsCount = 0;
-
-    *relevant = FALSE;
+    uint16_t aboutVersion = 0;
+    uint16_t aboutPort = 0;
+    uint8_t relevant = FALSE;
 
     /**
      * Extract basic information from Announcement message
      */
-    status = AJ_UnmarshalArgs(announcement, "qq", aboutVersion, aboutPort);
+    status = AJ_UnmarshalArgs(announcement, "qq", &aboutVersion, &aboutPort);
     if (status != AJ_OK) {
         return status;
     }
+    if (outAboutVersion != NULL) {
+        *outAboutVersion = aboutVersion;
+    }
+    if (outAboutPort != NULL) {
+        *outAboutPort = aboutPort;
+    }
+    if (outRelevant != NULL) {
+        *outRelevant = relevant;
+    }
+
     if (peerName != NULL) {
         strncpy(peerName, announcement->sender, AJ_MAX_NAME_SIZE);
         peerName[AJ_MAX_NAME_SIZE] = '\0';
@@ -646,7 +657,7 @@ AJ_Status AJ_AboutHandleAnnounce(AJ_Message* announcement, uint16_t* aboutVersio
                      * Check if the current object contains ALL the interfaces and fire handle on the match
                      */
                     if ((found == peerDesc->numberInterfaces) && (peerDesc->handleMatch != NULL)) {
-                        if (peerDesc->handleMatch(*aboutVersion, *aboutPort, announcement->sender, objPath) == FALSE) {
+                        if (peerDesc->handleMatch(aboutVersion, aboutPort, announcement->sender, objPath) == FALSE) {
                             goto NextPeerDescription;
                         }
                         found = 0;
@@ -663,7 +674,7 @@ AJ_Status AJ_AboutHandleAnnounce(AJ_Message* announcement, uint16_t* aboutVersio
                 if (peerDesc->numberInterfaces != 1) {
                     objPath = "/";
                 }
-                peerDesc->handleMatch(*aboutVersion, *aboutPort, announcement->sender, objPath);
+                peerDesc->handleMatch(aboutVersion, aboutPort, announcement->sender, objPath);
             }
         } else {
             /**
@@ -671,7 +682,7 @@ AJ_Status AJ_AboutHandleAnnounce(AJ_Message* announcement, uint16_t* aboutVersio
              * The handler will be able to perform introspection using the given peerName if required.
              */
             if (peerDesc->handleMatch != NULL) {
-                peerDesc->handleMatch(*aboutVersion, *aboutPort, announcement->sender, objPath);
+                peerDesc->handleMatch(aboutVersion, aboutPort, announcement->sender, objPath);
             }
         }
     NextPeerDescription:
@@ -686,7 +697,10 @@ AJ_Status AJ_AboutHandleAnnounce(AJ_Message* announcement, uint16_t* aboutVersio
     for (peerListCount = 0; peerListCount < peerListLength; peerListCount++) {
         const AJ_AboutPeerDescription* peerDesc = &peerList[peerListCount];
 
-        *relevant |= peerDesc->handleIsRelevant(announcement->sender);
+        relevant |= peerDesc->handleIsRelevant(announcement->sender);
+    }
+    if (outRelevant != NULL) {
+        *outRelevant = relevant;
     }
 
     return status;

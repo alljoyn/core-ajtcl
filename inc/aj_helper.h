@@ -249,6 +249,7 @@ AJ_Status AJ_StartClientByInterface(AJ_BusAttachment* bus,
                                     char* uniqueName,
                                     const AJ_SessionOpts* opts);
 
+#ifdef ANNOUNCE_BASED_DISCOVERY
 /**
  * Initialize an AllJoyn client, discover service by peer description, and connect.
  *
@@ -277,6 +278,7 @@ AJ_Status AJ_StartClientByPeerDescription(AJ_BusAttachment* bus,
                                           uint32_t* sessionId,
                                           char* uniqueName,
                                           const AJ_SessionOpts* opts);
+#endif
 
 #ifdef __cplusplus
 }

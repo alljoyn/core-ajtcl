@@ -162,9 +162,7 @@ void AJ_AboutSetShouldAnnounce();
  */
 void AJ_AboutSetAnnounceObjects(AJ_Object* objList);
 
-#ifdef __cplusplus
-}
-#endif
+#ifdef ANNOUNCE_BASED_DISCOVERY
 /**
  * Type for received object description
  *
@@ -351,6 +349,11 @@ AJ_Status AJ_AboutUnmarshalAppIdFromVariant(AJ_Message* announcement, char* appI
  * Please help make it more solid by contributing fixes if you find issues.
  */
 AJ_Status AJ_AboutHandleAnnounce(AJ_Message* announcement, uint16_t* version, uint16_t* port, char* peerName, uint8_t* relevant);
+#endif
+
+#ifdef __cplusplus
+}
+#endif
 
 /** End of insert */
 /**
