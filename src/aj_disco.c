@@ -948,8 +948,6 @@ AJ_Status AJ_Discover(const char* prefix, AJ_Service* service, uint32_t timeout)
 
     AJ_InfoPrintf(("AJ_Discover(prefix=\"%s\", service=0x%p, timeout=%d.)\n", prefix, service, timeout));
 
-    searchId++;
-
     /*
      * Enable multicast I/O for the discovery packets.
      */
@@ -1016,6 +1014,7 @@ AJ_Status AJ_Discover(const char* prefix, AJ_Service* service, uint32_t timeout)
          */
         if (burstCount >= AJ_BURST_COUNT) {
             burstCount = 0;
+            searchId++;
             queries++;
             if (queries == 10) {
                 interval = 10000;
