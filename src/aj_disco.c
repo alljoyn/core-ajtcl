@@ -566,7 +566,7 @@ static size_t ParseMDNSDomainName(uint8_t const* buffer, uint32_t bufsize, MDNSD
                 memcpy((domainName->name + offset), ".", 1);
                 offset++;
             }
-            if (label_len > 0) {
+            if ((label_len > 0) && (offset + label_len) < 256) {
                 memcpy((domainName->name + offset), (pos), label_len);
                 len -= label_len;
                 pos += label_len;
@@ -617,17 +617,17 @@ static size_t ParseMDNSTextRData(uint8_t const* buffer, uint32_t bufsize, MDNSTe
     while (rdlen > 0 && bufsize > 0) {
         sz = *p++;
         bufsize--;
-        if (bufsize < sz) {
+        if (!sz || !bufsize ||  bufsize < sz) {
             AJ_ErrPrintf(("ParseMDNSTextRData(): Insufficient bufsize %d", bufsize));
             return 0;
         }
         // For now we are only interested in three specific
         // key-value pairs: the bus node transport, bus node
         // name and the bus node protocol version.
-        pos = (uint8_t*) strchr((char const*)p, '=');
+        pos = (uint8_t*) memchr((char const*)p, '=', sz);
         if (pos) {
-            uint32_t indx = pos - p;
-            uint32_t valsz = (sz - indx);
+            uint8_t indx = pos - p;
+            uint8_t valsz = (sz - indx - 1);
             if (!memcmp(p, "ajpv", 4)) {
                 if (valsz < 8) {
                     memcpy(textRData->BusNodeProtocolVersion, pos + 1, valsz);
