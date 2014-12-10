@@ -576,7 +576,7 @@ AJ_Status AJ_WSL_ipconfig(uint32_t mode, uint32_t* ip, uint32_t* mask, uint32_t*
 int8_t AJ_WSL_NET_socket_open(uint16_t domain, uint16_t type, uint16_t protocol)
 {
     AJ_Status status;
-    uint8_t handle = AJ_WSL_SOCKET_MAX;
+    int8_t handle = INVALID_SOCKET;
 
     AJ_BufList* open;
     open = AJ_BufListCreate();
@@ -606,7 +606,7 @@ int8_t AJ_WSL_NET_socket_open(uint16_t domain, uint16_t type, uint16_t protocol)
                 WMI_Unmarshal(item->node->buffer, "quuuuu", &WMIEvent, &reserved, &_command, &_handle, &_error, &_mode);
                 AJ_InfoPrintf((" Socket Open: handle %08lx error %08lx\n", _handle, _error));
                 handle = AJ_WSL_FindOpenSocketContext();
-                if (handle != AJ_WSL_SOCKET_MAX) {
+                if (handle != INVALID_SOCKET) {
                     AJ_WSL_SOCKET_CONTEXT[handle].targetHandle = _handle;
                     AJ_WSL_SOCKET_CONTEXT[handle].valid = TRUE;
                     AJ_WSL_SOCKET_CONTEXT[handle].domain = domain;
@@ -759,7 +759,7 @@ int16_t AJ_WSL_NET_socket_select(AJ_WSL_SOCKNUM sock, uint32_t timeout)
     AJ_Status status;
     int16_t ret = 0;
     // Check if the socket is valid
-    if (sock >= AJ_WSL_SOCKET_MAX) {
+    if ((sock >= AJ_WSL_SOCKET_MAX) || (sock < 0)) {
         // tried to get data from an invalid socket, return an error
         return ret;
     }
@@ -858,7 +858,7 @@ int16_t AJ_WSL_NET_socket_recv(AJ_WSL_SOCKNUM sock, uint8_t* buffer, uint32_t si
     // read from stash first.
     uint16_t stashLength;
 
-    if (sock >= AJ_WSL_SOCKET_MAX) {
+    if ((sock >= AJ_WSL_SOCKET_MAX) || (sock < 0)) {
         // tried to get data from an invalid socket, return an error
         return ret;
     }

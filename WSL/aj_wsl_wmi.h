@@ -182,13 +182,6 @@ typedef struct _wsl_socket_context {
 } wsl_socket_context;
 
 /**
- * global variable for WSL_SOCKET state, only 4 sockets supported.
- *  plus one for global communications
- */
-
-extern uint8_t AJ_WSL_SOCKET_MAX;
-
-/**
  * Find a socket number
  *
  * @param handle        The socket handle

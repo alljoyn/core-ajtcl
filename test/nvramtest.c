@@ -36,6 +36,8 @@ static uint16_t tid2 = 16;
 static uint16_t tid3 = 17;
 static uint16_t tid4 = 18;
 
+static uint16_t count = 0;
+
 #define AJ_NVRAM_REQUESTED AJ_NVRAM_SIZE
 #define RAND_DATA
 #define READABLE_LOG
@@ -802,7 +804,6 @@ _TEST_NVRAM_EXIT:
     //AJ_NVRAM_Close(handle);
     return status;
 }
-
 
 int AJ_Main()
 {
