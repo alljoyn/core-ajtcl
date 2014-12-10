@@ -48,11 +48,10 @@ AJ_FW_Version AJ_WSL_TargetFirmware;
 
 AJ_WifiCallbackFunc AJ_WSL_WifiConnectCallback;
 
-extern wsl_socket_context AJ_WSL_SOCKET_CONTEXT[5];
+extern wsl_socket_context AJ_WSL_SOCKET_CONTEXT[AJ_WSL_SOCKET_MAX];
 /**
  * globals to track open socket slots
  */
-uint8_t AJ_WSL_SOCKET_MAX = ArraySize(AJ_WSL_SOCKET_CONTEXT);
 uint32_t AJ_WSL_SOCKET_HANDLE_INVALID = UINT32_MAX;
 
 struct AJ_TaskHandle* AJ_WSL_MBoxListenHandle;
@@ -253,7 +252,7 @@ AJ_WSL_SOCKNUM AJ_WSL_FindOpenSocketContext(void)
             return i;
         }
     }
-    return AJ_WSL_SOCKET_MAX;
+    return INVALID_SOCKET;
 }
 
 /**
@@ -267,7 +266,7 @@ AJ_WSL_SOCKNUM AJ_WSL_FindSocketContext(uint32_t handle)
             return i;
         }
     }
-    return AJ_WSL_SOCKET_MAX;
+    return INVALID_SOCKET;
 }
 
 void AJ_WSL_WMI_ProcessWMIEvent(AJ_BufNode* pNodeHTCBody)
@@ -383,7 +382,7 @@ void AJ_WSL_WMI_ProcessWMIEvent(AJ_BufNode* pNodeHTCBody)
             uint32_t error;
             WMI_Unmarshal(pNodeHTCBody->buffer + dataUnmarshaled, "uuu", &responseType, &socketHandle, &error);
 
-            uint8_t socketIndex;
+            int8_t socketIndex;
             //AJ_BufListNodePrintDump(pNodeHTCBody, NULL);
             /* look for the matching handle in the global context then mark it invalid */
             switch (responseType) {
@@ -398,7 +397,7 @@ void AJ_WSL_WMI_ProcessWMIEvent(AJ_BufNode* pNodeHTCBody)
 
             default: {
                     socketIndex = AJ_WSL_FindSocketContext(socketHandle);
-                    if (socketIndex == AJ_WSL_SOCKET_MAX) {
+                    if (socketIndex == INVALID_SOCKET) {
                         AJ_DumpBytes("INVALID SOCKET DUMP", pNodeHTCBody->buffer, pNodeHTCBody->length);
                         AJ_WarnPrintf(("SOCKET_PING response for invalid socket!\n"));
                         break;
@@ -406,7 +405,7 @@ void AJ_WSL_WMI_ProcessWMIEvent(AJ_BufNode* pNodeHTCBody)
                 }
             }
 
-            if (socketIndex != AJ_WSL_SOCKET_MAX) {
+            if (socketIndex != INVALID_SOCKET) {
                 wsl_work_item* sockResponse;
                 wsl_work_item** pItem;
                 AJ_Status status = AJ_OK;
@@ -426,7 +425,7 @@ void AJ_WSL_WMI_ProcessWMIEvent(AJ_BufNode* pNodeHTCBody)
 
                 }
 
-                if ((responseType == AJ_WSL_WORKITEM(AJ_WSL_WORKITEM_SOCKET, WSL_SOCK_CLOSE)) && (socketIndex != AJ_WSL_SOCKET_MAX)) {
+                if ((responseType == AJ_WSL_WORKITEM(AJ_WSL_WORKITEM_SOCKET, WSL_SOCK_CLOSE)) && (socketIndex != INVALID_SOCKET)) {
                     AJ_WSL_SOCKET_CONTEXT[socketIndex].targetHandle = UINT32_MAX;
                     AJ_WSL_SOCKET_CONTEXT[socketIndex].valid = FALSE;
                 }
@@ -460,7 +459,7 @@ void AJ_WSL_WMI_ProcessWMIEvent(AJ_BufNode* pNodeHTCBody)
 
 void AJ_WSL_WMI_ProcessSocketDataResponse(AJ_BufNode* pNodeHTCBody)
 {
-    uint8_t socketIndex;
+    int8_t socketIndex;
     uint32_t u32;
     uint16_t lead, payloadSize, _port;
     uint32_t _handle, srcAddr;
@@ -476,7 +475,7 @@ void AJ_WSL_WMI_ProcessSocketDataResponse(AJ_BufNode* pNodeHTCBody)
     bufferOffset += 12;
     // look for the matching handle in the global context then mark it invalid
     socketIndex = AJ_WSL_FindSocketContext(_handle);
-    if (socketIndex == AJ_WSL_SOCKET_MAX) {
+    if (socketIndex == INVALID_SOCKET) {
         AJ_WarnPrintf(("data returned for invalid socket. Handle = %lu\n", _handle));
         return;
     }

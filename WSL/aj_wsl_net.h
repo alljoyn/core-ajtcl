@@ -33,9 +33,12 @@ extern "C" {
 #ifndef __cplusplus
 #pragma pack(push, 1)
 #endif
-typedef uint8_t AJ_WSL_SOCKNUM;
+typedef int8_t AJ_WSL_SOCKNUM;
 
 #define AJ_WSL_SCAN_LIST_SIZE 32
+
+#define INVALID_SOCKET (-1)
+#define AJ_WSL_SOCKET_MAX 5
 
 typedef struct _wsl_scan_item {
     char* ssid;
