@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-# Copyright (c) 2011 - 2013 AllSeen Alliance. All rights reserved.
+# Copyright (c) 2011 - 2014 AllSeen Alliance. All rights reserved.
 #
 #    Permission to use, copy, modify, and/or distribute this software for any
 #    purpose with or without fee is hereby granted, provided that the above
@@ -17,7 +17,7 @@
 
 # This is a copy of the standard client's whitespace.py
 # The original is located in 'alljoyn/build_core/tools/bin'
-# Changes to this file must be done here (ajtcl) and in build_core 
+# Changes to this file must be done here (ajtcl) and in build_core
 
 import sys, os, fnmatch, re, filecmp, difflib, textwrap
 import hashlib, pickle, time
@@ -25,12 +25,12 @@ from subprocess import Popen, STDOUT, PIPE
 
 def main(argv=None):
     start_time = time.clock()
-    dir_ignore = ["stlport", "build", ".git", ".repo", "alljoyn_objc", "external"]
-    file_ignore_patterns = ['\.#.*', 'alljoyn_java\.h', 'Status\.h', 'Status_CPP0x\.h', 'Internal\.h']
+    dir_ignore = ["stlport", "build", ".git", ".repo", "alljoyn_objc", "ios", "external" ]
+    file_ignore_patterns = ['\.#.*', 'alljoyn_java\.h', 'Status\.h', 'Internal\.h']
     file_patterns = ['*.c', '*.h', '*.cpp', '*.cc']
     valid_commands = ["check", "detail", "fix", "off"]
     uncrustify_config = None
-    version_min = 0.57
+    required_uncrustify_version = "0.57"
     unc_suffix = ".uncrustify"
     wscfg = None
     xit=0
@@ -92,11 +92,11 @@ def main(argv=None):
         sys.exit(2)
 
     '''Verify uncrustify install and version'''
-    version = uncrustify_version()
-    if version < version_min:
-        print ("You are using uncrustify v" + str(version) +
-            ". You must be using uncrustify v" + str(version_min) +
-            " or later.")
+    version = get_uncrustify_version()
+    if version != required_uncrustify_version:
+        print ("You are using uncrustify v" + version +
+            ". You must be using uncrustify v" + required_uncrustify_version )
+        print "(Or, run SCons with 'WS=off' to bypass the whitespace check)"
         sys.exit(2)
 
     print "whitespace %s %s" % (wscmd,uncrustify_config)
@@ -208,7 +208,7 @@ def main(argv=None):
     return xit
 
 '''Return the uncrustify version number'''
-def uncrustify_version( ):
+def get_uncrustify_version( ):
     version = None
 
     try:
@@ -220,14 +220,14 @@ def uncrustify_version( ):
          so bail after printing helpful message'''
         print ("It appears that \'uncrustify\' is not installed or is not " +
             "on your PATH. Please check your system and try again.")
+        print "(Or, run SCons with 'WS=off' to bypass the whitespace check)"
         sys.exit(2)
 
     else:
-        '''if no error, then extract version from output string and convert
-        to floating point'''
+        '''extract version from output string'''
         p = re.compile('^uncrustify (\d.\d{2})')
         m = re.search(p, output)
-        version = float(m.group(1))
+        version = m.group(1)
 
     return version
 
@@ -239,7 +239,7 @@ def print_help( ):
 
         Apply uncrustify to C++ source files (.c, .h, .cc, .cpp),
         recursively, from the present working directory.  Skips
-        'stlport', 'build', '.git', and '.repo' directories.
+        'stlport', 'build', 'alljoyn_objc', 'ios', 'external', '.git', and '.repo' directories.
 
         Note:  present working directory is presumed to be within,
         or the parent of, one of the AllJoyn archives.
@@ -311,15 +311,15 @@ def locate(file_patterns, file_ignore_patterns, dir_ignore_patterns, root=os.cur
         '''Remove unwanted files'''
         files_dict = {}
         for filename in files:
-            files_dict[filename] = True             
+            files_dict[filename] = True
         for filename in files:
             for fip in file_ignore_patterns:
                 if re.search(fip, filename) != None:
                     del files_dict[filename]
-        '''Collect the filtered list'''       
+        '''Collect the filtered list'''
         filtered_files = []
         for filename in files_dict.keys():
-            filtered_files.append(filename)        
+            filtered_files.append(filename)
         '''Filter the remainder using our wanted file pattern list'''
         for pattern in file_patterns:
             for filename in fnmatch.filter(filtered_files, pattern):
