@@ -2,7 +2,7 @@
  * @file
  */
 /******************************************************************************
- * Copyright (c) 2012-2014, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2012-2015, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -529,6 +529,21 @@ AJ_Status AJ_BusHandleBusMessage(AJ_Message* msg)
     case AJ_METHOD_SECURITY_REMOVE_MEMBERSHIP:
         AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_METHOD_SECURITY_REMOVE_MEMBERSHIP\n"));
         status = AJ_SecurityRemoveMembershipMethod(msg, &reply);
+        break;
+
+    case AJ_METHOD_SECURITY_GET_MANIFEST:
+        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_METHOD_SECURITY_GET_MANIFEST\n"));
+        status = AJ_SecurityGetManifestMethod(msg, &reply);
+        break;
+
+    case AJ_METHOD_SECURITY_RESET:
+        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_METHOD_SECURITY_RESET\n"));
+        status = AJ_SecurityResetMethod(msg, &reply);
+        break;
+
+    case AJ_METHOD_SECURITY_GET_PUBLICKEY:
+        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_METHOD_SECURITY_GET_PUBLICKEY\n"));
+        status = AJ_SecurityGetPublicKeyMethod(msg, &reply);
         break;
 
     case AJ_REPLY_ID(AJ_METHOD_EXCHANGE_GUIDS):

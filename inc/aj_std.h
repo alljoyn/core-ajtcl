@@ -6,7 +6,7 @@
  * @{
  */
 /******************************************************************************
- * Copyright (c) 2012-2014, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2012-2015, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -143,16 +143,19 @@
 /*
  * Members of /security/PermissionMgmt interface org.alljoyn.Security.PermissionMgmt
  */
-#define AJ_METHOD_SECURITY_CLAIM               AJ_BUS_MESSAGE_ID(7, 0, 0)    /**< method for claiming an application */
-#define AJ_METHOD_SECURITY_INSTALL_POLICY      AJ_BUS_MESSAGE_ID(7, 0, 1)    /**< method for installing a policy */
-#define AJ_METHOD_SECURITY_REMOVE_POLICY       AJ_BUS_MESSAGE_ID(7, 0, 2)    /**< method for removing a policy */
-#define AJ_METHOD_SECURITY_GET_POLICY          AJ_BUS_MESSAGE_ID(7, 0, 3)    /**< method for getting a policy */
-#define AJ_METHOD_SECURITY_INSTALL_IDENTITY    AJ_BUS_MESSAGE_ID(7, 0, 4)    /**< method for installing an identity */
-#define AJ_METHOD_SECURITY_REMOVE_IDENTITY     AJ_BUS_MESSAGE_ID(7, 0, 5)    /**< method for removing an identity */
-#define AJ_METHOD_SECURITY_GET_IDENTITY        AJ_BUS_MESSAGE_ID(7, 0, 6)    /**< method for getting an identity */
-#define AJ_METHOD_SECURITY_INSTALL_MEMBERSHIP  AJ_BUS_MESSAGE_ID(7, 0, 7)    /**< method for installing a membership */
-#define AJ_METHOD_SECURITY_INSTALL_AUTHDATA    AJ_BUS_MESSAGE_ID(7, 0, 8)    /**< method for installing a membership authorisation */
-#define AJ_METHOD_SECURITY_REMOVE_MEMBERSHIP   AJ_BUS_MESSAGE_ID(7, 0, 9)    /**< method for removing a membership */
+#define AJ_METHOD_SECURITY_CLAIM               AJ_BUS_MESSAGE_ID(7, 0,  0)    /**< method for claiming an application */
+#define AJ_METHOD_SECURITY_INSTALL_POLICY      AJ_BUS_MESSAGE_ID(7, 0,  1)    /**< method for installing the policy */
+#define AJ_METHOD_SECURITY_REMOVE_POLICY       AJ_BUS_MESSAGE_ID(7, 0,  2)    /**< method for removing the policy */
+#define AJ_METHOD_SECURITY_GET_POLICY          AJ_BUS_MESSAGE_ID(7, 0,  3)    /**< method for getting the policy */
+#define AJ_METHOD_SECURITY_INSTALL_IDENTITY    AJ_BUS_MESSAGE_ID(7, 0,  4)    /**< method for installing the identity */
+#define AJ_METHOD_SECURITY_REMOVE_IDENTITY     AJ_BUS_MESSAGE_ID(7, 0,  5)    /**< method for removing the identity */
+#define AJ_METHOD_SECURITY_GET_IDENTITY        AJ_BUS_MESSAGE_ID(7, 0,  6)    /**< method for getting the identity */
+#define AJ_METHOD_SECURITY_INSTALL_MEMBERSHIP  AJ_BUS_MESSAGE_ID(7, 0,  7)    /**< method for installing a membership */
+#define AJ_METHOD_SECURITY_INSTALL_AUTHDATA    AJ_BUS_MESSAGE_ID(7, 0,  8)    /**< method for installing a membership authorisation */
+#define AJ_METHOD_SECURITY_REMOVE_MEMBERSHIP   AJ_BUS_MESSAGE_ID(7, 0,  9)    /**< method for removing a membership */
+#define AJ_METHOD_SECURITY_GET_MANIFEST        AJ_BUS_MESSAGE_ID(7, 0, 10)    /**< method for getting the manifest */
+#define AJ_METHOD_SECURITY_RESET               AJ_BUS_MESSAGE_ID(7, 0, 11)    /**< method for resetting an application */
+#define AJ_METHOD_SECURITY_GET_PUBLICKEY       AJ_BUS_MESSAGE_ID(7, 0, 12)    /**< method for getting the publickey */
 /*
  * Members of /security/PermissionMgmt interface org.alljoyn.Security.PermissionMgmt.Notification
  */

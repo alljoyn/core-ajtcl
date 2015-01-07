@@ -2,7 +2,7 @@
  * @file
  */
 /******************************************************************************
- * Copyright (c) 2012-2014, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2012-2015, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -90,7 +90,7 @@ AJ_Status TestCreds()
     AJ_GUID localGuid;
     AJ_GUID remoteGuid;
     char str[33];
-    AJ_PeerCred cred;
+    AJ_Cred cred;
     int i = 0;
     AJ_GUID peerGuid;
     uint8_t secretLen = 24;
@@ -135,31 +135,31 @@ AJ_Status TestCreds()
     if (cred.body.data.size != secretLen) {
         AJ_AlwaysPrintf(("no match for secretLen got %d expected %d\n",
                          cred.body.data.size, secretLen));
-        AJ_PeerBodyFree(&cred.body);
+        AJ_CredBodyFree(&cred.body);
         return AJ_ERR_FAILURE;
     }
     if (secretLen > 0) {
         if (0 != memcmp(cred.body.data.data, secret, secretLen)) {
             AJ_AlwaysPrintf(("no match for secret\n"));
-            AJ_PeerBodyFree(&cred.body);
+            AJ_CredBodyFree(&cred.body);
             return AJ_ERR_FAILURE;
         }
     }
     if (cred.body.expiration != expiration) {
         AJ_AlwaysPrintf(("no match for expiration got %d expected %d\n",
                          cred.body.expiration, expiration));
-        AJ_PeerBodyFree(&cred.body);
+        AJ_CredBodyFree(&cred.body);
         return AJ_ERR_FAILURE;
     }
 
     status = AJ_DeletePeerCredential(&remoteGuid);
     if (AJ_OK != status) {
         AJ_AlwaysPrintf(("AJ_DeleteCredential failed = %d\n", status));
-        AJ_PeerBodyFree(&cred.body);
+        AJ_CredBodyFree(&cred.body);
         return status;
     }
 
-    AJ_PeerBodyFree(&cred.body);
+    AJ_CredBodyFree(&cred.body);
     if (AJ_ERR_FAILURE == AJ_GetPeerCredential(&remoteGuid, NULL)) {
         status = AJ_OK;
     } else {
@@ -168,7 +168,7 @@ AJ_Status TestCreds()
     AJ_InfoPrintf(("TestCreds() Layout Print\n"));
     AJ_NVRAM_Layout_Print();
 
-    AJ_ClearCredentials();
+    AJ_ClearCredentials(0);
     if (AJ_ERR_FAILURE == AJ_GetPeerCredential(&remoteGuid, NULL)) {
         status = AJ_OK;
     } else {
@@ -201,16 +201,16 @@ AJ_Status TestKeyInfoCreds()
 
     status = AJ_KeyInfoGenerate(&pub1, &prv1, KEY_USE_SIG);
     AJ_ASSERT(AJ_OK == status);
-    status = AJ_KeyInfoSetLocal(&pub1, AJ_CRED_TYPE_ECDSA_PUB);
+    status = AJ_KeyInfoSetLocal(&pub1, AJ_KEYINFO_ECDSA_SIG_PUB);
     AJ_ASSERT(AJ_OK == status);
-    status = AJ_KeyInfoSetLocal(&prv1, AJ_CRED_TYPE_ECDSA_PRV);
+    status = AJ_KeyInfoSetLocal(&prv1, AJ_KEYINFO_ECDSA_SIG_PRV);
     AJ_ASSERT(AJ_OK == status);
     memset(&test, 0, sizeof (AJ_KeyInfo));
-    status = AJ_KeyInfoGetLocal(&test, AJ_CRED_TYPE_ECDSA_PUB);
+    status = AJ_KeyInfoGetLocal(&test, AJ_KEYINFO_ECDSA_SIG_PUB);
     AJ_ASSERT(AJ_OK == status);
     AJ_ASSERT(0 == memcmp(&pub1, &test, sizeof (AJ_KeyInfo)));
     memset(&test, 0, sizeof (AJ_KeyInfo));
-    status = AJ_KeyInfoGetLocal(&test, AJ_CRED_TYPE_ECDSA_PRV);
+    status = AJ_KeyInfoGetLocal(&test, AJ_KEYINFO_ECDSA_SIG_PRV);
     AJ_ASSERT(AJ_OK == status);
     AJ_ASSERT(0 == memcmp(&prv1, &test, sizeof (AJ_KeyInfo)));
 
@@ -221,16 +221,16 @@ AJ_Status TestKeyInfoCreds()
 
     status = AJ_KeyInfoGenerate(&pub2, &prv2, KEY_USE_SIG);
     AJ_ASSERT(AJ_OK == status);
-    status = AJ_KeyInfoSet(&pub2, AJ_CRED_TYPE_ECDSA_PUB, &guid);
+    status = AJ_KeyInfoSet(&pub2, AJ_KEYINFO_ECDSA_SIG_PUB, &guid);
     AJ_ASSERT(AJ_OK == status);
-    status = AJ_KeyInfoSet(&prv2, AJ_CRED_TYPE_ECDSA_PRV, &guid);
+    status = AJ_KeyInfoSet(&prv2, AJ_KEYINFO_ECDSA_SIG_PRV, &guid);
     AJ_ASSERT(AJ_OK == status);
     memset(&test, 0, sizeof (AJ_KeyInfo));
-    status = AJ_KeyInfoGet(&test, AJ_CRED_TYPE_ECDSA_PUB, &guid);
+    status = AJ_KeyInfoGet(&test, AJ_KEYINFO_ECDSA_SIG_PUB, &guid);
     AJ_ASSERT(AJ_OK == status);
     AJ_ASSERT(0 == memcmp(&pub2, &test, sizeof (AJ_KeyInfo)));
     memset(&test, 0, sizeof (AJ_KeyInfo));
-    status = AJ_KeyInfoGet(&test, AJ_CRED_TYPE_ECDSA_PRV, &guid);
+    status = AJ_KeyInfoGet(&test, AJ_KEYINFO_ECDSA_SIG_PRV, &guid);
     AJ_ASSERT(AJ_OK == status);
     AJ_ASSERT(0 == memcmp(&prv2, &test, sizeof (AJ_KeyInfo)));
 

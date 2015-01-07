@@ -2,7 +2,7 @@
  * @file
  */
 /******************************************************************************
- * Copyright (c) 2012-2014 AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2012-2015, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -38,6 +38,7 @@
 #include "aj_keyexchange.h"
 #include "aj_keyauthentication.h"
 #include "aj_cert.h"
+#include "aj_x509.h"
 
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
@@ -63,6 +64,9 @@ uint8_t dbgPEER = 0;
 
 #define EXCHANGE_KEYINFO 1
 #define EXCHANGE_ANCHORS 2
+#define SEND_CERT        1
+#define SEND_CERT_CHAIN  2
+#define SEND_AUTH_DATA   3
 
 typedef AJ_Status (*AJ_CryptoPRF)(const uint8_t** inputs,
                                   const uint8_t* lengths,
@@ -112,7 +116,9 @@ typedef struct _HandshakeContext {
 } HandshakeContext;
 
 typedef struct _SessionContext {
-    char nonce[2 * AJ_NONCE_LEN + 1];   /* Nonce as ascii hex */
+    char nonce[2 * AJ_NONCE_LEN + 1];  /* Nonce as ascii hex */
+    uint8_t type;                      /* Current membership send type (CERT, AUTH_DATA) */
+    uint16_t slot;                     /* Current nvram slot for membership certificate */
 } SessionContext;
 
 static VersionContext versionContext;
@@ -419,7 +425,7 @@ AJ_Status AJ_PeerHandleExchangeGUIDs(AJ_Message* msg, AJ_Message* reply)
     char* str;
     AJ_GUID remoteGuid;
     AJ_GUID localGuid;
-    AJ_PeerCred cred;
+    AJ_Cred cred;
 
     AJ_InfoPrintf(("AJ_PeerHandleExchangeGuids(msg=%p, reply=%p)\n", msg, reply));
 
@@ -471,7 +477,7 @@ AJ_Status AJ_PeerHandleExchangeGUIDs(AJ_Message* msg, AJ_Message* reply)
         } else {
             AJ_DeletePeerCredential(authContext.peerGuid);
         }
-        AJ_PeerBodyFree(&cred.body);
+        AJ_CredBodyFree(&cred.body);
     }
 
     /*
@@ -505,7 +511,7 @@ AJ_Status AJ_PeerHandleExchangeGUIDsReply(AJ_Message* msg)
     const char* guidStr;
     AJ_GUID remoteGuid;
     uint32_t version;
-    AJ_PeerCred cred;
+    AJ_Cred cred;
 
     AJ_InfoPrintf(("AJ_PeerHandleExchangeGUIDsReply(msg=%p)\n", msg));
 
@@ -575,13 +581,13 @@ AJ_Status AJ_PeerHandleExchangeGUIDsReply(AJ_Message* msg)
             handshakeContext.state = AJ_AUTH_SUCCESS;
             /* assert that MASTER_SECRET_LEN == cred.body.data.size */
             memcpy(handshakeContext.mastersecret, cred.body.data.data, cred.body.data.size);
-            AJ_PeerBodyFree(&cred.body);
+            AJ_CredBodyFree(&cred.body);
             status = GenSessionKey(msg);
             return status;
         } else {
             AJ_DeletePeerCredential(authContext.peerGuid);
         }
-        AJ_PeerBodyFree(&cred.body);
+        AJ_CredBodyFree(&cred.body);
     }
 
     switch (versionContext.handshakeType) {
@@ -696,6 +702,7 @@ AJ_Status AJ_PeerHandleExchangeSuites(AJ_Message* msg, AJ_Message* reply)
         goto ExitFail;
     }
 
+    AJ_InfoPrintf(("Exchange Suites Complete\n"));
     return status;
 
 ExitFail:
@@ -784,9 +791,6 @@ static AJ_Status KeyExchange(AJ_Message* msg)
         AJ_WarnPrintf(("KeyExchange(msg=%p): No remaining suites\n", msg));
         goto ExitFail;
     }
-    /*
-     * Only use this suite once - disable it for next time
-     */
     AJ_InfoPrintf(("Authenticating using suite %x\n", handshakeContext.suite));
     status = SetCipherSuite(msg->bus, handshakeContext.suite);
     if (AJ_OK != status) {
@@ -1041,8 +1045,8 @@ AJ_Status AJ_PeerHandleKeyExchange(AJ_Message* msg, AJ_Message* reply)
     }
 
     handshakeContext.state = AJ_AUTH_EXCHANGED;
-    AJ_AuthRecordApply(AJ_SESSION_ENCRYPTED, AJ_ID_TYPE_PEER, authContext.peerGuid, msg->sender);
     AJ_InfoPrintf(("Key Exchange Complete\n"));
+
     return status;
 
 ExitFail:
@@ -1228,7 +1232,7 @@ AJ_Status AJ_PeerHandleKeyAuthentication(AJ_Message* msg, AJ_Message* reply)
     AJ_Status status;
     uint32_t expiration;
     const AJ_GUID* peerGuid = AJ_GUID_Find(msg->sender);
-    AJ_GUID* guild = NULL;
+    AJ_Identity identity;
 
     AJ_InfoPrintf(("AJ_PeerHandleKeyAuthentication(msg=%p, reply=%p)\n", msg, reply));
 
@@ -1259,7 +1263,6 @@ AJ_Status AJ_PeerHandleKeyAuthentication(AJ_Message* msg, AJ_Message* reply)
         AJ_InfoPrintf(("AJ_PeerHandleKeyAuthentication(msg=%p, reply=%p): Key authentication unmarshal error\n", msg, reply));
         goto ExitFail;
     }
-    guild = handshakeContext.keyauthentication->GetGuild();
 
     /*
      * Send authentication material
@@ -1267,27 +1270,20 @@ AJ_Status AJ_PeerHandleKeyAuthentication(AJ_Message* msg, AJ_Message* reply)
     AJ_MarshalReplyMsg(msg, reply);
     status = handshakeContext.keyauthentication->Marshal(reply, AUTH_SERVER);
     if (AJ_OK != status) {
-        AJ_WarnPrintf(("AJ_PeerHandleKeyAuthentication(msg=%p, reply=%p): Key authentication marshal error\n", msg, reply));
+        AJ_WarnPrintf(("AJ_PeerHandleKeyAuthentication(msg=%p, reply=%p): Key authentication marshal error %s\n", msg, reply));
         goto ExitFail;
     }
 
     handshakeContext.state = AJ_AUTH_SUCCESS;
-    handshakeContext.keyauthentication->Final(&expiration);
-
+    handshakeContext.keyauthentication->GetIdentity(&identity, &expiration);
     if (expiration) {
         status = SaveMasterSecret(peerGuid, expiration);
         if (AJ_OK != status) {
             AJ_WarnPrintf(("AJ_PeerHandleKeyAuthentication(msg=%p, reply=%p): Save master secret error\n", msg, reply));
         }
     }
-
-    if (AUTH_SUITE_ECDHE_NULL != handshakeContext.suite) {
-        if (guild) {
-            AJ_AuthRecordApply(AJ_SESSION_AUTHENTICATED, AJ_ID_TYPE_GUILD, guild, msg->sender);
-        } else {
-            AJ_AuthRecordApply(AJ_SESSION_AUTHENTICATED, AJ_ID_TYPE_PEER, authContext.peerGuid, msg->sender);
-        }
-    }
+    AJ_AuthRecordApply(&identity, msg->sender);
+    handshakeContext.keyauthentication->Final();
     AJ_InfoPrintf(("Key Authentication Complete\n"));
 
     return status;
@@ -1303,6 +1299,7 @@ AJ_Status AJ_PeerHandleKeyAuthenticationReply(AJ_Message* msg)
     AJ_Status status;
     uint32_t expiration;
     const AJ_GUID* peerGuid = AJ_GUID_Find(msg->sender);
+    AJ_Identity identity;
 
     AJ_InfoPrintf(("AJ_PeerHandleKeyAuthenticationReply(msg=%p)\n", msg));
 
@@ -1342,17 +1339,16 @@ AJ_Status AJ_PeerHandleKeyAuthenticationReply(AJ_Message* msg)
     /*
      * Key authentication complete - start the session
      */
-    AJ_InfoPrintf(("Key Authentication Complete\n"));
     handshakeContext.state = AJ_AUTH_SUCCESS;
-    handshakeContext.keyauthentication->Final(&expiration);
-
-    peerGuid = AJ_GUID_Find(msg->sender);
+    handshakeContext.keyauthentication->GetIdentity(&identity, &expiration);
     if (expiration) {
         status = SaveMasterSecret(peerGuid, expiration);
         if (AJ_OK != status) {
             AJ_WarnPrintf(("AJ_PeerHandleKeyAuthenticationReply(msg=%p): Save master secret error\n", msg));
         }
     }
+    handshakeContext.keyauthentication->Final();
+    AJ_InfoPrintf(("Key Authentication Complete\n"));
 
     status = GenSessionKey(msg);
     if (AJ_OK != status) {
@@ -1365,76 +1361,6 @@ ExitFail:
 
     HandshakeComplete(AJ_ERR_SECURITY);
     return AJ_ERR_SECURITY;
-}
-
-static AJ_Status SendMemberships(AJ_Message* msg)
-{
-    AJ_Status status;
-    AJ_Message call;
-
-    AJ_InfoPrintf(("SendMemberships(msg=%p)\n", msg));
-
-    /*
-     * Send memberships
-     */
-    AJ_MarshalMethodCall(msg->bus, &call, AJ_METHOD_SEND_MEMBERSHIPS, msg->sender, 0, AJ_FLAG_ENCRYPTED, AJ_AUTH_CALL_TIMEOUT);
-    status = AJ_AuthDataMarshal(&call);
-
-    return AJ_DeliverMsg(&call);
-}
-
-AJ_Status AJ_PeerHandleSendMemberships(AJ_Message* msg, AJ_Message* reply)
-{
-    AJ_Status status;
-    const AJ_GUID* peerGuid = AJ_GUID_Find(msg->sender);
-
-    AJ_InfoPrintf(("AJ_PeerHandleSendMemberships(msg=%p, reply=%p)\n", msg, reply));
-
-    status = HandshakeValid(peerGuid);
-    if (AJ_OK != status) {
-        return AJ_MarshalErrorMsg(msg, reply, AJ_ErrResources);
-    }
-
-    /*
-     * Receive memberships
-     */
-    status = AJ_AuthDataUnmarshal(msg);
-    if (AJ_OK != status) {
-        return AJ_MarshalErrorMsg(msg, reply, AJ_ErrResources);
-    }
-
-    /*
-     * Send memberships
-     */
-    AJ_MarshalReplyMsg(msg, reply);
-    status = AJ_AuthDataMarshal(reply);
-
-    return status;
-}
-
-AJ_Status AJ_PeerHandleSendMembershipsReply(AJ_Message* msg)
-{
-    AJ_Status status;
-
-    AJ_InfoPrintf(("AJ_PeerHandleSendMembershipsReply(msg=%p)\n", msg));
-
-    if (msg->hdr->msgType == AJ_MSG_ERROR) {
-        AJ_WarnPrintf(("AJ_PeerHandleKeyExchangeReply(msg=%p): error=%s.\n", msg, msg->error));
-        if (0 == strncmp(msg->error, AJ_ErrResources, sizeof(AJ_ErrResources))) {
-            status = AJ_ERR_RESOURCES;
-        } else {
-            status = AJ_ERR_SECURITY;
-            HandshakeComplete(status);
-        }
-        return status;
-    }
-
-    /*
-     * Receive memberships
-     */
-    status = AJ_AuthDataUnmarshal(msg);
-
-    return status;
 }
 
 static AJ_Status GenSessionKey(AJ_Message* msg)
@@ -1647,5 +1573,291 @@ AJ_Status AJ_PeerHandleExchangeGroupKeysReply(AJ_Message* msg)
         status = AJ_SetGroupKey(msg->sender, arg.val.v_byte);
     }
     HandshakeComplete(status);
+    if (AJ_OK == status) {
+        /*
+         * Start by sending a membership certificate
+         */
+        sessionContext.slot = AJ_CREDS_NV_ID_BEGIN;
+        sessionContext.type = SEND_CERT;
+        SendMemberships(msg);
+    }
     return status;
 }
+
+/*
+ * For each membership, send the certificate in its own message.
+ * If the membership also has authorisation data, send it in its own message.
+ * This call is performed by both peers independently.
+ */
+static AJ_Status SendMemberships(AJ_Message* msg)
+{
+    AJ_Status status;
+    AJ_Message call;
+    AJ_CredHead head;
+    AJ_CredBody body;
+    AJ_Arg container1;
+    AJ_Arg container2;
+    AJ_Arg container3;
+
+    AJ_InfoPrintf(("SendMemberships(msg=%p)\n", msg));
+
+    switch (sessionContext.type) {
+    case SEND_CERT:
+        head.type = AJ_CERTIFICATE_MBR_X509_DER | AJ_CRED_TYPE_CERTIFICATE;
+        head.id.data = NULL;
+        head.id.size = 0;
+        status = AJ_GetNextCredential(&head, &body, &sessionContext.slot);
+        if (AJ_OK != status) {
+            // No more left
+            return status;
+        }
+        sessionContext.slot++;
+        break;
+
+    case SEND_CERT_CHAIN:
+        // Currently not supported
+        break;
+
+    case SEND_AUTH_DATA:
+        status = AJ_GetMembershipAuthData(sessionContext.slot, &body);
+        if (AJ_OK != status) {
+            // No authorisation data for this membership, try next certificate.
+            sessionContext.type = SEND_CERT;
+            SendMemberships(msg);
+            return status;
+        }
+        break;
+    }
+
+    /*
+     * If we got here, we have a message to send.
+     * The message contents are in body.data
+     */
+    AJ_MarshalMethodCall(msg->bus, &call, AJ_METHOD_SEND_MEMBERSHIPS, msg->sender, 0, AJ_FLAG_ENCRYPTED, AJ_AUTH_CALL_TIMEOUT);
+    /*
+     * The signature is an array but we only ever send one entry at a time (to keep message size down).
+     */
+    status = AJ_MarshalContainer(&call, &container1, AJ_ARG_ARRAY);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+    status = AJ_MarshalContainer(&call, &container2, AJ_ARG_STRUCT);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+    // Index and total are not used in the thin client
+    status = AJ_MarshalArgs(&call, "yy", 0, 0);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+    status = AJ_MarshalVariant(&call, "(yv)");
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+    status = AJ_MarshalContainer(&call, &container3, AJ_ARG_STRUCT);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+    status = AJ_MarshalArgs(&call, "y", sessionContext.type);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+    switch (sessionContext.type) {
+    case SEND_CERT:
+        status = AJ_MarshalVariant(&call, "(ay)");
+        if (AJ_OK != status) {
+            goto Exit;
+        }
+        status = AJ_MarshalArgs(&call, "(ay)", body.data.data, body.data.size);
+        if (AJ_OK != status) {
+            goto Exit;
+        }
+        sessionContext.type = SEND_AUTH_DATA;
+        break;
+
+    case SEND_CERT_CHAIN:
+        // Currently not supported
+        break;
+
+    case SEND_AUTH_DATA:
+        status = AJ_MarshalVariant(&call, "ayay(yv)");
+        if (AJ_OK != status) {
+            goto Exit;
+        }
+        status = AJ_CredBodyMarshal(&body, &call);
+        if (AJ_OK != status) {
+            goto Exit;
+        }
+        sessionContext.type = SEND_CERT;
+        break;
+    }
+    status = AJ_MarshalCloseContainer(&call, &container3);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+    status = AJ_MarshalCloseContainer(&call, &container2);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+    status = AJ_MarshalCloseContainer(&call, &container1);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+
+Exit:
+    AJ_CredBodyFree(&body);
+
+    if (AJ_OK == status) {
+        status = AJ_DeliverMsg(&call);
+    }
+
+    return status;
+}
+
+AJ_Status AJ_PeerHandleSendMemberships(AJ_Message* msg, AJ_Message* reply)
+{
+    AJ_Status status;
+    AJ_Arg container1;
+    AJ_Arg container2;
+    AJ_Arg container3;
+    uint8_t index;
+    uint8_t total;
+    uint8_t type;
+    char* variant;
+    DER_Element der;
+    X509Certificate certificate;
+    AJ_KeyInfo pub;
+    AJ_Identity identity;
+
+    AJ_InfoPrintf(("AJ_PeerHandleSendMemberships(msg=%p, reply=%p)\n", msg, reply));
+
+    /*
+     * Receive memberships
+     */
+    status = AJ_UnmarshalContainer(msg, &container1, AJ_ARG_ARRAY);
+    if (AJ_OK != status) {
+        goto ExitFail;
+    }
+    status = AJ_UnmarshalContainer(msg, &container2, AJ_ARG_STRUCT);
+    if (AJ_OK != status) {
+        goto ExitFail;
+    }
+    status = AJ_UnmarshalArgs(msg, "yy", &index, &total);
+    if (AJ_OK != status) {
+        goto ExitFail;
+    }
+    status = AJ_UnmarshalVariant(msg, (const char**) &variant);
+    if (AJ_OK != status) {
+        goto ExitFail;
+    }
+    if (0 != strncmp(variant, "(yv)", 4)) {
+        goto ExitFail;
+    }
+    status = AJ_UnmarshalContainer(msg, &container3, AJ_ARG_STRUCT);
+    if (AJ_OK != status) {
+        goto ExitFail;
+    }
+    status = AJ_UnmarshalArgs(msg, "y", &type);
+    if (AJ_OK != status) {
+        goto ExitFail;
+    }
+    switch (type) {
+    case SEND_CERT:
+        status = AJ_UnmarshalVariant(msg, (const char**) &variant);
+        if (AJ_OK != status) {
+            goto ExitFail;
+        }
+        if (0 != strncmp(variant, "(ay)", 4)) {
+            goto ExitFail;
+        }
+        status = AJ_UnmarshalArgs(msg, "(ay)", &der.data, &der.size);
+        if (AJ_OK != status) {
+            goto ExitFail;
+        }
+        status = AJ_X509DecodeCertificateDER(&certificate, &der);
+        if (AJ_OK != status) {
+            goto ExitFail;
+        }
+        if (MEMBERSHIP_CERTIFICATE != certificate.type) {
+            goto ExitFail;
+        }
+        status = AJ_KeyInfoGet(&pub, AJ_KEYINFO_ECDSA_CA_PUB, &certificate.issuer);
+        if (AJ_OK != status) {
+            AJ_InfoPrintf(("AJ_PeerHandleSendMemberships(msg=%p, reply=%p): Unknown issuer\n", msg, reply));
+            goto ExitFail;
+        }
+        status = AJ_X509Verify(&certificate, &pub);
+        if (AJ_OK != status) {
+            AJ_InfoPrintf(("AJ_PeerHandleSendMemberships(msg=%p, reply=%p): Certificate invalid\n", msg, reply));
+            goto ExitFail;
+        }
+        AJ_InfoPrintf(("AJ_PeerHandleSendMemberships(msg=%p, reply=%p): Certificate valid\n", msg, reply));
+        //TODO - Save the digest to compare with AUTH_DATA
+        identity.level = AJ_SESSION_AUTHENTICATED;
+        identity.type = AJ_ID_TYPE_GUILD;
+        identity.data = (uint8_t*) &certificate.guild;
+        identity.size = sizeof (AJ_GUID);
+        AJ_AuthRecordApply(&identity, msg->sender);
+        break;
+
+    case SEND_AUTH_DATA:
+        status = AJ_UnmarshalVariant(msg, (const char**) &variant);
+        if (AJ_OK != status) {
+            goto ExitFail;
+        }
+        if (0 != strncmp(variant, "ayay(yv)", 8)) {
+            goto ExitFail;
+        }
+        break;
+
+    default:
+        goto ExitFail;
+        break;
+    }
+    status = AJ_UnmarshalCloseContainer(msg, &container3);
+    if (AJ_OK != status) {
+        goto ExitFail;
+    }
+    status = AJ_UnmarshalCloseContainer(msg, &container2);
+    if (AJ_OK != status) {
+        goto ExitFail;
+    }
+    status = AJ_UnmarshalCloseContainer(msg, &container1);
+    if (AJ_OK != status) {
+        goto ExitFail;
+    }
+
+    status = AJ_MarshalReplyMsg(msg, reply);
+
+    return status;
+
+ExitFail:
+
+    return AJ_MarshalErrorMsg(msg, reply, AJ_ErrSecurityViolation);
+}
+
+AJ_Status AJ_PeerHandleSendMembershipsReply(AJ_Message* msg)
+{
+    AJ_Status status;
+
+    AJ_InfoPrintf(("AJ_PeerHandleSendMembershipsReply(msg=%p)\n", msg));
+
+    if (msg->hdr->msgType == AJ_MSG_ERROR) {
+        AJ_WarnPrintf(("AJ_PeerHandleKeyExchangeReply(msg=%p): error=%s.\n", msg, msg->error));
+        if (0 == strncmp(msg->error, AJ_ErrResources, sizeof(AJ_ErrResources))) {
+            status = AJ_ERR_RESOURCES;
+        } else {
+            status = AJ_ERR_SECURITY;
+            HandshakeComplete(status);
+        }
+        return status;
+    }
+
+    /*
+     * Attempt to send more.
+     */
+    SendMemberships(msg);
+
+    return AJ_OK;
+}
+

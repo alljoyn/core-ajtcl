@@ -3,7 +3,7 @@
  */
 
 /******************************************************************************
- * Copyright (c) 2013-2014, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2013-2015, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -356,7 +356,7 @@ TEST_F(SecurityTest, Test1)
 
         AJ_CloseMsg(&msg);
     }
-    AJ_ClearCredentials();
+    AJ_ClearCredentials(AJ_CRED_TYPE_GENERIC);
     ASSERT_EQ(AJ_OK, status) << "AJ_ClearCredentials returned status. " << AJ_StatusText(status);
     AJ_Disconnect(&testBus);
 }
@@ -412,7 +412,7 @@ TEST_F(SecurityTest, Test2)
 
         AJ_CloseMsg(&msg);
     }
-    AJ_ClearCredentials();
+    AJ_ClearCredentials(AJ_CRED_TYPE_GENERIC);
     ASSERT_EQ(AJ_OK, status) << "AJ_ClearCredentials returned status. " << AJ_StatusText(status);
     AJ_Disconnect(&testBus);
 
@@ -466,7 +466,7 @@ TEST_F(SecurityTest, Test3)
         AJ_CloseMsg(&msg);
     }
 
-    AJ_ClearCredentials();
+    AJ_ClearCredentials(AJ_CRED_TYPE_GENERIC);
     ASSERT_EQ(AJ_OK, status) << "AJ_ClearCredentials returned status. " << AJ_StatusText(status);
     AJ_Disconnect(&testBus);
 

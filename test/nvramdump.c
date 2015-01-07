@@ -2,7 +2,7 @@
  * @file
  */
 /******************************************************************************
- * Copyright (c) 2012-2014, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2012-2015, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -17,11 +17,14 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
+#define AJ_MODULE NVRAMDUMP
+
 #include <alljoyn.h>
 #include <aj_creds.h>
 #include <aj_nvram.h>
 #include <aj_crypto_ecc.h>
 
+uint8_t dbgNVRAMDUMP = 0;
 extern void AJ_NVRAM_Layout_Print();
 AJ_Status DumpNVRAM();
 
@@ -37,7 +40,7 @@ AJ_Status DumpNVRAM()
 {
     AJ_Status status;
     uint16_t slot = AJ_CREDS_NV_ID_BEGIN;
-    AJ_PeerCred cred;
+    AJ_Cred cred;
 
     AJ_NVRAM_Layout_Print();
     AJ_AlwaysPrintf(("Remaining Size %d\n", AJ_NVRAM_GetSizeRemaining()));
@@ -54,9 +57,10 @@ AJ_Status DumpNVRAM()
             AJ_AlwaysPrintf((" | %08X | ", cred.body.expiration));
             printhex(cred.body.association.data, cred.body.association.size);
             AJ_AlwaysPrintf((" | "));
-            printhex(cred.body.data.data, cred.body.data.size);
+            //printhex(cred.body.data.data, cred.body.data.size);
+            AJ_DumpBytes("", cred.body.data.data, cred.body.data.size);
             AJ_AlwaysPrintf(("\n"));
-            AJ_PeerCredFree(&cred);
+            AJ_CredFree(&cred);
         }
     }
     return AJ_OK;

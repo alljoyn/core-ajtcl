@@ -6,7 +6,7 @@
  * @{
  */
 /******************************************************************************
- * Copyright (c) 2012-2014, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2012-2015, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -29,46 +29,56 @@
 #include "aj_crypto_sha2.h"
 #include "aj_security.h"
 
-#define AJ_CRED_TYPE_GENERIC        1 /** < generic type */
-#define AJ_CRED_TYPE_AES            2 /** < AES type */
-#define AJ_CRED_TYPE_PRIVATE        3 /** < private key type */
-#define AJ_CRED_TYPE_PEM            4 /** < PEM encoded type */
-#define AJ_CRED_TYPE_PUBLIC         5 /** < public key type */
-#define AJ_CRED_TYPE_SPKI_CERT      6 /** < SPKI style certificate type */
-#define AJ_CRED_TYPE_ECDSA_PRV      7 /** < ECDSA private key type */
-#define AJ_CRED_TYPE_ECDSA_PUB      8 /** < ECDSA public key type */
-#define AJ_CRED_TYPE_ECDSA_CA_PRV   7 /** < ECDSA private CA key type */
-#define AJ_CRED_TYPE_ECDSA_CA_PUB   8 /** < ECDSA public CA key type */
-#define AJ_CRED_TYPE_ECDSA_SIG_PRV  9 /** < ECDSA private SIG key type */
-#define AJ_CRED_TYPE_ECDSA_SIG_PUB 10 /** < ECDSA public SIG key type */
-#define AJ_CRED_TYPE_X509_DER_IDN  11 /** < X.509 DER encoded identity certificate */
-#define AJ_CRED_TYPE_X509_DER_MBR  12 /** < X.509 DER encoded membership certificate */
-#define AJ_CRED_TYPE_POLICY        13 /** < Policy (Message Body) */
-#define AJ_CRED_TYPE_AUTHDATA      14 /** < Authorization Data (Message Body) */
+/**
+ * Type low byte is basic type
+ */
+#define AJ_CRED_TYPE_GENERIC        0x0001 /**< generic type */
+#define AJ_CRED_TYPE_AES            0x0002 /**< AES type */
+#define AJ_CRED_TYPE_PRIVATE        0x0003 /**< private key type */
+#define AJ_CRED_TYPE_PEM            0x0004 /**< PEM encoded type */
+#define AJ_CRED_TYPE_PUBLIC         0x0005 /**< public key type */
+#define AJ_CRED_TYPE_CERTIFICATE    0x0006 /**< Certificate type */
+#define AJ_CRED_TYPE_KEYINFO        0x0007 /**< keyinfo type */
+#define AJ_CRED_TYPE_POLICY         0x0008 /**< policy type */
+
+/**
+ * Type high byte is basic type (low byte) context specific
+ */
+#define AJ_KEYINFO_ECDSA_CA_PUB     0x0100 /**< Certificate signing public key */
+#define AJ_KEYINFO_ECDSA_CA_PRV     0x0200 /**< Certificate signing private key */
+#define AJ_KEYINFO_ECDSA_SIG_PUB    0x0300 /**< Communication public key */
+#define AJ_KEYINFO_ECDSA_SIG_PRV    0x0400 /**< Communication private key */
+#define AJ_CERTIFICATE_IDN_X509_DER 0x0100 /**< DER encoded identity certificate */
+#define AJ_CERTIFICATE_MBR_X509_DER 0x0200 /**< DER encoded membership certificate */
+#define AJ_POLICY_LOCAL             0x0100 /**< Installed local policy */
+#define AJ_POLICY_MEMBERSHIP        0x0200 /**< Membership authorisation data */
 
 /**
  * Credential storage structures
  */
-typedef struct _AJ_PeerField {
+typedef struct _AJ_CredField {
     uint16_t size;             /**< Field size */
     uint8_t* data;             /**< Field data */
-} AJ_PeerField;
+} AJ_CredField;
 
-typedef struct _AJ_PeerHead {
+/**
+ * Type + id is a unique key for the credential store
+ */
+typedef struct _AJ_CredHead {
     uint16_t type;             /**< Credential type */
-    AJ_PeerField id;           /**< Credential ID, length 1 */
-} AJ_PeerHead;
+    AJ_CredField id;           /**< Credential ID, length 1 */
+} AJ_CredHead;
 
-typedef struct _AJ_PeerBody {
+typedef struct _AJ_CredBody {
     uint32_t expiration;       /**< Expiry time expressed a number of seconds since Epoch */
-    AJ_PeerField association;  /**< Credential Association, length 1 */
-    AJ_PeerField data;         /**< Credential Data, length 2 */
-} AJ_PeerBody;
+    AJ_CredField association;  /**< Credential Association, length 1 */
+    AJ_CredField data;         /**< Credential Data, length 2 */
+} AJ_CredBody;
 
-typedef struct _AJ_PeerCred {
-    AJ_PeerHead head;          /**< Credential head */
-    AJ_PeerBody body;          /**< Credential body */
-} AJ_PeerCred;
+typedef struct _AJ_Cred {
+    AJ_CredHead head;          /**< Credential head */
+    AJ_CredBody body;          /**< Credential body */
+} AJ_Cred;
 
 /**
  * Write a peer credential to NVRAM
@@ -79,7 +89,7 @@ typedef struct _AJ_PeerCred {
  *          - AJ_OK if the credentials were written
  *          - AJ_ERR_RESOURCES if there is no space to write the credentials
  */
-AJ_Status AJ_StoreCredential(AJ_PeerCred* cred);
+AJ_Status AJ_StoreCredential(AJ_Cred* cred);
 
 /**
  * Store the peer secret
@@ -108,13 +118,15 @@ AJ_Status AJ_DeletePeerCredential(const AJ_GUID* guid);
 /**
  * Clears all peer credentials
  *
+ * @param type         The type of credentials to clear (0 for all).
+ *
  * @return
  *          - AJ_OK if all credentials have been deleted
  */
-AJ_Status AJ_ClearCredentials(void);
+AJ_Status AJ_ClearCredentials(uint16_t type);
 
 /**
- * Get the credentials for a specific remote peer from NVRAM
+ * Get the credentials for a specific remote peer from NVRAM.
  *
  * @param guid         The input GUID for the remote peer
  * @param cred         The output credential
@@ -123,7 +135,7 @@ AJ_Status AJ_ClearCredentials(void);
  *      - AJ_OK if the credentials for the specific remote peer exist and are copied into the buffer
  *      - AJ_ERR_FAILURE otherwise
  */
-AJ_Status AJ_GetPeerCredential(const AJ_GUID* guid, AJ_PeerCred* cred);
+AJ_Status AJ_GetPeerCredential(const AJ_GUID* guid, AJ_Cred* cred);
 
 /**
  * Free the memory allocation for this credential object
@@ -131,7 +143,7 @@ AJ_Status AJ_GetPeerCredential(const AJ_GUID* guid, AJ_PeerCred* cred);
  * @param cred         Pointer to a credential object
  *
  */
-void AJ_PeerCredFree(AJ_PeerCred* cred);
+void AJ_CredFree(AJ_Cred* cred);
 
 /**
  * Free the memory allocation for this credential head object
@@ -139,7 +151,7 @@ void AJ_PeerCredFree(AJ_PeerCred* cred);
  * @param head         Pointer to a credential head object
  *
  */
-void AJ_PeerHeadFree(AJ_PeerHead* head);
+void AJ_CredHeadFree(AJ_CredHead* head);
 
 /**
  * Free the memory allocation for this credential body object
@@ -147,7 +159,7 @@ void AJ_PeerHeadFree(AJ_PeerHead* head);
  * @param body         Pointer to a credential body object
  *
  */
-void AJ_PeerBodyFree(AJ_PeerBody* body);
+void AJ_CredBodyFree(AJ_CredBody* body);
 
 /**
  * Delete a credential from NVRAM
@@ -157,7 +169,7 @@ void AJ_PeerBodyFree(AJ_PeerBody* body);
  * @return
  *          - AJ_OK if the credentials were deleted
  */
-AJ_Status AJ_DeleteCredential(const AJ_PeerHead* head);
+AJ_Status AJ_DeleteCredential(const AJ_CredHead* head);
 
 /**
  * Get the credentials for a specific id from NVRAM
@@ -169,7 +181,20 @@ AJ_Status AJ_DeleteCredential(const AJ_PeerHead* head);
  *      - AJ_OK if the credential is found
  *      - AJ_ERR_FAILURE otherwise
  */
-AJ_Status AJ_GetCredential(const AJ_PeerHead* head, AJ_PeerBody* body);
+AJ_Status AJ_GetCredential(const AJ_CredHead* head, AJ_CredBody* body);
+
+/**
+ * Get the credentials for a specific id from NVRAM, starting from a given slot
+ *
+ * @param head         Pointer to a credential head object
+ * @param body         Pointer to a credential body object
+ * @param slot         Starting slot number
+ *
+ * @return
+ *      - AJ_OK if the credential is found
+ *      - AJ_ERR_FAILURE otherwise
+ */
+AJ_Status AJ_GetNextCredential(const AJ_CredHead* head, AJ_CredBody* body, uint16_t* slot);
 
 /**
  * Store a local credential
@@ -208,7 +233,7 @@ AJ_Status AJ_DeleteLocalCredential(const uint16_t type, const uint16_t id);
  *      - AJ_ERR_KEY_EXPIRED if the credential has expired
  *      - AJ_ERR_INVALID if not clock is available
  */
-AJ_Status AJ_CredentialExpired(AJ_PeerCred* cred);
+AJ_Status AJ_CredentialExpired(AJ_Cred* cred);
 
 /**
  * Get the GUID for this peer
@@ -241,7 +266,7 @@ AJ_Status AJ_SetLocalGUID(AJ_GUID* guid);
  * @return - AJ_OK on success
  *         - AJ_ERR_FAILURE on failure
  */
-AJ_Status AJ_ReadCredential(AJ_PeerCred* cred, uint16_t slot);
+AJ_Status AJ_ReadCredential(AJ_Cred* cred, uint16_t slot);
 
 /**
  * Read all trust anchors and marshal the guids
@@ -291,51 +316,6 @@ AJ_Status AJ_AuthDataMarshal(AJ_Message* msg);
  *         - AJ_ERR_FAILURE on failure
  */
 AJ_Status AJ_AuthDataUnmarshal(AJ_Message* msg);
-
-#define CERT_FMT_ALLJOYN     0
-#define CERT_FMT_JWT         1
-#define CERT_FMT_X509_DER    2
-#define CERT_FMT_X509_PEM    3
-#define AJ_TA_FMT_GUID       0
-
-/**
- * Values for key info agility
- */
-#define KEY_FMT_ALLJOYN      0
-#define KEY_USE_SIG          0
-#define KEY_USE_ENC          1
-#define KEY_USE_DH           2
-#define KEY_TYP_ECC          0
-#define KEY_ALG_ECDSA_SHA256 0
-#define KEY_CRV_NISTP256     0
-
-/**
- * Key info sizes
- */
-#define KEY_ECC_SZ (8 * sizeof (uint32_t))
-#define KEY_ECC_PRV_SZ KEY_ECC_SZ
-#define KEY_ECC_PUB_SZ (2 * KEY_ECC_SZ)
-#define KEY_ECC_SEC_SZ (2 * KEY_ECC_SZ)
-#define KEY_ECC_SIG_SZ (2 * KEY_ECC_SZ)
-#define KEY_INFO_PUB_SZ (5 + sizeof (AJ_GUID) + KEY_ECC_PUB_SZ)
-#define KEY_INFO_PRV_SZ (5 + sizeof (AJ_GUID) + KEY_ECC_PRV_SZ)
-
-/**
- * We currently only support one type of key
- * This structure can be modified to support more in the future
- */
-typedef struct _AJ_KeyInfo {
-    uint8_t fmt;                   /**< Key format */
-    uint8_t kid[sizeof (AJ_GUID)]; /**< Key identifier */
-    uint8_t use;                   /**< Key usage */
-    uint8_t kty;                   /**< Key type */
-    uint8_t alg;                   /**< Algorithm */
-    uint8_t crv;                   /**< Elliptic curve */
-    union {
-        ecc_privatekey privatekey;
-        ecc_publickey publickey;
-    } key;                         /**< Key content, either public key or private key */
-} AJ_KeyInfo;
 
 /**
  * Serialize a key info object to a big-endian byte array
@@ -451,23 +431,6 @@ AJ_Status AJ_KeyInfoGetLocal(AJ_KeyInfo* key, uint16_t type);
 AJ_Status AJ_KeyInfoSetLocal(const AJ_KeyInfo* key, uint16_t type);
 
 /**
- * Values for sig info agility
- */
-#define SIG_FMT_ALLJOYN      0
-#define SIG_ALG_ECDSA_SHA256 0
-#define SIG_INFO_SZ (2 + KEY_ECC_SIG_SZ)
-
-/*
- * We currently only support one type of signature
- * This structure can be modified to support more in the future
- */
-typedef struct _AJ_SigInfo {
-    uint8_t fmt;               /**< Signature format */
-    uint8_t alg;               /**< Signature algorithm */
-    ecc_signature signature;   /**< Signature content */
-} AJ_SigInfo;
-
-/**
  * Serialize a sig info object to a big-endian byte array
  *
  * @param sig          The input sig info blob
@@ -518,6 +481,31 @@ AJ_Status AJ_SigInfoMarshal(const AJ_SigInfo* sig, AJ_Message* msg, AJ_SHA256_Co
  *          - AJ_ERR_INVALID on all failures
  */
 AJ_Status AJ_SigInfoUnmarshal(AJ_SigInfo* sig, AJ_Message* msg, AJ_SHA256_Context* hash);
+
+/**
+ * Marshal the raw credential body straight to the tx buffer
+ *
+ * @param body         The credential body
+ * @param msg          The output message
+ *
+ * @return  Return AJ_Status
+ *          - AJ_OK on success
+ *          - AJ_ERR_RESOURCES on failure
+ */
+AJ_Status AJ_CredBodyMarshal(AJ_CredBody* body, AJ_Message* msg);
+
+/**
+ * Look for optional authorisation data associated with the membership certificate
+ * stored at the given slot.
+ *
+ * @param slot         The slot containing the current membership certificate
+ * @param body         The output credential body
+ *
+ * @return  Return AJ_Status
+ *          - AJ_OK on success
+ *          - AJ_ERR_RESOURCES on failure
+ */
+AJ_Status AJ_GetMembershipAuthData(uint16_t slot, AJ_CredBody* body);
 
 /**
  * @}

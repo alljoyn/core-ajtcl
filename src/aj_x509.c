@@ -4,7 +4,7 @@
  * Utilites for X.509 Certificates
  */
 /******************************************************************************
- * Copyright (c) 2014, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2014-2015, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -50,6 +50,14 @@ const uint8_t OID_DN_OU[]             = { 0x55, 0x04, 0x0B };
 const uint8_t OID_DN_CN[]             = { 0x55, 0x04, 0x03 };
 // 2.5.29.19
 const uint8_t OID_BASIC_CONSTRAINTS[] = { 0x55, 0x1D, 0x13 };
+// 2.5.29.17
+const uint8_t OID_SUB_ALTNAME[]       = { 0x55, 0x1D, 0x11 };
+// 2.16.840.1.101.3.4.2.1
+const uint8_t OID_DIG_SHA256[]        = { 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x01 };
+// 1.3.6.1.4.1.44924.1
+const uint8_t OID_CUSTOM_CERT_TYPE[]  = { 0x2B, 0x06, 0x01, 0x04, 0x01, 0x82, 0xDE, 0x7C, 0x01, 0x01 };
+// 1.3.6.1.4.1.44924.2
+const uint8_t OID_CUSTOM_DIGEST[]     = { 0x2B, 0x06, 0x01, 0x04, 0x01, 0x82, 0xDE, 0x7C, 0x01, 0x02 };
 
 uint8_t CompareOID(DER_Element* der, const uint8_t* oid, size_t len)
 {
@@ -100,7 +108,7 @@ static AJ_Status DecodeCertificateName(DER_Element* der, uint8_t type, AJ_GUID* 
     return status;
 }
 
-static AJ_Status DecodeCertificatePub(DER_Element* der, ecc_publickey* publickey)
+static AJ_Status DecodeCertificatePub(DER_Element* der, AJ_KeyInfo* keyinfo)
 {
     AJ_Status status;
     DER_Element seq;
@@ -147,16 +155,21 @@ static AJ_Status DecodeCertificatePub(DER_Element* der, ecc_publickey* publickey
     bit.data += 2;
     bit.size -= 2;
 
-    memset(publickey, 0, sizeof (ecc_publickey));
-    AJ_BigvalDecode(bit.data, &publickey->x, KEY_ECC_SZ);
+    memset(keyinfo, 0, sizeof (AJ_KeyInfo));
+    keyinfo->fmt = KEY_FMT_ALLJOYN;
+    keyinfo->use = KEY_USE_SIG;
+    keyinfo->kty = KEY_TYP_ECC;
+    keyinfo->alg = KEY_ALG_ECDSA_SHA256;
+    keyinfo->crv = KEY_CRV_NISTP256;
+    AJ_BigvalDecode(bit.data, &keyinfo->key.publickey.x, KEY_ECC_SZ);
     bit.data += KEY_ECC_SZ;
     bit.size -= KEY_ECC_SZ;
-    AJ_BigvalDecode(bit.data, &publickey->y, KEY_ECC_SZ);
+    AJ_BigvalDecode(bit.data, &keyinfo->key.publickey.y, KEY_ECC_SZ);
 
     return status;
 }
 
-static AJ_Status DecodeCertificateExt(DER_Element* der)
+static AJ_Status DecodeCertificateExt(X509Certificate* certificate, DER_Element* der)
 {
     AJ_Status status;
     DER_Element tmp;
@@ -165,31 +178,73 @@ static AJ_Status DecodeCertificateExt(DER_Element* der)
     DER_Element oct;
     uint8_t tags[] = { ASN_OID, ASN_OCTETS };
 
+    certificate->type = UNKNOWN_CERTIFICATE;
     status = AJ_ASN1DecodeElement(der, ASN_SEQ, &tmp);
     if (AJ_OK != status) {
         return status;
     }
-    status = AJ_ASN1DecodeElement(&tmp, ASN_SEQ, &seq);
-    if (AJ_OK != status) {
-        return status;
+    der->size = tmp.size;
+    der->data = tmp.data;
+    while ((AJ_OK == status) && (der->size)) {
+        status = AJ_ASN1DecodeElement(der, ASN_SEQ, &seq);
+        if (AJ_OK != status) {
+            return status;
+        }
+        status = AJ_ASN1DecodeElements(&seq, tags, sizeof (tags), &oid, &oct);
+        if (AJ_OK != status) {
+            return status;
+        }
+        if (CompareOID(&oid, OID_BASIC_CONSTRAINTS, sizeof (OID_BASIC_CONSTRAINTS))) {
+            status = AJ_ASN1DecodeElement(&oct, ASN_SEQ, &seq);
+            if (AJ_OK != status) {
+                return status;
+            }
+            status = AJ_ASN1DecodeElement(&seq, ASN_BOOLEAN, &tmp);
+            if (AJ_OK != status) {
+                return status;
+            }
+        } else if (CompareOID(&oid, OID_CUSTOM_CERT_TYPE, sizeof (OID_CUSTOM_CERT_TYPE))) {
+            status = AJ_ASN1DecodeElement(&oct, ASN_SEQ, &seq);
+            if (AJ_OK != status) {
+                return status;
+            }
+            status = AJ_ASN1DecodeElement(&seq, ASN_INTEGER, &tmp);
+            if (AJ_OK != status) {
+                return status;
+            }
+            if (sizeof (uint32_t) < tmp.size) {
+                return AJ_ERR_INVALID;
+            }
+            certificate->type = 0;
+            while (tmp.size--) {
+                certificate->type <<= 8;
+                certificate->type  |= *tmp.data++;
+            }
+        } else if (CompareOID(&oid, OID_SUB_ALTNAME, sizeof (OID_SUB_ALTNAME))) {
+            certificate->alias.size = oct.size;
+            certificate->alias.data = oct.data;
+        } else if (CompareOID(&oid, OID_CUSTOM_DIGEST, sizeof (OID_CUSTOM_DIGEST))) {
+            status = AJ_ASN1DecodeElement(&oct, ASN_SEQ, &seq);
+            if (AJ_OK != status) {
+                return status;
+            }
+            status = AJ_ASN1DecodeElements(&seq, tags, sizeof (tags), &oid, &oct);
+            if (AJ_OK != status) {
+                return status;
+            }
+            if (!CompareOID(&oid, OID_DIG_SHA256, sizeof (OID_DIG_SHA256))) {
+                return AJ_ERR_INVALID;
+            }
+            if (SHA256_DIGEST_LENGTH != oct.size) {
+                return AJ_ERR_INVALID;
+            }
+            memcpy(certificate->digest, oct.data, SHA256_DIGEST_LENGTH);
+        } else {
+            // Ignore extensions we don't know
+            AJ_DumpBytes("UNKNOWN", oid.data, oid.size);
+            AJ_DumpBytes("UNKNOWN", oct.data, oct.size);
+        }
     }
-
-    status = AJ_ASN1DecodeElements(&seq, tags, sizeof (tags), &oid, &oct);
-    if (AJ_OK != status) {
-        return status;
-    }
-    if (sizeof (OID_BASIC_CONSTRAINTS) != oid.size) {
-        return AJ_ERR_INVALID;
-    }
-    if (0 != memcmp(OID_BASIC_CONSTRAINTS, oid.data, oid.size)) {
-        return AJ_ERR_INVALID;
-    }
-
-    status = AJ_ASN1DecodeElement(&oct, ASN_SEQ, &seq);
-    if (AJ_OK != status) {
-        return status;
-    }
-    status = AJ_ASN1DecodeElement(&seq, ASN_BOOLEAN, &tmp);
 
     return status;
 }
@@ -233,10 +288,7 @@ static AJ_Status DecodeCertificateTBS(X509Certificate* certificate, DER_Element*
     if (AJ_OK != status) {
         return status;
     }
-    if (sizeof (OID_SIG_ECDSA_SHA256) != tmp.size) {
-        return AJ_ERR_INVALID;
-    }
-    if (0 != memcmp(OID_SIG_ECDSA_SHA256, tmp.data, tmp.size)) {
+    if (!CompareOID(&tmp, OID_SIG_ECDSA_SHA256, sizeof (OID_SIG_ECDSA_SHA256))) {
         return AJ_ERR_INVALID;
     }
 
@@ -252,11 +304,12 @@ static AJ_Status DecodeCertificateTBS(X509Certificate* certificate, DER_Element*
     if (AJ_OK != status) {
         return status;
     }
-    status = DecodeCertificatePub(&pub, &certificate->publickey);
+    status = DecodeCertificatePub(&pub, &certificate->keyinfo);
     if (AJ_OK != status) {
         return status;
     }
-    status = DecodeCertificateExt(&ext);
+    memset(certificate->digest, 0, SHA256_DIGEST_LENGTH);
+    status = DecodeCertificateExt(certificate, &ext);
 
     return status;
 }
@@ -340,10 +393,7 @@ AJ_Status AJ_X509DecodeCertificateDER(X509Certificate* certificate, DER_Element*
     if (AJ_OK != status) {
         return status;
     }
-    if (sizeof (OID_SIG_ECDSA_SHA256) != oid.size) {
-        return AJ_ERR_INVALID;
-    }
-    if (0 != memcmp(OID_SIG_ECDSA_SHA256, oid.data, oid.size)) {
+    if (!CompareOID(&oid, OID_SIG_ECDSA_SHA256, sizeof (OID_SIG_ECDSA_SHA256))) {
         return AJ_ERR_INVALID;
     }
 
@@ -363,7 +413,7 @@ AJ_Status AJ_X509DecodeCertificateDER(X509Certificate* certificate, DER_Element*
 AJ_Status AJ_X509SelfVerify(const X509Certificate* certificate)
 {
     AJ_InfoPrintf(("AJ_X509SelfVerify(certificate=%p)\n", certificate));
-    return AJ_ECDSAVerify(certificate->tbs.data, certificate->tbs.size, &certificate->signature, &certificate->publickey);
+    return AJ_ECDSAVerify(certificate->tbs.data, certificate->tbs.size, &certificate->signature, &certificate->keyinfo.key.publickey);
 }
 
 AJ_Status AJ_X509Verify(const X509Certificate* certificate, const AJ_KeyInfo* key)

@@ -6,7 +6,7 @@
  * @{
  */
 /******************************************************************************
- * Copyright (c) 2014 AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2014-2015, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -26,11 +26,75 @@
 #include "aj_msg.h"
 #include "aj_target.h"
 
+#define AJ_SECURE_MGMT_PORT 101
+
+#define CERT_FMT_ALLJOYN     0
+#define CERT_FMT_JWT         1
+#define CERT_FMT_X509_DER    2
+#define CERT_FMT_X509_PEM    3
+#define AJ_TA_FMT_GUID       0
+
+/**
+ * Values for key info agility
+ */
+#define KEY_FMT_ALLJOYN      0
+#define KEY_USE_SIG          0
+#define KEY_USE_ENC          1
+#define KEY_USE_DH           2
+#define KEY_TYP_ECC          0
+#define KEY_ALG_ECDSA_SHA256 0
+#define KEY_CRV_NISTP256     0
+
+/**
+ * Key info sizes
+ */
+#define KEY_ECC_SZ (8 * sizeof (uint32_t))
+#define KEY_ECC_PRV_SZ KEY_ECC_SZ
+#define KEY_ECC_PUB_SZ (2 * KEY_ECC_SZ)
+#define KEY_ECC_SEC_SZ (2 * KEY_ECC_SZ)
+#define KEY_ECC_SIG_SZ (2 * KEY_ECC_SZ)
+#define KEYINFO_PUB_SZ (5 + sizeof (AJ_GUID) + KEY_ECC_PUB_SZ)
+#define KEYINFO_PRV_SZ (5 + sizeof (AJ_GUID) + KEY_ECC_PRV_SZ)
+
+/**
+ * We currently only support one type of key
+ * This structure can be modified to support more in the future
+ */
+typedef struct _AJ_KeyInfo {
+    uint8_t fmt;                   /**< Key format */
+    uint8_t kid[sizeof (AJ_GUID)]; /**< Key identifier */
+    uint8_t use;                   /**< Key usage */
+    uint8_t kty;                   /**< Key type */
+    uint8_t alg;                   /**< Algorithm */
+    uint8_t crv;                   /**< Elliptic curve */
+    union {
+        ecc_privatekey privatekey;
+        ecc_publickey publickey;
+    } key;                         /**< Key content, either public key or private key */
+} AJ_KeyInfo;
+
+/**
+ * Values for sig info agility
+ */
+#define SIG_FMT_ALLJOYN      0
+#define SIG_ALG_ECDSA_SHA256 0
+#define SIG_INFO_SZ (2 + KEY_ECC_SIG_SZ)
+
+/*
+ * We currently only support one type of signature
+ * This structure can be modified to support more in the future
+ */
+typedef struct _AJ_SigInfo {
+    uint8_t fmt;               /**< Signature format */
+    uint8_t alg;               /**< Signature algorithm */
+    ecc_signature signature;   /**< Signature content */
+} AJ_SigInfo;
+
 typedef enum {
-    AJ_CLAIM_UNKNOWN,          /**< Application is unknown claim state */
+    AJ_CLAIM_UNKNOWN,          /**< Application is in unknown claim state */
     AJ_CLAIM_UNCLAIMABLE,      /**< Application is currently unclaimable */
     AJ_CLAIM_CLAIMABLE,        /**< Application is currently claimable */
-    AJ_CLAIM_CLAIMED,          /**< Application has been claimed */
+    AJ_CLAIM_CLAIMED           /**< Application has been claimed */
 } AJ_ClaimState;
 
 typedef enum {
@@ -43,11 +107,17 @@ typedef enum {
 #define AJ_ID_TYPE_ANY   0
 #define AJ_ID_TYPE_PEER  1
 #define AJ_ID_TYPE_GUILD 2
-typedef struct _IdRecord {
+typedef struct _AJ_Identity {
     AJ_SecurityLevel level;    /**< Required security level for record */
-    uint8_t typ;               /**< Type of record */
-    AJ_GUID* guid;             /**< Guild id */
-} IdRecord;
+    uint8_t type;              /**< Type of record */
+    uint8_t* data;             /**< Peer data */
+    size_t size;               /**< Peer data size */
+} AJ_Identity;
+
+typedef struct _IdRecords {
+    size_t num;                /**< Number of IDs */
+    AJ_Identity* id;           /**< IDs */
+} IdRecords;
 
 #define AJ_ACTION_DENIED  1
 #define AJ_ACTION_PROVIDE 2
@@ -67,18 +137,66 @@ typedef struct _RuleRecord {
     MemberRecord* mbrs;        /**< Members */
 } RuleRecord;
 
+typedef struct _RuleRecords {
+    size_t num;                /**< Number of rules */
+    RuleRecord* rule;          /**< Rules */
+} RuleRecords;
+
 typedef struct _TermRecord {
-    size_t idsnum;             /**< Number of IDs */
-    IdRecord* ids;             /**< IDs */
-    size_t rulesnum;           /**< Number of rules */
-    RuleRecord* rules;         /**< Rules */
+    IdRecords ids;             /**< IDs */
+    RuleRecords rules;         /**< Rules */
 } TermRecord;
 
-typedef struct _AuthRecord {
+typedef struct _AJ_AuthRecord {
     uint8_t version;           /**< Version */
     uint32_t serial;           /**< Serial number */
     TermRecord term;           /**< Record term */
-} AuthRecord;
+} AJ_AuthRecord;
+
+typedef struct _AJ_Manifest {
+    RuleRecords rules;         /**< Rules */
+} AJ_Manifest;
+
+/**
+ * Initialistion for security module
+ * Generates key pair if not found
+ * Binds to the permission management port
+ *
+ * @return
+ *          - AJ_OK on success
+ *          - AJ_ERR_RESOURCES on failure
+ */
+AJ_Status AJ_SecurityInit();
+
+/**
+ * Close down the security module
+ * Releases the loaded policy
+ */
+void AJ_SecurityClose();
+
+/**
+ * Set the application to claimable or not
+ *
+ * @param claimable    Claim state
+ *
+ */
+void AJ_SecuritySetClaimable(uint8_t claimable);
+
+/**
+ * Get the application's claim state
+ *
+ * @return the current claim state
+ *
+ */
+AJ_ClaimState AJ_SecurityGetClaimState();
+
+/**
+ * Load the installed policy
+ *
+ * @param bus          The bus attachment
+ *
+ */
+AJ_Status AJ_AuthRecordLoad(AJ_BusAttachment* bus);
 
 /**
  * Set the in memory access policy
@@ -89,21 +207,19 @@ typedef struct _AuthRecord {
  *          - AJ_OK if the policy was set
  *          - AJ_ERR_RESOURCES if there is no space to store the policy
  */
-AJ_Status AJ_AuthRecordSet(const AuthRecord* record);
+AJ_Status AJ_AuthRecordSet(const AJ_AuthRecord* record);
 
 /**
  * Apply the access policy for the remote peer
  *
- * @param level        The security level of the session
- * @param type         The authentication type for the session
- * @param guid         The peer's guid
+ * @param identity     The Identity record
  * @param peer         The peer's unique name
  *
  * @return
  *          - AJ_OK if the policy was applied
  *          - AJ_ERR_RESOURCES if there was no policy for this peer
  */
-AJ_Status AJ_AuthRecordApply(AJ_SecurityLevel level, uint8_t type, const AJ_GUID* guid, const char* peer);
+AJ_Status AJ_AuthRecordApply(AJ_Identity* identity, const char* peer);
 
 /**
  * Check the access policy for the current message
@@ -117,6 +233,18 @@ AJ_Status AJ_AuthRecordApply(AJ_SecurityLevel level, uint8_t type, const AJ_GUID
 AJ_Status AJ_AuthRecordCheck(const AJ_Message* msg);
 
 /**
+ * Marshal a policy record, sent from an administrator
+ *
+ * @param record       The access policy record
+ * @param msg          The outgoing message
+ *
+ * @return
+ *          - AJ_OK on success
+ *          - AJ_ERR_INVALID otherwise
+ */
+AJ_Status AJ_AuthRecordMarshal(const AJ_AuthRecord* record, AJ_Message* msg);
+
+/**
  * Unmarshal a policy record, sent from an administrator
  *
  * @param record       The access policy record
@@ -126,7 +254,34 @@ AJ_Status AJ_AuthRecordCheck(const AJ_Message* msg);
  *          - AJ_OK on success
  *          - AJ_ERR_INVALID otherwise
  */
-AJ_Status AJ_AuthRecordUnmarshal(AuthRecord* record, AJ_Message* msg);
+AJ_Status AJ_AuthRecordUnmarshal(AJ_AuthRecord* record, AJ_Message* msg);
+
+/**
+ * Marshal the manifest record, set from the application
+ *
+ * @param manifest     The manifest
+ * @param msg          The outgoing message
+ *
+ * @return
+ *          - AJ_OK on success
+ *          - AJ_ERR_INVALID otherwise
+ */
+AJ_Status AJ_ManifestMarshal(const AJ_Manifest* manifest, AJ_Message* msg);
+
+/**
+ * Unmarshal the manifest record, sent from the application
+ *
+ * @param manifest     The manifest
+ * @param msg          The incoming message
+ *
+ * @return
+ *          - AJ_OK on success
+ *          - AJ_ERR_INVALID otherwise
+ */
+AJ_Status AJ_ManifestUnmarshal(AJ_Manifest* manifest, AJ_Message* msg);
+
+void AJ_ManifestFree(AJ_Manifest* manifest);
+AJ_Status AJ_SecuritySetManifest(AJ_Manifest* manifest);
 
 /**
  * Handle a claim message
@@ -189,6 +344,42 @@ AJ_Status AJ_SecurityRemovePolicyMethod(AJ_Message* msg, AJ_Message* reply);
 AJ_Status AJ_SecurityGetPolicyMethod(AJ_Message* msg, AJ_Message* reply);
 
 /**
+ * Handle an install identity message
+ *
+ * @param msg          The install identity message
+ * @param reply        The install identity reply message
+ *
+ * @return  Return AJ_Status
+ *          - AJ_OK on success
+ *          - AJ_ERR_SECURITY on all failures
+ */
+AJ_Status AJ_SecurityInstallIdentityMethod(AJ_Message* msg, AJ_Message* reply);
+
+/**
+ * Handle a remove identity message
+ *
+ * @param msg          The remove identity message
+ * @param reply        The remove identity reply message
+ *
+ * @return  Return AJ_Status
+ *          - AJ_OK on success
+ *          - AJ_ERR_SECURITY on all failures
+ */
+AJ_Status AJ_SecurityRemoveIdentityMethod(AJ_Message* msg, AJ_Message* reply);
+
+/**
+ * Handle a get identity message
+ *
+ * @param msg          The get identity message
+ * @param reply        The get identity reply message
+ *
+ * @return  Return AJ_Status
+ *          - AJ_OK on success
+ *          - AJ_ERR_SECURITY on all failures
+ */
+AJ_Status AJ_SecurityGetIdentityMethod(AJ_Message* msg, AJ_Message* reply);
+
+/**
  * Handle an install membership message
  *
  * @param msg          The install membership message
@@ -225,40 +416,40 @@ AJ_Status AJ_SecurityInstallMembershipAuthDataMethod(AJ_Message* msg, AJ_Message
 AJ_Status AJ_SecurityRemoveMembershipMethod(AJ_Message* msg, AJ_Message* reply);
 
 /**
- * Handle an install identity message
+ * Handle a get manifest message
  *
- * @param msg          The install identity message
- * @param reply        The install identity reply message
+ * @param msg          The get manifest message
+ * @param reply        The get manifest reply message
  *
  * @return  Return AJ_Status
  *          - AJ_OK on success
  *          - AJ_ERR_SECURITY on all failures
  */
-AJ_Status AJ_SecurityInstallIdentityMethod(AJ_Message* msg, AJ_Message* reply);
+AJ_Status AJ_SecurityGetManifestMethod(AJ_Message* msg, AJ_Message* reply);
 
 /**
- * Handle a remove identity message
+ * Handle a reset message
  *
- * @param msg          The remove identity message
- * @param reply        The remove identity reply message
+ * @param msg          The reset message
+ * @param reply        The reset reply message
  *
  * @return  Return AJ_Status
  *          - AJ_OK on success
  *          - AJ_ERR_SECURITY on all failures
  */
-AJ_Status AJ_SecurityRemoveIdentityMethod(AJ_Message* msg, AJ_Message* reply);
+AJ_Status AJ_SecurityResetMethod(AJ_Message* msg, AJ_Message* reply);
 
 /**
- * Handle a get identity message
+ * Handle a get publickey message
  *
- * @param msg          The get identity message
- * @param reply        The get identity reply message
+ * @param msg          The get publickey message
+ * @param reply        The get publickey reply message
  *
  * @return  Return AJ_Status
  *          - AJ_OK on success
  *          - AJ_ERR_SECURITY on all failures
  */
-AJ_Status AJ_SecurityGetIdentityMethod(AJ_Message* msg, AJ_Message* reply);
+AJ_Status AJ_SecurityGetPublicKeyMethod(AJ_Message* msg, AJ_Message* reply);
 
 /**
  * Send a notify config signal

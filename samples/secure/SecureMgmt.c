@@ -3,7 +3,7 @@
  */
 
 /******************************************************************************
- * Copyright (c) 2014, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2014-2015, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -38,7 +38,7 @@
 #include "aj_config.h"
 
 uint8_t dbgSECUREMGMT = 1;
-static const uint16_t ServicePort = 24;
+static const uint16_t ManagementPort = AJ_SECURE_MGMT_PORT;
 
 /*
  * Default key expiration
@@ -56,26 +56,63 @@ blah
 #define PING_TIMEOUT       (1000 * 10)
 
 static const uint8_t IDENTITY_CERTIFICATE_TEMPLATE[] = {
-    0x30, 0x82, 0x01, 0x5d, 0x30, 0x82, 0x01, 0x02, 0xa0, 0x03, 0x02, 0x01, 0x02, 0x02, 0x08,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, //SERIAL NUM (8)
-    0x30, 0x0a, 0x06, 0x08, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x04, 0x03, 0x02, 0x30, 0x2b, 0x31, 0x29,
-    0x30, 0x27, 0x06, 0x03, 0x55, 0x04, 0x03, 0x0c, 0x20,
+    0x30, 0x82, 0x01, 0xbe,
+    0x30, 0x82, 0x01, 0x63,
+    0xa0, 0x03,
+    0x02, 0x01, 0x02,
+    0x02, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,                                    //SERIAL NUM (8)
+    0x30, 0x0a,
+    0x06, 0x08, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x04, 0x03, 0x02,
+    0x30, 0x2b,
+    0x31, 0x29,
+    0x30, 0x27,
+    0x06, 0x03, 0x55, 0x04, 0x03,
+    0x0c, 0x20,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, //ISSUER GUID (32)
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x30, 0x1e, 0x17, 0x0d, 0x31, 0x34, 0x30, 0x31, 0x30, 0x31, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30,
-    0x5a, 0x17, 0x0d, 0x31, 0x35, 0x30, 0x31, 0x30, 0x31, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x5a,
-    0x30, 0x2b, 0x31, 0x29, 0x30, 0x27, 0x06, 0x03, 0x55, 0x04, 0x03, 0x0c, 0x20,
+    0x30, 0x1e,
+    0x17, 0x0d, 0x31, 0x34, 0x30, 0x31, 0x30, 0x31, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x5a,
+    0x17, 0x0d, 0x31, 0x35, 0x30, 0x31, 0x30, 0x31, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x5a,
+    0x30, 0x2b,
+    0x31, 0x29,
+    0x30, 0x27,
+    0x06, 0x03, 0x55, 0x04, 0x03,
+    0x0c, 0x20,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, //SUBJECT GUID (32)
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x30, 0x59, 0x30, 0x13, 0x06, 0x07, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x02, 0x01, 0x06, 0x08, 0x2a,
-    0x86, 0x48, 0xce, 0x3d, 0x03, 0x01, 0x07, 0x03, 0x42, 0x00, 0x04,
+    0x30, 0x59,
+    0x30, 0x13,
+    0x06, 0x07, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x02, 0x01,
+    0x06, 0x08, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x03, 0x01, 0x07,
+    0x03, 0x42, 0x00, 0x04,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, //PUBLIC KEY (64)
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0xa3, 0x10, 0x30, 0x0e, 0x30, 0x0c, 0x06, 0x03,
-    0x55, 0x1d, 0x13, 0x04, 0x05, 0x30, 0x03, 0x01, 0x01, 0x00, 0x30, 0x0a, 0x06, 0x08, 0x2a, 0x86,
-    0x48, 0xce, 0x3d, 0x04, 0x03, 0x02, 0x03, 0x49, 0x00, 0x30, 0x46, 0x02, 0x21, 0x00,
+    0xa3, 0x71,
+    0x30, 0x6f,
+    0x30, 0x0c,
+    0x06, 0x03, 0x55, 0x1d, 0x13,
+    0x04, 0x05, 0x30, 0x03, 0x01, 0x01, 0x00,                                                      //BASIC CONSTRAINTS
+    0x30, 0x13,
+    0x06, 0x0a, 0x2B, 0x06, 0x01, 0x04, 0x01, 0x82, 0xDE, 0x7C, 0x01, 0x01,
+    0x04, 0x05, 0x30, 0x03, 0x02, 0x01, 0x01,                                                      //TYPE
+    0x30, 0x0b,
+    0x06, 0x03, 0x55, 0x1d, 0x11,
+    0x04, 0x04, 0x70, 0x68, 0x69, 0x6c,
+    0x30, 0x3d,
+    0x06, 0x0a, 0x2B, 0x06, 0x01, 0x04, 0x01, 0x82, 0xDE, 0x7C, 0x01, 0x02,
+    0x04, 0x2f,
+    0x30, 0x2d,
+    0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x01,
+    0x04, 0x20,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, //DIGEST
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x30, 0x0a,
+    0x06, 0x08, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x04, 0x03, 0x02,
+    0x03, 0x49, 0x00,
+    0x30, 0x46,
+    0x02, 0x21, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, //SIG R (32)
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x02, 0x21, 0x00,
@@ -84,29 +121,66 @@ static const uint8_t IDENTITY_CERTIFICATE_TEMPLATE[] = {
 };
 
 static const uint8_t MEMBERSHIP_CERTIFICATE_TEMPLATE[] = {
-    0x30, 0x82, 0x01, 0x88, 0x30, 0x82, 0x01, 0x2d, 0xa0, 0x03, 0x02, 0x01, 0x02, 0x02, 0x08,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, //SERIAL NUM
-    0x30, 0x0a, 0x06, 0x08, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x04, 0x03, 0x02, 0x30, 0x2b, 0x31, 0x29,
-    0x30, 0x27, 0x06, 0x03, 0x55, 0x04, 0x03, 0x0c, 0x20,
+    0x30, 0x82, 0x01, 0xdc,
+    0x30, 0x82, 0x01, 0x81,
+    0xa0, 0x03,
+    0x02, 0x01, 0x02,
+    0x02, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,                                    //SERIAL NUM (8)
+    0x30, 0x0a,
+    0x06, 0x08, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x04, 0x03, 0x02,
+    0x30, 0x2b,
+    0x31, 0x29,
+    0x30, 0x27,
+    0x06, 0x03, 0x55, 0x04, 0x03,
+    0x0c, 0x20,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, //ISSUER GUID
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x30, 0x1e, 0x17, 0x0d, 0x31, 0x34, 0x30, 0x31, 0x30, 0x31, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30,
-    0x5a, 0x17, 0x0d, 0x31, 0x35, 0x30, 0x31, 0x30, 0x31, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x5a,
-    0x30, 0x56, 0x31, 0x29, 0x30, 0x27, 0x06, 0x03, 0x55, 0x04, 0x0B, 0x0c, 0x20,
+    0x30, 0x1e,
+    0x17, 0x0d, 0x31, 0x34, 0x30, 0x31, 0x30, 0x31, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x5a,
+    0x17, 0x0d, 0x31, 0x35, 0x30, 0x31, 0x30, 0x31, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x5a,
+    0x30, 0x56,
+    0x31, 0x29,
+    0x30, 0x27,
+    0x06, 0x03, 0x55, 0x04, 0x0B,
+    0x0c, 0x20,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, //SUBJECT GUILD
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x31, 0x29, 0x30, 0x27, 0x06, 0x03, 0x55, 0x04, 0x03, 0x0c, 0x20,
+    0x31, 0x29,
+    0x30, 0x27,
+    0x06, 0x03, 0x55, 0x04, 0x03,
+    0x0c, 0x20,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, //SUBJECT GUID
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x30, 0x59, 0x30, 0x13, 0x06, 0x07, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x02, 0x01, 0x06, 0x08, 0x2a,
-    0x86, 0x48, 0xce, 0x3d, 0x03, 0x01, 0x07, 0x03, 0x42, 0x00, 0x04,
+    0x30, 0x59,
+    0x30, 0x13,
+    0x06, 0x07, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x02, 0x01,
+    0x06, 0x08, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x03, 0x01, 0x07,
+    0x03, 0x42, 0x00, 0x04,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, //PUBLIC KEY
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0xa3, 0x10, 0x30, 0x0e, 0x30, 0x0c, 0x06, 0x03,
-    0x55, 0x1d, 0x13, 0x04, 0x05, 0x30, 0x03, 0x01, 0x01, 0x00, 0x30, 0x0a, 0x06, 0x08, 0x2a, 0x86,
-    0x48, 0xce, 0x3d, 0x04, 0x03, 0x02, 0x03, 0x49, 0x00, 0x30, 0x46, 0x02, 0x21, 0x00,
+    0xa3, 0x64,
+    0x30, 0x62,
+    0x30, 0x0c,
+    0x06, 0x03, 0x55, 0x1d, 0x13,
+    0x04, 0x05, 0x30, 0x03, 0x01, 0x01, 0x00,                                                      //BASIC CONSTRAINTS
+    0x30, 0x13,
+    0x06, 0x0a, 0x2B, 0x06, 0x01, 0x04, 0x01, 0x82, 0xDE, 0x7C, 0x01, 0x01,
+    0x04, 0x05, 0x30, 0x03, 0x02, 0x01, 0x02,                                                      //TYPE
+    0x30, 0x3d,
+    0x06, 0x0a, 0x2B, 0x06, 0x01, 0x04, 0x01, 0x82, 0xDE, 0x7C, 0x01, 0x02,
+    0x04, 0x2f,
+    0x30, 0x2d,
+    0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x01,
+    0x04, 0x20,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, //DIGEST
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x30, 0x0a,
+    0x06, 0x08, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x04, 0x03, 0x02,
+    0x03, 0x49, 0x00,
+    0x30, 0x46,
+    0x02, 0x21, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, //SIG R
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x02, 0x21, 0x00,
@@ -115,37 +189,23 @@ static const uint8_t MEMBERSHIP_CERTIFICATE_TEMPLATE[] = {
 };
 
 static const char* levels[] = { "AJ_SESSION_NONE", "AJ_SESSION_ENCRYPTED", "AJ_SESSION_AUTHENTICATED", "AJ_SESSION_AUTHORISED" };
-static void IdRecordDump(const IdRecord* record)
+static void IdRecordDump(const AJ_Identity* record)
 {
-    char guid[2 * sizeof (AJ_GUID) + 1];
-
     AJ_ASSERT(record);
-    AJ_ASSERT(record->level < 4);
+    AJ_ASSERT(record->level < ArraySize(levels));
     AJ_Printf("Level: %s ", levels[record->level]);
-    switch (record->typ) {
-    case AJ_ID_TYPE_ANY:
-        AJ_Printf("Any\n");
-        break;
-
-    case AJ_ID_TYPE_PEER:
-        AJ_GUID_ToString(record->guid, guid, sizeof (guid));
-        AJ_Printf("Peer %s\n", guid);
-        break;
-
-    case AJ_ID_TYPE_GUILD:
-        AJ_GUID_ToString(record->guid, guid, sizeof (guid));
-        AJ_Printf("Guild %s\n", guid);
-        break;
+    if (AJ_ID_TYPE_ANY != record->type) {
+        AJ_DumpBytes("ID", record->data, record->size);
     }
 }
 
-static void IdRecordsDump(const TermRecord* record)
+static void IdRecordsDump(const IdRecords* record)
 {
     size_t i;
 
     AJ_ASSERT(record);
-    for (i = 0; i < record->idsnum; i++) {
-        IdRecordDump(&record->ids[i]);
+    for (i = 0; i < record->num; i++) {
+        IdRecordDump(&record->id[i]);
     }
 }
 
@@ -153,7 +213,7 @@ static const char* types[] = { "METHOD", "SIGNAL", "PROPERTY" };
 static void MemberRecordDump(const MemberRecord* record)
 {
     AJ_ASSERT(record);
-    AJ_ASSERT(record->typ < 3);
+    AJ_ASSERT(record->typ < ArraySize(types));
     AJ_Printf("Mbr: %s (%s) %d %s\n", record->mbr, types[record->typ], record->action, record->mutual ? "mutual" : "");
 }
 
@@ -175,41 +235,46 @@ static void RuleRecordDump(const RuleRecord* record)
     MemberRecordsDump(record);
 }
 
-static void RuleRecordsDump(const TermRecord* record)
+static void RuleRecordsDump(const RuleRecords* record)
 {
     size_t i;
 
     AJ_ASSERT(record);
-    for (i = 0; i < record->rulesnum; i++) {
-        RuleRecordDump(&record->rules[i]);
+    for (i = 0; i < record->num; i++) {
+        RuleRecordDump(&record->rule[i]);
     }
 }
 
 static void TermRecordDump(const TermRecord* record)
 {
     AJ_ASSERT(record);
-    IdRecordsDump(record);
-    RuleRecordsDump(record);
+    IdRecordsDump(&record->ids);
+    RuleRecordsDump(&record->rules);
 }
 
-void AJ_AuthRecordDump(const AuthRecord* record)
+static void AJ_AuthRecordDump(const AJ_AuthRecord* record)
 {
-    AJ_InfoPrintf(("AJ_AuthRecordDump(record=%p)\n", record));
     AJ_ASSERT(record);
     AJ_Printf("Version %d Serial %d\n", record->version, record->serial);
     TermRecordDump(&record->term);
 }
 
-AJ_Status AJ_X509Sign(X509Certificate* certificate, const AJ_KeyInfo* key)
+static void AJ_ManifestDump(const AJ_Manifest* manifest)
+{
+    AJ_ASSERT(manifest);
+    RuleRecordsDump(&manifest->rules);
+}
+
+static AJ_Status AJ_X509Sign(X509Certificate* certificate, const AJ_KeyInfo* key)
 {
     return AJ_ECDSASign(certificate->tbs.data, certificate->tbs.size, &key->key.privatekey, &certificate->signature);
 }
 
-AJ_Status AJ_X509EncodeIdentityCertificateSig(X509Certificate* certificate, DER_Element* der)
+static AJ_Status AJ_X509EncodeIdentityCertificateSig(X509Certificate* certificate, DER_Element* der)
 {
     AJ_Status status = AJ_OK;
-    size_t rpos = 286;
-    size_t spos = 321;
+    size_t rpos = 383;
+    size_t spos = 418;
 
     AJ_BigvalEncode(&certificate->signature.r, der->data + rpos, KEY_ECC_SZ);
     AJ_BigvalEncode(&certificate->signature.s, der->data + spos, KEY_ECC_SZ);
@@ -217,11 +282,11 @@ AJ_Status AJ_X509EncodeIdentityCertificateSig(X509Certificate* certificate, DER_
     return status;
 }
 
-AJ_Status AJ_X509EncodeMembershipCertificateSig(X509Certificate* certificate, DER_Element* der)
+static AJ_Status AJ_X509EncodeMembershipCertificateSig(X509Certificate* certificate, DER_Element* der)
 {
     AJ_Status status = AJ_OK;
-    size_t rpos = 329;
-    size_t spos = 364;
+    size_t rpos = 413;
+    size_t spos = 448;
 
     AJ_BigvalEncode(&certificate->signature.r, der->data + rpos, KEY_ECC_SZ);
     AJ_BigvalEncode(&certificate->signature.s, der->data + spos, KEY_ECC_SZ);
@@ -229,7 +294,7 @@ AJ_Status AJ_X509EncodeMembershipCertificateSig(X509Certificate* certificate, DE
     return status;
 }
 
-AJ_Status AJ_X509EncodeIdentityCertificateDER(X509Certificate* certificate, DER_Element* der)
+static AJ_Status AJ_X509EncodeIdentityCertificateDER(X509Certificate* certificate, DER_Element* der)
 {
     AJ_Status status = AJ_OK;
     size_t serpos = 15;
@@ -252,16 +317,16 @@ AJ_Status AJ_X509EncodeIdentityCertificateDER(X509Certificate* certificate, DER_
     status = AJ_GUID_ToString(&certificate->subject, guid, sizeof (guid));
     AJ_ASSERT(AJ_OK == status);
     memcpy(der->data + subpos, &guid, 2 * sizeof (AJ_GUID));
-    AJ_BigvalEncode(&certificate->publickey.x, der->data + xpos, KEY_ECC_SZ);
-    AJ_BigvalEncode(&certificate->publickey.y, der->data + ypos, KEY_ECC_SZ);
+    AJ_BigvalEncode(&certificate->keyinfo.key.publickey.x, der->data + xpos, KEY_ECC_SZ);
+    AJ_BigvalEncode(&certificate->keyinfo.key.publickey.y, der->data + ypos, KEY_ECC_SZ);
 
     certificate->tbs.data = der->data + 4;
-    certificate->tbs.size = 262;
+    certificate->tbs.size = der->size - 4 - 12 - 75;
 
     return status;
 }
 
-AJ_Status AJ_X509EncodeMembershipCertificateDER(X509Certificate* certificate, DER_Element* der)
+static AJ_Status AJ_X509EncodeMembershipCertificateDER(X509Certificate* certificate, DER_Element* der)
 {
     AJ_Status status = AJ_OK;
     size_t serpos = 15;
@@ -288,11 +353,11 @@ AJ_Status AJ_X509EncodeMembershipCertificateDER(X509Certificate* certificate, DE
     status = AJ_GUID_ToString(&certificate->subject, guid, sizeof (guid));
     AJ_ASSERT(AJ_OK == status);
     memcpy(der->data + subpos, &guid, 2 * sizeof (AJ_GUID));
-    AJ_BigvalEncode(&certificate->publickey.x, der->data + xpos, KEY_ECC_SZ);
-    AJ_BigvalEncode(&certificate->publickey.y, der->data + ypos, KEY_ECC_SZ);
+    AJ_BigvalEncode(&certificate->keyinfo.key.publickey.x, der->data + xpos, KEY_ECC_SZ);
+    AJ_BigvalEncode(&certificate->keyinfo.key.publickey.y, der->data + ypos, KEY_ECC_SZ);
 
     certificate->tbs.data = der->data + 4;
-    certificate->tbs.size = 305;
+    certificate->tbs.size = der->size - 4 - 12 - 75;
 
     return status;
 }
@@ -321,35 +386,133 @@ void Callback(const void* context, AJ_Status status)
     AJ_Printf("Callback: status = %d\n", status);
 }
 
-static AJ_GUID claimee;
+static AJ_Status AJ_SecurityManagerInit()
+{
+    AJ_Status status;
+    AJ_KeyInfo capub;
+    AJ_KeyInfo caprv;
+    AJ_KeyInfo sigpub;
+    AJ_KeyInfo sigprv;
+    AJ_GUID guid;
+    X509Certificate certificate;
+    DER_Element der;
+    AJ_Cred cred;
+
+    status = AJ_KeyInfoGetLocal(&capub, AJ_KEYINFO_ECDSA_CA_PUB);
+    if (AJ_OK != status) {
+        // Generate my certificate signing key
+        status = AJ_KeyInfoGenerate(&capub, &caprv, KEY_USE_SIG);
+        AJ_ASSERT(AJ_OK == status);
+        status = AJ_KeyInfoSetLocal(&capub, AJ_KEYINFO_ECDSA_CA_PUB);
+        AJ_ASSERT(AJ_OK == status);
+        status = AJ_KeyInfoSetLocal(&caprv, AJ_KEYINFO_ECDSA_CA_PRV);
+        AJ_ASSERT(AJ_OK == status);
+    }
+    status = AJ_KeyInfoGetLocal(&caprv, AJ_KEYINFO_ECDSA_CA_PRV);
+    AJ_ASSERT(AJ_OK == status);
+    AJ_DumpBytes("CA", (uint8_t*) &capub, KEYINFO_PUB_SZ);
+    AJ_DumpBytes("CA", (uint8_t*) &caprv, KEYINFO_PRV_SZ);
+
+    status = AJ_KeyInfoGetLocal(&sigpub, AJ_KEYINFO_ECDSA_SIG_PUB);
+    if (AJ_OK != status) {
+        // Generate my communiation signing key
+        status = AJ_KeyInfoGenerate(&sigpub, &sigprv, KEY_USE_SIG);
+        AJ_ASSERT(AJ_OK == status);
+        status = AJ_KeyInfoSetLocal(&sigpub, AJ_KEYINFO_ECDSA_SIG_PUB);
+        AJ_ASSERT(AJ_OK == status);
+        status = AJ_KeyInfoSetLocal(&sigprv, AJ_KEYINFO_ECDSA_SIG_PRV);
+        AJ_ASSERT(AJ_OK == status);
+    }
+    status = AJ_KeyInfoGetLocal(&sigprv, AJ_KEYINFO_ECDSA_SIG_PRV);
+    AJ_ASSERT(AJ_OK == status);
+    AJ_DumpBytes("SIG", (uint8_t*) &sigpub, KEYINFO_PUB_SZ);
+    AJ_DumpBytes("SIG", (uint8_t*) &sigprv, KEYINFO_PRV_SZ);
+
+    status = AJ_GetLocalGUID(&guid);
+    AJ_ASSERT(AJ_OK == status);
+    cred.head.type = AJ_CERTIFICATE_IDN_X509_DER | AJ_CRED_TYPE_CERTIFICATE;
+    cred.head.id.size = sizeof (AJ_GUID);
+    cred.head.id.data = (uint8_t*) &guid;
+
+    status = AJ_GetCredential(&cred.head, NULL);
+    if (AJ_OK != status) {
+        // Issue myself a certificate
+        certificate.type = IDENTITY_CERTIFICATE;
+        memcpy(&certificate.keyinfo.key.publickey, &sigpub.key.publickey, sizeof (ecc_publickey));
+        memcpy(&certificate.issuer, &guid, sizeof (AJ_GUID));
+        memcpy(&certificate.subject, &guid, sizeof (AJ_GUID));
+        status = AJ_X509EncodeIdentityCertificateDER(&certificate, &der);
+        AJ_ASSERT(AJ_OK == status);
+        status = AJ_X509Sign(&certificate, &caprv);
+        AJ_ASSERT(AJ_OK == status);
+        status = AJ_X509EncodeIdentityCertificateSig(&certificate, &der);
+        AJ_ASSERT(AJ_OK == status);
+        AJ_DumpBytes("DER", der.data, der.size);
+
+        cred.body.expiration = 0xFFFFFFFF;
+        cred.body.association.size = 0;
+        cred.body.association.data = NULL;
+        cred.body.data.size = der.size;
+        cred.body.data.data = der.data;
+        status = AJ_StoreCredential(&cred);
+        AJ_ASSERT(AJ_OK == status);
+        AJ_Free(der.data);
+    }
+
+    return status;
+}
+
+static AJ_GUID appGuid;
+static AJ_KeyInfo* appPub = NULL;
+static AJ_Manifest* appManifest = NULL;
 static AJ_Status AJ_SecurityClaim(AJ_BusAttachment* bus, const char* peer, uint32_t session)
 {
     AJ_Status status = AJ_OK;
     AJ_Message msg;
-    AJ_KeyInfo keyinfopub;
-    AJ_KeyInfo keyinfoprv;
+    AJ_KeyInfo prv;
+    AJ_KeyInfo pub;
+    AJ_GUID issuer;
+    X509Certificate certificate;
+    DER_Element der;
+    uint8_t fmt = CERT_FMT_X509_DER;
+    const AJ_GUID* subject = AJ_GUID_Find(peer);
 
     AJ_InfoPrintf(("AJ_SecurityClaim(bus=%p, peer=%s, session=%x)\n", bus, peer, session));
 
-    status = AJ_KeyInfoGetLocal(&keyinfopub, AJ_CRED_TYPE_ECDSA_PUB);
-    if (AJ_OK != status) {
-        status = AJ_KeyInfoGenerate(&keyinfopub, &keyinfoprv, KEY_USE_SIG);
-        AJ_ASSERT(AJ_OK == status);
-        status = AJ_KeyInfoSetLocal(&keyinfopub, AJ_CRED_TYPE_ECDSA_PUB);
-        AJ_ASSERT(AJ_OK == status);
-        status = AJ_KeyInfoSetLocal(&keyinfoprv, AJ_CRED_TYPE_ECDSA_PRV);
-        AJ_ASSERT(AJ_OK == status);
+    if (!appPub) {
+        AJ_InfoPrintf(("AJ_SecurityClaim(bus=%p, peer=%s, session=%x): No public key form notify\n", bus, peer, session));
+        return AJ_ERR_INVALID;
     }
-    AJ_DumpBytes("KEYINFO", (uint8_t*) &keyinfopub, sizeof (AJ_KeyInfo));
-
-    // Give it a random guid - we need to save this
-    AJ_RandBytes(claimee.val, sizeof (AJ_GUID));
 
     status = AJ_MarshalMethodCall(bus, &msg, AJ_METHOD_SECURITY_CLAIM, peer, session, AJ_FLAG_ENCRYPTED, AJ_CALL_TIMEOUT);
     AJ_ASSERT(AJ_OK == status);
-    status = AJ_KeyInfoMarshal(&keyinfopub, &msg, NULL);
+    status = AJ_KeyInfoGetLocal(&pub, AJ_KEYINFO_ECDSA_CA_PUB);
     AJ_ASSERT(AJ_OK == status);
-    status = AJ_MarshalArgs(&msg, "ay", claimee.val, sizeof (claimee));
+    status = AJ_KeyInfoMarshal(&pub, &msg, NULL);
+    AJ_ASSERT(AJ_OK == status);
+    // Give it a random guid
+    AJ_RandBytes(appGuid.val, sizeof (AJ_GUID));
+    status = AJ_MarshalArgs(&msg, "ay", appGuid.val, sizeof (AJ_GUID));
+    AJ_ASSERT(AJ_OK == status);
+
+    // Issue an identity certificate
+    status = AJ_GetLocalGUID(&issuer);
+    AJ_ASSERT(AJ_OK == status);
+    status = AJ_KeyInfoGetLocal(&prv, AJ_KEYINFO_ECDSA_CA_PRV);
+    AJ_ASSERT(AJ_OK == status);
+
+    certificate.type = IDENTITY_CERTIFICATE;
+    memcpy(&certificate.issuer, &issuer, sizeof (AJ_GUID));
+    memcpy(&certificate.subject, subject, sizeof (AJ_GUID));
+    memcpy(&certificate.keyinfo.key.publickey, &appPub->key.publickey, sizeof (ecc_publickey));
+    status = AJ_X509EncodeIdentityCertificateDER(&certificate, &der);
+    AJ_ASSERT(AJ_OK == status);
+    status = AJ_X509Sign(&certificate, &prv);
+    AJ_ASSERT(AJ_OK == status);
+    status = AJ_X509EncodeIdentityCertificateSig(&certificate, &der);
+    AJ_ASSERT(AJ_OK == status);
+    AJ_DumpBytes("DER", der.data, der.size);
+    status = AJ_MarshalArgs(&msg, "(yay)", fmt, der.data, der.size);
     AJ_ASSERT(AJ_OK == status);
 
     status = AJ_DeliverMsg(&msg);
@@ -360,299 +523,35 @@ static AJ_Status AJ_SecurityClaim(AJ_BusAttachment* bus, const char* peer, uint3
 
 static AJ_Status AJ_SecurityClaimReply(AJ_Message* msg)
 {
-    AJ_Status status = AJ_OK;
-    AJ_KeyInfo keyinfopub;
-
-    AJ_InfoPrintf(("AJ_SecurityClaimReply(msg=%p)\n", msg));
-
     if (msg->hdr->msgType == AJ_MSG_ERROR) {
-        AJ_WarnPrintf(("AJ_SecurityClaimReply(msg=%p): error=%s.\n", msg, msg->error));
-        return AJ_OK;
+        AJ_InfoPrintf(("AJ_SecurityClaimReply(msg=%p): error=%s.\n", msg, msg->error));
+    } else {
+        AJ_InfoPrintf(("AJ_SecurityClaimReply(msg=%p): OK\n", msg));
     }
-
-    status = AJ_KeyInfoUnmarshal(&keyinfopub, msg, NULL);
-    AJ_ASSERT(AJ_OK == status);
-    AJ_DumpBytes("KEYINFO", (uint8_t*) &keyinfopub, sizeof (AJ_KeyInfo));
-
-    // Store this key
-    status = AJ_KeyInfoSet(&keyinfopub, AJ_CRED_TYPE_ECDSA_PUB, &claimee);
-    AJ_ASSERT(AJ_OK == status);
-
-    return status;
-}
-
-//SIG = (yyv)
-static AJ_Status IdRecordMarshal(const IdRecord* record, AJ_Message* msg)
-{
-    AJ_Status status;
-    AJ_Arg container;
-    uint8_t level = record->level;
-    uint8_t typ = record->typ;
-
-    AJ_ASSERT(record);
-    AJ_ASSERT(msg);
-
-    status = AJ_MarshalContainer(msg, &container, AJ_ARG_STRUCT);
-    AJ_ASSERT(AJ_OK == status);
-    status = AJ_MarshalArgs(msg, "yy", level, typ);
-    AJ_ASSERT(AJ_OK == status);
-    switch (record->typ) {
-    case AJ_ID_TYPE_ANY:
-        status = AJ_MarshalArgs(msg, "v", "ay", record->guid, 0);
-        AJ_ASSERT(AJ_OK == status);
-        break;
-
-    case AJ_ID_TYPE_PEER:
-        AJ_ASSERT(record->guid);
-        status = AJ_MarshalArgs(msg, "v", "ay", record->guid, sizeof (AJ_GUID));
-        AJ_ASSERT(AJ_OK == status);
-        break;
-
-    case AJ_ID_TYPE_GUILD:
-        AJ_ASSERT(record->guid);
-        status = AJ_MarshalArgs(msg, "v", "ay", record->guid, sizeof (AJ_GUID));
-        AJ_ASSERT(AJ_OK == status);
-        break;
-
-    default:
-        AJ_ASSERT(0);
-        return AJ_ERR_INVALID;
-    }
-
-    status = AJ_MarshalCloseContainer(msg, &container);
-    AJ_ASSERT(AJ_OK == status);
-
-    return status;
-}
-
-//SIG = a(yyv)
-static AJ_Status IdRecordsMarshal(TermRecord* record, AJ_Message* msg)
-{
-    AJ_Status status;
-    AJ_Arg container;
-    size_t i;
-
-    AJ_ASSERT(record);
-    AJ_ASSERT(msg);
-
-    status = AJ_MarshalContainer(msg, &container, AJ_ARG_ARRAY);
-    AJ_ASSERT(AJ_OK == status);
-    for (i = 0; i < record->idsnum; i++) {
-        status = IdRecordMarshal(&record->ids[i], msg);
-        AJ_ASSERT(AJ_OK == status);
-    }
-    status = AJ_MarshalCloseContainer(msg, &container);
-    AJ_ASSERT(AJ_OK == status);
-
-    return status;
-}
-
-//SIG = a(yv)
-static AJ_Status MemberRecordMarshal(const MemberRecord* record, AJ_Message* msg)
-{
-    AJ_Status status;
-    AJ_Arg container;
-
-    AJ_ASSERT(record);
-    AJ_ASSERT(msg);
-
-    status = AJ_MarshalContainer(msg, &container, AJ_ARG_ARRAY);
-    AJ_ASSERT(AJ_OK == status);
-    status = AJ_MarshalArgs(msg, "(yv)", 1, "s", record->mbr);
-    AJ_ASSERT(AJ_OK == status);
-    status = AJ_MarshalArgs(msg, "(yv)", 2, "y", record->typ);
-    AJ_ASSERT(AJ_OK == status);
-    status = AJ_MarshalArgs(msg, "(yv)", 3, "y", record->action);
-    AJ_ASSERT(AJ_OK == status);
-    status = AJ_MarshalArgs(msg, "(yv)", 4, "b", record->mutual);
-    AJ_ASSERT(AJ_OK == status);
-    status = AJ_MarshalCloseContainer(msg, &container);
-    AJ_ASSERT(AJ_OK == status);
-
-    return status;
-}
-
-//SIG = aa(yv)
-static AJ_Status MemberRecordsMarshal(RuleRecord* record, AJ_Message* msg)
-{
-    AJ_Status status;
-    AJ_Arg container;
-    size_t i;
-
-    AJ_ASSERT(record);
-    AJ_ASSERT(msg);
-
-    status = AJ_MarshalContainer(msg, &container, AJ_ARG_ARRAY);
-    AJ_ASSERT(AJ_OK == status);
-    for (i = 0; i < record->mbrsnum; i++) {
-        status = MemberRecordMarshal(&record->mbrs[i], msg);
-        AJ_ASSERT(AJ_OK == status);
-    }
-    status = AJ_MarshalCloseContainer(msg, &container);
-    AJ_ASSERT(AJ_OK == status);
-
-    return status;
-}
-
-//SIG = a(yv)
-static AJ_Status RuleRecordMarshal(RuleRecord* record, AJ_Message* msg)
-{
-    AJ_Status status;
-    AJ_Arg container1;
-    AJ_Arg container2;
-
-    AJ_ASSERT(record);
-    AJ_ASSERT(msg);
-
-    status = AJ_MarshalContainer(msg, &container1, AJ_ARG_ARRAY);
-    AJ_ASSERT(AJ_OK == status);
-    status = AJ_MarshalArgs(msg, "(yv)", 1, "s", record->obj);
-    AJ_ASSERT(AJ_OK == status);
-    status = AJ_MarshalArgs(msg, "(yv)", 2, "s", record->ifn);
-    AJ_ASSERT(AJ_OK == status);
-    status = AJ_MarshalContainer(msg, &container2, AJ_ARG_STRUCT);
-    AJ_ASSERT(AJ_OK == status);
-    status = AJ_MarshalArgs(msg, "y", 3);
-    AJ_ASSERT(AJ_OK == status);
-    status = AJ_MarshalVariant(msg, "aa(yv)");
-    AJ_ASSERT(AJ_OK == status);
-    status = MemberRecordsMarshal(record, msg);
-    AJ_ASSERT(AJ_OK == status);
-    status = AJ_MarshalCloseContainer(msg, &container2);
-    AJ_ASSERT(AJ_OK == status);
-    status = AJ_MarshalCloseContainer(msg, &container1);
-    AJ_ASSERT(AJ_OK == status);
-
-    return status;
-}
-
-//SIG = aa(yv)
-static AJ_Status RuleRecordsMarshal(TermRecord* record, AJ_Message* msg)
-{
-    AJ_Status status;
-    AJ_Arg container1;
-    size_t i;
-
-    AJ_ASSERT(record);
-    AJ_ASSERT(msg);
-
-    status = AJ_MarshalContainer(msg, &container1, AJ_ARG_ARRAY);
-    AJ_ASSERT(AJ_OK == status);
-    for (i = 0; i < record->rulesnum; i++) {
-        status = RuleRecordMarshal(&record->rules[i], msg);
-        AJ_ASSERT(AJ_OK == status);
-    }
-    status = AJ_MarshalCloseContainer(msg, &container1);
-    AJ_ASSERT(AJ_OK == status);
-
-    return status;
-}
-
-//SIG = a(yv)
-static AJ_Status TermRecordMarshal(TermRecord* record, AJ_Message* msg)
-{
-    AJ_Status status;
-    AJ_Arg container1;
-    AJ_Arg container2;
-
-    AJ_ASSERT(record);
-    AJ_ASSERT(msg);
-
-    status = AJ_MarshalContainer(msg, &container1, AJ_ARG_ARRAY);
-    AJ_ASSERT(AJ_OK == status);
-    status = AJ_MarshalContainer(msg, &container2, AJ_ARG_STRUCT);
-    AJ_ASSERT(AJ_OK == status);
-    status = AJ_MarshalArgs(msg, "y", 1);
-    AJ_ASSERT(AJ_OK == status);
-    status = AJ_MarshalVariant(msg, "a(yyv)");
-    AJ_ASSERT(AJ_OK == status);
-    status = IdRecordsMarshal(record, msg);
-    AJ_ASSERT(AJ_OK == status);
-    status = AJ_MarshalCloseContainer(msg, &container2);
-    AJ_ASSERT(AJ_OK == status);
-    status = AJ_MarshalContainer(msg, &container2, AJ_ARG_STRUCT);
-    AJ_ASSERT(AJ_OK == status);
-    status = AJ_MarshalArgs(msg, "y", 2);
-    AJ_ASSERT(AJ_OK == status);
-    status = AJ_MarshalVariant(msg, "aa(yv)");
-    AJ_ASSERT(AJ_OK == status);
-    status = RuleRecordsMarshal(record, msg);
-    AJ_ASSERT(AJ_OK == status);
-    status = AJ_MarshalCloseContainer(msg, &container2);
-    AJ_ASSERT(AJ_OK == status);
-    status = AJ_MarshalCloseContainer(msg, &container1);
-    AJ_ASSERT(AJ_OK == status);
-
-    return status;
-}
-
-//SIG = (yv)
-static AJ_Status AJ_AuthRecordMarshal(AuthRecord* record, AJ_Message* msg)
-{
-    AJ_Status status;
-    AJ_Arg container1;
-    AJ_Arg container2;
-
-    AJ_ASSERT(record);
-    AJ_ASSERT(msg);
-    status = AJ_MarshalContainer(msg, &container1, AJ_ARG_STRUCT);
-    AJ_ASSERT(AJ_OK == status);
-    status = AJ_MarshalArgs(msg, "y", record->version);
-    AJ_ASSERT(AJ_OK == status);
-    status = AJ_MarshalVariant(msg, "(ua(yv))");
-    AJ_ASSERT(AJ_OK == status);
-    status = AJ_MarshalContainer(msg, &container2, AJ_ARG_STRUCT);
-    AJ_ASSERT(AJ_OK == status);
-    status = AJ_MarshalArgs(msg, "u", record->serial);
-    AJ_ASSERT(AJ_OK == status);
-    status = TermRecordMarshal(&record->term, msg);
-    AJ_ASSERT(AJ_OK == status);
-    status = AJ_MarshalCloseContainer(msg, &container2);
-    AJ_ASSERT(AJ_OK == status);
-    status = AJ_MarshalCloseContainer(msg, &container1);
-    AJ_ASSERT(AJ_OK == status);
-
-    return status;
+    return AJ_OK;
 }
 
 static AJ_GUID guild = { { 0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1 } };
-//static IdRecord idrecord = { AJ_SESSION_AUTHENTICATED, AJ_ID_TYPE_ANY, NULL };
-static IdRecord idrecord = { AJ_SESSION_AUTHENTICATED, AJ_ID_TYPE_GUILD, &guild };
-static char* testobj = "/org/alljoyn/alljoyn_test";
-static char* testifn = "org.alljoyn.alljoyn_test";
-static MemberRecord memberrecord1 = { "my_ping", 0, AJ_ACTION_PROVIDE, 1 };
-static MemberRecord memberrecord2 = { "my_ping", 0, AJ_ACTION_CONSUME, 1 };
-static RuleRecord rulerecord;
-//static TermRecord termrecord;
-static AuthRecord policy;
-static AuthRecord authdata;
+//static AJ_Identity idrecord = { AJ_SESSION_ENCRYPTED, AJ_ID_TYPE_ANY, NULL };
+static AJ_Identity idrecord = { AJ_SESSION_AUTHENTICATED, AJ_ID_TYPE_GUILD, (uint8_t*) &guild, sizeof (AJ_GUID) };
 
-void CreatePolicy()
+static AJ_GUID admin;
+static AJ_AuthRecord policy;
+static AJ_AuthRecord authdata;
+
+static void CreateTestPolicy(AJ_AuthRecord* record)
 {
-    rulerecord.obj = testobj;
-    rulerecord.ifn = testifn;
-    rulerecord.mbrsnum = 1;
-    rulerecord.mbrs = &memberrecord1;
-    policy.version = 0;
-    policy.serial = 1;
-    policy.term.idsnum = 1;
-    policy.term.ids = &idrecord;
-    policy.term.rulesnum = 1;
-    policy.term.rules = &rulerecord;
+    record->version = 0;
+    record->serial = 1;
+    record->term.ids.num = 1;
+    record->term.ids.id = &idrecord;
+    //Use the app manifest
+    record->term.rules.num = appManifest->rules.num;
+    record->term.rules.rule = appManifest->rules.rule;
 }
 
-void CreateAuthData()
+static void CreateAuthData(AJ_AuthRecord* record)
 {
-    rulerecord.obj = testobj;
-    rulerecord.ifn = testifn;
-    rulerecord.mbrsnum = 1;
-    rulerecord.mbrs = &memberrecord2;
-    authdata.version = 0;
-    authdata.serial = 1;
-    authdata.term.idsnum = 1;
-    authdata.term.ids = &idrecord;
-    authdata.term.rulesnum = 1;
-    authdata.term.rules = &rulerecord;
 }
 
 static AJ_Status AJ_SecurityInstallPolicy(AJ_BusAttachment* bus, const char* peer, uint32_t session)
@@ -662,7 +561,13 @@ static AJ_Status AJ_SecurityInstallPolicy(AJ_BusAttachment* bus, const char* pee
 
     AJ_InfoPrintf(("AJ_SecurityInstallPolicy(bus=%p, peer=%s, session=%x)\n", bus, peer, session));
 
-    CreatePolicy();
+    if (!appManifest) {
+        return AJ_ERR_INVALID;
+    }
+
+    status = AJ_GetLocalGUID(&admin);
+    AJ_ASSERT(AJ_OK == status);
+    CreateTestPolicy(&policy);
     AJ_AuthRecordDump(&policy);
     status = AJ_MarshalMethodCall(bus, &msg, AJ_METHOD_SECURITY_INSTALL_POLICY, peer, session, AJ_FLAG_ENCRYPTED, AJ_CALL_TIMEOUT);
     AJ_ASSERT(AJ_OK == status);
@@ -727,7 +632,7 @@ static AJ_Status AJ_SecurityGetPolicy(AJ_BusAttachment* bus, const char* peer, u
 static AJ_Status AJ_SecurityGetPolicyReply(AJ_Message* msg)
 {
     AJ_Status status;
-    AuthRecord record;
+    AJ_AuthRecord record;
 
     if (msg->hdr->msgType == AJ_MSG_ERROR) {
         AJ_InfoPrintf(("AJ_SecurityGetPolicyReply(msg=%p): error=%s.\n", msg, msg->error));
@@ -749,7 +654,6 @@ static AJ_Status AJ_SecurityInstallIdentity(AJ_BusAttachment* bus, const char* p
     AJ_Message msg;
     X509Certificate certificate;
     AJ_KeyInfo prv;
-    AJ_KeyInfo pub;
     AJ_GUID issuer;
     const AJ_GUID* subject = AJ_GUID_Find(peer);
     DER_Element der;
@@ -760,16 +664,16 @@ static AJ_Status AJ_SecurityInstallIdentity(AJ_BusAttachment* bus, const char* p
     AJ_ASSERT(subject);
     status = AJ_GetLocalGUID(&issuer);
     AJ_ASSERT(AJ_OK == status);
-    status = AJ_KeyInfoGetLocal(&prv, AJ_CRED_TYPE_ECDSA_PRV);
-    AJ_ASSERT(AJ_OK == status);
-    status = AJ_KeyInfoGet(&pub, AJ_CRED_TYPE_ECDSA_PUB, subject);
+    status = AJ_KeyInfoGetLocal(&prv, AJ_KEYINFO_ECDSA_CA_PRV);
     AJ_ASSERT(AJ_OK == status);
 
-    memcpy(&certificate.publickey, &pub.key.publickey, sizeof (ecc_publickey));
+    certificate.type = IDENTITY_CERTIFICATE;
+    memcpy(&certificate.keyinfo.key.publickey, &appPub->key.publickey, sizeof (ecc_publickey));
     memcpy(&certificate.issuer, &issuer, sizeof (AJ_GUID));
     memcpy(&certificate.subject, subject, sizeof (AJ_GUID));
     status = AJ_X509EncodeIdentityCertificateDER(&certificate, &der);
     AJ_ASSERT(AJ_OK == status);
+    AJ_DumpBytes("DER", der.data, der.size);
     status = AJ_X509Sign(&certificate, &prv);
     AJ_ASSERT(AJ_OK == status);
     status = AJ_X509EncodeIdentityCertificateSig(&certificate, &der);
@@ -866,28 +770,24 @@ static AJ_Status AJ_SecurityInstallMembership(AJ_BusAttachment* bus, const char*
     AJ_Message msg;
     X509Certificate certificate;
     AJ_KeyInfo prv;
-    AJ_KeyInfo pub;
     AJ_GUID issuer;
     const AJ_GUID* subject = AJ_GUID_Find(peer);
     DER_Element der;
     uint8_t fmt = CERT_FMT_X509_DER;
-    AJ_GUID guild;
     AJ_Arg container;
 
     AJ_InfoPrintf(("AJ_SecurityInstallMembership(bus=%p, peer=%s, session=%d)\n", bus, peer, session));
 
-    memset(&guild, 1, sizeof (AJ_GUID));
     AJ_ASSERT(subject);
     status = AJ_GetLocalGUID(&issuer);
     AJ_ASSERT(AJ_OK == status);
-    status = AJ_KeyInfoGetLocal(&prv, AJ_CRED_TYPE_ECDSA_PRV);
-    AJ_ASSERT(AJ_OK == status);
-    status = AJ_KeyInfoGet(&pub, AJ_CRED_TYPE_ECDSA_PUB, subject);
+    status = AJ_KeyInfoGetLocal(&prv, AJ_KEYINFO_ECDSA_CA_PRV);
     AJ_ASSERT(AJ_OK == status);
 
-    memcpy(&certificate.publickey, &pub.key.publickey, sizeof (ecc_publickey));
+    certificate.type = MEMBERSHIP_CERTIFICATE;
+    memcpy(&certificate.keyinfo.key.publickey, &appPub->key.publickey, sizeof (ecc_publickey));
     memcpy(&certificate.issuer, &issuer, sizeof (AJ_GUID));
-    memcpy(&certificate.guild, &guild, sizeof (AJ_GUID));
+    memset(&certificate.guild, 0x01, sizeof (AJ_GUID));
     memcpy(&certificate.subject, subject, sizeof (AJ_GUID));
     status = AJ_X509EncodeMembershipCertificateDER(&certificate, &der);
     AJ_ASSERT(AJ_OK == status);
@@ -939,7 +839,7 @@ static AJ_Status AJ_SecurityInstallMembershipAuthData(AJ_BusAttachment* bus, con
     //Smarter security manager needs to track serial numbers
     memset(serial, 0, sizeof (serial));
     AJ_DumpBytes("SER", (uint8_t*) &serial, sizeof (serial));
-    CreateAuthData();
+    CreateAuthData(&authdata);
     AJ_AuthRecordDump(&authdata);
     status = AJ_MarshalMethodCall(bus, &msg, AJ_METHOD_SECURITY_INSTALL_AUTHDATA, peer, session, AJ_FLAG_ENCRYPTED, AJ_CALL_TIMEOUT);
     AJ_ASSERT(AJ_OK == status);
@@ -996,30 +896,216 @@ static AJ_Status AJ_SecurityRemoveMembershipReply(AJ_Message* msg)
     return AJ_OK;
 }
 
-static AJ_Status CallInterface(AJ_BusAttachment* bus, uint32_t sessionId, const char* serviceName, const char* interfaceName, uint32_t type)
+static AJ_Status AJ_SecurityGetManifest(AJ_BusAttachment* bus, const char* peer, uint32_t session)
 {
-    AJ_InfoPrintf(("CallInterface %s on service %s\n", interfaceName, serviceName));
+    AJ_Status status = AJ_OK;
+    AJ_Message msg;
 
-    if (0 == strcmp(interfaceName, "claim")) {
+    AJ_InfoPrintf(("AJ_SecurityGetManifest(bus=%p, peer=%s, session=%x)\n", bus, peer, session));
+
+    status = AJ_MarshalMethodCall(bus, &msg, AJ_METHOD_SECURITY_GET_MANIFEST, peer, session, AJ_FLAG_ENCRYPTED, AJ_CALL_TIMEOUT);
+    AJ_ASSERT(AJ_OK == status);
+    status = AJ_DeliverMsg(&msg);
+    AJ_ASSERT(AJ_OK == status);
+
+    return AJ_OK;
+}
+
+static AJ_Status AJ_SecurityGetManifestReply(AJ_Message* msg)
+{
+    AJ_Status status;
+
+    if (msg->hdr->msgType == AJ_MSG_ERROR) {
+        AJ_InfoPrintf(("AJ_SecurityGetManifestReply(msg=%p): error=%s.\n", msg, msg->error));
+        return AJ_ERR_SECURITY;
+    } else {
+        AJ_InfoPrintf(("AJ_SecurityGetManifestReply(msg=%p): OK\n", msg));
+    }
+
+    if (appManifest) {
+        AJ_ManifestFree(appManifest);
+        AJ_Free(appManifest);
+        appManifest = NULL;
+    }
+    appManifest = (AJ_Manifest*) AJ_Malloc(sizeof (AJ_Manifest));
+    status = AJ_ManifestUnmarshal(appManifest, msg);
+    AJ_ASSERT(AJ_OK == status);
+    AJ_ManifestDump(appManifest);
+
+    return AJ_OK;
+}
+
+static AJ_Status AJ_SecurityReset(AJ_BusAttachment* bus, const char* peer, uint32_t session)
+{
+    AJ_Status status = AJ_OK;
+    AJ_Message msg;
+
+    AJ_InfoPrintf(("AJ_SecurityReset(bus=%p, peer=%s, session=%x)\n", bus, peer, session));
+
+    status = AJ_MarshalMethodCall(bus, &msg, AJ_METHOD_SECURITY_RESET, peer, session, AJ_FLAG_ENCRYPTED, AJ_CALL_TIMEOUT);
+    AJ_ASSERT(AJ_OK == status);
+    status = AJ_DeliverMsg(&msg);
+    AJ_ASSERT(AJ_OK == status);
+
+    return AJ_OK;
+}
+
+static AJ_Status AJ_SecurityResetReply(AJ_Message* msg)
+{
+    if (msg->hdr->msgType == AJ_MSG_ERROR) {
+        AJ_InfoPrintf(("AJ_SecurityResetReply(msg=%p): error=%s.\n", msg, msg->error));
+    } else {
+        AJ_InfoPrintf(("AJ_SecurityResetReply(msg=%p): OK\n", msg));
+    }
+    return AJ_OK;
+}
+
+static AJ_Status AJ_SecurityGetPublicKey(AJ_BusAttachment* bus, const char* peer, uint32_t session)
+{
+    AJ_Status status = AJ_OK;
+    AJ_Message msg;
+
+    AJ_InfoPrintf(("AJ_SecurityGetPublicKey(bus=%p, peer=%s, session=%x)\n", bus, peer, session));
+
+    status = AJ_MarshalMethodCall(bus, &msg, AJ_METHOD_SECURITY_GET_PUBLICKEY, peer, session, AJ_FLAG_ENCRYPTED, AJ_CALL_TIMEOUT);
+    AJ_ASSERT(AJ_OK == status);
+    status = AJ_DeliverMsg(&msg);
+    AJ_ASSERT(AJ_OK == status);
+
+    return AJ_OK;
+}
+
+static AJ_Status AJ_SecurityGetPublicKeyReply(AJ_Message* msg)
+{
+    AJ_Status status;
+    AJ_KeyInfo pub;
+
+    if (msg->hdr->msgType == AJ_MSG_ERROR) {
+        AJ_InfoPrintf(("AJ_SecurityGetPublicKeyReply(msg=%p): error=%s.\n", msg, msg->error));
+        return AJ_ERR_SECURITY;
+    } else {
+        AJ_InfoPrintf(("AJ_SecurityGetPublicKeyReply(msg=%p): OK\n", msg));
+    }
+
+    status = AJ_KeyInfoUnmarshal(&pub, msg, NULL);
+    AJ_ASSERT(AJ_OK == status);
+    AJ_DumpBytes("KEY", (uint8_t*) &pub, sizeof (AJ_KeyInfo));
+
+    return AJ_OK;
+}
+
+static AJ_Status AJ_SecurityNotifySignal(AJ_Message* msg)
+{
+    AJ_Status status;
+    uint8_t claimstate;
+    uint32_t serial;
+
+    AJ_InfoPrintf(("AJ_SecurityNotifySignal(msg=%p)\n", msg));
+
+    if (appPub) {
+        AJ_Free(appPub);
+        appPub = NULL;
+    }
+    appPub = (AJ_KeyInfo*) AJ_Malloc(sizeof (AJ_KeyInfo));
+
+    status = AJ_KeyInfoUnmarshal(appPub, msg, NULL);
+    AJ_ASSERT(AJ_OK == status);
+    AJ_DumpBytes("KEYINFO", (uint8_t*) appPub, sizeof (AJ_KeyInfo));
+    status = AJ_UnmarshalArgs(msg, "yu", &claimstate, &serial);
+    AJ_ASSERT(AJ_OK == status);
+    AJ_Printf("Application claim state  %d\n", claimstate);
+    AJ_Printf("Application claim serial %x\n", serial);
+
+    return AJ_OK;
+}
+
+static void PrintMenu()
+{
+    char s[] = {
+        "=== Security Manager Menu ===\n"
+        " 1. claim\n"
+        " 2. installpolicy\n"
+        " 3. removepolicy\n"
+        " 4. getpolicy\n"
+        " 5. installidentity\n"
+        " 6. removeidentity\n"
+        " 7. getidentity\n"
+        " 8. installmembership\n"
+        " 9. installmembershipauthdata\n"
+        "10. removemembership\n"
+        "11. getmanifest\n"
+        "12. reset\n"
+        "13. getpublickey\n"
+        "14. exit\n"
+        ">>> "
+    };
+    AJ_Printf("%s", s);
+}
+
+static AJ_Status CallInterface(AJ_BusAttachment* bus, uint32_t sessionId, const char* serviceName)
+{
+    int i;
+
+    PrintMenu();
+    if (!scanf("%d", &i)) {
+        return AJ_ERR_SESSION_LOST;
+    }
+
+    switch (i) {
+    case 1:
         AJ_SecurityClaim(bus, serviceName, sessionId);
-    } else if (0 == strcmp(interfaceName, "installpolicy")) {
+        break;
+
+    case 2:
         AJ_SecurityInstallPolicy(bus, serviceName, sessionId);
-    } else if (0 == strcmp(interfaceName, "removepolicy")) {
+        break;
+
+    case 3:
         AJ_SecurityRemovePolicy(bus, serviceName, sessionId);
-    } else if (0 == strcmp(interfaceName, "getpolicy")) {
+        break;
+
+    case 4:
         AJ_SecurityGetPolicy(bus, serviceName, sessionId);
-    } else if (0 == strcmp(interfaceName, "installidentity")) {
+        break;
+
+    case 5:
         AJ_SecurityInstallIdentity(bus, serviceName, sessionId);
-    } else if (0 == strcmp(interfaceName, "removeidentity")) {
+        break;
+
+    case 6:
         AJ_SecurityRemoveIdentity(bus, serviceName, sessionId);
-    } else if (0 == strcmp(interfaceName, "getidentity")) {
+        break;
+
+    case 7:
         AJ_SecurityGetIdentity(bus, serviceName, sessionId);
-    } else if (0 == strcmp(interfaceName, "installmembership")) {
+        break;
+
+    case 8:
         AJ_SecurityInstallMembership(bus, serviceName, sessionId);
-    } else if (0 == strcmp(interfaceName, "installmembershipauthdata")) {
+        break;
+
+    case 9:
         AJ_SecurityInstallMembershipAuthData(bus, serviceName, sessionId);
-    } else if (0 == strcmp(interfaceName, "removemembership")) {
+        break;
+
+    case 10:
         AJ_SecurityRemoveMembership(bus, serviceName, sessionId);
+        break;
+
+    case 11:
+        AJ_SecurityGetManifest(bus, serviceName, sessionId);
+        break;
+
+    case 12:
+        AJ_SecurityReset(bus, serviceName, sessionId);
+        break;
+
+    case 13:
+        AJ_SecurityGetPublicKey(bus, serviceName, sessionId);
+        break;
+
+    default:
+        return AJ_ERR_SESSION_LOST;
     }
 
     return AJ_OK;
@@ -1037,12 +1123,11 @@ int AJ_Main()
     uint32_t sessionId = 0;
     AJ_Status authStatus = AJ_ERR_NULL;
     char* serviceName = NULL;
-    char* interfaceName = NULL;
     uint32_t suites[3];
     size_t numsuites = 0;
     uint8_t clearkeys = FALSE;
     uint8_t running = TRUE;
-    uint32_t type = AUTH_SUITE_ECDHE_NULL;
+    const char* rule = "interface='org.alljoyn.Security.PermissionMgmt.Notification',sessionless='t'";
 
 #ifdef MAIN_ALLOWS_ARGS
 #if defined(SECURE_INTERFACE) || defined(SECURE_OBJECT)
@@ -1088,41 +1173,11 @@ int AJ_Main()
             serviceName = *av;
             ac--;
             av++;
-        } else if (0 == strncmp(*av, "-id", 3)) {
-            ac--;
-            av++;
-            if (!ac) {
-                AJ_Printf("-id requires a type.\n");
-                return 1;
-            }
-            if (0 == strncmp(*av, "ECDHE_ECDSA", 11)) {
-                type = AUTH_SUITE_ECDHE_ECDSA;
-            } else if (0 == strncmp(*av, "ECDHE_PSK", 9)) {
-                type = AUTH_SUITE_ECDHE_PSK;
-            } else if (0 == strncmp(*av, "ECDHE_NULL", 10)) {
-                type = AUTH_SUITE_ECDHE_NULL;
-            }
-            ac--;
-            av++;
-        } else if (0 == strncmp(*av, "-i", 2)) {
-            ac--;
-            av++;
-            if (!ac) {
-                AJ_Printf("-i requires an interface name.\n");
-                return 1;
-            }
-            interfaceName = *av;
-            ac--;
-            av++;
         }
     }
 
     if (!serviceName) {
         AJ_Printf("Service required\n");
-        return 1;
-    }
-    if (!interfaceName) {
-        AJ_Printf("Interface required\n");
         return 1;
     }
 #endif
@@ -1132,13 +1187,14 @@ int AJ_Main()
      * One time initialization before calling any other AllJoyn APIs
      */
     AJ_Initialize();
+    AJ_SecurityManagerInit();
 
     while (running) {
         AJ_Message msg;
 
         if (!connected) {
 #ifndef NGNS
-            status = AJ_StartClient(&bus, NULL, CONNECT_TIMEOUT, FALSE, serviceName, ServicePort, &sessionId, NULL);
+            status = AJ_StartClient(&bus, NULL, CONNECT_TIMEOUT, FALSE, serviceName, ManagementPort, &sessionId, NULL);
 #else
             status = AJ_StartClientByInterface(&bus, NULL, CONNECT_TIMEOUT, FALSE, testInterfaceNames, &sessionId, serviceName, NULL);
 #endif
@@ -1146,11 +1202,12 @@ int AJ_Main()
                 AJ_Printf("StartClient returned %d, sessionId=%u, serviceName=%s\n", status, sessionId, serviceName);
                 AJ_Printf("Connected to Daemon:%s\n", AJ_GetUniqueName(&bus));
                 connected = TRUE;
+                status = AJ_BusSetSignalRule(&bus, rule, AJ_BUS_SIGNAL_ALLOW);
 #if defined(SECURE_INTERFACE) || defined(SECURE_OBJECT)
                 AJ_BusEnableSecurity(&bus, suites, ArraySize(suites));
                 AJ_BusSetAuthListenerCallback(&bus, AuthListenerCallback);
                 if (clearkeys) {
-                    status = AJ_ClearCredentials();
+                    status = AJ_ClearCredentials(AJ_CRED_TYPE_GENERIC);
                     AJ_ASSERT(AJ_OK == status);
                 }
                 status = AJ_BusAuthenticatePeer(&bus, serviceName, AuthCallback, &authStatus);
@@ -1187,6 +1244,7 @@ int AJ_Main()
         status = AJ_UnmarshalMsg(&bus, &msg, UNMARSHAL_TIMEOUT);
         if (status != AJ_OK) {
             if (status == AJ_ERR_TIMEOUT) {
+                AJ_InfoPrintf(("Waiting for message...\n"));
                 continue;
             }
         } else {
@@ -1199,10 +1257,10 @@ int AJ_Main()
                     status = AJ_UnmarshalArgs(&msg, "uu", &disposition, &timeout);
                     if (disposition == AJ_SETLINKTIMEOUT_SUCCESS) {
                         AJ_Printf("Link timeout set to %d\n", timeout);
+                        status = CallInterface(&bus, sessionId, serviceName);
                     } else {
                         AJ_Printf("SetLinkTimeout failed %d\n", disposition);
                     }
-                    CallInterface(&bus, sessionId, serviceName, interfaceName, type);
                 }
                 break;
 
@@ -1234,75 +1292,126 @@ int AJ_Main()
             case AJ_REPLY_ID(AJ_METHOD_SECURITY_CLAIM):
                 AJ_InfoPrintf(("AJ_HandleMessage(): AJ_REPLY_ID(AJ_METHOD_SECURITY_CLAIM)\n"));
                 status = AJ_SecurityClaimReply(&msg);
-                AJ_Disconnect(&bus);
-                connected = FALSE;
-                return AJ_OK;
+                if (AJ_OK != status) {
+                    return 1;
+                }
+                status = CallInterface(&bus, sessionId, serviceName);
+                break;
 
             case AJ_REPLY_ID(AJ_METHOD_SECURITY_INSTALL_POLICY):
                 AJ_InfoPrintf(("AJ_HandleMessage(): AJ_REPLY_ID(AJ_METHOD_SECURITY_INSTALL_POLICY)\n"));
                 status = AJ_SecurityInstallPolicyReply(&msg);
-                AJ_Disconnect(&bus);
-                connected = FALSE;
-                return AJ_OK;
+                if (AJ_OK != status) {
+                    return 1;
+                }
+                status = CallInterface(&bus, sessionId, serviceName);
+                break;
 
             case AJ_REPLY_ID(AJ_METHOD_SECURITY_REMOVE_POLICY):
                 AJ_InfoPrintf(("AJ_HandleMessage(): AJ_REPLY_ID(AJ_METHOD_SECURITY_REMOVE_POLICY)\n"));
                 status = AJ_SecurityRemovePolicyReply(&msg);
-                AJ_Disconnect(&bus);
-                connected = FALSE;
-                return AJ_OK;
+                if (AJ_OK != status) {
+                    return 1;
+                }
+                status = CallInterface(&bus, sessionId, serviceName);
+                break;
 
             case AJ_REPLY_ID(AJ_METHOD_SECURITY_GET_POLICY):
                 AJ_InfoPrintf(("AJ_HandleMessage(): AJ_REPLY_ID(AJ_METHOD_SECURITY_GET_POLICY)\n"));
                 status = AJ_SecurityGetPolicyReply(&msg);
-                AJ_Disconnect(&bus);
-                connected = FALSE;
-                return AJ_OK;
+                if (AJ_OK != status) {
+                    return 1;
+                }
+                status = CallInterface(&bus, sessionId, serviceName);
+                break;
 
             case AJ_REPLY_ID(AJ_METHOD_SECURITY_INSTALL_IDENTITY):
                 AJ_InfoPrintf(("AJ_HandleMessage(): AJ_REPLY_ID(AJ_METHOD_INSTALL_IDENTITY)\n"));
                 status = AJ_SecurityInstallIdentityReply(&msg);
-                AJ_Disconnect(&bus);
-                connected = FALSE;
-                return AJ_OK;
+                if (AJ_OK != status) {
+                    return 1;
+                }
+                status = CallInterface(&bus, sessionId, serviceName);
+                break;
 
             case AJ_REPLY_ID(AJ_METHOD_SECURITY_REMOVE_IDENTITY):
                 AJ_InfoPrintf(("AJ_HandleMessage(): AJ_REPLY_ID(AJ_METHOD_REMOVE_IDENTITY)\n"));
                 status = AJ_SecurityRemoveIdentityReply(&msg);
-                AJ_Disconnect(&bus);
-                connected = FALSE;
-                return AJ_OK;
+                if (AJ_OK != status) {
+                    return 1;
+                }
+                status = CallInterface(&bus, sessionId, serviceName);
+                break;
 
             case AJ_REPLY_ID(AJ_METHOD_SECURITY_GET_IDENTITY):
                 AJ_InfoPrintf(("AJ_HandleMessage(): AJ_REPLY_ID(AJ_METHOD_GET_IDENTITY)\n"));
                 status = AJ_SecurityGetIdentityReply(&msg);
-                AJ_Disconnect(&bus);
-                connected = FALSE;
-                return AJ_OK;
+                if (AJ_OK != status) {
+                    return 1;
+                }
+                status = CallInterface(&bus, sessionId, serviceName);
+                break;
 
             case AJ_REPLY_ID(AJ_METHOD_SECURITY_INSTALL_MEMBERSHIP):
                 AJ_InfoPrintf(("AJ_HandleMessage(): AJ_REPLY_ID(AJ_METHOD_SECURITY_INSTALL_MEMBERSHIP)\n"));
                 status = AJ_SecurityInstallMembershipReply(&msg);
-                AJ_Disconnect(&bus);
-                connected = FALSE;
-                return AJ_OK;
+                if (AJ_OK != status) {
+                    return 1;
+                }
+                status = CallInterface(&bus, sessionId, serviceName);
+                break;
 
             case AJ_REPLY_ID(AJ_METHOD_SECURITY_INSTALL_AUTHDATA):
                 AJ_InfoPrintf(("AJ_HandleMessage(): AJ_REPLY_ID(AJ_METHOD_SECURITY_INSTALL_AUTHDATA)\n"));
                 status = AJ_SecurityInstallMembershipAuthDataReply(&msg);
-                AJ_Disconnect(&bus);
-                connected = FALSE;
-                return AJ_OK;
+                if (AJ_OK != status) {
+                    return 1;
+                }
+                status = CallInterface(&bus, sessionId, serviceName);
+                break;
 
             case AJ_REPLY_ID(AJ_METHOD_SECURITY_REMOVE_MEMBERSHIP):
                 AJ_InfoPrintf(("AJ_HandleMessage(): AJ_REPLY_ID(AJ_METHOD_SECURITY_REMOVE_MEMBERSHIP)\n"));
                 status = AJ_SecurityRemoveMembershipReply(&msg);
-                AJ_Disconnect(&bus);
-                connected = FALSE;
-                return AJ_OK;
+                if (AJ_OK != status) {
+                    return 1;
+                }
+                status = CallInterface(&bus, sessionId, serviceName);
+                break;
+
+            case AJ_REPLY_ID(AJ_METHOD_SECURITY_GET_MANIFEST):
+                AJ_InfoPrintf(("AJ_HandleMessage(): AJ_REPLY_ID(AJ_METHOD_SECURITY_GET_MANIFEST)\n"));
+                status = AJ_SecurityGetManifestReply(&msg);
+                if (AJ_OK != status) {
+                    return 1;
+                }
+                status = CallInterface(&bus, sessionId, serviceName);
+                break;
+
+            case AJ_REPLY_ID(AJ_METHOD_SECURITY_RESET):
+                AJ_InfoPrintf(("AJ_HandleMessage(): AJ_REPLY_ID(AJ_METHOD_SECURITY_RESET)\n"));
+                status = AJ_SecurityResetReply(&msg);
+                if (AJ_OK != status) {
+                    return 1;
+                }
+                status = CallInterface(&bus, sessionId, serviceName);
+                break;
+
+            case AJ_REPLY_ID(AJ_METHOD_SECURITY_GET_PUBLICKEY):
+                AJ_InfoPrintf(("AJ_HandleMessage(): AJ_REPLY_ID(AJ_METHOD_SECURITY_GET_PUBLICKEY)\n"));
+                status = AJ_SecurityGetPublicKeyReply(&msg);
+                if (AJ_OK != status) {
+                    return 1;
+                }
+                status = CallInterface(&bus, sessionId, serviceName);
+                break;
 
             case AJ_SIGNAL_SECURITY_NOTIFY_CONFIG:
                 AJ_InfoPrintf(("AJ_HandleMessage(): AJ_SIGNAL_SECURITY_NOTIFY_CONFIG\n"));
+                status = AJ_SecurityNotifySignal(&msg);
+                if (AJ_OK != status) {
+                    return 1;
+                }
                 break;
 
             default:
@@ -1318,6 +1427,7 @@ int AJ_Main()
          */
         AJ_CloseMsg(&msg);
 
+        //if ((status == AJ_ERR_SESSION_LOST) || (status == AJ_ERR_READ) || (status == AJ_ERR_LINK_DEAD) || (status == AJ_ERR_INVALID)) {
         if ((status == AJ_ERR_SESSION_LOST) || (status == AJ_ERR_READ) || (status == AJ_ERR_LINK_DEAD)) {
             AJ_Printf("AllJoyn disconnect\n");
             AJ_Printf("Disconnected from Daemon:%s\n", AJ_GetUniqueName(&bus));

@@ -6,7 +6,7 @@
  * @{
  */
 /******************************************************************************
- * Copyright (c) 2014, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2014-2015, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -30,17 +30,15 @@
 typedef AJ_Status (*AJ_KAInit)(AJ_AuthListenerFunc authlistener, const uint8_t* mastersecret, size_t mastersecretlen, AJ_SHA256_Context* hash);
 typedef AJ_Status (*AJ_KAMarshal)(AJ_Message* msg, uint8_t role);
 typedef AJ_Status (*AJ_KAUnmarshal)(AJ_Message* msg, uint8_t role);
-typedef AJ_GUID*  (*AJ_KAGetGuild)();
-typedef AJ_Status (*AJ_KAFinal)(uint32_t* expiration);
-typedef AJ_Status (*AJ_KACleanUp)();
+typedef AJ_Status (*AJ_KAGetIdentity)(AJ_Identity* identity, uint32_t* expiration);
+typedef AJ_Status (*AJ_KAFinal)();
 
 typedef struct _AJ_KeyAuthentication {
     AJ_KAInit Init;
     AJ_KAMarshal Marshal;
     AJ_KAUnmarshal Unmarshal;
-    AJ_KAGetGuild GetGuild;
+    AJ_KAGetIdentity GetIdentity;
     AJ_KAFinal Final;
-    AJ_KACleanUp CleanUp;
 } AJ_KeyAuthentication;
 
 #define AUTH_ECDSA

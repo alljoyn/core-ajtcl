@@ -3,7 +3,7 @@
  */
 
 /******************************************************************************
- * Copyright (c) 2012-2014, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2012-2015, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -393,7 +393,7 @@ int AJ_Main()
                 AJ_BusEnableSecurity(&bus, suites, numsuites);
                 AJ_BusSetAuthListenerCallback(&bus, AuthListenerCallback);
                 if (clearkeys) {
-                    status = AJ_ClearCredentials();
+                    status = AJ_ClearCredentials(AJ_CRED_TYPE_GENERIC);
                     AJ_ASSERT(AJ_OK == status);
                 }
                 status = AJ_BusAuthenticatePeer(&bus, testServiceName, AuthCallback, &authStatus);

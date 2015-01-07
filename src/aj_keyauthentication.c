@@ -2,7 +2,7 @@
  * @file
  */
 /******************************************************************************
- * Copyright (c) 2014, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2014-2015, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -47,24 +47,21 @@ static AJ_Status ComputeVerifier(const char* label, uint8_t* buffer, size_t buff
 static AJ_Status ECDSA_Init(AJ_AuthListenerFunc authlistener, const uint8_t* mastersecret, size_t mastersecretlen, AJ_SHA256_Context* hash);
 static AJ_Status ECDSA_Marshal(AJ_Message* msg, uint8_t role);
 static AJ_Status ECDSA_Unmarshal(AJ_Message* msg, uint8_t role);
-static AJ_GUID* ECDSA_GetGuild();
-static AJ_Status ECDSA_Final(uint32_t* expiration);
-static AJ_Status ECDSA_CleanUp();
+static AJ_Status ECDSA_GetIdentity(AJ_Identity* identity, uint32_t* expiration);
+static AJ_Status ECDSA_Final();
 
 AJ_KeyAuthentication AJ_KeyAuthenticationECDSA = {
     ECDSA_Init,
     ECDSA_Marshal,
     ECDSA_Unmarshal,
-    ECDSA_GetGuild,
-    ECDSA_Final,
-    ECDSA_CleanUp
+    ECDSA_GetIdentity,
+    ECDSA_Final
 };
 
 typedef struct _ECDSAContext {
-    AJ_KeyInfo pub;
-    AJ_KeyInfo prv;
-    AJ_GUID* issuer;
-    AJ_GUID* guild;
+    uint8_t type;
+    uint8_t* data;
+    size_t size;
 } ECDSAContext;
 static ECDSAContext ecdsactx;
 #endif
@@ -73,17 +70,15 @@ static ECDSAContext ecdsactx;
 static AJ_Status PSK_Init(AJ_AuthListenerFunc authlistener, const uint8_t* mastersecret, size_t mastersecretlen, AJ_SHA256_Context* hash);
 static AJ_Status PSK_Marshal(AJ_Message* msg, uint8_t role);
 static AJ_Status PSK_Unmarshal(AJ_Message* msg, uint8_t role);
-static AJ_Status PSK_Final(uint32_t* expiration);
-static AJ_GUID* PSK_GetGuild();
-static AJ_Status PSK_CleanUp();
+static AJ_Status PSK_GetIdentity(AJ_Identity* identity, uint32_t* expiration);
+static AJ_Status PSK_Final();
 
 AJ_KeyAuthentication AJ_KeyAuthenticationPSK = {
     PSK_Init,
     PSK_Marshal,
     PSK_Unmarshal,
-    PSK_GetGuild,
-    PSK_Final,
-    PSK_CleanUp
+    PSK_GetIdentity,
+    PSK_Final
 };
 
 #define AUTH_VERIFIER_LEN SHA256_DIGEST_LENGTH
@@ -101,17 +96,15 @@ static PSKContext pskctx;
 static AJ_Status NULL_Init(AJ_AuthListenerFunc authlistener, const uint8_t* mastersecret, size_t mastersecretlen, AJ_SHA256_Context* hash);
 static AJ_Status NULL_Marshal(AJ_Message* msg, uint8_t role);
 static AJ_Status NULL_Unmarshal(AJ_Message* msg, uint8_t role);
-static AJ_GUID* NULL_GetGuild();
-static AJ_Status NULL_Final(uint32_t* expiration);
-static AJ_Status NULL_CleanUp();
+static AJ_Status NULL_GetIdentity(AJ_Identity* identity, uint32_t* expiration);
+static AJ_Status NULL_Final();
 
 AJ_KeyAuthentication AJ_KeyAuthenticationNULL = {
     NULL_Init,
     NULL_Marshal,
     NULL_Unmarshal,
-    NULL_GetGuild,
-    NULL_Final,
-    NULL_CleanUp
+    NULL_GetIdentity,
+    NULL_Final
 };
 #endif
 
@@ -158,32 +151,10 @@ static AJ_Status ECDSA_Init(AJ_AuthListenerFunc authlistener, const uint8_t* mas
     kactx.mastersecretlen = mastersecretlen;
     kactx.hash = hash;
     kactx.authlistener = authlistener;
-    ecdsactx.issuer = NULL;
-    ecdsactx.guild = NULL;
 
-    /*
-     * Load key pair if available
-     */
-    status = AJ_KeyInfoGetLocal(&ecdsactx.pub, AJ_CRED_TYPE_ECDSA_PUB);
-    if (AJ_OK != status) {
-        status = AJ_KeyInfoGenerate(&ecdsactx.pub, &ecdsactx.prv, KEY_USE_SIG);
-        if (AJ_OK != status) {
-            return status;
-        }
-        status = AJ_KeyInfoSetLocal(&ecdsactx.pub, AJ_CRED_TYPE_ECDSA_PUB);
-        if (AJ_OK != status) {
-            return status;
-        }
-        status = AJ_KeyInfoSetLocal(&ecdsactx.prv, AJ_CRED_TYPE_ECDSA_PRV);
-        if (AJ_OK != status) {
-            return status;
-        }
-    } else {
-        status = AJ_KeyInfoGetLocal(&ecdsactx.prv, AJ_CRED_TYPE_ECDSA_PRV);
-        if (AJ_OK != status) {
-            return status;
-        }
-    }
+    ecdsactx.type = AJ_ID_TYPE_ANY;
+    ecdsactx.data = NULL;
+    ecdsactx.size = 0;
 
     return status;
 }
@@ -191,19 +162,18 @@ static AJ_Status ECDSA_Init(AJ_AuthListenerFunc authlistener, const uint8_t* mas
 static AJ_Status ECDSA_MarshalCertificate(AJ_Message* msg, uint16_t type)
 {
     AJ_Status status;
-    AJ_PeerHead head;
-    AJ_PeerBody body;
+    AJ_CredHead head;
+    AJ_CredBody body;
 
-    head.type = type;
+    head.type = type | AJ_CRED_TYPE_CERTIFICATE;
     //TODO use one that matches a TA on the other peer.
     head.id.size = 0;
     head.id.data = NULL;
     status = AJ_GetCredential(&head, &body);
     if (AJ_OK == status) {
-        AJ_DumpBytes("CERTIFICATE", body.data.data, body.data.size);
         status = AJ_MarshalArgs(msg, "(ay)", body.data.data, body.data.size);
         AJ_SHA256_Update(kactx.hash, body.data.data, body.data.size);
-        AJ_PeerBodyFree(&body);
+        AJ_CredBodyFree(&body);
     }
 
     return status;
@@ -214,6 +184,7 @@ AJ_Status ECDSA_Marshal(AJ_Message* msg, uint8_t role)
     AJ_Status status;
     AJ_Arg array1;
     AJ_Arg struct1;
+    AJ_KeyInfo prv;
     AJ_SigInfo sig;
     uint8_t verifier[SHA256_DIGEST_LENGTH];
     uint8_t fmt = CERT_FMT_X509_DER;
@@ -229,36 +200,65 @@ AJ_Status ECDSA_Marshal(AJ_Message* msg, uint8_t role)
         AJ_WarnPrintf(("AJ_ECDSA_Marshal(msg=%p): Compute verifier error\n", msg));
         return AJ_ERR_SECURITY;
     }
-    AJ_DumpBytes("VERIFIER", verifier, sizeof (verifier));
 
     /*
      * Create signature info binding key to verifier
      */
     sig.fmt = SIG_FMT_ALLJOYN;
     sig.alg = SIG_ALG_ECDSA_SHA256;
-    status = AJ_ECDSASignDigest(verifier, &ecdsactx.prv.key.privatekey, &sig.signature);
+    status = AJ_KeyInfoGetLocal(&prv, AJ_KEYINFO_ECDSA_SIG_PRV);
+    if (AJ_OK != status) {
+        AJ_InfoPrintf(("AJ_ECDSA_Marshal(msg=%p): No signing key available\n", msg));
+        return status;
+    }
+    status = AJ_ECDSASignDigest(verifier, &prv.key.privatekey, &sig.signature);
+    if (AJ_OK != status) {
+        return status;
+    }
     status = AJ_MarshalVariant(msg, "(yvyv)");
+    if (AJ_OK != status) {
+        return status;
+    }
     status = AJ_MarshalContainer(msg, &struct1, AJ_ARG_STRUCT);
+    if (AJ_OK != status) {
+        return status;
+    }
 
     /*
      * Marshal signature info
      */
-    AJ_DumpBytes("SIGNATURE", (uint8_t*) &sig, sizeof (AJ_SigInfo));
     status = AJ_SigInfoMarshal(&sig, msg, kactx.hash);
+    if (AJ_OK != status) {
+        AJ_InfoPrintf(("AJ_ECDSA_Marshal(msg=%p): SigInfo marshal error\n", msg));
+        return status;
+    }
     status = AJ_MarshalArgs(msg, "y", fmt);
+    if (AJ_OK != status) {
+        return status;
+    }
     status = AJ_MarshalVariant(msg, "a(ay)");
+    if (AJ_OK != status) {
+        return status;
+    }
     status = AJ_MarshalContainer(msg, &array1, AJ_ARG_ARRAY);
+    if (AJ_OK != status) {
+        return status;
+    }
     AJ_SHA256_Update(kactx.hash, &fmt, 1);
 
     /*
      * We only handle sending one certificate at the moment.
-     * For now, we'll just prioritise membership certificates.
+     * Our identity certificate.
      */
-    status = ECDSA_MarshalCertificate(msg, AJ_CRED_TYPE_X509_DER_MBR);
+    status = ECDSA_MarshalCertificate(msg, AJ_CERTIFICATE_IDN_X509_DER);
     if (AJ_OK != status) {
-        status = ECDSA_MarshalCertificate(msg, AJ_CRED_TYPE_X509_DER_IDN);
+        AJ_InfoPrintf(("AJ_ECDSA_Marshal(msg=%p): Marshal membership certificate error\n", msg));
+        return status;
     }
     status = AJ_MarshalCloseContainer(msg, &array1);
+    if (AJ_OK != status) {
+        return status;
+    }
     status = AJ_MarshalCloseContainer(msg, &struct1);
 
     return status;
@@ -278,7 +278,6 @@ AJ_Status ECDSA_Unmarshal(AJ_Message* msg, uint8_t role)
     AJ_KeyInfo pub;
     AJ_SigInfo sig;
     AJ_GUID* issuer;
-    AJ_GUID* guild = NULL;
     X509Certificate certificate;
     ecc_signature* signature;
 
@@ -293,7 +292,6 @@ AJ_Status ECDSA_Unmarshal(AJ_Message* msg, uint8_t role)
         AJ_WarnPrintf(("AJ_ECDSA_Unmarshal(msg=%p): Compute verifier error\n", msg));
         return AJ_ERR_SECURITY;
     }
-    AJ_DumpBytes("VERIFIER", digest, sizeof (digest));
 
     status = AJ_UnmarshalVariant(msg, (const char**) &variant);
     if (AJ_OK != status) {
@@ -313,6 +311,7 @@ AJ_Status ECDSA_Unmarshal(AJ_Message* msg, uint8_t role)
      */
     status = AJ_SigInfoUnmarshal(&sig, msg, kactx.hash);
     if (AJ_OK != status) {
+        AJ_InfoPrintf(("AJ_ECDSA_Unmarshal(msg=%p): Bad SigInfo\n", msg));
         return status;
     }
     issuer = (AJ_GUID*) AJ_GUID_Find(msg->sender);
@@ -323,7 +322,7 @@ AJ_Status ECDSA_Unmarshal(AJ_Message* msg, uint8_t role)
         return status;
     }
     if (CERT_FMT_X509_DER != fmt) {
-        AJ_ErrPrintf(("AJ_ECDSA_Unmarshal(msg=%p): DER encoding expected\n", msg));
+        AJ_InfoPrintf(("AJ_ECDSA_Unmarshal(msg=%p): DER encoding expected\n", msg));
         return AJ_ERR_INVALID;
     }
     AJ_SHA256_Update(kactx.hash, &fmt, 1);
@@ -347,10 +346,8 @@ AJ_Status ECDSA_Unmarshal(AJ_Message* msg, uint8_t role)
          * Check if we have the public key for the issuer (stored trust anchor).
          * If not, we need to get it from the next certificate in the chain.
          */
-        status = AJ_KeyInfoGet(&pub, AJ_CRED_TYPE_ECDSA_CA_PUB, issuer);
+        status = AJ_KeyInfoGet(&pub, AJ_KEYINFO_ECDSA_CA_PUB, issuer);
         if (AJ_OK == status) {
-            AJ_DumpBytes("ISSUER   ", (uint8_t*) issuer, sizeof (AJ_GUID));
-            AJ_DumpBytes("PUBLICKEY", (uint8_t*) &pub, sizeof (AJ_KeyInfo));
             status = AJ_ECDSAVerifyDigest(digest, signature, &pub.key.publickey);
             if (AJ_OK == status) {
                 AJ_InfoPrintf(("AJ_ECDSA_Unmarshal(msg=%p): Certificate valid\n", msg));
@@ -363,24 +360,26 @@ AJ_Status ECDSA_Unmarshal(AJ_Message* msg, uint8_t role)
              * We could error here.
              */
         }
-        guild = NULL;
 
         status = AJ_UnmarshalArgs(msg, "(ay)", &der.data, &der.size);
         if (AJ_OK != status) {
             // No more in array
             break;
         }
-        AJ_DumpBytes("CERTIFICATE", der.data, der.size);
         AJ_SHA256_Update(kactx.hash, der.data, der.size);
         status = AJ_X509DecodeCertificateDER(&certificate, &der);
         if (AJ_OK != status) {
-            return status;
+            AJ_WarnPrintf(("AJ_ECDSA_Unmarshal(msg=%p): Certificate decode failed\n", msg));
+            break;
         }
 
         /*
-         * Check subject is previous issuer
+         * Check subject is previous issuer.
+         * Currently, the DN only contains a GUID.
+         * If this changes, we need to check the full DN matches.
          */
         if (0 != memcmp(issuer, &certificate.subject, sizeof (AJ_GUID))) {
+            AJ_WarnPrintf(("AJ_ECDSA_Unmarshal(msg=%p): Certificate chaining conditions failed\n", msg));
             status = AJ_ERR_SECURITY;
             break;
         }
@@ -388,9 +387,9 @@ AJ_Status ECDSA_Unmarshal(AJ_Message* msg, uint8_t role)
         /*
          * Get the subject public key and verify previous
          */
-        status = AJ_ECDSAVerifyDigest(digest, signature, &certificate.publickey);
+        status = AJ_ECDSAVerifyDigest(digest, signature, &certificate.keyinfo.key.publickey);
         if (AJ_OK != status) {
-            AJ_InfoPrintf(("AJ_ECDSA_Unmarshal(msg=%p): Certificate invalid\n", msg));
+            AJ_WarnPrintf(("AJ_ECDSA_Unmarshal(msg=%p): Certificate invalid\n", msg));
             break;
         }
 
@@ -398,13 +397,45 @@ AJ_Status ECDSA_Unmarshal(AJ_Message* msg, uint8_t role)
          * Update current issuer, digest and signature
          */
         issuer = &certificate.issuer;
-        guild = &certificate.guild;
         AJ_SHA256_Init(&ctx);
         AJ_SHA256_Update(&ctx, (const uint8_t*) certificate.tbs.data, certificate.tbs.size);
         AJ_SHA256_Final(&ctx, digest);
         signature = &certificate.signature;
+        if (!ecdsactx.data) {
+            /*
+             * This is the bottom certificate
+             */
+            ecdsactx.type = certificate.type;
+            switch (certificate.type) {
+            case IDENTITY_CERTIFICATE:
+                ecdsactx.size = KEYINFO_PUB_SZ;
+                ecdsactx.data = AJ_Malloc(ecdsactx.size);
+                if (!ecdsactx.data) {
+                    return AJ_ERR_RESOURCES;
+                }
+                status = AJ_KeyInfoSerialize(&certificate.keyinfo, AJ_KEYINFO_ECDSA_SIG_PUB, ecdsactx.data, ecdsactx.size);
+                if (AJ_OK != status) {
+                    return status;
+                }
+                break;
+
+            case MEMBERSHIP_CERTIFICATE:
+                ecdsactx.size = sizeof (AJ_GUID);
+                ecdsactx.data = AJ_Malloc(ecdsactx.size);
+                if (!ecdsactx.data) {
+                    return AJ_ERR_RESOURCES;
+                }
+                memcpy(ecdsactx.data, &certificate.guild, ecdsactx.size);
+                break;
+
+            default:
+                AJ_InfoPrintf(("AJ_ECDSA_Unmarshal(msg=%p): Bad certificate type %x\n", msg, certificate.type));
+                return AJ_ERR_SECURITY;
+            }
+        }
     }
     if (AJ_ERR_NO_MORE != status) {
+        AJ_InfoPrintf(("AJ_ECDSA_Unmarshal(msg=%p): Certificate chain error %s\n", msg, AJ_StatusText(status)));
         return status;
     }
     status = AJ_UnmarshalCloseContainer(msg, &array1);
@@ -415,45 +446,27 @@ AJ_Status ECDSA_Unmarshal(AJ_Message* msg, uint8_t role)
     if (AJ_OK != status) {
         return status;
     }
-    if (valid) {
-        status = AJ_OK;
-        if (guild) {
-            ecdsactx.guild = (AJ_GUID*) AJ_Malloc(sizeof (AJ_GUID));
-            AJ_ASSERT(ecdsactx.guild);
-            memcpy(ecdsactx.guild, guild, sizeof (AJ_GUID));
-            AJ_DumpBytes("GUILD", (uint8_t*) ecdsactx.guild, sizeof (AJ_GUID));
-        }
-    } else {
-        status = AJ_ERR_SECURITY;
-    }
 
-    return status;
+    return valid ? AJ_OK : AJ_ERR_SECURITY;
 }
 
-AJ_GUID* ECDSA_GetGuild()
+AJ_Status ECDSA_GetIdentity(AJ_Identity* identity, uint32_t* expiration)
 {
-    return ecdsactx.guild;
-}
-
-AJ_Status ECDSA_Final(uint32_t* expiration)
-{
-    AJ_InfoPrintf(("AJ_ECDSA_Final()\n"));
-
+    identity->level = AJ_SESSION_AUTHENTICATED;
+    identity->type = ecdsactx.type;
+    identity->data = ecdsactx.data;
+    identity->size = ecdsactx.size;
     *expiration = kactx.expiration;
-
     return AJ_OK;
 }
 
-AJ_Status ECDSA_CleanUp()
+AJ_Status ECDSA_Final()
 {
-    AJ_InfoPrintf(("AJ_ECDSA_CleanUp()\n"));
-    if (ecdsactx.issuer) {
-        AJ_Free(ecdsactx.issuer);
-        ecdsactx.issuer = NULL;
-    }
-    if (ecdsactx.guild) {
-        AJ_Free(ecdsactx.guild);
-        ecdsactx.guild = NULL;
+    AJ_InfoPrintf(("AJ_ECDSA_Final()\n"));
+
+    if (ecdsactx.data) {
+        AJ_Free(ecdsactx.data);
+        ecdsactx.data = NULL;
     }
 
     return AJ_OK;
@@ -475,13 +488,11 @@ static AJ_Status PSK_Init(AJ_AuthListenerFunc authlistener, const uint8_t* maste
     kactx.mastersecret = (uint8_t*) mastersecret;
     kactx.mastersecretlen = mastersecretlen;
     kactx.hash = hash;
-
-    /* authlistener might be NULL */
     kactx.authlistener = authlistener;
 
     pskctx.hint = NULL;
     pskctx.hintlen = 0;
-    pskctx.psk  = NULL;
+    pskctx.psk = NULL;
     pskctx.psklen  = 0;
 
     return AJ_OK;
@@ -689,23 +700,20 @@ static AJ_Status PSK_Unmarshal(AJ_Message* msg, uint8_t role)
     return status;
 }
 
-AJ_Status PSK_Final(uint32_t* expiration)
+AJ_Status PSK_GetIdentity(AJ_Identity* identity, uint32_t* expiration)
 {
-    AJ_InfoPrintf(("AJ_PSK_Final()\n"));
-
+    identity->level = AJ_SESSION_AUTHENTICATED;
+    //We have not defined PSK identities in policy yet
+    identity->type = AJ_ID_TYPE_ANY;
+    identity->data = pskctx.hint;
+    identity->size = pskctx.hintlen;
     *expiration = kactx.expiration;
-
     return AJ_OK;
 }
 
-AJ_GUID* PSK_GetGuild()
+AJ_Status PSK_Final()
 {
-    return NULL;
-}
-
-AJ_Status PSK_CleanUp()
-{
-    AJ_InfoPrintf(("AJ_PSK_CleanUp()\n"));
+    AJ_InfoPrintf(("AJ_PSK_Final()\n"));
 
     if (pskctx.hint) {
         AJ_Free(pskctx.hint);
@@ -728,14 +736,19 @@ static AJ_Status NULL_Init(AJ_AuthListenerFunc authlistener, const uint8_t* mast
 
     AJ_InfoPrintf(("AJ_NULL_Init()\n"));
 
-    /* mastersecret, hash, authlistener will not be NULL */
+    /* mastersecret, hash will not be NULL */
     kactx.mastersecret = (uint8_t*) mastersecret;
     kactx.mastersecretlen = mastersecretlen;
     kactx.hash = hash;
-    status = authlistener(AUTH_SUITE_ECDHE_NULL, 0, &cred);
-    kactx.expiration = cred.expiration;
+    kactx.expiration = 0;
+    if (authlistener) {
+        status = authlistener(AUTH_SUITE_ECDHE_NULL, 0, &cred);
+        if (AJ_OK == status) {
+            kactx.expiration = cred.expiration;
+        }
+    }
 
-    return status;
+    return AJ_OK;
 }
 
 static AJ_Status NULL_Marshal(AJ_Message* msg, uint8_t role)
@@ -808,23 +821,19 @@ static AJ_Status NULL_Unmarshal(AJ_Message* msg, uint8_t role)
     return status;
 }
 
-AJ_Status NULL_Final(uint32_t* expiration)
+AJ_Status NULL_GetIdentity(AJ_Identity* identity, uint32_t* expiration)
 {
-    AJ_InfoPrintf(("AJ_NULL_Final()\n"));
-
+    identity->level = AJ_SESSION_ENCRYPTED;
+    identity->type = AJ_ID_TYPE_ANY;
+    identity->data = NULL;
+    identity->size = 0;
     *expiration = kactx.expiration;
-
     return AJ_OK;
 }
 
-AJ_GUID* NULL_GetGuild()
+AJ_Status NULL_Final()
 {
-    return NULL;
-}
-
-AJ_Status NULL_CleanUp()
-{
-    AJ_InfoPrintf(("AJ_NULL_CleanUp()\n"));
+    AJ_InfoPrintf(("AJ_NULL_Final()\n"));
 
     return AJ_OK;
 }

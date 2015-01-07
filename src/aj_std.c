@@ -2,7 +2,7 @@
  * @file
  */
 /******************************************************************************
- * Copyright (c) 2012-2014 AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2012-2015, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -186,7 +186,7 @@ static const char* const AboutIconIface[] = {
 
 static const char* const SecurityIface[] = {
     SecurityInterface,
-    "?Claim <(yv) <ay >(yv)",
+    "?Claim <(yv) <ay <(yay)",
     "?InstallPolicy <(yv)",
     "?RemovePolicy",
     "?GetPolicy >(yv)",
@@ -196,12 +196,15 @@ static const char* const SecurityIface[] = {
     "?InstallMembership <a(yay)",
     "?InstallMembershipAuthData <ay <ay <(yv)",
     "?RemoveMembership <ay <ay",
+    "?GetManifest >(yv)",
+    "?Reset",
+    "?GetPublicKey >(yv)",
     NULL
 };
 
 static const char* const SecurityNotifyIface[] = {
     SecurityNotifyInterface,
-    "!NotifyConfig >ay >y >u >a(ayay)",
+    "!&NotifyConfig >(yv) >y >u >a(ayay)",
 };
 
 static const AJ_InterfaceDescription PeerIfaces[] = {

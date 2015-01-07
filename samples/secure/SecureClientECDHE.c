@@ -3,7 +3,7 @@
  */
 
 /******************************************************************************
- * Copyright (c) 2012-2014, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2012-2015, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -144,49 +144,10 @@ AJ_Status SendPing(AJ_BusAttachment* bus, uint32_t sessionId)
 //static uint8_t psk[16];
 static const char psk_hint[] = "bob";
 static const char psk_char[] = "123456";
-static const char owner_pub_b64[] = "RCf5ihem02VFXvIa8EVJ1CJcJns3el0IH+H51s07rc0AAAAAn6KJifUPH1oRmPLoyBHGCg7/NT8kW67GD8kQjZh/U/AAAAAAAAAAAA==";
-static const char ecc_pub_b64[] = "JmZC779f7YjYPa3rU0xdifnW0qyiCmmUXcN1XExC334AAAAA1j95MCfIAFa6Fpa5vJ+2tUMfYVmhny04itEwJPnfDqAAAAAAAAAAAA==";
-static const char ecc_prv_b64[] = "koWEteat13YRYrv/olCqEmMg7YufcTsjSQNbIL1ue+wAAAAA";
-static const char owner_cert1_b64[] = "\
-AAAAAUQn+YoXptNlRV7yGvBFSdQiXCZ7N3pdCB/h+dbNO63NAAAAAJ+iiYn1Dx9a\
-EZjy6MgRxgoO/zU/JFuuxg/JEI2Yf1PwAAAAAAAAAAAmZkLvv1/tiNg9retTTF2J\
-+dbSrKIKaZRdw3VcTELffgAAAADWP3kwJ8gAVroWlrm8n7a1Qx9hWaGfLTiK0TAk\
-+d8OoAAAAAAAAAAAAAAAAAAAAAAAAAAA/////wBOnWRZjvJdd9adaDleMIDQJOJC\
-OuSepUTdfamDakEy/rQbXYuqvmUj1ZiGGpPYBfh7aNkFE4rng9TixhKXJ15XAAAA\
-AN6X04g62BUVvnCbFuBiw2r783HQeBdGUdUrsnVoHUKkAAAAAA==";
-static const char owner_cert2_b64[] = "\
-AAAAAkQn+YoXptNlRV7yGvBFSdQiXCZ7N3pdCB/h+dbNO63NAAAAAJ+iiYn1Dx9a\
-EZjy6MgRxgoO/zU/JFuuxg/JEI2Yf1PwAAAAAAAAAAAmZkLvv1/tiNg9retTTF2J\
-+dbSrKIKaZRdw3VcTELffgAAAADWP3kwJ8gAVroWlrm8n7a1Qx9hWaGfLTiK0TAk\
-+d8OoAAAAAAAAAAAAAAAAAAAAAAAAAAA/////wD5/PM2YlgaDcbxM2GD2BntTp1k\
-WY7yXXfWnWg5XjCA0CTiQjrknqVE3X2pg2pBMv4X9K7ntr5Z4AQzJnz9DaHh0clG\
-WYk3iayjtM2IUTldlgAAAAALQdeFHaHyScnOSPXzaHV/tLCTPKogvpv4gWOfQAsy\
-2AAAAAA=";
-static ecc_publickey ecc_pub;
-static ecc_privatekey ecc_prv;
-static AJ_Certificate root_cert;
-
-static const char* issuers[] = {
-    "RCf5ihem02VFXvIa8EVJ1CJcJns3el0IH+H51s07rc0AAAAAn6KJifUPH1oRmPLoyBHGCg7/NT8kW67GD8kQjZh/U/AAAAAAAAAAAA==",
-    "9RB2ExIO4VZqEwb+sWYVsozToGMgDZJzH0Yf4Q0sCC0AAAAAhuEeeMDIXKzoOg3aQqVdUKC0ekWIRizM5hcjzxAO8LUAAAAAAAAAAA=="
-};
-
-static AJ_Status IsTrustedIssuer(const char* issuer)
-{
-    size_t i;
-    for (i = 0; i < 2; i++) {
-        if (0 == strncmp(issuer, issuers[i], strlen(issuers[i]))) {
-            return AJ_OK;
-        }
-    }
-    return AJ_ERR_SECURITY;
-}
 
 static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, AJ_Credential* cred)
 {
     AJ_Status status = AJ_ERR_INVALID;
-    uint8_t b8[sizeof (AJ_Certificate)];
-    char b64[400];
     AJ_Printf("AuthListenerCallback authmechanism %d command %d\n", authmechanism, command);
 
     switch (authmechanism) {
@@ -213,56 +174,6 @@ static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, 
             cred->data = (uint8_t*) psk_char;
             cred->len = strlen(psk_char);
             cred->expiration = keyexpiration;
-            status = AJ_OK;
-            break;
-        }
-        break;
-
-    case AUTH_SUITE_ECDHE_ECDSA:
-        switch (command) {
-        case AJ_CRED_PUB_KEY:
-            status = AJ_B64ToRaw(ecc_pub_b64, strlen(ecc_pub_b64), b8, sizeof (b8));
-            AJ_ASSERT(AJ_OK == status);
-            status = AJ_BigEndianDecodePublicKey(&ecc_pub, b8);
-            AJ_ASSERT(AJ_OK == status);
-            cred->mask = AJ_CRED_PUB_KEY;
-            cred->data = (uint8_t*) &ecc_pub;
-            cred->len = sizeof (ecc_pub);
-            cred->expiration = keyexpiration;
-            break;
-
-        case AJ_CRED_PRV_KEY:
-            status = AJ_B64ToRaw(ecc_prv_b64, strlen(ecc_prv_b64), b8, sizeof (b8));
-            AJ_ASSERT(AJ_OK == status);
-            status = AJ_BigEndianDecodePrivateKey(&ecc_prv, b8);
-            AJ_ASSERT(AJ_OK == status);
-            cred->mask = AJ_CRED_PRV_KEY;
-            cred->data = (uint8_t*) &ecc_prv;
-            cred->len = sizeof (ecc_prv);
-            cred->expiration = keyexpiration;
-            break;
-
-        case AJ_CRED_CERT_CHAIN:
-            status = AJ_B64ToRaw(owner_cert1_b64, strlen(owner_cert1_b64), b8, sizeof (b8));
-            AJ_ASSERT(AJ_OK == status);
-            status = AJ_BigEndianDecodeCertificate(&root_cert, b8, sizeof (b8));
-            AJ_ASSERT(AJ_OK == status);
-            cred->mask = AJ_CRED_CERT_CHAIN;
-            cred->data = (uint8_t*) &root_cert;
-            cred->len = sizeof (root_cert);
-            break;
-
-        case AJ_CRED_CERT_TRUST:
-            status = AJ_RawToB64(cred->data, cred->len, b64, sizeof (b64));
-            AJ_ASSERT(AJ_OK == status);
-            status = IsTrustedIssuer(b64);
-            AJ_Printf("TRUST: %s %d\n", b64, status);
-            break;
-
-        case AJ_CRED_CERT_ROOT:
-            status = AJ_RawToB64(cred->data, cred->len, b64, sizeof (b64));
-            AJ_ASSERT(AJ_OK == status);
-            AJ_Printf("ROOT: %s\n", b64);
             status = AJ_OK;
             break;
         }
@@ -352,7 +263,7 @@ int AJ_Main(int ac, char** av)
                 AJ_BusEnableSecurity(&bus, suites, numsuites);
                 AJ_BusSetAuthListenerCallback(&bus, AuthListenerCallback);
                 if (clearkeys) {
-                    status = AJ_ClearCredentials();
+                    status = AJ_ClearCredentials(AJ_CRED_TYPE_GENERIC);
                     AJ_ASSERT(AJ_OK == status);
                 }
 
@@ -406,7 +317,6 @@ int AJ_Main(int ac, char** av)
                     } else {
                         AJ_ErrPrintf(("Bad ping response.\n"));
                     }
-
                     done = TRUE;
                 }
                 break;

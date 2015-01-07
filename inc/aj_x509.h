@@ -7,7 +7,7 @@
  */
 
 /******************************************************************************
- * Copyright (c) 2014, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2014-2015, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -36,6 +36,16 @@ extern const uint8_t OID_CRV_PRIME256V1[];
 extern const uint8_t OID_DN_OU[];
 extern const uint8_t OID_DN_CN[];
 extern const uint8_t OID_BASIC_CONSTRAINTS[];
+extern const uint8_t OID_SUB_ALTNAME[];
+extern const uint8_t OID_DIG_SHA256[];
+extern const uint8_t OID_CUSTOM_DIGEST[];
+extern const uint8_t OID_CUSTOM_CERT_TYPE[];
+
+typedef enum {
+    UNKNOWN_CERTIFICATE,
+    IDENTITY_CERTIFICATE,
+    MEMBERSHIP_CERTIFICATE
+} CertificateType;
 
 /**
  * Structure for X.509 certificate.
@@ -43,13 +53,16 @@ extern const uint8_t OID_BASIC_CONSTRAINTS[];
  * Can be modified to handle other types in the future.
  */
 typedef struct _X509Certificate {
-    DER_Element tbs;         /**< The TBS section of the certificate */
-    DER_Element serial;      /**< The serial number */
-    AJ_GUID issuer;          /**< The issuer's identity */
-    AJ_GUID subject;         /**< The subject's identity */
-    AJ_GUID guild;           /**< The subject's guild membership */
-    ecc_publickey publickey; /**< The subject's public key */
-    ecc_signature signature; /**< The certificate signature */
+    CertificateType type;                 /**< The certificate type */
+    DER_Element tbs;                      /**< The TBS section of the certificate */
+    DER_Element serial;                   /**< The serial number */
+    AJ_GUID issuer;                       /**< The issuer's identity */
+    AJ_GUID subject;                      /**< The subject's identity */
+    AJ_GUID guild;                        /**< The subject's guild membership */
+    AJ_KeyInfo keyinfo;                   /**< The subject's public key */
+    DER_Element alias;                    /**< The subject's alias */
+    uint8_t digest[SHA256_DIGEST_LENGTH]; /**< Digest field */
+    ecc_signature signature;              /**< The certificate signature */
 } X509Certificate;
 
 /**
