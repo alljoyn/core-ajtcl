@@ -2,7 +2,7 @@
  * @file
  */
 /******************************************************************************
- * Copyright (c) 2012-2014, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2012-2015, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -1059,7 +1059,7 @@ AJ_Status AJ_Discover(const char* prefix, AJ_Service* service, uint32_t timeout)
                         if (!AJ_IsRoutingNodeBlacklisted(service)) {
                             goto _Exit;
                         } else {
-                            AJ_InfoPrintf(("AJ_Discover(): Skipping blacklisted Routing Node"));
+                            AJ_InfoPrintf(("AJ_Discover(): Skipping blacklisted Routing Node\n"));
                         }
                     }
                 }
@@ -1073,7 +1073,7 @@ AJ_Status AJ_Discover(const char* prefix, AJ_Service* service, uint32_t timeout)
                         if (!AJ_IsRoutingNodeBlacklisted(service)) {
                             goto _Exit;
                         } else {
-                            AJ_InfoPrintf(("AJ_Discover(): Skipping blacklisted Routing Node"));
+                            AJ_InfoPrintf(("AJ_Discover(): Skipping blacklisted Routing Node\n"));
                         }
                     }
                 }
