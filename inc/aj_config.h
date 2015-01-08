@@ -7,7 +7,7 @@
  * @{
  */
 /******************************************************************************
- * Copyright (c) 2013-2014, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2013-2015, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -47,7 +47,6 @@ extern "C" {
 #define AJ_MASTER_SECRET_LEN        48          //Length of the master secret - RFC 5246
 #define AJ_ADHOC_LEN                16          //AD-HOC maximal passcode length        (aj_auth.h)
 #define AJ_NAME_MAP_GUID_SIZE       4           //aj_guid.c
-#define AJ_MAX_NAME_SIZE            14          //aj_guid.c
 #define AJ_MAX_CREDS                40          //Max number of credentials that can store credentials (aj_creds.h)
 #define AJ_LOCAL_GUID_NV_ID         1
 #define AJ_CREDS_NV_ID_BEGIN (AJ_LOCAL_GUID_NV_ID + 1)
