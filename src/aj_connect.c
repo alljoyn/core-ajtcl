@@ -2,7 +2,7 @@
  * @file
  */
 /******************************************************************************
- * Copyright (c) 2012-2014, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2012-2015, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -403,7 +403,7 @@ AJ_Status AJ_FindBusAndConnect(AJ_BusAttachment* bus, const char* serviceName, u
     AJ_InitTimer(&start);
 #endif
 
-    AJ_InfoPrintf(("AJ_Connect(bus=0x%p, serviceName=\"%s\", timeout=%d.)\n", bus, serviceName, timeout));
+    AJ_InfoPrintf(("AJ_FindBusAndConnect(bus=0x%p, serviceName=\"%s\", timeout=%d.)\n", bus, serviceName, timeout));
 
     /*
      * Clear the bus struct
@@ -439,7 +439,7 @@ AJ_Status AJ_FindBusAndConnect(AJ_BusAttachment* bus, const char* serviceName, u
         service.addrTypes = AJ_ADDR_IPV4;
         status = AJ_Discover(serviceName, &service, timeout);
         if (status != AJ_OK) {
-            AJ_InfoPrintf(("AJ_Connect(): AJ_Discover status=%s\n", AJ_StatusText(status)));
+            AJ_InfoPrintf(("AJ_FindBusAndConnect(): AJ_Discover status=%s\n", AJ_StatusText(status)));
             goto ExitConnect;
         }
 #elif defined(AJ_SERIAL_CONNECTION)
@@ -447,18 +447,18 @@ AJ_Status AJ_FindBusAndConnect(AJ_BusAttachment* bus, const char* serviceName, u
         // however, take this opportunity to bring up the serial connection
         status = AJ_Serial_Up();
         if (status != AJ_OK) {
-            AJ_InfoPrintf(("AJ_Connect(): AJ_Serial_Up status=%s\n", AJ_StatusText(status)));
+            AJ_InfoPrintf(("AJ_FindBusAndConnect(): AJ_Serial_Up status=%s\n", AJ_StatusText(status)));
         }
 #else
         status = AJ_Discover(serviceName, &service, timeout);
         if (status != AJ_OK) {
-            AJ_InfoPrintf(("AJ_Connect(): AJ_Discover status=%s\n", AJ_StatusText(status)));
+            AJ_InfoPrintf(("AJ_FindBusAndConnect(): AJ_Discover status=%s\n", AJ_StatusText(status)));
             goto ExitConnect;
         }
 #endif
         status = AJ_Net_Connect(&bus->sock, service.ipv4port, service.addrTypes & AJ_ADDR_IPV4, &service.ipv4);
         if (status != AJ_OK) {
-            AJ_InfoPrintf(("AJ_Connect(): AJ_Net_Connect status=%s\n", AJ_StatusText(status)));
+            AJ_InfoPrintf(("AJ_FindBusAndConnect(): AJ_Net_Connect status=%s\n", AJ_StatusText(status)));
             goto ExitConnect;
         }
 
@@ -470,7 +470,7 @@ AJ_Status AJ_FindBusAndConnect(AJ_BusAttachment* bus, const char* serviceName, u
         } while (AJ_SerialLinkParams.linkState != AJ_LINK_ACTIVE && AJ_GetTimeDifference(&now, &start) < timeout);
 
         if (AJ_SerialLinkParams.linkState != AJ_LINK_ACTIVE) {
-            AJ_InfoPrintf(("Failed to establish active SLAP connection in %u msec\n", timeout));
+            AJ_InfoPrintf(("AJ_FindBusAndConnect(): Failed to establish active SLAP connection in %u msec\n", timeout));
             AJ_SerialShutdown();
             return AJ_ERR_TIMEOUT;
         }
@@ -478,10 +478,10 @@ AJ_Status AJ_FindBusAndConnect(AJ_BusAttachment* bus, const char* serviceName, u
 
         status = AJ_Authenticate(bus);
         if (status != AJ_OK) {
-            AJ_InfoPrintf(("AJ_Connect(): AJ_Authenticate status=%s\n", AJ_StatusText(status)));
+            AJ_InfoPrintf(("AJ_FindBusAndConnect(): AJ_Authenticate status=%s\n", AJ_StatusText(status)));
 
 #if !AJ_CONNECT_LOCALHOST && !defined(ARDUINO) && !defined(AJ_SERIAL_CONNECTION)
-            AJ_InfoPrintf(("AJ_Connect(): Blacklisting routing node"));
+            AJ_InfoPrintf(("AJ_FindBusAndConnect(): Blacklisting routing node"));
             AddRoutingNodeToBlacklist(&service);
             // try again
             finished = FALSE;
@@ -494,7 +494,7 @@ AJ_Status AJ_FindBusAndConnect(AJ_BusAttachment* bus, const char* serviceName, u
 ExitConnect:
 
     if (status != AJ_OK) {
-        AJ_InfoPrintf(("AJ_Connect(): status=%s\n", AJ_StatusText(status)));
+        AJ_InfoPrintf(("AJ_FindBusAndConnect(): status=%s\n", AJ_StatusText(status)));
         AJ_Disconnect(bus);
     }
 
