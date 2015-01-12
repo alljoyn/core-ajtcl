@@ -186,6 +186,7 @@ static AJ_Status AnonymousAuthAdvance(AJ_IOBuffer* rxBuf, AJ_IOBuffer* txBuf) {
 AJ_Status AJ_Authenticate(AJ_BusAttachment* bus)
 {
     AJ_Status status = AJ_OK;
+    AJ_Message helloResponse;
 
     /*
      * Send initial NUL byte
@@ -200,67 +201,67 @@ AJ_Status AJ_Authenticate(AJ_BusAttachment* bus)
 
     /* Use SASL Anonymous to connect to routing node */
     status = AnonymousAuthAdvance(&bus->sock.rx, &bus->sock.tx);
-
     if (status == AJ_OK) {
         status = SendHello(bus);
     }
+
     if (status == AJ_OK) {
-        AJ_Message helloResponse;
         status = AJ_UnmarshalMsg(bus, &helloResponse, 5000);
-        if (status == AJ_OK) {
-            /*
-             * The only error we might get is a timeout
-             */
-            if (helloResponse.hdr->msgType == AJ_MSG_ERROR) {
-                status = AJ_ERR_TIMEOUT;
-            } else {
-                AJ_Arg arg;
-                status = AJ_UnmarshalArg(&helloResponse, &arg);
-                if (status == AJ_OK) {
-                    if (arg.len >= (sizeof(bus->uniqueName) - 1)) {
-                        AJ_ErrPrintf(("AJ_Authenticate(): AJ_ERR_RESOURCES\n"));
-                        status = AJ_ERR_RESOURCES;
-                    } else {
-                        memcpy(bus->uniqueName, arg.val.v_string, arg.len);
-                        bus->uniqueName[arg.len] = '\0';
-                    }
+    }
+
+    if (status == AJ_OK) {
+        if (helloResponse.hdr->msgType == AJ_MSG_ERROR) {
+            AJ_ErrPrintf(("AJ_Authenticate(): AJ_ERR_TIMEOUT\n"));
+            status = AJ_ERR_TIMEOUT;
+        } else {
+            AJ_Arg arg;
+            status = AJ_UnmarshalArg(&helloResponse, &arg);
+            if (status == AJ_OK) {
+                if (arg.len >= (sizeof(bus->uniqueName) - 1)) {
+                    AJ_ErrPrintf(("AJ_Authenticate(): AJ_ERR_RESOURCES\n"));
+                    status = AJ_ERR_RESOURCES;
+                } else {
+                    memcpy(bus->uniqueName, arg.val.v_string, arg.len);
+                    bus->uniqueName[arg.len] = '\0';
                 }
             }
-            AJ_CloseMsg(&helloResponse);
+        }
+        AJ_CloseMsg(&helloResponse);
+    }
 
-            /*
-             * AJ_GUID needs the NameOwnerChanged signal to clear out entries in
-             * its map.  Prior to router version 10 this means we must set a
-             * signal rule to receive every NameOwnerChanged signal.  With
-             * version 10 the router supports the arg[0,1,...] key in match
-             * rules, allowing us to set a signal rule for just the
-             * NameOwnerChanged signals of entries in the map.  See aj_guid.c
-             * for usage of the arg key.
-             */
-            if (AJ_GetRoutingProtoVersion() < 11) {
-                status = AJ_BusSetSignalRule(bus, "type='signal',member='NameOwnerChanged',interface='org.freedesktop.DBus'", AJ_BUS_SIGNAL_ALLOW);
-                if (status == AJ_OK) {
-                    uint8_t found_reply = FALSE;
-                    AJ_Message msg;
-                    AJ_Time timer;
-                    AJ_InitTimer(&timer);
+    if (status == AJ_OK) {
+        /*
+         * AJ_GUID needs the NameOwnerChanged signal to clear out entries in
+         * its map.  Routing protocol version 10 and earlier require setting a
+         * signal rule to receive every NameOwnerChanged signal.
+         * With version 11 and later the protocol supports the arg[0,1,...] keys
+         * in match rules, allowing setting a signal rule for just the
+         * NameOwnerChanged signals of entries in the map.  See aj_guid.c
+         * for usage of the arg keys.
+         */
+        if (AJ_GetRoutingProtoVersion() < 11) {
+            status = AJ_BusSetSignalRule(bus, "type='signal',member='NameOwnerChanged',interface='org.freedesktop.DBus'", AJ_BUS_SIGNAL_ALLOW);
+            if (status == AJ_OK) {
+                uint8_t found_reply = FALSE;
+                AJ_Message msg;
+                AJ_Time timer;
+                AJ_InitTimer(&timer);
 
-                    while (found_reply == FALSE && AJ_GetElapsedTime(&timer, TRUE) < 3000) {
-                        status = AJ_UnmarshalMsg(bus, &msg, 3000);
-                        if (status == AJ_OK) {
-                            switch (msg.msgId) {
-                            case AJ_REPLY_ID(AJ_METHOD_ADD_MATCH):
-                                found_reply = TRUE;
-                                break;
+                while (found_reply == FALSE && AJ_GetElapsedTime(&timer, TRUE) < 3000) {
+                    status = AJ_UnmarshalMsg(bus, &msg, 3000);
+                    if (status == AJ_OK) {
+                        switch (msg.msgId) {
+                        case AJ_REPLY_ID(AJ_METHOD_ADD_MATCH):
+                            found_reply = TRUE;
+                            break;
 
-                            default:
-                                // ignore everything else
-                                AJ_BusHandleBusMessage(&msg);
-                                break;
-                            }
-
-                            AJ_CloseMsg(&msg);
+                        default:
+                            // ignore everything else
+                            AJ_BusHandleBusMessage(&msg);
+                            break;
                         }
+
+                        AJ_CloseMsg(&msg);
                     }
                 }
             }
