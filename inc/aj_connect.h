@@ -7,7 +7,7 @@
  * @{
  */
 /******************************************************************************
- * Copyright (c) 2012-2014, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2012-2015, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -39,6 +39,13 @@ extern "C" {
 void AJ_SetMinProtoVersion(uint8_t min);
 
 /**
+ * Set the amount of time to wait for routing node responses.
+ *
+ * @param selection time for selecting routing node responses
+ */
+void AJ_SetSelectionTimeout(uint32_t selection);
+
+/**
  * Get the minimum acceptable routing node protocol version.
  *
  * @return          Minimum acceptable protocol version
@@ -66,9 +73,9 @@ AJ_Status AJ_Authenticate(AJ_BusAttachment* bus);
 /**
  * Establish an AllJoyn connection.
  *
- * @param  bus          The bus attachment to connect.
- * @param  serviceName  Name of a specific service to connect to, NULL for the default name.
- * @param  timeout      How long to spend attempting to connect
+ * @param  bus                The bus attachment to connect.
+ * @param  serviceName        Name of a specific service to connect to, NULL for the default name.
+ * @param  timeout            How long to spend attempting to connect
  *
  * @return
  *         - AJ_OK if the connection was succesfully established
@@ -81,9 +88,9 @@ AJ_Status AJ_Connect(AJ_BusAttachment* bus, const char* serviceName, uint32_t ti
 /**
  * Find a daemon, connect to it and then authenticate.
  *
- * @param  bus          The bus attachment to connect.
- * @param  serviceName  Name of a specific service to connect to, NULL for the default name.
- * @param  timeout      How long to spend attempting to connect
+ * @param  bus                The bus attachment to connect.
+ * @param  serviceName        Name of a specific service to connect to, NULL for the default name.
+ * @param  timeout            How long to spend attempting to connect
  *
  * @return
  *         - AJ_OK if the connection was succesfully established
@@ -131,10 +138,18 @@ void SetBusAuthPwdCallback(BusAuthPwdFunc callback);
  */
 uint8_t AJ_IsRoutingNodeBlacklisted(AJ_Service* service);
 
+void AJ_AddRoutingNodeToResponseList(AJ_Service* service);
+
+AJ_Status AJ_SelectRoutingNodeFromResponseList(AJ_Service* service);
+
+uint8_t AJ_GetRoutingNodeResponseListSize();
+
 /**
  * Clear the list of blacklisted routing nodes.
  */
 void AJ_InitRoutingNodeBlacklist();
+
+void AJ_InitRoutingNodeResponselist();
 
 #ifdef __cplusplus
 }

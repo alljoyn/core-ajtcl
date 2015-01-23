@@ -74,6 +74,11 @@ void AJ_Main(void)
 
     AJ_SetMinProtoVersion(9);
 
+    /*
+     * Set the selection timeout to a different value from the default.
+     */
+    AJ_SetSelectionTimeout(2000);
+
     /* Connect and disconnect forever */
     while (TRUE) {
         AJ_Printf("Attempting to connect to a routing node with prefix: %s ...\n", routingNodeName);
