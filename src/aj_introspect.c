@@ -2,7 +2,7 @@
  * @file
  */
 /******************************************************************************
- * Copyright (c) 2012-2014 AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2012-2015 AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -524,7 +524,7 @@ static AJ_Status GenXML(XMLWriterFunc XMLWriter, void* context, const AJ_ObjectI
                  * If there is a child check that this is the first instance of this child.
                  */
                 if (child && (FirstInstance(obj->path, child, len) == childObj)) {
-                    if (languageTag != NULL) {
+                    if (languageTag != NULL && childObjectIter.l < AJ_MAX_OBJECT_LISTS) {
                         descLookup = descriptionLookups[childObjectIter.l];
                     } else {
                         descLookup = NULL;
