@@ -1,4 +1,4 @@
-# Copyright (c) 2013 - 2014, AllSeen Alliance. All rights reserved.
+# Copyright (c) 2013 - 2015, AllSeen Alliance. All rights reserved.
 #
 #    Permission to use, copy, modify, and/or distribute this software for any
 #    purpose with or without fee is hereby granted, provided that the above
@@ -547,6 +547,8 @@ if env['AJWSL'] == 'due':
     env.Program('test/siglite', ['test/siglite.c'] + env['aj_obj'])
     env.Program('test/nvramtest', ['test/nvramtest.c'] + env['aj_obj'])
     env.Program('test/sessionslite', ['test/sessionslite.c'] + env['aj_obj'])
+    env.Program('test/codisco', ['test/codisco.c'] + env['aj_obj'])
+    env.Program('test/scan-n-con', ['test/scan-n-con.c'] + env['aj_obj'])
 
 elif env['AJWSL'] == 'stm32':
 
@@ -561,6 +563,8 @@ elif env['AJWSL'] == 'stm32':
     env.Program('test/svclite', ['test/svclite.c'], LIBS=[stm_lib])
     env.Program('test/nvramtest', ['test/nvramtest.c'], LIBS=[stm_lib])
     env.Program('test/clientlite', ['test/clientlite.c'], LIBS=[stm_lib])
+    env.Program('test/codisco', ['test/codisco.c'], LIBS=[stm_lib])
+    env.Program('test/scan-n-con', ['test/scan-n-con.c'], LIBS=[stm_lib])
 
 elif env['AJWSL'] == 'frdm':
     srcs = []
@@ -580,6 +584,8 @@ elif env['AJWSL'] == 'frdm':
     
     env.Program('test/svclite', ['test/svclite.c'] + [objects, srcs,  aj_obj])
     env.Program('test/nvramtest', ['test/nvramtest.c'] + [objects, srcs,  aj_obj])
+    env.Program('test/codisco', ['test/codisco.c'] + [objects, srcs,  aj_obj])
+    env.Program('test/scan-n-con', ['test/scan-n-con.c'] + [objects, srcs,  aj_obj])
     
 Export('env')
 
