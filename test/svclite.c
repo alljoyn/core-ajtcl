@@ -112,6 +112,7 @@ static AJ_Object AppObjects[] = {
 #define APP_TIME_PING       AJ_APP_MESSAGE_ID(0, 1, 2)
 #define APP_MY_SIGNAL       AJ_APP_MESSAGE_ID(0, 1, 3)
 
+
 /*
  * Property identifiers for the properies this application implements
  */
@@ -565,8 +566,10 @@ int AJ_Main()
 
                 if (ReflectSignal) {
                     AJ_Message out;
-                    AJ_MarshalSignal(&bus, &out, APP_MY_SIGNAL, msg.destination, msg.sessionId, 0, 0);
-                    AJ_MarshalArgs(&out, "a{ys}", 0, NULL);
+                    AJ_Arg arg;
+                    AJ_MarshalSignal(&bus, &out, APP_MY_SIGNAL, msg.sender, msg.sessionId, 0, 0);
+                    AJ_MarshalContainer(&out, &arg, AJ_ARG_ARRAY);
+                    AJ_MarshalCloseContainer(&out, &arg);
                     AJ_DeliverMsg(&out);
                     AJ_CloseMsg(&out);
                 }
