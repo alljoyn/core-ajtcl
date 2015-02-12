@@ -1,5 +1,6 @@
 #ifndef _AJ_SERIAL_H
 #define _AJ_SERIAL_H
+
 /**
  * @file
  */
@@ -19,8 +20,13 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 #ifdef AJ_SERIAL_CONNECTION
+
 #include "aj_target.h"
 #include "aj_status.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /*
  * SLIP encapsulation characters as defined in (the ancient) RFC 1055
@@ -214,5 +220,10 @@ AJ_Status AJ_SerialRecv(uint8_t* buffer,
  */
 void AJ_SerialDisconnect(void);
 
+#ifdef __cplusplus
+}
+#endif
+
 #endif /* AJ_SERIAL_CONNECTION */
+
 #endif /* _AJ_SERIAL_H */

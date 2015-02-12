@@ -26,6 +26,10 @@
 #include "aj_msg.h"
 #include "aj_target.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define AJ_SECURE_MGMT_PORT 101
 
 #define CERT_FMT_ALLJOYN     0
@@ -461,6 +465,10 @@ AJ_Status AJ_SecurityGetPublicKeyMethod(AJ_Message* msg, AJ_Message* reply);
  *          - AJ_ERR_SECURITY on all failures
  */
 AJ_Status AJ_SecurityNotifyConfig(AJ_BusAttachment* bus);
+
+#ifdef __cplusplus
+}
+#endif
 
 /**
  * @}

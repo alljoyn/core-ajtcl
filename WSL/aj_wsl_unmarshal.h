@@ -22,6 +22,10 @@
 #include "aj_wsl_wmi.h"
 #include "aj_wsl_net.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /*
  * Basic Types
  */
@@ -107,14 +111,28 @@ typedef struct {
     uint8_t* vendor;
 }SCAN_PACKET;
 
-/*
- * Unmarshals scan data into a wsl_scan_item
+/**
+ * Generic unmarshal function. This will take a block of data and fill in
+ * the parameters byte by byte according to the signature passed in.
+ *
+ * @param data      Pointer to a block of data
+ * @param sig       Signature string that corresponds to the subsequent parameters
+ * @param ...[out]  Variable length list of parameters that correspond to the signature.
+ *
+ * @return          The total size of data that was unmarshalled.
  */
-wsl_scan_item* WMI_Unmarshal2(void* data);
-
 int32_t WMI_Unmarshal(void* data, const char* sig, ...);
 
-wsl_scan_item* WMI_UnmarshalScan(void* data);
+/**
+ * Unmarshal a BSSINFO (scan) packet.
+ *
+ * @param data      Pointer to a block of data containing the scan info
+ * @param lenght    Size of the data block
+ *
+ * @return          Pointer to a scan item containing parsed data.
+ */
+wsl_scan_item* WMI_UnmarshalScan(void* data, uint16_t length);
 
-WMI_HDR_INFO* WMI_UnmarshalHeader(void* data);
-
+#ifdef __cplusplus
+}
+#endif

@@ -1,5 +1,6 @@
 #ifndef _AJ_AUTH_LISTENER_H
 #define _AJ_AUTH_LISTENER_H
+
 /**
  * @file aj_auth_listener.h
  * @defgroup aj_auth_listener Authentication Listener
@@ -25,6 +26,10 @@
 #include "aj_net.h"
 #include "aj_status.h"
 #include "aj_util.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /*
  * Command for auth listener callback
@@ -68,5 +73,9 @@ typedef struct _AJ_Credential {
     uint8_t* data;       /**< data to or from the auth listener */
     size_t len;          /**< length of data */
 } AJ_Credential;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

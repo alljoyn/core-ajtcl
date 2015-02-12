@@ -2,7 +2,7 @@
  * @file
  */
 /******************************************************************************
- * Copyright (c) 2012-2014, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2012-2015, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -186,6 +186,7 @@ static AJ_Status AnonymousAuthAdvance(AJ_IOBuffer* rxBuf, AJ_IOBuffer* txBuf) {
 AJ_Status AJ_Authenticate(AJ_BusAttachment* bus)
 {
     AJ_Status status = AJ_OK;
+    AJ_Message helloResponse;
 
     /*
      * Send initial NUL byte
@@ -200,37 +201,46 @@ AJ_Status AJ_Authenticate(AJ_BusAttachment* bus)
 
     /* Use SASL Anonymous to connect to routing node */
     status = AnonymousAuthAdvance(&bus->sock.rx, &bus->sock.tx);
-
     if (status == AJ_OK) {
         status = SendHello(bus);
     }
+
     if (status == AJ_OK) {
-        AJ_Message helloResponse;
         status = AJ_UnmarshalMsg(bus, &helloResponse, 5000);
-        if (status == AJ_OK) {
-            /*
-             * The only error we might get is a timeout
-             */
-            if (helloResponse.hdr->msgType == AJ_MSG_ERROR) {
-                status = AJ_ERR_TIMEOUT;
-            } else {
-                AJ_Arg arg;
-                status = AJ_UnmarshalArg(&helloResponse, &arg);
-                if (status == AJ_OK) {
-                    if (arg.len >= (sizeof(bus->uniqueName) - 1)) {
-                        AJ_ErrPrintf(("AJ_Authenticate(): AJ_ERR_RESOURCES\n"));
-                        status = AJ_ERR_RESOURCES;
-                    } else {
-                        memcpy(bus->uniqueName, arg.val.v_string, arg.len);
-                        bus->uniqueName[arg.len] = '\0';
-                    }
+    }
+
+    if (status == AJ_OK) {
+        if (helloResponse.hdr->msgType == AJ_MSG_ERROR) {
+            AJ_ErrPrintf(("AJ_Authenticate(): AJ_ERR_TIMEOUT\n"));
+            status = AJ_ERR_TIMEOUT;
+        } else {
+            AJ_Arg arg;
+            status = AJ_UnmarshalArg(&helloResponse, &arg);
+            if (status == AJ_OK) {
+                if (arg.len >= (sizeof(bus->uniqueName) - 1)) {
+                    AJ_ErrPrintf(("AJ_Authenticate(): AJ_ERR_RESOURCES\n"));
+                    status = AJ_ERR_RESOURCES;
+                } else {
+                    memcpy(bus->uniqueName, arg.val.v_string, arg.len);
+                    bus->uniqueName[arg.len] = '\0';
                 }
             }
-            AJ_CloseMsg(&helloResponse);
+        }
+        AJ_CloseMsg(&helloResponse);
+    }
 
-            // subscribe to the signal NameOwnerChanged and wait for the response
+    if (status == AJ_OK) {
+        /*
+         * AJ_GUID needs the NameOwnerChanged signal to clear out entries in
+         * its map.  Routing protocol version 10 and earlier require setting a
+         * signal rule to receive every NameOwnerChanged signal.
+         * With version 11 and later the protocol supports the arg[0,1,...] keys
+         * in match rules, allowing setting a signal rule for just the
+         * NameOwnerChanged signals of entries in the map.  See aj_guid.c
+         * for usage of the arg keys.
+         */
+        if (AJ_GetRoutingProtoVersion() < 11) {
             status = AJ_BusSetSignalRule(bus, "type='signal',member='NameOwnerChanged',interface='org.freedesktop.DBus'", AJ_BUS_SIGNAL_ALLOW);
-
             if (status == AJ_OK) {
                 uint8_t found_reply = FALSE;
                 AJ_Message msg;
@@ -372,9 +382,6 @@ AJ_Status AJ_Connect(AJ_BusAttachment* bus, const char* serviceName, uint32_t ti
         goto ExitConnect;
     }
 
-    // subscribe to the signal NameOwnerChanged and wait for the response
-    status = AJ_BusSetSignalRule(bus, "type='signal',member='NameOwnerChanged',interface='org.freedesktop.DBus'", AJ_BUS_SIGNAL_ALLOW);
-
 ExitConnect:
 
     if (status != AJ_OK) {
@@ -397,7 +404,7 @@ AJ_Status AJ_FindBusAndConnect(AJ_BusAttachment* bus, const char* serviceName, u
     AJ_InitTimer(&start);
 #endif
 
-    AJ_InfoPrintf(("AJ_Connect(bus=0x%p, serviceName=\"%s\", timeout=%d.)\n", bus, serviceName, timeout));
+    AJ_InfoPrintf(("AJ_FindBusAndConnect(bus=0x%p, serviceName=\"%s\", timeout=%d.)\n", bus, serviceName, timeout));
 
     /*
      * Clear the bus struct
@@ -433,7 +440,7 @@ AJ_Status AJ_FindBusAndConnect(AJ_BusAttachment* bus, const char* serviceName, u
         service.addrTypes = AJ_ADDR_IPV4;
         status = AJ_Discover(serviceName, &service, timeout);
         if (status != AJ_OK) {
-            AJ_InfoPrintf(("AJ_Connect(): AJ_Discover status=%s\n", AJ_StatusText(status)));
+            AJ_InfoPrintf(("AJ_FindBusAndConnect(): AJ_Discover status=%s\n", AJ_StatusText(status)));
             goto ExitConnect;
         }
 #elif defined(AJ_SERIAL_CONNECTION)
@@ -441,18 +448,18 @@ AJ_Status AJ_FindBusAndConnect(AJ_BusAttachment* bus, const char* serviceName, u
         // however, take this opportunity to bring up the serial connection
         status = AJ_Serial_Up();
         if (status != AJ_OK) {
-            AJ_InfoPrintf(("AJ_Connect(): AJ_Serial_Up status=%s\n", AJ_StatusText(status)));
+            AJ_InfoPrintf(("AJ_FindBusAndConnect(): AJ_Serial_Up status=%s\n", AJ_StatusText(status)));
         }
 #else
         status = AJ_Discover(serviceName, &service, timeout);
         if (status != AJ_OK) {
-            AJ_InfoPrintf(("AJ_Connect(): AJ_Discover status=%s\n", AJ_StatusText(status)));
+            AJ_InfoPrintf(("AJ_FindBusAndConnect(): AJ_Discover status=%s\n", AJ_StatusText(status)));
             goto ExitConnect;
         }
 #endif
         status = AJ_Net_Connect(&bus->sock, service.ipv4port, service.addrTypes & AJ_ADDR_IPV4, &service.ipv4);
         if (status != AJ_OK) {
-            AJ_InfoPrintf(("AJ_Connect(): AJ_Net_Connect status=%s\n", AJ_StatusText(status)));
+            AJ_InfoPrintf(("AJ_FindBusAndConnect(): AJ_Net_Connect status=%s\n", AJ_StatusText(status)));
             goto ExitConnect;
         }
 
@@ -464,7 +471,7 @@ AJ_Status AJ_FindBusAndConnect(AJ_BusAttachment* bus, const char* serviceName, u
         } while (AJ_SerialLinkParams.linkState != AJ_LINK_ACTIVE && AJ_GetTimeDifference(&now, &start) < timeout);
 
         if (AJ_SerialLinkParams.linkState != AJ_LINK_ACTIVE) {
-            AJ_InfoPrintf(("Failed to establish active SLAP connection in %u msec\n", timeout));
+            AJ_InfoPrintf(("AJ_FindBusAndConnect(): Failed to establish active SLAP connection in %u msec\n", timeout));
             AJ_SerialShutdown();
             return AJ_ERR_TIMEOUT;
         }
@@ -472,10 +479,10 @@ AJ_Status AJ_FindBusAndConnect(AJ_BusAttachment* bus, const char* serviceName, u
 
         status = AJ_Authenticate(bus);
         if (status != AJ_OK) {
-            AJ_InfoPrintf(("AJ_Connect(): AJ_Authenticate status=%s\n", AJ_StatusText(status)));
+            AJ_InfoPrintf(("AJ_FindBusAndConnect(): AJ_Authenticate status=%s\n", AJ_StatusText(status)));
 
 #if !AJ_CONNECT_LOCALHOST && !defined(ARDUINO) && !defined(AJ_SERIAL_CONNECTION)
-            AJ_InfoPrintf(("AJ_Connect(): Blacklisting routing node"));
+            AJ_InfoPrintf(("AJ_FindBusAndConnect(): Blacklisting routing node"));
             AddRoutingNodeToBlacklist(&service);
             // try again
             finished = FALSE;
@@ -484,15 +491,11 @@ AJ_Status AJ_FindBusAndConnect(AJ_BusAttachment* bus, const char* serviceName, u
         }
     }
 
-    // subscribe to the signal NameOwnerChanged and wait for the response
-    if (status == AJ_OK) {
-        status = AJ_BusSetSignalRule(bus, "type='signal',member='NameOwnerChanged',interface='org.freedesktop.DBus'", AJ_BUS_SIGNAL_ALLOW);
-    }
 
 ExitConnect:
 
     if (status != AJ_OK) {
-        AJ_InfoPrintf(("AJ_Connect(): status=%s\n", AJ_StatusText(status)));
+        AJ_InfoPrintf(("AJ_FindBusAndConnect(): status=%s\n", AJ_StatusText(status)));
         AJ_Disconnect(bus);
     }
 

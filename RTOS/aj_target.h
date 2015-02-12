@@ -21,9 +21,6 @@
 
 #include <stdlib.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 #define AJ_EXPORT
 
 #include <stdint.h>
@@ -34,6 +31,10 @@ extern "C" {
 #include <string.h>
 #include "assert.h"
 #include "aj_connect.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #ifndef TRUE
 #define TRUE (1)
@@ -74,6 +75,10 @@ extern uint8_t dbgTARGET_UTIL;
  * AJ_Reboot() is a NOOP on this platform
  */
 #define AJ_Reboot() _AJ_Reboot()
+
+#define AJ_CreateNewGUID AJ_RandBytes
+
+#define AJ_GetDebugTime(x) AJ_ERR_RESOURCES
 
 #ifdef __cplusplus
 }

@@ -1,12 +1,13 @@
 #ifndef _AJ_BUFIO_H
 #define _AJ_BUFIO_H
+
 /**
  * @file aj_bufio.h
  * @defgroup aj_bufio Buffer Input/Output
  * @{
  */
 /******************************************************************************
- * Copyright (c) 2012-2013, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2012-2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -23,6 +24,10 @@
 
 #include "aj_target.h"
 #include "aj_status.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /*
  * Forward declaration
@@ -56,11 +61,15 @@ typedef AJ_Status (*AJ_RxFunc)(struct _AJ_IOBuffer* buf, uint32_t len, uint32_t 
 #define AJ_IO_BUF_RX     1 /**< I/O direction is receive */
 #define AJ_IO_BUF_TX     2 /**< I/O direction is send */
 
+#define AJ_IO_BUF_AJ     1 /**< send/receive data to/from AJ */
+#define AJ_IO_BUF_MDNS   2 /**< send/receive data to/from mDNS */
+
 /**
  * A type for managing a receive or transmit buffer
  */
 typedef struct _AJ_IOBuffer {
     uint8_t direction;  /**< I/O buffer is either a Tx buffer or an Rx buffer */
+    uint8_t flags;      /**< ports to send to or receive on */
     uint16_t bufSize;   /**< Size of the data buffer */
     uint8_t* bufStart;  /**< Start for the data buffer */
     uint8_t* readPtr;   /**< Current position in buf for reading data */
@@ -98,6 +107,7 @@ typedef struct _AJ_IOBuffer {
     do { \
         (iobuf)->readPtr = (iobuf)->bufStart; \
         (iobuf)->writePtr = (iobuf)->bufStart; \
+        (iobuf)->flags = 0; \
     } while (0)
 
 /**
@@ -118,5 +128,9 @@ void AJ_IOBufInit(AJ_IOBuffer* ioBuf, uint8_t* buffer, uint32_t bufLen, uint8_t 
  * @param preserve Data (if any) at front of buffer that must be preserved
  */
 void AJ_IOBufRebase(AJ_IOBuffer* ioBuf, size_t preserve);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

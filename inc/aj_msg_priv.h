@@ -1,12 +1,13 @@
 #ifndef _AJ_MSG_PRIV_H
 #define _AJ_MSG_PRIV_H
+
 /**
  * @file aj_msg_priv.h
  * @defgroup aj_msg_priv Non-public Message Marshaling and Unmarshaling APIs
  * @{
  */
 /******************************************************************************
- * Copyright (c) 2013, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2013-2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -23,6 +24,9 @@
 
 #include <alljoyn.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
  * Returns the signature of the next arg to be unmarshalled.
@@ -122,9 +126,11 @@ AJ_Status AJ_LookupMessageId(AJ_Message* msg, uint8_t* secure);
 AJ_EXPORT
 AJ_Status AJ_IdentifyProperty(AJ_Message* msg, const char* iface, const char* prop, uint32_t* propId, const char** sig, uint8_t* secure);
 
+#ifdef __cplusplus
+}
+#endif
 /**
  * @}
  */
-
 #endif
 

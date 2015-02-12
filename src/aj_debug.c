@@ -97,14 +97,23 @@ void _AJ_DumpMsg(const char* tag, AJ_Message* msg, uint8_t body)
 
 int _AJ_DbgHeader(AJ_DebugLevel level, const char* file, int line)
 {
-    static AJ_Time t;
-    uint32_t msec;
+    static AJ_Time initTime;
+    uint32_t logTimeSecond;
+    uint32_t logTimeMS;
 
-    if (!(t.seconds | t.milliseconds)) {
-        AJ_InitTimer(&t);
+    if (!(initTime.seconds | initTime.milliseconds)) {
+        AJ_InitTimer(&initTime);
     }
     if (level <= AJ_DbgLevel) {
-        msec = AJ_GetElapsedTime(&t, TRUE);
+        AJ_Time debugTime;
+        if (AJ_OK == AJ_GetDebugTime(&debugTime)) {
+            logTimeSecond = debugTime.seconds;
+            logTimeMS = debugTime.milliseconds;
+        } else {
+            uint32_t elapsedTime = AJ_GetElapsedTime(&initTime, TRUE);
+            logTimeSecond = elapsedTime / 1000;
+            logTimeMS = elapsedTime % 1000;
+        }
         if (file) {
             const char* fn = file;
             while (*fn) {
@@ -113,9 +122,9 @@ int _AJ_DbgHeader(AJ_DebugLevel level, const char* file, int line)
                 }
                 ++fn;
             }
-            AJ_AlwaysPrintf(("%03d.%03d %s:%d ", msec / 1000, msec % 1000, file, line));
+            AJ_AlwaysPrintf(("%03d.%03d %s:%d ", logTimeSecond, logTimeMS, file, line));
         } else {
-            AJ_AlwaysPrintf(("%03d.%03d ", msec / 1000, msec % 1000));
+            AJ_AlwaysPrintf(("%03d.%03d ", logTimeSecond, logTimeMS));
         }
         return TRUE;
     } else {

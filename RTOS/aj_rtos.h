@@ -17,13 +17,16 @@
  *    ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
-
-#ifndef RTOS_H_
-#define RTOS_H_
+#ifndef AJ_RTOS_H_
+#define AJ_RTOS_H_
 
 #include "aj_target.h"
 #include "aj_status.h"
 #include "aj_target_rtos.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /*
  * These are opaque types that hold RTOS specific types;
@@ -192,6 +195,22 @@ void AJ_EnterCriticalRegion(void);
  * exit the critical region and enable interrupts if needed
  */
 void AJ_LeaveCriticalRegion(void);
+
+/**
+ * Do any platform specific initialization
+ *  - Clock init, serial debug, SPI etc.
+ */
 void AJ_PlatformInit(void);
+
+/**
+ * Pre-AllJoyn entry function. This function does all the network initialization
+ * that AllJoyn needs to run. Before calling AJ_Main() a network needs to be setup
+ * which entails connecting to an access point (or softAP) and getting an IP address
+ */
 void AllJoyn_Start(unsigned long arg);
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif /* RTOS_H_ */

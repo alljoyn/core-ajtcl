@@ -1,5 +1,6 @@
 #ifndef _AJ_CERT_H
 #define _AJ_CERT_H
+
 /**
  * @file
  *
@@ -25,6 +26,10 @@
 #include "aj_guid.h"
 #include "aj_crypto_ecc.h"
 #include "aj_crypto_sha2.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define MAX_NUM_CERTIFICATES 2
 
@@ -174,5 +179,9 @@ AJ_Status AJ_SignCertificate(AJ_Certificate* certificate, const ecc_privatekey* 
  *
  */
 AJ_Status AJ_VerifyCertificate(AJ_Certificate* certificate);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

@@ -1,5 +1,6 @@
 #ifndef _AJ_CREDS_H
 #define _AJ_CREDS_H
+
 /**
  * @file aj_creds.h
  * @defgroup aj_creds Credentials Management
@@ -28,6 +29,10 @@
 #include "aj_crypto_ecc.h"
 #include "aj_crypto_sha2.h"
 #include "aj_security.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
  * Type low byte is basic type
@@ -507,6 +512,9 @@ AJ_Status AJ_CredBodyMarshal(AJ_CredBody* body, AJ_Message* msg);
  */
 AJ_Status AJ_GetMembershipAuthData(uint16_t slot, AJ_CredBody* body);
 
+#ifdef __cplusplus
+}
+#endif
 /**
  * @}
  */

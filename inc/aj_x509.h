@@ -27,6 +27,10 @@
 #include "aj_crypto_ecc.h"
 #include "aj_guid.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * OIDs used in X.509 certificates.
  */
@@ -99,5 +103,9 @@ AJ_Status AJ_X509SelfVerify(const X509Certificate* certificate);
  *          - AJ_ERR_SECURITY on failure
  */
 AJ_Status AJ_X509Verify(const X509Certificate* certificate, const AJ_KeyInfo* key);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

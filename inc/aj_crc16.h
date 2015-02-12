@@ -1,10 +1,11 @@
 #ifndef _AJ_CRC16_H
 #define _AJ_CRC16_H
+
 /**
  * @file
  */
 /******************************************************************************
- * Copyright (c) 2013, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2013-2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -21,7 +22,9 @@
 
 #include "aj_target.h"
 
-
+#ifdef __cplusplus
+extern "C" {
+#endif
 /**
  * Computes a 16-bit CRC on a buffer. The caller provides the context for the running CRC.
  *
@@ -43,5 +46,9 @@ void AJ_CRC16_Compute(const uint8_t* buffer,
 
 void AJ_CRC16_Complete(uint16_t crc,
                        uint8_t* crcBlock);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _AJ_CRC16_H */

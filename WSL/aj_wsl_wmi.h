@@ -19,10 +19,6 @@
 #ifndef AJ_WSL_WMI_H_
 #define AJ_WSL_WMI_H_
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include "aj_target.h"
 #include "aj_wsl_target.h"
 #include "aj_wsl_net.h"
@@ -30,6 +26,10 @@ extern "C" {
 #include "aj_target_platform.h"
 #include "aj_target_rtos.h"
 #include "aj_wsl_spi_constants.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 void AJ_WSL_WMI_ModuleInit(void);
 // prototype for functions that are invoked for wifi connection status
@@ -182,13 +182,6 @@ typedef struct _wsl_socket_context {
 } wsl_socket_context;
 
 /**
- * global variable for WSL_SOCKET state, only 4 sockets supported.
- *  plus one for global communications
- */
-
-extern uint8_t AJ_WSL_SOCKET_MAX;
-
-/**
  * Find a socket number
  *
  * @param handle        The socket handle
@@ -236,8 +229,9 @@ AJ_Status AJ_WSL_WMI_QueueWorkItem(uint32_t socket, uint8_t command, uint8_t end
  * @param socket        Socket that the work item was sent to
  * @param command       Command the was sent
  * @param item          Address of the work item pointer
+ * @param timeout       Milliseconds to wait for this work item
  */
-AJ_Status AJ_WSL_WMI_WaitForWorkItem(uint32_t socket, uint8_t command, wsl_work_item** item);
+AJ_Status AJ_WSL_WMI_WaitForWorkItem(uint32_t socket, uint8_t command, wsl_work_item** item, uint32_t timeout);
 
 /**
  * Free a work item pointer. This frees everything inside the work item structure

@@ -21,13 +21,13 @@
 #ifndef AJ_BUF_H_
 #define AJ_BUF_H_
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include "aj_target.h"
 #include "aj_status.h"
 #include "aj_wsl_target.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #ifndef __cplusplus
 #pragma pack(push, 1)

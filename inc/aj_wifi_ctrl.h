@@ -1,5 +1,6 @@
 #ifndef _AJ_WIFI_CTRL_H
 #define _AJ_WIFI_CTRL_H
+
 /**
  * @file
  */
@@ -20,6 +21,10 @@
  ******************************************************************************/
 #include "aj_target.h"
 #include "aj_status.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef enum {
     AJ_WIFI_IDLE,
@@ -150,5 +155,8 @@ AJ_Status AJ_GetIPAddress(uint32_t* ip, uint32_t* mask, uint32_t* gateway);
  */
 AJ_Status AJ_SetIPAddress(uint32_t ip, uint32_t mask, uint32_t gateway);
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif

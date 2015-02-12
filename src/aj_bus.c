@@ -282,6 +282,33 @@ AJ_Status AJ_BusSetSignalRule(AJ_BusAttachment* bus, const char* ruleString, uin
     return AJ_BusSetSignalRuleFlags(bus, ruleString, rule, 0);
 }
 
+AJ_Status AJ_BusSetSignalRuleSerial(AJ_BusAttachment* bus, const char* ruleString, uint8_t rule, uint8_t flags, uint32_t* serialNum)
+{
+    AJ_Status status;
+    AJ_Message msg;
+    uint32_t msgId = (rule == AJ_BUS_SIGNAL_ALLOW) ? AJ_METHOD_ADD_MATCH : AJ_METHOD_REMOVE_MATCH;
+
+    AJ_InfoPrintf(("AJ_BusSetSignalRuleSerial(bus=0x%p, ruleString=\"%s\", rule=%d.)\n", bus, ruleString, rule));
+
+    status = AJ_MarshalMethodCall(bus, &msg, msgId, AJ_DBusDestination, 0, flags, AJ_METHOD_TIMEOUT);
+    if (status == AJ_OK) {
+        uint32_t sz = 0;
+        uint8_t nul = 0;
+        if (serialNum) {
+            *serialNum = msg.hdr->serialNum;
+        }
+        sz = (uint32_t)strlen(ruleString);
+        status = AJ_DeliverMsgPartial(&msg, sz + 5);
+        AJ_MarshalRaw(&msg, &sz, 4);
+        AJ_MarshalRaw(&msg, ruleString, strlen(ruleString));
+        AJ_MarshalRaw(&msg, &nul, 1);
+    }
+    if (status == AJ_OK) {
+        status = AJ_DeliverMsg(&msg);
+    }
+    return status;
+}
+
 AJ_Status AJ_BusAddSignalRule(AJ_BusAttachment* bus, const char* signalName, const char* interfaceName, uint8_t rule)
 {
     AJ_Status status;
@@ -320,26 +347,7 @@ AJ_Status AJ_BusAddSignalRule(AJ_BusAttachment* bus, const char* signalName, con
 
 AJ_Status AJ_BusSetSignalRuleFlags(AJ_BusAttachment* bus, const char* ruleString, uint8_t rule, uint8_t flags)
 {
-    AJ_Status status;
-    AJ_Message msg;
-    uint32_t msgId = (rule == AJ_BUS_SIGNAL_ALLOW) ? AJ_METHOD_ADD_MATCH : AJ_METHOD_REMOVE_MATCH;
-
-    AJ_InfoPrintf(("AJ_BusSetSignalRule(bus=0x%p, ruleString=\"%s\", rule=%d.)\n", bus, ruleString, rule));
-
-    status = AJ_MarshalMethodCall(bus, &msg, msgId, AJ_DBusDestination, 0, flags, AJ_METHOD_TIMEOUT);
-    if (status == AJ_OK) {
-        uint32_t sz = 0;
-        uint8_t nul = 0;
-        sz = (uint32_t)strlen(ruleString);
-        status = AJ_DeliverMsgPartial(&msg, sz + 5);
-        AJ_MarshalRaw(&msg, &sz, 4);
-        AJ_MarshalRaw(&msg, ruleString, strlen(ruleString));
-        AJ_MarshalRaw(&msg, &nul, 1);
-    }
-    if (status == AJ_OK) {
-        status = AJ_DeliverMsg(&msg);
-    }
-    return status;
+    return AJ_BusSetSignalRuleSerial(bus, ruleString, rule, flags, NULL);
 }
 
 AJ_Status AJ_BusReplyAcceptSession(AJ_Message* msg, uint32_t accept)
@@ -404,9 +412,6 @@ AJ_Status AJ_BusHandleBusMessage(AJ_Message* msg)
 {
     AJ_Status status = AJ_OK;
     AJ_BusAttachment* bus = msg->bus;
-    char* name;
-    char* oldOwner;
-    char* newOwner;
     char* languageTag;
     AJ_Message reply;
 
@@ -594,28 +599,11 @@ AJ_Status AJ_BusHandleBusMessage(AJ_Message* msg)
         status = AJ_OK;
         break;
 
-    case AJ_REPLY_ID(AJ_METHOD_ADD_MATCH):
-    case AJ_REPLY_ID(AJ_METHOD_REMOVE_MATCH):
     case AJ_REPLY_ID(AJ_METHOD_CANCEL_ADVERTISE):
     case AJ_REPLY_ID(AJ_METHOD_ADVERTISE_NAME):
-        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_REPLY_ID(AJ_METHOD_{ADD_MATCH|CANCEL_ADVERTISE|ADVERTISE_NAME})\n"));
+        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_REPLY_ID(AJ_METHOD_{CANCEL_ADVERTISE|ADVERTISE_NAME})\n"));
         if (msg->hdr->msgType == AJ_MSG_ERROR) {
             status = AJ_ERR_FAILURE;
-        }
-        break;
-
-    case AJ_SIGNAL_NAME_OWNER_CHANGED:
-        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_SIGNAL_NAME_OWNER_CHANGED)\n"));
-        status = AJ_UnmarshalArgs(msg, "sss", &name, &oldOwner, &newOwner);
-        if ((status == AJ_OK) && newOwner && oldOwner && newOwner[0] == '\0') {
-            AJ_GUID_DeleteNameMapping(oldOwner);
-        }
-        /*
-         * Reset so the application can handle this too.  Don't overwrite any
-         * error detected during the AJ_UnmarshalArgs().
-         */
-        if (status == AJ_OK) {
-            status = AJ_ResetArgs(msg);
         }
         break;
 
@@ -640,6 +628,12 @@ AJ_Status AJ_BusHandleBusMessage(AJ_Message* msg)
     case AJ_METHOD_ABOUT_ICON_GET_CONTENT:
         status = AJ_AboutIconHandleGetContent(msg, &reply);
         break;
+
+#ifdef ANNOUNCE_BASED_DISCOVERY
+    case AJ_SIGNAL_ABOUT_ANNOUNCE:
+        status = AJ_AboutHandleAnnounce(msg, NULL, NULL, NULL, NULL);
+        break;
+#endif
 
     default:
         AJ_InfoPrintf(("AJ_BusHandleBusMessage(): default\n"));

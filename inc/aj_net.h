@@ -1,5 +1,6 @@
 #ifndef _AJ_NET_H
 #define _AJ_NET_H
+
 /**
  * @file aj_net.h
  * @defgroup aj_net Network Send and Receive
@@ -25,6 +26,10 @@
 #include "aj_status.h"
 #include "aj_bufio.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define AJ_ADDR_IPV4  0x04      /**< ip4 address */
 #define AJ_ADDR_IPV6  0x60      /**< ip6 address */
 
@@ -49,18 +54,6 @@ AJ_Status AJ_Net_Connect(AJ_NetSocket* netSock, uint16_t port, uint8_t addrType,
 void AJ_Net_Disconnect(AJ_NetSocket* netSock);
 
 /**
- * Enable multicast data (for discover and advertising)
- *
- * @return        Return AJ_Status
- */
-AJ_Status AJ_Net_MCastUp(AJ_NetSocket* netSock);
-
-/**
- * Disable multicast data (for discover and advertising)
- */
-void AJ_Net_MCastDown(AJ_NetSocket* netSock);
-
-/**
  * Send from an I/O buffer
  *
  * @return        Return AJ_Status
@@ -73,6 +66,36 @@ AJ_Status AJ_Net_Send(AJ_IOBuffer* txBuf);
  * @return        Return AJ_Status
  */
 AJ_Status AJ_Net_Recv(AJ_IOBuffer* rxBuf, uint32_t len, uint32_t timeout);
+
+/**
+ * Abstracts discovery sockets
+ */
+typedef struct _AJ_MCastSocket {
+    AJ_IOBuffer tx;
+    AJ_IOBuffer rx;
+} AJ_MCastSocket;
+
+/**
+ * Enable multicast (for discovery)
+ *
+ * @return        Return AJ_Status
+ */
+AJ_Status AJ_Net_MCastUp(AJ_MCastSocket* mcastSock);
+
+/**
+ * Disable multicast (for discovery)
+ */
+void AJ_Net_MCastDown(AJ_MCastSocket* mcastSock);
+
+/**
+ * Function that signals AJ_Net_Recv() to bail out early if it
+ * is blocking on select.
+ */
+void AJ_Net_Interrupt(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 /**
  * @}

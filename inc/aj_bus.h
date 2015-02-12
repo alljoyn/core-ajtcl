@@ -1,12 +1,13 @@
 #ifndef _AJ_BUS_H
 #define _AJ_BUS_H
+
 /**
  * @file aj_bus.h
  * @defgroup aj_bus Bus Attachment
  * @{
  */
 /******************************************************************************
- * Copyright (c) 2012-2014, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2012-2015, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -26,6 +27,10 @@
 #include "aj_status.h"
 #include "aj_util.h"
 #include "aj_auth_listener.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
  * Forward declarations
@@ -55,13 +60,14 @@ typedef uint32_t (*AJ_AuthPwdFunc)(uint8_t* buffer, uint32_t bufLen);
  */
 typedef AJ_Status (*AJ_AuthListenerFunc)(uint32_t authmechanism, uint32_t command, AJ_Credential* creds);
 
+#define AJ_MAX_NAME_SIZE 20  /**< Maximum length for a bus unique name */
+
 /**
  * Type for a bus attachment
  */
 typedef struct _AJ_BusAttachment {
     uint16_t aboutPort;                        /**< The port to use in announcements */
-    // TODO remove this magic number, should be AJ_MAX_NAME_SIZE + 1?
-    char uniqueName[16];                       /**< The unique name returned by the hello message */
+    char uniqueName[AJ_MAX_NAME_SIZE + 1];     /**< The unique name returned by the hello message */
     AJ_NetSocket sock;                         /**< Abstracts a network socket */
     uint32_t serial;                           /**< Next outgoing message serial number */
     AJ_AuthPwdFunc pwdCallback;                /**< Callback for obtaining passwords */
@@ -107,7 +113,7 @@ AJ_Status AJ_BusRequestName(AJ_BusAttachment* bus, const char* name, uint32_t fl
 #define AJ_TRANSPORT_UDP       0x0100    /**< Transport using the AllJoyn Reliable Datagram Protocol (flavor of reliable UDP) */
 #define AJ_TRANSPORT_IP        (AJ_TRANSPORT_TCP | AJ_TRANSPORT_UDP) /**< Let the system decide which to use */
 
-#define AJ_TRANSPORT_ANY       (AJ_TRANSPORT_ALL & ~AJ_TRANSPORT_UDP)   /**< ANY non-EXPERIMENTAL transport */
+#define AJ_TRANSPORT_ANY       (AJ_TRANSPORT_ALL)   /**< ANY non-EXPERIMENTAL transport */
 
 /**
  * Make a method call to release a previously requested well known name.
@@ -309,6 +315,22 @@ AJ_Status AJ_BusLeaveSession(AJ_BusAttachment* bus, uint32_t sessionId);
  */
 AJ_EXPORT
 AJ_Status AJ_BusSetSignalRule(AJ_BusAttachment* bus, const char* ruleString, uint8_t rule);
+
+/**
+ * Add a SIGNAL match rule. A rule must be added for every non-session signal that the application
+ * is interested in receiving.
+ *
+ * @param bus             The bus attachment
+ * @param ruleString      Match rule to be added/removed
+ * @param rule            Either AJ_BUS_SIGNAL_ALLOW or AJ_BUS_SIGNAL_DENY
+ * @param flags         Flags associated with the new rule
+ * @param[out] serialNum  The serial number of the method call
+ *
+ * @return  Return AJ_Status
+ *         - AJ_OK if the request was sent
+ *         - An error status otherwise
+ */
+AJ_Status AJ_BusSetSignalRuleSerial(AJ_BusAttachment* bus, const char* ruleString, uint8_t rule, uint8_t flags, uint32_t* serialNum);
 
 /**
  * Add a SIGNAL match rule. A rule must be added for every non-session signal that the application
@@ -540,6 +562,9 @@ AJ_Status AJ_BusPropSet(AJ_Message* msg, AJ_BusPropSetCallback callback, void* c
 AJ_Status AJ_BusEnableSecurity(AJ_BusAttachment* bus, const uint32_t* suites, size_t numsuites);
 uint8_t AJ_IsSuiteEnabled(AJ_BusAttachment* bus, const uint32_t suite);
 
+#ifdef __cplusplus
+}
+#endif
 /**
  * @}
  */

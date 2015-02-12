@@ -1,5 +1,6 @@
 #ifndef _AJ_DEBUG_H
 #define _AJ_DEBUG_H
+
 /******************************************************************************
  * Copyright (c) 2012-2014, AllSeen Alliance. All rights reserved.
  *
@@ -163,6 +164,10 @@
 
 #include "aj_target.h"
 #include "aj_msg.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
  * Always print a message in a fashion similar to other conditional log outputs.
@@ -347,6 +352,9 @@ int _AJ_DbgHeader(AJ_DebugLevel level, const char* file, int line);
  */
 AJ_EXPORT const char* AJ_StatusText(AJ_Status status);
 
+#ifdef __cplusplus
+}
+#endif
 /**
  * @}
  */

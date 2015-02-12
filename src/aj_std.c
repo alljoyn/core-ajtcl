@@ -95,6 +95,7 @@ static const char* const DBusIface[] = {
     "?AddMatch <s",
     "?RemoveMatch <s",
     "?ReleaseName <s >u",
+    "?NameHasOwner <s >b",
     NULL
 
 };
@@ -133,6 +134,7 @@ static const char* const BusIface[] = {
     "?RemoveSessionMember <us >u",
     "!SessionLostWithReason >u >u",
     "?Ping <s <u >u",
+    "?SetIdleTimeouts <u <u >u >u >u",
     NULL
 };
 

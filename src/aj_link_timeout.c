@@ -2,7 +2,7 @@
  * @file
  */
 /******************************************************************************
- * Copyright (c) 2013, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2013-2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -58,6 +58,22 @@ AJ_Status AJ_SetBusLinkTimeout(AJ_BusAttachment* bus, uint32_t timeout)
     timeout = (timeout > AJ_MIN_BUS_LINK_TIMEOUT) ? timeout : AJ_MIN_BUS_LINK_TIMEOUT;
     busLinkTimeout = timeout * 1000;
     return AJ_OK;
+}
+AJ_Status AJ_SetIdleTimeouts(AJ_BusAttachment* bus, uint32_t idleTo, uint32_t probeTo)
+{
+    AJ_Status status;
+    AJ_Message msg;
+
+    AJ_InfoPrintf(("AJ_SetIdleTimeouts(bus=0x%p, idleTo=%d, probeTo=%d)\n", bus, idleTo, probeTo));
+
+    status = AJ_MarshalMethodCall(bus, &msg, AJ_METHOD_BUS_SET_IDLE_TIMEOUTS, AJ_BusDestination, 0, 0, AJ_METHOD_TIMEOUT);
+    if (status == AJ_OK) {
+        status = AJ_MarshalArgs(&msg, "uu", idleTo, probeTo);
+    }
+    if (status == AJ_OK) {
+        status = AJ_DeliverMsg(&msg);
+    }
+    return status;
 }
 
 void AJ_NotifyLinkActive()

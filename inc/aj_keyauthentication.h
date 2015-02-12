@@ -1,5 +1,6 @@
 #ifndef _AJ_KEYAUTHENTICATION_H
 #define _AJ_KEYAUTHENTICATION_H
+
 /**
  * @file aj_keyauthentication.h
  * @defgroup aj_keyauthentication Implementation of Key Authentication mechanisms
@@ -26,6 +27,10 @@
 #include "aj_crypto_sha2.h"
 #include "aj_guid.h"
 #include "aj_peer.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef AJ_Status (*AJ_KAInit)(AJ_AuthListenerFunc authlistener, const uint8_t* mastersecret, size_t mastersecretlen, AJ_SHA256_Context* hash);
 typedef AJ_Status (*AJ_KAMarshal)(AJ_Message* msg, uint8_t role);
@@ -59,6 +64,9 @@ void AJ_PSK_SetPwdCallback(AJ_AuthPwdFunc pwdcallback);
 extern AJ_KeyAuthentication AJ_KeyAuthenticationNULL;
 #endif
 
+#ifdef __cplusplus
+}
+#endif
 /**
  * @}
  */

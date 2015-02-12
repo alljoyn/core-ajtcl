@@ -828,6 +828,72 @@ AJ_Status AJ_ResetArgs(AJ_Message* msg)
     return status;
 }
 
+/*
+ * Process certain bus messages before they are handed to the application.
+ * This prevents the application from swallowing a message.
+ *
+ * @param msg   The message
+ */
+static AJ_Status ProcessBusMessages(AJ_Message* msg)
+{
+    AJ_Status status = AJ_OK;
+    /* Check for the special case messages */
+    switch (msg->msgId) {
+    case AJ_REPLY_ID(AJ_METHOD_NAME_HAS_OWNER):
+        AJ_InfoPrintf(("ProcessBusMessages(): AJ_REPLY_ID(AJ_METHOD_NAME_HAS_OWNER)\n"));
+        status = AJ_GUID_HandleNameHasOwnerReply(msg);
+        /*
+         * Reset so the application can handle this too.  Don't overwrite any
+         * error detected during AJ_GUID_HandleNameHasOwnerReply() above.
+         */
+        if (status == AJ_OK) {
+            status = AJ_ResetArgs(msg);
+        }
+        break;
+
+    case AJ_REPLY_ID(AJ_METHOD_ADD_MATCH):
+        AJ_InfoPrintf(("ProcessBusMessages(): AJ_REPLY_ID(AJ_METHOD_ADD_MATCH)\n"));
+        status = AJ_GUID_HandleAddMatchReply(msg);
+        /*
+         * Reset so the application can handle this too.  Don't overwrite any
+         * error detected during AJ_GUID_HandleAddMatchReply() above.
+         */
+        if (status == AJ_OK) {
+            status = AJ_ResetArgs(msg);
+        }
+        break;
+
+    case AJ_REPLY_ID(AJ_METHOD_REMOVE_MATCH):
+        AJ_InfoPrintf(("ProcessBusMessages(): AJ_REPLY_ID(AJ_METHOD_REMOVE_MATCH)\n"));
+        status = AJ_GUID_HandleRemoveMatchReply(msg);
+        /*
+         * Reset so the application can handle this too.  Don't overwrite any
+         * error detected during AJ_GUID_HandleRemoveMatchReply() above.
+         */
+        if (status == AJ_OK) {
+            status = AJ_ResetArgs(msg);
+        }
+        break;
+
+    case AJ_SIGNAL_NAME_OWNER_CHANGED:
+        AJ_InfoPrintf(("ProcessBusMessages(): AJ_SIGNAL_NAME_OWNER_CHANGED)\n"));
+        status = AJ_GUID_HandleNameOwnerChanged(msg);
+        /*
+         * Reset so the application can handle this too.  Don't overwrite any
+         * error detected during AJ_GUID_HandleNameOwnerChanged() above.
+         */
+        if (status == AJ_OK) {
+            status = AJ_ResetArgs(msg);
+        }
+        break;
+
+    default:
+        break;
+    }
+
+    return status;
+}
+
 AJ_Status AJ_UnmarshalMsg(AJ_BusAttachment* bus, AJ_Message* msg, uint32_t timeout)
 {
     AJ_Status status;
@@ -1113,6 +1179,9 @@ AJ_Status AJ_UnmarshalMsg(AJ_BusAttachment* bus, AJ_Message* msg, uint32_t timeo
         AJ_WarnPrintf(("Discarding unknown message %s\n", AJ_StatusText(status)));
         AJ_DumpMsg("DISCARDING", msg, FALSE);
         AJ_CloseMsg(msg);
+    }
+    if (status == AJ_OK) {
+        status = ProcessBusMessages(msg);
     }
     return status;
 }

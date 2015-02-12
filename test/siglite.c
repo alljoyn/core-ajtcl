@@ -40,15 +40,14 @@ static const char testInterfaceName[] = "org.alljoyn.alljoyn_test";
 static const char testValuesInterfaceName[] = "org.alljoyn.alljoyn_test.values";
 #endif
 
-#ifndef NGNS
-static const char testServiceName[] = "org.alljoyn.svclite";
-static const uint16_t testServicePort = 24;
-#else
+#if defined (NGNS) || defined (ANNOUNCE_BASED_DISCOVERY)
 static const char* testInterfaceNames[] = {
     testInterfaceName,
     NULL
 };
-static char testServiceName[AJ_MAX_NAME_SIZE + 1];
+#else
+static const char testServiceName[] = "org.alljoyn.svclite";
+static const uint16_t testServicePort = 24;
 #endif
 static const uint32_t NumPings = 10;
 
@@ -322,6 +321,14 @@ int AJ_Main()
     uint8_t connected = FALSE;
     uint32_t sessionId = 0;
     AJ_Status authStatus = AJ_ERR_NULL;
+    /*
+     * Buffer to hold the peer's full service name or unique name.
+     */
+#if defined (NGNS) || defined (ANNOUNCE_BASED_DISCOVERY)
+    char peerServiceName[AJ_MAX_NAME_SIZE + 1];
+#else
+    char peerServiceName[AJ_MAX_SERVICE_NAME_SIZE];
+#endif
 
 #ifdef SECURE_INTERFACE
     uint32_t suites[16];
@@ -377,13 +384,13 @@ int AJ_Main()
         AJ_Message msg;
 
         if (!connected) {
-#ifndef NGNS
-            status = AJ_StartClient(&bus, NULL, CONNECT_TIMEOUT, FALSE, testServiceName, testServicePort, &sessionId, NULL);
+#if defined (NGNS) || defined (ANNOUNCE_BASED_DISCOVERY)
+            status = AJ_StartClientByInterface(&bus, NULL, CONNECT_TIMEOUT, FALSE, testInterfaceNames, &sessionId, peerServiceName, NULL);
 #else
-            status = AJ_StartClientByInterface(&bus, NULL, CONNECT_TIMEOUT, FALSE, testInterfaceNames, &sessionId, testServiceName, NULL);
+            status = AJ_StartClientByName(&bus, NULL, CONNECT_TIMEOUT, FALSE, testServiceName, testServicePort, &sessionId, NULL, peerServiceName);
 #endif
             if (status == AJ_OK) {
-                AJ_AlwaysPrintf(("StartClient returned %d, sessionId=%u, serviceName=%s\n", status, sessionId, testServiceName));
+                AJ_AlwaysPrintf(("StartClient returned %d, sessionId=%u, serviceName=%s\n", status, sessionId, peerServiceName));
                 AJ_AlwaysPrintf(("Connected to Daemon:%s\n", AJ_GetUniqueName(&bus)));
                 connected = TRUE;
 #ifdef SECURE_INTERFACE
@@ -396,7 +403,7 @@ int AJ_Main()
                     status = AJ_ClearCredentials(AJ_CRED_TYPE_GENERIC);
                     AJ_ASSERT(AJ_OK == status);
                 }
-                status = AJ_BusAuthenticatePeer(&bus, testServiceName, AuthCallback, &authStatus);
+                status = AJ_BusAuthenticatePeer(&bus, peerServiceName, AuthCallback, &authStatus);
                 if (status != AJ_OK) {
                     AJ_AlwaysPrintf(("AJ_BusAuthenticatePeer returned %d\n", status));
                 }
@@ -421,7 +428,7 @@ int AJ_Main()
 
         status = AJ_UnmarshalMsg(&bus, &msg, UNMARSHAL_TIMEOUT);
         if (status == AJ_ERR_TIMEOUT) {
-            status = AppDoWork(&bus, sessionId, testServiceName);
+            status = AppDoWork(&bus, sessionId, peerServiceName);
             continue;
         }
 

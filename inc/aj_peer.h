@@ -1,5 +1,6 @@
 #ifndef _AJ_PEER_H
 #define _AJ_PEER_H
+
 /**
  * @file aj_peer.h
  * @defgroup aj_peer Implementation of org.alljoyn.Bus.Peer Object
@@ -24,6 +25,10 @@
 #include "aj_target.h"
 #include "aj_msg.h"
 #include "aj_crypto_sha2.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
  * Handle an exchange guids message
@@ -221,6 +226,9 @@ AJ_Status AJ_PeerHandleSendMembershipsReply(AJ_Message* msg);
  */
 void AJ_ClearAuthContext();
 
+#ifdef __cplusplus
+}
+#endif
 /**
  * @}
  */

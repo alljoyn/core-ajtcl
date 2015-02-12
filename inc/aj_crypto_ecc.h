@@ -1,5 +1,6 @@
 #ifndef _AJ_CRYPTO_ECC_H
 #define _AJ_CRYPTO_ECC_H
+
 /**
  * @file aj_crypto_ecc.h
  * @defgroup aj_crypto Cryptographic Support
@@ -23,6 +24,10 @@
 
 #include "aj_target.h"
 #include "aj_status.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef enum {B_FALSE, B_TRUE} boolean_t;
 
@@ -148,5 +153,9 @@ void AJ_BigvalEncode(const bigval_t* src, uint8_t* tgt, size_t tgtlen);
  * @param srclen The input buffer length
  */
 void AJ_BigvalDecode(const uint8_t* src, bigval_t* tgt, size_t srclen);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

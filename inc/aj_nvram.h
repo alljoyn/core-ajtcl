@@ -24,6 +24,10 @@
 
 #include "alljoyn.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define AJ_NVRAM_ID_CREDS_MAX        0x0FFF   /**< Last NVRAM ID reserved for AllJoyn credentials management */
 #define AJ_NVRAM_ID_RESERVED_MAX     0x7FFF   /**< Last NVRAM ID reserved for AllJoyn framework and services use */
 #define AJ_NVRAM_ID_FOR_APPS         0x8000   /**< First NVRAM ID available for application used */
@@ -152,6 +156,9 @@ uint8_t AJ_NVRAM_Exist(uint16_t id);
  */
 AJ_Status AJ_NVRAM_Delete(uint16_t id);
 
+#ifdef __cplusplus
+}
+#endif
 /**
  * @}
  */

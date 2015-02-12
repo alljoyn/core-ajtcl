@@ -1,5 +1,6 @@
 #ifndef _AJ_UTIL_H
 #define _AJ_UTIL_H
+
 /**
  * @file aj_util.h
  * @defgroup aj_util Utility Functions
@@ -23,6 +24,10 @@
 
 #include "aj_target.h"
 #include "aj_status.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
  * Structure for holding a time
@@ -54,6 +59,16 @@ const char* AJ_GetVersion();
  */
 AJ_EXPORT
 uint32_t AJ_GetElapsedTime(AJ_Time* timer, uint8_t cumulative);
+
+/**
+ * Gets the time for the debug statement.
+ *
+ * @param timer the time for the debug statement.
+ *
+ * @return AJ_OK if the time has been set. An error indicates that the time has not been set and the default debug time should be used.
+ */
+AJ_EXPORT
+AJ_Status _AJ_GetDebugTime(AJ_Time* timer);
 
 /**
  * Initialize a timer
@@ -227,6 +242,32 @@ AJ_Status AJ_B64ToRaw(const char* pem, size_t pemlen, uint8_t* raw, size_t rawle
 uint16_t AJ_ByteSwap16(uint16_t x);
 uint32_t AJ_ByteSwap32(uint32_t x);
 uint64_t AJ_ByteSwap64(uint64_t x);
+
+/**
+ * Convert integer to decimal string representation
+ *
+ * @param val    The integer to convert
+ * @param buf    The input buffer where converted string is stored
+ * @param buflen The size of the input buffer
+ *
+ * @return AJ_OK on success, AJ_ERR_RESOURCES if input buffer too short
+ */
+AJ_Status AJ_IntToString(int32_t val, char* buf, size_t buflen);
+
+/**
+ * Convert AF_INET address to dotted decimal string representation
+ *
+ * @param val    The address to convert
+ * @param buf    The input buffer where converted string is stored
+ * @param buflen The size of the input buffer
+ *
+ * @return AJ_OK on success, AJ_ERR_RESOURCES if input buffer too short
+ */
+AJ_Status AJ_InetToString(uint32_t addr, char* buf, size_t buflen);
+
+#ifdef __cplusplus
+}
+#endif
 
 /**
  * @}

@@ -28,6 +28,12 @@ static const char ServiceName[] = "org.alljoyn.Bus.sample";
 static const char ServicePath[] = "/sample";
 static const uint16_t ServicePort = 25;
 
+/*
+ * Buffer to hold the full service name. This buffer must be big enough to hold
+ * a possible 255 characters plus a null terminator (256 bytes)
+ */
+static char fullServiceName[AJ_MAX_SERVICE_NAME_SIZE];
+
 uint8_t dbgBASIC_CLIENT = 0;
 /**
  * The interface name followed by the method signatures.
@@ -81,7 +87,7 @@ void MakeMethodCall(AJ_BusAttachment* bus, uint32_t sessionId)
     AJ_Status status;
     AJ_Message msg;
 
-    status = AJ_MarshalMethodCall(bus, &msg, BASIC_CLIENT_CAT, ServiceName, sessionId, 0, METHOD_TIMEOUT);
+    status = AJ_MarshalMethodCall(bus, &msg, BASIC_CLIENT_CAT, fullServiceName, sessionId, 0, METHOD_TIMEOUT);
 
     if (status == AJ_OK) {
         status = AJ_MarshalArgs(&msg, "ss", "Hello ", "World!");
@@ -113,14 +119,15 @@ int AJ_Main(void)
         AJ_Message msg;
 
         if (!connected) {
-            status = AJ_StartClient(&bus,
-                                    NULL,
-                                    CONNECT_TIMEOUT,
-                                    FALSE,
-                                    ServiceName,
-                                    ServicePort,
-                                    &sessionId,
-                                    NULL);
+            status = AJ_StartClientByName(&bus,
+                                          NULL,
+                                          CONNECT_TIMEOUT,
+                                          FALSE,
+                                          ServiceName,
+                                          ServicePort,
+                                          &sessionId,
+                                          NULL,
+                                          fullServiceName);
 
             if (status == AJ_OK) {
                 AJ_InfoPrintf(("StartClient returned %d, sessionId=%u.\n", status, sessionId));
@@ -148,7 +155,7 @@ int AJ_Main(void)
                     status = AJ_UnmarshalArg(&msg, &arg);
 
                     if (AJ_OK == status) {
-                        AJ_AlwaysPrintf(("'%s.%s' (path='%s') returned '%s'.\n", ServiceName, "cat",
+                        AJ_AlwaysPrintf(("'%s.%s' (path='%s') returned '%s'.\n", fullServiceName, "cat",
                                          ServicePath, arg.val.v_string));
                         done = TRUE;
                     } else {

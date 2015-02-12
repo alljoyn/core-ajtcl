@@ -1,5 +1,6 @@
 #ifndef _AJ_CONNECT_H
 #define _AJ_CONNECT_H
+
 /**
  * @file aj_connect.h
  * @defgroup aj_connect Bus Connection Management
@@ -25,6 +26,10 @@
 #include "aj_status.h"
 #include "aj_bus.h"
 #include "aj_disco.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
  * Set the minimum acceptable routing node protocol version.
@@ -131,6 +136,9 @@ uint8_t AJ_IsRoutingNodeBlacklisted(AJ_Service* service);
  */
 void AJ_InitRoutingNodeBlacklist();
 
+#ifdef __cplusplus
+}
+#endif
 /**
  * @}
  */

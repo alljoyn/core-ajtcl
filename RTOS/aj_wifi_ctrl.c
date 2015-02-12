@@ -440,20 +440,17 @@ AJ_Status AJ_WiFiScan(void* context, AJ_WiFiScanResult callback, uint8_t maxAPs)
 {
     AJ_Status status = AJ_OK;
 
+    AJ_WSL_RegisterWiFiCallback(context, callback);
     status = AJ_Network_Up();
     if (status != AJ_OK) {
         AJ_ErrPrintf(("AJ_WiFiScan(): AJ_Network_Up error"));
         return status;
     }
-
-
-    AJ_WSL_InitScanList();
+    AJ_WSL_InitScanList(maxAPs);
     AJ_WSL_NET_scan();
-
-    WSL_PrintScanSorted();
-    // This list gets cleared after issuing the connect command. If this list is to be used for something it
-    // it must be copied into another location.
     AJ_WSL_NET_scan_stop();
+    WSL_ClearScanList();
+    AJ_WSL_UnregisterWiFiCallback();
 
     return status;
 }

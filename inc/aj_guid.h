@@ -1,5 +1,6 @@
 #ifndef _AJ_GUID_H
 #define _AJ_GUID_H
+
 /**
  * @file aj_guid.h
  * @defgroup aj_guid Globally Unique Identifier Support
@@ -24,6 +25,11 @@
 
 #include "aj_target.h"
 #include "aj_status.h"
+#include "aj_bus.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
  * Type for a GUID
@@ -67,6 +73,10 @@ void AJ_GUID_ClearNameMap(void);
 /**
  * Adds a unique name to the GUID map.
  *
+ * This also adds a match rule for the name owner changed signal to
+ * detect when the name mapping can be deleted.
+ *
+ * @param bus         The bus attachment
  * @param guid        The GUID to add
  * @param uniqueName  A unique name that maps to the GUID
  * @param serviceName A service name that maps to the GUID
@@ -75,18 +85,22 @@ void AJ_GUID_ClearNameMap(void);
  *          - AJ_OK if the mapping was added
  *          - AJ_ERR_RESOURCES if there is no room to the mapping
  */
-AJ_Status AJ_GUID_AddNameMapping(const AJ_GUID* guid, const char* uniqueName, const char* serviceName);
+AJ_Status AJ_GUID_AddNameMapping(AJ_BusAttachment* bus, const AJ_GUID* guid, const char* uniqueName, const char* serviceName);
 
 #define AJ_ROLE_KEY_UNDEFINED   0  /**< Indicates the session key role is undefined (only applies for group keys) */
 #define AJ_ROLE_KEY_INITIATOR   1  /**< Indicates the session key was initiated by this peer */
 #define AJ_ROLE_KEY_RESPONDER   2  /**< Indicates the session key was initiated by the remote peer */
 
 /**
- * Delete a name mapping from the GUID map. Called when a name owner changed.
+ * Delete a name mapping from the GUID map.
  *
+ * This is called when a name owner changed signal is received
+ * indicating that the unique name has gone away.
+ *
+ * @param bus         The bus attachment
  * @param uniqueName  The unique name that went away
  */
-void AJ_GUID_DeleteNameMapping(const char* uniqueName);
+void AJ_GUID_DeleteNameMapping(AJ_BusAttachment* bus, const char* uniqueName);
 
 /**
  * Looks up the GUID for a name
@@ -147,6 +161,57 @@ AJ_Status AJ_GetSessionKey(const char* name, uint8_t* key, uint8_t* role);
  */
 AJ_Status AJ_GetGroupKey(const char* name, uint8_t* key);
 
+/**
+ * Handle an add match reply message
+ *
+ * @param msg    The add match reply message
+ *
+ * @return   Return AJ_Status
+ *         - AJ_OK if successful
+ *         - AJ_ERR_RESOURCES if resource error or authentication in progress
+ *         - AJ_ERR_SECURITY if generic security violation
+ */
+AJ_Status AJ_GUID_HandleAddMatchReply(AJ_Message* msg);
+
+/**
+ * Handle a remove match reply message
+ *
+ * @param msg    The remove match reply message
+ *
+ * @return   Return AJ_Status
+ *         - AJ_OK if successful
+ *         - AJ_ERR_RESOURCES if resource error or authentication in progress
+ *         - AJ_ERR_SECURITY if generic security violation
+ */
+AJ_Status AJ_GUID_HandleRemoveMatchReply(AJ_Message* msg);
+
+/**
+ * Handle a name has owner reply message
+ *
+ * @param msg    The name has owner reply message
+ *
+ * @return   Return AJ_Status
+ *         - AJ_OK if successful
+ *         - AJ_ERR_RESOURCES if resource error or authentication in progress
+ *         - AJ_ERR_SECURITY if generic security violation
+ */
+AJ_Status AJ_GUID_HandleNameHasOwnerReply(AJ_Message* msg);
+
+/**
+ * Handle a name owner changed message
+ *
+ * @param msg    The name owner changed message
+ *
+ * @return   Return AJ_Status
+ *         - AJ_OK if successful
+ *         - AJ_ERR_RESOURCES if resource error or authentication in progress
+ *         - AJ_ERR_SECURITY if generic security violation
+ */
+AJ_Status AJ_GUID_HandleNameOwnerChanged(AJ_Message* msg);
+
+#ifdef __cplusplus
+}
+#endif
 /**
  * @}
  */

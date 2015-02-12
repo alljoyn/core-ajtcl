@@ -48,11 +48,10 @@ AJ_FW_Version AJ_WSL_TargetFirmware;
 
 AJ_WifiCallbackFunc AJ_WSL_WifiConnectCallback;
 
-extern wsl_socket_context AJ_WSL_SOCKET_CONTEXT[5];
+extern wsl_socket_context AJ_WSL_SOCKET_CONTEXT[AJ_WSL_SOCKET_MAX];
 /**
  * globals to track open socket slots
  */
-uint8_t AJ_WSL_SOCKET_MAX = ArraySize(AJ_WSL_SOCKET_CONTEXT);
 uint32_t AJ_WSL_SOCKET_HANDLE_INVALID = UINT32_MAX;
 
 struct AJ_TaskHandle* AJ_WSL_MBoxListenHandle;
@@ -253,7 +252,7 @@ AJ_WSL_SOCKNUM AJ_WSL_FindOpenSocketContext(void)
             return i;
         }
     }
-    return AJ_WSL_SOCKET_MAX;
+    return INVALID_SOCKET;
 }
 
 /**
@@ -267,7 +266,7 @@ AJ_WSL_SOCKNUM AJ_WSL_FindSocketContext(uint32_t handle)
             return i;
         }
     }
-    return AJ_WSL_SOCKET_MAX;
+    return INVALID_SOCKET;
 }
 
 void AJ_WSL_WMI_ProcessWMIEvent(AJ_BufNode* pNodeHTCBody)
@@ -383,7 +382,7 @@ void AJ_WSL_WMI_ProcessWMIEvent(AJ_BufNode* pNodeHTCBody)
             uint32_t error;
             WMI_Unmarshal(pNodeHTCBody->buffer + dataUnmarshaled, "uuu", &responseType, &socketHandle, &error);
 
-            uint8_t socketIndex;
+            int8_t socketIndex;
             //AJ_BufListNodePrintDump(pNodeHTCBody, NULL);
             /* look for the matching handle in the global context then mark it invalid */
             switch (responseType) {
@@ -398,7 +397,7 @@ void AJ_WSL_WMI_ProcessWMIEvent(AJ_BufNode* pNodeHTCBody)
 
             default: {
                     socketIndex = AJ_WSL_FindSocketContext(socketHandle);
-                    if (socketIndex == AJ_WSL_SOCKET_MAX) {
+                    if (socketIndex == INVALID_SOCKET) {
                         AJ_DumpBytes("INVALID SOCKET DUMP", pNodeHTCBody->buffer, pNodeHTCBody->length);
                         AJ_WarnPrintf(("SOCKET_PING response for invalid socket!\n"));
                         break;
@@ -406,7 +405,7 @@ void AJ_WSL_WMI_ProcessWMIEvent(AJ_BufNode* pNodeHTCBody)
                 }
             }
 
-            if (socketIndex != AJ_WSL_SOCKET_MAX) {
+            if (socketIndex != INVALID_SOCKET) {
                 wsl_work_item* sockResponse;
                 wsl_work_item** pItem;
                 AJ_Status status = AJ_OK;
@@ -426,7 +425,7 @@ void AJ_WSL_WMI_ProcessWMIEvent(AJ_BufNode* pNodeHTCBody)
 
                 }
 
-                if ((responseType == AJ_WSL_WORKITEM(AJ_WSL_WORKITEM_SOCKET, WSL_SOCK_CLOSE)) && (socketIndex != AJ_WSL_SOCKET_MAX)) {
+                if ((responseType == AJ_WSL_WORKITEM(AJ_WSL_WORKITEM_SOCKET, WSL_SOCK_CLOSE)) && (socketIndex != INVALID_SOCKET)) {
                     AJ_WSL_SOCKET_CONTEXT[socketIndex].targetHandle = UINT32_MAX;
                     AJ_WSL_SOCKET_CONTEXT[socketIndex].valid = FALSE;
                 }
@@ -453,14 +452,14 @@ void AJ_WSL_WMI_ProcessWMIEvent(AJ_BufNode* pNodeHTCBody)
         }
 
     default: {
-            AJ_WarnPrintf(("UNKNOWN WMI EVENT %x\n",  eventID));
+            AJ_InfoPrintf(("UNKNOWN WMI EVENT %x\n",  eventID));
         }
     }
 }
 
 void AJ_WSL_WMI_ProcessSocketDataResponse(AJ_BufNode* pNodeHTCBody)
 {
-    uint8_t socketIndex;
+    int8_t socketIndex;
     uint32_t u32;
     uint16_t lead, payloadSize, _port;
     uint32_t _handle, srcAddr;
@@ -476,7 +475,7 @@ void AJ_WSL_WMI_ProcessSocketDataResponse(AJ_BufNode* pNodeHTCBody)
     bufferOffset += 12;
     // look for the matching handle in the global context then mark it invalid
     socketIndex = AJ_WSL_FindSocketContext(_handle);
-    if (socketIndex == AJ_WSL_SOCKET_MAX) {
+    if (socketIndex == INVALID_SOCKET) {
         AJ_WarnPrintf(("data returned for invalid socket. Handle = %lu\n", _handle));
         return;
     }
@@ -527,17 +526,20 @@ AJ_Status AJ_WSL_WMI_QueueWorkItem(uint32_t socket, uint8_t command, uint8_t end
  * This function just returns the work item. If there is data inside that you want
  * you have to unmarshal it after you receive the work item.
  */
-AJ_Status AJ_WSL_WMI_WaitForWorkItem(uint32_t socket, uint8_t command, wsl_work_item** item)
+AJ_Status AJ_WSL_WMI_WaitForWorkItem(uint32_t socket, uint8_t command, wsl_work_item** item, uint32_t timeout)
 {
     AJ_Status status;
+    AJ_Time timer;
+    AJ_InitTimer(&timer);
 //    AJ_AlwaysPrintf(("WaitForWorkItem: %x\n", command));
     //wsl_work_item* item;
-    status = AJ_QueuePull(AJ_WSL_SOCKET_CONTEXT[socket].workRxQueue, item, AJ_TIMER_FOREVER);
-    if (*item) {
+    status = AJ_QueuePull(AJ_WSL_SOCKET_CONTEXT[socket].workRxQueue, item, timeout);
+    timeout -= AJ_GetElapsedTime(&timer, TRUE);
+    if ((status == AJ_OK) && item && *item) {
         if ((status == AJ_OK) && ((*item)->itemType == WSL_NET_INTERUPT)) {
             // We don't care about the interrupted signal for any calls using this function
             AJ_WSL_WMI_FreeWorkItem((*item));
-            status = AJ_QueuePull(AJ_WSL_SOCKET_CONTEXT[socket].workRxQueue, item, AJ_TIMER_FOREVER);
+            status = AJ_QueuePull(AJ_WSL_SOCKET_CONTEXT[socket].workRxQueue, item, timeout);
         }
         if ((status == AJ_OK) && ((*item)->itemType == command)) {
             //AJ_InfoPrintf(("AJ_WSL_WMI_WaitForWorkItem(): Received work item\n"));
@@ -547,26 +549,37 @@ AJ_Status AJ_WSL_WMI_WaitForWorkItem(uint32_t socket, uint8_t command, wsl_work_
             // Clean up the network queues
             int i;
             for (i = 0; i < AJ_WSL_SOCKET_MAX; i++) {
+                wsl_work_item* clear;
                 AJ_WSL_SOCKET_CONTEXT[i].valid = FALSE;
                 // Removed any stashed data
                 AJ_BufListFree(AJ_WSL_SOCKET_CONTEXT[i].stashedRxList, 1);
                 // Reallocate a new stash
                 AJ_WSL_SOCKET_CONTEXT[i].stashedRxList = AJ_BufListCreate();
                 // Reset the queue, any work items are now invalid since the socket was closed
+                while (AJ_QueuePull(AJ_WSL_SOCKET_CONTEXT[i].workRxQueue, &clear, 0) == AJ_OK) {
+                    AJ_WSL_WMI_FreeWorkItem(clear);
+                }
+                while (AJ_QueuePull(AJ_WSL_SOCKET_CONTEXT[i].workTxQueue, &clear, 0) == AJ_OK) {
+                    AJ_WSL_WMI_FreeWorkItem(clear);
+                }
                 AJ_QueueReset(AJ_WSL_SOCKET_CONTEXT[i].workRxQueue);
                 AJ_QueueReset(AJ_WSL_SOCKET_CONTEXT[i].workTxQueue);
             }
+            AJ_WSL_WMI_FreeWorkItem((*item));
             return AJ_ERR_LINK_DEAD;
         } else if ((status == AJ_OK) && ((*item)->itemType == WSL_NET_DATA_RX)) {
             // If we got data we want to save it and not throw it away, its still not what we
-            // wanted so we return AJ_ERR_NULL
+            // wanted so we can free the work item as it wont be needed at a higher level
             if ((*item)->node->length) {
                 AJ_BufNode* new_node = AJ_BufNodeCreateAndTakeOwnership((*item)->node);
                 AJ_BufListPushTail(AJ_WSL_SOCKET_CONTEXT[socket].stashedRxList, new_node);
+                AJ_WSL_WMI_FreeWorkItem((*item));
                 return AJ_ERR_NULL;
             }
         } else {
             AJ_WarnPrintf(("AJ_WSL_WMI_WaitForWorkItem(): Received incorrect work item %x, wanted %x\n", (*item)->itemType, command));
+            // Wrong work item, but return NULL because we can free the item internally
+            AJ_WSL_WMI_FreeWorkItem((*item));
             return AJ_ERR_NULL;
         }
     }

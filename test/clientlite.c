@@ -35,8 +35,6 @@
 #include "aj_config.h"
 
 uint8_t dbgCLIENTLITE = 0;
-static const char ServiceName[] = "org.alljoyn.svclite";
-static const uint16_t ServicePort = 24;
 
 /*
  * Default key expiration
@@ -55,17 +53,26 @@ static const char testInterfaceName[] = "org.alljoyn.alljoyn_test";
 static const char testValuesInterfaceName[] = "org.alljoyn.alljoyn_test.values";
 #endif
 
-#ifndef NGNS
-static const char testServiceName[] = "org.alljoyn.svclite";
-static const uint16_t testServicePort = 24;
-#else
-static char testServiceName[AJ_MAX_NAME_SIZE + 1];
+#if defined(ANNOUNCE_BASED_DISCOVERY) || defined(NGNS)
 static const char* testInterfaceNames[] = {
     testInterfaceName,
     testValuesInterfaceName,
     NULL
 };
+#else
+static const char testServiceName[] = "org.alljoyn.svclite";
 #endif
+
+/*
+ * Buffer to hold the peer's full service name or unique name.
+ */
+#if defined(ANNOUNCE_BASED_DISCOVERY) || defined(NGNS)
+static char g_peerServiceName[AJ_MAX_NAME_SIZE + 1];
+#else
+static char g_peerServiceName[AJ_MAX_SERVICE_NAME_SIZE];
+#endif
+
+static const uint16_t testServicePort = 24;
 
 static const char* const testInterface[] = {
     testInterfaceName,
@@ -114,6 +121,70 @@ static AJ_Object ProxyObjects[] = {
 #define UNMARSHAL_TIMEOUT  (1000 * 5)
 #define METHOD_TIMEOUT     (1000 * 10)
 #define PING_TIMEOUT       (1000 * 10)
+
+/**
+ * Peer discovery
+ */
+#ifdef ANNOUNCE_BASED_DISCOVERY
+static void handleMandatoryProps(const char* peerName,
+                                 const char* appId,
+                                 const char* appName,
+                                 const char* deviceId,
+                                 const char* deviceName,
+                                 const char* manufacturer,
+                                 const char* modelNumber,
+                                 const char* defaultLanguage)
+{
+    AJ_AlwaysPrintf(("Mandatory Properties for %s\n", peerName));
+    AJ_AlwaysPrintf(("Mandatory property: AppId=\"%s\"\n", (appId == NULL || appId[0] == '\0') ? "N/A" : appId));
+    AJ_AlwaysPrintf(("Mandatory property: AppName=\"%s\"\n", (appName == NULL || appName[0] == '\0') ? "N/A" : appName));
+    AJ_AlwaysPrintf(("Mandatory property: DeviceId=\"%s\"\n", (deviceId == NULL || deviceId[0] == '\0') ? "N/A" : deviceId));
+    AJ_AlwaysPrintf(("Mandatory property: DeviceName=\"%s\"\n", (deviceName == NULL || deviceName[0] == '\0') ? "N/A" : deviceName));
+    AJ_AlwaysPrintf(("Mandatory property: Manufacturer=\"%s\"\n", (manufacturer == NULL || manufacturer[0] == '\0') ? "N/A" : manufacturer));
+    AJ_AlwaysPrintf(("Mandatory property: ModelNumber=\"%s\"\n", (modelNumber == NULL || modelNumber[0] == '\0') ? "N/A" : modelNumber));
+    AJ_AlwaysPrintf(("Mandatory property: DefaultLanguage=\"%s\"\n", (defaultLanguage == NULL || defaultLanguage[0] == '\0') ? "N/A" : defaultLanguage));
+}
+
+static void handleOptionalProperty(const char* peerName, const char* key, const char* sig, const AJ_Arg* value) {
+    if (strcmp(sig, "s") == 0) {
+        AJ_AlwaysPrintf(("Optional Prop: %s=\"%s\"\n", key, value->val.v_string));
+    } else {
+        AJ_AlwaysPrintf(("Optional Prop: %s=[Not A String]\n", key));
+    }
+}
+
+static uint8_t FoundNewTestPeer(uint16_t version, uint16_t port, const char* peerName, const char* objPath)
+{
+    AJ_AlwaysPrintf(("FoundNewTestPeer: version:%u port:%u name:%s path=%s\n", version, port, peerName, objPath));
+    if ((strcmp(objPath, testObj) == 0) && (port == testServicePort)) {
+        if (g_peerServiceName[0] == '\0') {
+            strncpy(g_peerServiceName, peerName, AJ_MAX_NAME_SIZE);
+            g_peerServiceName[AJ_MAX_NAME_SIZE] = '\0';
+        }
+    }
+
+    return FALSE;
+}
+
+static uint8_t AcceptNewTestPeer(const char* peerName)
+{
+    AJ_AlwaysPrintf(("AcceptNewTestPeer: name:%s\n", peerName));
+    if ((strcmp(g_peerServiceName, peerName) == 0)) {
+        return TRUE;
+    }
+
+    return FALSE;
+}
+
+static const char* testIFaces[] = {
+    "org.alljoyn.alljoyn_test",
+    "org.alljoyn.alljoyn_test.values"
+};
+
+static AJ_AboutPeerDescription pingServicePeer = {
+    testIFaces, (uint16_t)(sizeof(testIFaces) / sizeof(*testIFaces)), FoundNewTestPeer, AcceptNewTestPeer, NULL, handleMandatoryProps, handleOptionalProperty
+};
+#endif
 
 /*
  * Let the application do some work
@@ -441,13 +512,15 @@ int AJ_Main()
         AJ_Message msg;
 
         if (!connected) {
-#ifndef NGNS
-            status = AJ_StartClient(&bus, NULL, CONNECT_TIMEOUT, FALSE, testServiceName, testServicePort, &sessionId, NULL);
+#if defined (ANNOUNCE_BASED_DISCOVERY)
+            status = AJ_StartClientByPeerDescription(&bus, NULL, CONNECT_TIMEOUT, FALSE, &pingServicePeer, testServicePort, &sessionId, g_peerServiceName, NULL);
+#elif defined (NGNS)
+            status = AJ_StartClientByInterface(&bus, NULL, CONNECT_TIMEOUT, FALSE, testInterfaceNames, &sessionId, g_peerServiceName, NULL);
 #else
-            status = AJ_StartClientByInterface(&bus, NULL, CONNECT_TIMEOUT, FALSE, testInterfaceNames, &sessionId, testServiceName, NULL);
+            status = AJ_StartClientByName(&bus, NULL, CONNECT_TIMEOUT, FALSE, testServiceName, testServicePort, &sessionId, NULL, g_peerServiceName);
 #endif
             if (status == AJ_OK) {
-                AJ_AlwaysPrintf(("StartClient returned %d, sessionId=%u, serviceName=%s\n", status, sessionId, testServiceName));
+                AJ_AlwaysPrintf(("StartClient returned %d, sessionId=%u, serviceName=%s\n", status, sessionId, g_peerServiceName));
                 AJ_AlwaysPrintf(("Connected to Daemon:%s\n", AJ_GetUniqueName(&bus)));
                 connected = TRUE;
 #if defined(SECURE_INTERFACE) || defined(SECURE_OBJECT)
@@ -460,7 +533,7 @@ int AJ_Main()
                     status = AJ_ClearCredentials(AJ_CRED_TYPE_GENERIC);
                     AJ_ASSERT(AJ_OK == status);
                 }
-                status = AJ_BusAuthenticatePeer(&bus, testServiceName, AuthCallback, &authStatus);
+                status = AJ_BusAuthenticatePeer(&bus, g_peerServiceName, AuthCallback, &authStatus);
                 if (status != AJ_OK) {
                     AJ_AlwaysPrintf(("AJ_BusAuthenticatePeer returned %d\n", status));
                 }
@@ -495,7 +568,7 @@ int AJ_Main()
         status = AJ_UnmarshalMsg(&bus, &msg, UNMARSHAL_TIMEOUT);
         if (status != AJ_OK) {
             if (status == AJ_ERR_TIMEOUT) {
-                AppDoWork(&bus, sessionId, testServiceName);
+                AppDoWork(&bus, sessionId, g_peerServiceName);
                 continue;
             }
         } else {
@@ -511,7 +584,7 @@ int AJ_Main()
                     } else {
                         AJ_AlwaysPrintf(("SetLinkTimeout failed %d\n", disposition));
                     }
-                    SendPing(&bus, sessionId, testServiceName, 1);
+                    SendPing(&bus, sessionId, g_peerServiceName, 1);
                 }
                 break;
 
@@ -534,7 +607,7 @@ int AJ_Main()
                     AJ_UnmarshalArg(&msg, &arg);
                     AJ_AlwaysPrintf(("Got ping reply\n"));
                     AJ_InfoPrintf(("INFO Got ping reply\n"));
-                    status = SendGetProp(&bus, sessionId, testServiceName);
+                    status = SendGetProp(&bus, sessionId, g_peerServiceName);
                 }
                 break;
 
@@ -548,7 +621,7 @@ int AJ_Main()
 
                         if (status == AJ_OK) {
                             g_iterCount = g_iterCount + 1;
-                            status = SendSetProp(&bus, sessionId, testServiceName, g_iterCount);
+                            status = SendSetProp(&bus, sessionId, g_peerServiceName, g_iterCount);
                         }
                     }
                 }

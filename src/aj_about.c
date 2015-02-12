@@ -22,6 +22,7 @@
 
 #include "alljoyn.h"
 #include "aj_debug.h"
+#include "aj_config.h"
 
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
@@ -31,8 +32,8 @@
 uint8_t dbgABOUT = 0;
 #endif
 
-static const uint8_t aboutVersion = 1;
-static const uint8_t aboutIconVersion = 1;
+#define ABOUT_VERSION      (1)
+#define ABOUT_ICON_VERSION (1)
 
 /*
  * Registered by the Property Store implementation
@@ -95,7 +96,7 @@ void AJ_AboutSetIcon(const uint8_t* data, uint16_t size, const char* mime, const
 static AJ_Status AboutGetProp(AJ_Message* replyMsg, uint32_t propId, void* context)
 {
     if (propId == AJ_PROPERTY_ABOUT_VERSION) {
-        return AJ_MarshalArgs(replyMsg, "q", (uint16_t)aboutVersion);
+        return AJ_MarshalArgs(replyMsg, "q", (uint16_t)ABOUT_VERSION);
     } else {
         return AJ_ERR_UNEXPECTED;
     }
@@ -229,7 +230,7 @@ AJ_Status AJ_AboutAnnounce(AJ_BusAttachment* bus)
     if (status != AJ_OK) {
         goto ErrorExit;
     }
-    status = AJ_MarshalArgs(&announcement, "q", (uint16_t)aboutVersion);
+    status = AJ_MarshalArgs(&announcement, "q", (uint16_t)ABOUT_VERSION);
     if (status != AJ_OK) {
         goto ErrorExit;
     }
@@ -270,7 +271,7 @@ static AJ_Status AboutIconGetProp(AJ_Message* replyMsg, uint32_t propId, void* c
     AJ_Status status = AJ_ERR_UNEXPECTED;
 
     if (propId == AJ_PROPERTY_ABOUT_ICON_VERSION_PROP) {
-        status = AJ_MarshalArgs(replyMsg, "q", (uint16_t)aboutIconVersion);
+        status = AJ_MarshalArgs(replyMsg, "q", (uint16_t)ABOUT_ICON_VERSION);
     } else if (propId == AJ_PROPERTY_ABOUT_ICON_MIMETYPE_PROP) {
         status = AJ_MarshalArgs(replyMsg, "s", icon.mime ? icon.mime : "");
     } else if (propId == AJ_PROPERTY_ABOUT_ICON_SIZE_PROP) {
@@ -336,3 +337,372 @@ void AJ_AboutSetAnnounceObjects(AJ_Object* objList)
     }
 }
 
+#ifdef ANNOUNCE_BASED_DISCOVERY
+static const AJ_AboutPeerDescription* peerList = NULL;
+static uint16_t peerListLength = 0;
+
+void AJ_AboutRegisterAnnounceHandlers(AJ_AboutPeerDescription* peerDescs, uint16_t peerDescCount)
+{
+    peerList = peerDescs;
+    peerListLength = peerDescCount;
+}
+
+/**
+ * It is assumed that the AJ_Message *msg supplied to this function is in memory while using objDescs. objDescs is merely pointing to entries in the messgae buffer in msg.
+ */
+AJ_Status AJ_AboutUnmarshalObjectDescriptions(AJ_Message* msg, AJ_AboutObjectDescription* objDescs, uint16_t* objDescsCount)
+{
+    AJ_Status status = AJ_OK;
+    AJ_Arg objList;
+
+
+    status = AJ_UnmarshalContainer(msg, &objList, AJ_ARG_ARRAY);
+    if (status != AJ_OK) {
+        goto ErrorExit;
+    }
+    /*
+     * Announce object that a flagged for announcement and not hidden
+     */
+    while (status == AJ_OK) {
+        AJ_Arg structure;
+        AJ_Arg ifcList;
+        uint16_t count = 0;
+
+        status = AJ_UnmarshalContainer(msg, &structure, AJ_ARG_STRUCT);
+        if (status != AJ_OK) {
+            break;
+        }
+
+        status = AJ_UnmarshalArgs(msg, "o", &objDescs[*objDescsCount].path);
+        if (status != AJ_OK) {
+            goto ErrorExit;
+        }
+
+        status = AJ_UnmarshalContainer(msg, &ifcList, AJ_ARG_ARRAY);
+        if (status != AJ_OK) {
+            goto ErrorExit;
+        }
+
+        while (status == AJ_OK) {
+            status = AJ_UnmarshalArgs(msg, "s", &objDescs[*objDescsCount].interfaces[count]);
+
+            count++;
+            if (count >= AJ_MAX_NUM_OF_INTERFACES) {
+                AJ_ErrPrintf(("Maximum Predefined number of interfaces (%d) exceeded\n", AJ_MAX_NUM_OF_INTERFACES));
+                status = AJ_ERR_RESOURCES;
+                goto ErrorExit;
+            }
+        }
+
+        if ((status != AJ_ERR_NO_MORE) && (status != AJ_OK)) {
+            goto ErrorExit;
+        }
+
+        objDescs[*objDescsCount].interfacesCount = count - 1;
+
+        status = AJ_UnmarshalCloseContainer(msg, &ifcList);
+        if (status != AJ_OK) {
+            goto ErrorExit;
+        }
+
+        status = AJ_UnmarshalCloseContainer(msg, &structure);
+
+        (*objDescsCount)++;
+
+        if (*objDescsCount >= AJ_MAX_NUM_OF_OBJ_DESC) {
+            AJ_ErrPrintf(("Maximum Predefined number of object descriptions (%d) exceeded\n", AJ_MAX_NUM_OF_OBJ_DESC));
+            status = AJ_ERR_RESOURCES;
+            goto ErrorExit;
+        }
+    }
+
+    if (status == AJ_ERR_NO_MORE) {
+        return AJ_UnmarshalCloseContainer(msg, &objList);
+    }
+
+ErrorExit:
+    return status;
+}
+
+#define UUID_LENGTH 16
+#define APP_ID_SIGNATURE "ay"
+
+AJ_Status AJ_AboutUnmarshalAppIdFromVariant(AJ_Message* msg, char* buf, size_t bufLen)
+{
+    AJ_Status status;
+    uint8_t* appId;
+    size_t appIdLen;
+
+    if (bufLen < (UUID_LENGTH * 2 + 1)) {
+        AJ_ErrPrintf(("UnmarshalAppId: Insufficient buffer size! Should be at least %u but got %u\n", UUID_LENGTH * 2 + 1, (uint32_t)bufLen));
+        return AJ_ERR_RESOURCES;
+    }
+    status = AJ_UnmarshalArgs(msg, "v", APP_ID_SIGNATURE, &appId, &appIdLen);
+    if (status != AJ_OK) {
+        return status;
+    }
+    status = AJ_RawToHex((const uint8_t*)appId, appIdLen, buf, ((appIdLen > UUID_LENGTH) ? UUID_LENGTH : appIdLen) * 2 + 1, FALSE);
+
+    return status;
+}
+
+AJ_Status AJ_AboutUnmarshalProps(AJ_Message* msg, AJ_AboutHandleMandatoryProps onMandatoryProperties, AJ_AboutHandleOptionalProperty onOptionalProperty)
+{
+    AJ_Status status = AJ_OK;
+    AJ_Arg array;
+    AJ_Arg dict;
+    char* key;
+    const char* peerName = msg->sender;
+    char appId[UUID_LENGTH * 2 + 1];
+    const char* appName = NULL;
+    const char* deviceId = NULL;
+    const char* deviceName = NULL;
+    const char* manufacturer = NULL;
+    const char* modelNumber = NULL;
+    const char* defaultLanguage = NULL;
+
+    appId[0] = '\0';
+
+    status = AJ_UnmarshalContainer(msg, &array, AJ_ARG_ARRAY);
+
+    while (status == AJ_OK) {
+
+        status = AJ_UnmarshalContainer(msg, &dict, AJ_ARG_DICT_ENTRY);
+
+        if (status != AJ_OK) {
+            break;
+        }
+
+        status = AJ_UnmarshalArgs(msg, "s", &key);
+        if (status != AJ_OK) {
+            break;
+        }
+
+        if (!strcmp(key, "AppId")) {
+            status = AJ_AboutUnmarshalAppIdFromVariant(msg, appId, sizeof(appId));
+        } else if (!strcmp(key, "AppName")) {
+            status = AJ_UnmarshalArgs(msg, "v", "s", &appName);
+        } else if (!strcmp(key, "DeviceId")) {
+            status = AJ_UnmarshalArgs(msg, "v", "s", &deviceId);
+        } else if (!strcmp(key, "DeviceName")) {
+            status = AJ_UnmarshalArgs(msg, "v", "s", &deviceName);
+        } else if (!strcmp(key, "Manufacturer")) {
+            status = AJ_UnmarshalArgs(msg, "v", "s", &manufacturer);
+        } else if (!strcmp(key, "ModelNumber")) {
+            status = AJ_UnmarshalArgs(msg, "v", "s", &modelNumber);
+        } else if (!strcmp(key, "DefaultLanguage")) {
+            status = AJ_UnmarshalArgs(msg, "v", "s", &defaultLanguage);
+        } else {
+            if (onOptionalProperty == NULL) {
+                status = AJ_SkipArg(msg);
+            } else {
+                const char* vsig;
+                AJ_Arg value;
+
+                status = AJ_UnmarshalVariant(msg, &vsig);
+                if (status != AJ_OK) {
+                    break;
+                }
+                status = AJ_UnmarshalArg(msg, &value);
+                if (status != AJ_OK) {
+                    break;
+                }
+                onOptionalProperty(peerName, key, vsig, &value);
+            }
+        }
+
+        if (status != AJ_OK) {
+            break;
+        }
+
+        status = AJ_UnmarshalCloseContainer(msg, &dict);
+    }
+
+    if (status == AJ_ERR_NO_MORE) {
+        AJ_InfoPrintf(("About Data:\nAppId:'%s'\nAppName:'%s'\nDeviceId:'%s'\nDeviceName:'%s'\nManufacturer:'%s'\nModelNumber'%s'\nDefaultLanguage:'%s'\n",
+                       (appId[0] == '\0' ? "N/A" : appId),
+                       ((appName == NULL || appName[0] == '\0') ? "N/A" : appName),
+                       ((deviceId == NULL || deviceId[0] == '\0') ? "N/A" : deviceId),
+                       ((deviceName == NULL || deviceName[0] == '\0') ? "N/A" : deviceName),
+                       ((manufacturer == NULL || manufacturer[0] == '\0') ? "N/A" : manufacturer),
+                       ((modelNumber == NULL || modelNumber[0] == '\0') ? "N/A" : modelNumber),
+                       ((defaultLanguage == NULL || defaultLanguage[0] == '\0') ? "N/A" : defaultLanguage)));
+        status = AJ_UnmarshalCloseContainer(msg, &array);
+        if ((status == AJ_OK) && (onMandatoryProperties != NULL)) {
+            onMandatoryProperties(peerName, appId, appName, deviceId, deviceName, manufacturer, modelNumber, defaultLanguage);
+        }
+    }
+
+    return status;
+}
+
+static void handleMandatoryProps(const char* peerName,
+                                 const char* appId,
+                                 const char* appName,
+                                 const char* deviceId,
+                                 const char* deviceName,
+                                 const char* manufacturer,
+                                 const char* modelNumber,
+                                 const char* defaultLanguage)
+{
+    uint16_t i;
+
+    if ((peerList != NULL) && (peerListLength > 0)) {
+        for (i = 0; i < peerListLength; i++) {
+            if (peerList[i].handleMandatoryProps != NULL) {
+                peerList[i].handleMandatoryProps(peerName, appId, appName, deviceId, deviceName, manufacturer, modelNumber, defaultLanguage);
+            }
+        }
+    }
+}
+
+static void handleOptionalProp(const char* peerName, const char* key, const char* sig, const AJ_Arg* value) {
+    uint16_t i;
+
+    if ((peerList != NULL) && (peerListLength > 0)) {
+        for (i = 0; i < peerListLength; i++) {
+            if (peerList[i].handleOptionalProperty != NULL) {
+                peerList[i].handleOptionalProperty(peerName, key, sig, value);
+            }
+        }
+    }
+}
+
+AJ_Status AJ_AboutHandleAnnounce(AJ_Message* announcement, uint16_t* outAboutVersion, uint16_t* outAboutPort, char* peerName, uint8_t* outRelevant)
+{
+    AJ_Status status = AJ_OK;
+    const char* objPath = "/";
+    uint16_t peerListCount = 0;
+    AJ_AboutObjectDescription objDescs[AJ_MAX_NUM_OF_OBJ_DESC];
+    uint16_t objDescsCount = 0;
+    uint16_t aboutVersion = 0;
+    uint16_t aboutPort = 0;
+    uint8_t relevant = FALSE;
+
+    /**
+     * Extract basic information from Announcement message
+     */
+    status = AJ_UnmarshalArgs(announcement, "qq", &aboutVersion, &aboutPort);
+    if (status != AJ_OK) {
+        return status;
+    }
+    if (outAboutVersion != NULL) {
+        *outAboutVersion = aboutVersion;
+    }
+    if (outAboutPort != NULL) {
+        *outAboutPort = aboutPort;
+    }
+    if (outRelevant != NULL) {
+        *outRelevant = relevant;
+    }
+
+    if (peerName != NULL) {
+        strncpy(peerName, announcement->sender, AJ_MAX_NAME_SIZE);
+        peerName[AJ_MAX_NAME_SIZE] = '\0';
+    }
+
+    /**
+     * If there are no registered peer descriptions to match then skip all processing of Announce message and return basic information
+     */
+    if ((peerList == NULL) || (peerListLength == 0)) {
+        return status;
+    }
+
+    /**
+     * Unmarshal the object description section i.e. the objects with their paths and published interface names
+     */
+    status = AJ_AboutUnmarshalObjectDescriptions(announcement, objDescs, &objDescsCount);
+    if (status != AJ_OK) {
+        return status;
+    }
+
+    /**
+     * Match object descriptions against registered peer descriptions looking for implemented interfaces
+     */
+    for (peerListCount = 0; peerListCount < peerListLength; peerListCount++) {
+        const AJ_AboutPeerDescription* peerDesc = &peerList[peerListCount];
+        const char** ifaceNames = peerDesc->implementsInterfaces;
+
+        if (ifaceNames != NULL) {
+            uint8_t count;
+            uint8_t found = 0;
+
+            /**
+             * Loop through peer interfaces
+             */
+            for (count = 0; count < peerDesc->numberInterfaces; count++) {
+                uint16_t i;
+
+                /**
+                 * Loop through the object descriptions
+                 */
+                for (i = 0; i != objDescsCount; i++) {
+                    uint16_t j;
+                    AJ_AboutObjectDescription* currObjDesc = &objDescs[i];
+
+                    if (peerDesc->handleObjectDescription != NULL) {
+                        peerDesc->handleObjectDescription(announcement->sender, currObjDesc);
+                    }
+
+                    /**
+                     * Loop through the interfaces
+                     */
+                    for (j = 0; j != currObjDesc->interfacesCount; j++) {
+                        if (strcmp(currObjDesc->interfaces[j], ifaceNames[count]) == 0) {
+                            objPath = currObjDesc->path;
+                            found++;
+                        }
+                    }
+                    /**
+                     * Check if the current object contains ALL the interfaces and fire handle on the match
+                     */
+                    if ((found == peerDesc->numberInterfaces) && (peerDesc->handleMatch != NULL)) {
+                        if (peerDesc->handleMatch(aboutVersion, aboutPort, announcement->sender, objPath) == FALSE) {
+                            goto NextPeerDescription;
+                        }
+                        found = 0;
+                    }
+                }
+            }
+            /**
+             * Check if ALL the interfaces where found on peer and fire handle on the match
+             */
+            if ((found == peerDesc->numberInterfaces) && (peerDesc->handleMatch != NULL)) {
+                /**
+                 * If peer description includes multiple interfaces on different objects or no interfaces return the root object path
+                 */
+                if (peerDesc->numberInterfaces != 1) {
+                    objPath = "/";
+                }
+                peerDesc->handleMatch(aboutVersion, aboutPort, announcement->sender, objPath);
+            }
+        } else {
+            /**
+             * If no interface names criteria registered simply call the registered peer found handler with root object path.
+             * The handler will be able to perform introspection using the given peerName if required.
+             */
+            if (peerDesc->handleMatch != NULL) {
+                peerDesc->handleMatch(aboutVersion, aboutPort, announcement->sender, objPath);
+            }
+        }
+    NextPeerDescription:
+        continue;
+    }
+
+    /**
+     * Unmarshal the metadata section i.e. the property list
+     */
+    status = AJ_AboutUnmarshalProps(announcement, handleMandatoryProps, handleOptionalProp);
+
+    for (peerListCount = 0; peerListCount < peerListLength; peerListCount++) {
+        const AJ_AboutPeerDescription* peerDesc = &peerList[peerListCount];
+
+        relevant |= peerDesc->handleIsRelevant(announcement->sender);
+    }
+    if (outRelevant != NULL) {
+        *outRelevant = relevant;
+    }
+
+    return status;
+}
+#endif

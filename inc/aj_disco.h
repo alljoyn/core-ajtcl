@@ -1,10 +1,11 @@
 #ifndef _AJ_DISCO_H
 #define _AJ_DISCO_H
+
 /**
  * @file
  */
 /******************************************************************************
- * Copyright (c) 2012-2013, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2012-2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -21,6 +22,10 @@
 
 #include "aj_target.h"
 #include "aj_bufio.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
  * Information about the remote service
@@ -44,5 +49,9 @@ typedef struct _AJ_Service {
  * @return        Return AJ_Status
  */
 AJ_Status AJ_Discover(const char* prefix, AJ_Service* service, uint32_t timeout);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

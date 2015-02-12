@@ -24,6 +24,10 @@
 #include "aj_target.h"
 #include "aj_status.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * DER encoding types.
  */
@@ -77,6 +81,10 @@ AJ_Status AJ_ASN1DecodeElement(DER_Element* der, uint8_t tag, DER_Element* out);
  *          - AJ_ERR_INVALID on all failures
  */
 AJ_Status AJ_ASN1DecodeElements(DER_Element* der, uint8_t* tags, size_t len, ...);
+
+#ifdef __cplusplus
+}
+#endif
 
 /**
  * @}

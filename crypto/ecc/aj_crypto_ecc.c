@@ -1620,24 +1620,23 @@ ECC_hash_to_bigval(bigval_t* tgt, void const* hashp, unsigned int hashlen)
 char*
 ECC_feature_list(void)
 {
-    return (
-               "ECC_P256"
+    return ("ECC_P256"
 #ifdef ECDSA
-               " ECDSA"
+            " ECDSA"
 #endif
 #ifdef SPECIAL_SQUARE
-               " SPECIAL_SQUARE"
+            " SPECIAL_SQUARE"
 #endif
 #ifdef SMALL_CODE
-               " SMALL_CODE"
+            " SMALL_CODE"
 #endif
 #ifdef MPY2BITS
-               " MPY2BITS"
+            " MPY2BITS"
 #endif
 #ifdef ARM7_ASM
-               " ARM7_ASM"
+            " ARM7_ASM"
 #endif
-               );
+            );
 }
 #endif /* ECC_TEST */
 

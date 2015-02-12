@@ -456,7 +456,7 @@ AJ_Status AJ_PeerHandleExchangeGUIDs(AJ_Message* msg, AJ_Message* reply)
         AJ_InfoPrintf(("AJ_PeerHandleExchangeGuids(msg=%p, reply=%p): Invalid GUID\n", msg, reply));
         goto ExitFail;
     }
-    status = AJ_GUID_AddNameMapping(&remoteGuid, msg->sender, NULL);
+    status = AJ_GUID_AddNameMapping(msg->bus, &remoteGuid, msg->sender, NULL);
     if (AJ_OK != status) {
         AJ_InfoPrintf(("AJ_PeerHandleExchangeGuids(msg=%p, reply=%p): Add name mapping error\n", msg, reply));
         goto ExitFail;
@@ -560,7 +560,7 @@ AJ_Status AJ_PeerHandleExchangeGUIDsReply(AJ_Message* msg)
     /*
      * Two name mappings to add, the well known name, and the unique name from the message.
      */
-    status = AJ_GUID_AddNameMapping(&remoteGuid, msg->sender, authContext.peerName);
+    status = AJ_GUID_AddNameMapping(msg->bus, &remoteGuid, msg->sender, authContext.peerName);
     if (AJ_OK != status) {
         AJ_WarnPrintf(("AJ_PeerHandleExchangeGUIDsReply(msg=%p): Add name mapping error\n", msg));
         goto ExitFail;

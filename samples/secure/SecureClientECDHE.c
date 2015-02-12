@@ -45,6 +45,12 @@ static const char InterfaceName[] = "org.alljoyn.bus.samples.secure.SecureInterf
 static const char ServicePath[] = "/SecureService";
 static const uint16_t ServicePort = 42;
 
+/*
+ * Buffer to hold the full service name. This buffer must be big enough to hold
+ * a possible 255 characters plus a null terminator (256 bytes)
+ */
+static char fullServiceName[AJ_MAX_SERVICE_NAME_SIZE];
+
 static const char* const secureInterface[] = {
     "$org.alljoyn.bus.samples.secure.SecureInterface",
     "?Ping inStr<s outStr>s",
@@ -117,7 +123,7 @@ AJ_Status SendPing(AJ_BusAttachment* bus, uint32_t sessionId)
     status = AJ_MarshalMethodCall(bus,
                                   &msg,
                                   PRX_PING,
-                                  ServiceName,
+                                  fullServiceName,
                                   sessionId,
                                   AJ_FLAG_ENCRYPTED,
                                   METHOD_TIMEOUT);
@@ -255,7 +261,7 @@ int AJ_Main(int ac, char** av)
         AJ_Message msg;
 
         if (!connected) {
-            status = AJ_StartClient(&bus, NULL, CONNECT_TIMEOUT, FALSE, ServiceName, ServicePort, &sessionId, NULL);
+            status = AJ_StartClientByName(&bus, NULL, CONNECT_TIMEOUT, FALSE, ServiceName, ServicePort, &sessionId, NULL, fullServiceName);
             if (status == AJ_OK) {
                 AJ_InfoPrintf(("StartClient returned %d, sessionId=%u\n", status, sessionId));
                 AJ_Printf("StartClient returned %d, sessionId=%u\n", status, sessionId);
@@ -267,7 +273,7 @@ int AJ_Main(int ac, char** av)
                     AJ_ASSERT(AJ_OK == status);
                 }
 
-                status = AJ_BusAuthenticatePeer(&bus, ServiceName, AuthCallback, &authStatus);
+                status = AJ_BusAuthenticatePeer(&bus, fullServiceName, AuthCallback, &authStatus);
                 if (status != AJ_OK) {
                     AJ_Printf("AJ_BusAuthenticatePeer returned %d\n", status);
                     break;

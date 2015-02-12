@@ -331,7 +331,7 @@ AJ_Status AJ_StartService(AJ_BusAttachment* bus,
                 status = AJ_ERR_FAILURE;
             } else {
                 AJ_InfoPrintf(("AJ_StartService(): AJ_BusAdvertiseName()\n"));
-                status = AJ_BusAdvertiseName(bus, name, AJ_TRANSPORT_ANY, AJ_BUS_START_ADVERTISING, 0);
+                status = AJ_BusAdvertiseName(bus, name, (opts != NULL) ? opts->transports : AJ_TRANSPORT_ANY, AJ_BUS_START_ADVERTISING, 0);
             }
             break;
 
@@ -374,7 +374,8 @@ AJ_Status StartClient(AJ_BusAttachment* bus,
                       const char** interfaces,
                       uint32_t* sessionId,
                       char* serviceName,
-                      const AJ_SessionOpts* opts)
+                      const AJ_SessionOpts* opts,
+                      char* fullName)
 {
     AJ_Status status = AJ_OK;
     AJ_Time timer;
@@ -392,8 +393,7 @@ AJ_Status StartClient(AJ_BusAttachment* bus,
 
     AJ_InitTimer(&timer);
 
-    if ((name == NULL && interfaces == NULL) ||
-        (name != NULL && interfaces != NULL)) {
+    if ((name != NULL) && (interfaces != NULL)) {
         return AJ_ERR_INVALID;
     }
 
@@ -420,13 +420,16 @@ AJ_Status StartClient(AJ_BusAttachment* bus,
             AJ_InfoPrintf(("AJ_StartClient(): AJ_BusFindAdvertisedName()\n"));
         } else {
             /*
-             * Kick things off by finding all services that implement the interface
+             * Kick things off by registering for the Announce signal.
+             * Optionally add the implements clause per given interface
              */
             ruleLen = strlen(base) + 1;
-            ifaces = interfaces;
-            while (*ifaces != NULL) {
-                ruleLen += strlen(impl) + strlen(*ifaces) + 1;
-                ifaces++;
+            if (interfaces != NULL) {
+                ifaces = interfaces;
+                while (*ifaces != NULL) {
+                    ruleLen += strlen(impl) + strlen(*ifaces) + 1;
+                    ifaces++;
+                }
             }
             rule = (char*) AJ_Malloc(ruleLen);
             if (rule == NULL) {
@@ -434,16 +437,18 @@ AJ_Status StartClient(AJ_BusAttachment* bus,
                 break;
             }
             strcpy(rule, base);
-            ifaces = interfaces;
-            while (*ifaces != NULL) {
-                strcat(rule, impl);
-                if ((*ifaces)[0] == '$') {
-                    strcat(rule, &(*ifaces)[1]);
-                } else {
-                    strcat(rule, *ifaces);
+            if (interfaces != NULL) {
+                ifaces = interfaces;
+                while (*ifaces != NULL) {
+                    strcat(rule, impl);
+                    if ((*ifaces)[0] == '$') {
+                        strcat(rule, &(*ifaces)[1]);
+                    } else {
+                        strcat(rule, *ifaces);
+                    }
+                    strcat(rule, "'");
+                    ifaces++;
                 }
-                strcat(rule, "'");
-                ifaces++;
             }
             status = AJ_BusSetSignalRule(bus, rule, AJ_BUS_SIGNAL_ALLOW);
             AJ_InfoPrintf(("AJ_StartClient(): Client SetSignalRule: %s\n", rule));
@@ -517,22 +522,45 @@ AJ_Status StartClient(AJ_BusAttachment* bus,
                 AJ_Arg arg;
                 AJ_UnmarshalArg(&msg, &arg);
                 AJ_InfoPrintf(("FoundAdvertisedName(%s)\n", arg.val.v_string));
-                found = TRUE;
-                status = AJ_BusJoinSession(bus, arg.val.v_string, port, opts);
+                if (!found) {
+                    if (fullName) {
+                        strncpy(fullName, arg.val.v_string, arg.len);
+                        fullName[arg.len] = '\0';
+                    }
+                    found = TRUE;
+                    status = AJ_BusJoinSession(bus, arg.val.v_string, port, opts);
+                }
             }
             break;
 
         case AJ_SIGNAL_ABOUT_ANNOUNCE:
             {
-                uint16_t version, port;
+                uint16_t aboutVersion, aboutPort;
+#ifdef ANNOUNCE_BASED_DISCOVERY
+                status = AJ_AboutHandleAnnounce(&msg, &aboutVersion, &aboutPort, serviceName, &found);
+                if (interfaces != NULL) {
+                    found = TRUE;
+                }
+                if ((status == AJ_OK) && (found == TRUE)) {
+                    AJ_InfoPrintf(("AJ_StartClient(): AboutAnnounce from (%s) About Version: %d Port: %d\n", msg.sender, aboutVersion, aboutPort));
+#else
                 AJ_InfoPrintf(("AJ_StartClient(): AboutAnnounce from (%s)\n", msg.sender));
                 if (!found) {
                     found = TRUE;
-                    AJ_UnmarshalArgs(&msg, "qq", &version, &port);
-                    status = AJ_BusJoinSession(bus, msg.sender, port, opts);
+                    AJ_UnmarshalArgs(&msg, "qq", &aboutVersion, &aboutPort);
                     if (serviceName != NULL) {
                         strncpy(serviceName, msg.sender, AJ_MAX_NAME_SIZE);
                         serviceName[AJ_MAX_NAME_SIZE] = '\0';
+                    }
+#endif
+                    /*
+                     * Establish a session with the provided port.
+                     * If port value is 0 use the About port unmarshalled from the Announcement instead.
+                     */
+                    if (port == 0) {
+                        status = AJ_BusJoinSession(bus, msg.sender, aboutPort, opts);
+                    } else {
+                        status = AJ_BusJoinSession(bus, msg.sender, port, opts);
                     }
                     if (status != AJ_OK) {
                         AJ_ErrPrintf(("AJ_StartClient(): BusJoinSession failed (%s)\n", AJ_StatusText(status)));
@@ -590,6 +618,19 @@ AJ_Status StartClient(AJ_BusAttachment* bus,
     return status;
 }
 
+AJ_Status AJ_StartClientByName(AJ_BusAttachment* bus,
+                               const char* daemonName,
+                               uint32_t timeout,
+                               uint8_t connected,
+                               const char* name,
+                               uint16_t port,
+                               uint32_t* sessionId,
+                               const AJ_SessionOpts* opts,
+                               char* fullName)
+{
+    return StartClient(bus, daemonName, timeout, connected, name, port, NULL, sessionId, NULL, opts, fullName);
+}
+
 AJ_Status AJ_StartClient(AJ_BusAttachment* bus,
                          const char* daemonName,
                          uint32_t timeout,
@@ -599,7 +640,8 @@ AJ_Status AJ_StartClient(AJ_BusAttachment* bus,
                          uint32_t* sessionId,
                          const AJ_SessionOpts* opts)
 {
-    return StartClient(bus, daemonName, timeout, connected, name, port, NULL, sessionId, NULL, opts);
+    AJ_WarnPrintf(("AJ_StartClient(): This function is deprecated. Please use AJ_StartClientByName() instead\n"));
+    return StartClient(bus, daemonName, timeout, connected, name, port, NULL, sessionId, NULL, opts, NULL);
 }
 
 AJ_Status AJ_StartClientByInterface(AJ_BusAttachment* bus,
@@ -608,8 +650,26 @@ AJ_Status AJ_StartClientByInterface(AJ_BusAttachment* bus,
                                     uint8_t connected,
                                     const char** interfaces,
                                     uint32_t* sessionId,
-                                    char* serviceName,
+                                    char* uniqueName,
                                     const AJ_SessionOpts* opts)
 {
-    return StartClient(bus, daemonName, timeout, connected, NULL, 0, interfaces, sessionId, serviceName, opts);
+    return StartClient(bus, daemonName, timeout, connected, NULL, 0, interfaces, sessionId, uniqueName, opts, NULL);
 }
+
+#ifdef ANNOUNCE_BASED_DISCOVERY
+AJ_Status AJ_StartClientByPeerDescription(AJ_BusAttachment* bus,
+                                          const char* daemonName,
+                                          uint32_t timeout,
+                                          uint8_t connected,
+                                          const AJ_AboutPeerDescription* peerDesc,
+                                          uint16_t port,
+                                          uint32_t* sessionId,
+                                          char* uniqueName,
+                                          const AJ_SessionOpts* opts)
+{
+    if (peerDesc != NULL) {
+        AJ_AboutRegisterAnnounceHandlers(peerDesc, 1);
+    }
+    return StartClient(bus, daemonName, timeout, connected, NULL, port, NULL, sessionId, uniqueName, opts, NULL);
+}
+#endif

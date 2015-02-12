@@ -1,12 +1,13 @@
 #ifndef _AJ_MSG_H
 #define _AJ_MSG_H
+
 /**
  * @file aj_msg.h
  * @defgroup aj_msg Message Marshaling and Unmarshaling
  * @{
  */
 /******************************************************************************
- * Copyright (c) 2012-2013, AllSeen Alliance. All rights reserved.
+ * Copyright (c) 2012-2014, AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -25,6 +26,10 @@
 #include "aj_status.h"
 #include "aj_bus.h"
 #include "aj_util.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /*
  * Message argument types
@@ -113,6 +118,11 @@
 #define AJ_HDR_TIME_TO_LIVE          0x11  /**< Messages time-to-live header field type */
 #define AJ_HDR_COMPRESSION_TOKEN     0x12  /**< Messages compression token header field type */
 #define AJ_HDR_SESSION_ID            0x13  /**< Session id header field type */
+
+/**
+ * Maximum string length of a service (including null terminator)
+ */
+#define AJ_MAX_SERVICE_NAME_SIZE 256
 
 /**
  * Type for a message argument
@@ -575,6 +585,9 @@ AJ_Status AJ_MarshalCloseContainer(AJ_Message* msg, AJ_Arg* arg);
 AJ_EXPORT
 AJ_Status AJ_MarshalVariant(AJ_Message* msg, const char* sig);
 
+#ifdef __cplusplus
+}
+#endif
 /**
  * @}
  */

@@ -25,6 +25,7 @@
 #include <pthread.h>
 #include <byteswap.h>
 #include <stdarg.h>
+#include <arpa/inet.h>
 #include <aj_debug.h>
 #include "aj_target.h"
 #include "aj_util.h"
@@ -44,6 +45,29 @@ void AJ_Sleep(uint32_t time)
     }
 
 }
+
+#ifndef NDEBUG
+AJ_Status _AJ_GetDebugTime(AJ_Time* timer)
+{
+    static int useEpoch = -1;
+    char* env;
+    struct timespec now;
+    AJ_Status status = AJ_ERR_RESOURCES;
+
+    if (useEpoch == -1) {
+        env = getenv("ER_DEBUG_EPOCH");
+        useEpoch = env && (strcmp(env, "1") == 0);
+    }
+
+    if (useEpoch) {
+        clock_gettime(CLOCK_REALTIME, &now);
+        timer->seconds = now.tv_sec;
+        timer->milliseconds = now.tv_nsec / 1000000;
+        status = AJ_OK;
+    }
+    return status;
+}
+#endif
 
 uint32_t AJ_GetElapsedTime(AJ_Time* timer, uint8_t cumulative)
 {
@@ -243,6 +267,26 @@ uint32_t AJ_ByteSwap32(uint32_t x)
 uint64_t AJ_ByteSwap64(uint64_t x)
 {
     return bswap_64(x);
+}
+
+AJ_Status AJ_IntToString(int32_t val, char* buf, size_t buflen)
+{
+    AJ_Status status = AJ_OK;
+    int c = snprintf(buf, buflen, "%d", val);
+    if (c <= 0 || c > buflen) {
+        status = AJ_ERR_RESOURCES;
+    }
+    return status;
+}
+
+AJ_Status AJ_InetToString(uint32_t addr, char* buf, size_t buflen)
+{
+    AJ_Status status = AJ_OK;
+    int c = snprintf((char*)buf, buflen, "%u.%u.%u.%u", (addr & 0xFF000000) >> 24, (addr & 0x00FF0000) >> 16, (addr & 0x0000FF00) >> 8, (addr & 0x000000FF));
+    if (c <= 0 || c > buflen) {
+        status = AJ_ERR_RESOURCES;
+    }
+    return status;
 }
 
 static FILE* logFile = NULL;
