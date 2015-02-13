@@ -2,7 +2,7 @@
  * @file RTOS specific implementation
  */
 /******************************************************************************
- * Copyright (c) 2014, AllSeen Alliance. All rights reserved.
+ * Copyright AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -15,20 +15,6 @@
  *    WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
  *    ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- ******************************************************************************/
-
-/******************************************************************************
- * Any time in this file there is a comment including FreeRTOS or calling a
- * FreeRTOS API, note that the API associated with it may be subject to the
- * FreeRTOS GPL with exception license copied here:
- * http://www.freertos.org/license.txt :
-
- * The FreeRTOS.org source code is licensed by the modified GNU General Public
- * License (GPL) text provided below.  The FreeRTOS download also includes
- * demo application source code, some of which is provided by third parties
- * AND IS LICENSED SEPARATELY FROM FREERTOS.ORG.
- * For the avoidance of any doubt refer to the comment included at the top
- * of each source and header file for license and copyright information.
  ******************************************************************************/
 
 #define AJ_MODULE TARGET_RTOS

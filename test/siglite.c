@@ -3,7 +3,7 @@
  */
 
 /******************************************************************************
- * Copyright (c) 2012-2015, AllSeen Alliance. All rights reserved.
+ * Copyright AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -410,7 +410,7 @@ int AJ_Main()
 #else
                 authStatus = AJ_OK;
 #endif
-
+                AJ_BusAddSignalRule(&bus, "my_signal", testInterfaceName, AJ_BUS_SIGNAL_ALLOW);
 
             } else {
                 AJ_AlwaysPrintf(("StartClient returned %d\n", status));
