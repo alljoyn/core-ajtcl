@@ -37,6 +37,7 @@
 #include "aj_config.h"
 #include "aj_creds.h"
 #include "aj_peer.h"
+#include "aj_ardp.h"
 
 #if !(defined(ARDUINO) || defined(__linux) || defined(_WIN32) || defined(__MACH__))
 #include "aj_wifi_ctrl.h"
@@ -183,10 +184,60 @@ static AJ_Status AnonymousAuthAdvance(AJ_IOBuffer* rxBuf, AJ_IOBuffer* txBuf) {
     return status;
 }
 
+static AJ_Status SetSignalRules(AJ_BusAttachment* bus)
+{
+    AJ_Status status = AJ_OK;
+    /*
+     * AJ_GUID needs the NameOwnerChanged signal to clear out entries in
+     * its map.  Prior to router version 10 this means we must set a
+     * signal rule to receive every NameOwnerChanged signal.  With
+     * version 10 the router supports the arg[0,1,...] key in match
+     * rules, allowing us to set a signal rule for just the
+     * NameOwnerChanged signals of entries in the map.  See aj_guid.c
+     * for usage of the arg key.
+     */
+    if (AJ_GetRoutingProtoVersion() < 11) {
+        status = AJ_BusSetSignalRule(bus, "type='signal',member='NameOwnerChanged',interface='org.freedesktop.DBus'", AJ_BUS_SIGNAL_ALLOW);
+        if (status == AJ_OK) {
+            uint8_t found_reply = FALSE;
+            AJ_Message msg;
+            AJ_Time timer;
+            AJ_InitTimer(&timer);
+
+            while (found_reply == FALSE && AJ_GetElapsedTime(&timer, TRUE) < 3000) {
+                status = AJ_UnmarshalMsg(bus, &msg, 3000);
+                if (status == AJ_OK) {
+                    switch (msg.msgId) {
+                    case AJ_REPLY_ID(AJ_METHOD_ADD_MATCH):
+                        found_reply = TRUE;
+                        break;
+
+                    default:
+                        // ignore everything else
+                        AJ_BusHandleBusMessage(&msg);
+                        break;
+                    }
+
+                    AJ_CloseMsg(&msg);
+                }
+            }
+        }
+    }
+
+    return status;
+}
+
 AJ_Status AJ_Authenticate(AJ_BusAttachment* bus)
 {
     AJ_Status status = AJ_OK;
     AJ_Message helloResponse;
+
+    if (bus->isAuthenticated) {
+        // ARDP does not do SASL and it sends BusHello as part of the SYN message.
+        // Therefore, Hello has already been sent by the time AJ_Net_Connect() returns,
+        // *before* AJ_Authenticate is called.
+        return AJ_OK;
+    }
 
     /*
      * Send initial NUL byte
@@ -272,6 +323,8 @@ ExitConnect:
 
     if (status != AJ_OK) {
         AJ_InfoPrintf(("AJ_Authenticate(): status=%s\n", AJ_StatusText(status)));
+    } else {
+        bus->isAuthenticated = TRUE;
     }
     return status;
 }
@@ -283,6 +336,7 @@ AJ_Status AJ_Connect(AJ_BusAttachment* bus, const char* serviceName, uint32_t ti
 {
     AJ_Status status;
     AJ_Service service;
+    bus->isAuthenticated = FALSE;
 
 #ifdef AJ_SERIAL_CONNECTION
     AJ_Time start, now;
@@ -356,7 +410,7 @@ AJ_Status AJ_Connect(AJ_BusAttachment* bus, const char* serviceName, uint32_t ti
         goto ExitConnect;
     }
 #endif
-    status = AJ_Net_Connect(&bus->sock, service.ipv4port, service.addrTypes & AJ_ADDR_IPV4, &service.ipv4);
+    status = AJ_Net_Connect(bus, &service);
     if (status != AJ_OK) {
         AJ_InfoPrintf(("AJ_Connect(): AJ_Net_Connect status=%s\n", AJ_StatusText(status)));
         goto ExitConnect;
@@ -382,6 +436,13 @@ AJ_Status AJ_Connect(AJ_BusAttachment* bus, const char* serviceName, uint32_t ti
         goto ExitConnect;
     }
 
+    status = SetSignalRules(bus);
+    if (status != AJ_OK) {
+        AJ_InfoPrintf(("AJ_Connect(): SetSignalRules status=%s\n", AJ_StatusText(status)));
+        goto ExitConnect;
+    }
+
+
 ExitConnect:
 
     if (status != AJ_OK) {
@@ -398,6 +459,7 @@ AJ_Status AJ_FindBusAndConnect(AJ_BusAttachment* bus, const char* serviceName, u
     AJ_Status status;
     AJ_Service service;
     uint8_t finished = FALSE;
+    bus->isAuthenticated = FALSE;
 
 #ifdef AJ_SERIAL_CONNECTION
     AJ_Time start, now;
@@ -457,7 +519,7 @@ AJ_Status AJ_FindBusAndConnect(AJ_BusAttachment* bus, const char* serviceName, u
             goto ExitConnect;
         }
 #endif
-        status = AJ_Net_Connect(&bus->sock, service.ipv4port, service.addrTypes & AJ_ADDR_IPV4, &service.ipv4);
+        status = AJ_Net_Connect(bus, &service);
         if (status != AJ_OK) {
             AJ_InfoPrintf(("AJ_FindBusAndConnect(): AJ_Net_Connect status=%s\n", AJ_StatusText(status)));
             goto ExitConnect;
@@ -489,6 +551,12 @@ AJ_Status AJ_FindBusAndConnect(AJ_BusAttachment* bus, const char* serviceName, u
 #endif
             // else we will end the loop
         }
+
+        status = SetSignalRules(bus);
+        if (status != AJ_OK) {
+            AJ_InfoPrintf(("AJ_FindBusAndConnect(): SetSignalRules status=%s\n", AJ_StatusText(status)));
+            goto ExitConnect;
+        }
     }
 
 
@@ -501,6 +569,74 @@ ExitConnect:
 
     return status;
 }
+
+#ifdef AJ_ARDP
+
+AJ_Status AJ_ARDP_Connect(AJ_BusAttachment* bus, void* context, const AJ_Service* service)
+{
+    AJ_Message hello;
+    AJ_GUID localGuid;
+    char guid_buf[33];
+    AJ_Status status;
+    AJ_Message helloResponse;
+
+    AJ_GetLocalGUID(&localGuid);
+    AJ_GUID_ToString(&localGuid, guid_buf, sizeof(guid_buf));
+
+    AJ_MarshalMethodCall(bus, &hello, AJ_METHOD_BUS_SIMPLE_HELLO, AJ_BusDestination, 0, AJ_FLAG_ALLOW_REMOTE_MSG, AJ_UDP_CONNECT_TIMEOUT);
+    AJ_MarshalArgs(&hello, "su", guid_buf, 10);
+    hello.hdr->bodyLen = hello.bodyBytes;
+
+    status = ARDP_Connect(bus->sock.tx.readPtr, AJ_IO_BUF_AVAIL(&bus->sock.tx), context);
+    if (status != AJ_OK) {
+        return status;
+    }
+
+    // AJ_UnmarshalMsg will call into Recv
+    status = AJ_UnmarshalMsg(bus, &helloResponse, AJ_UDP_CONNECT_TIMEOUT);
+
+    if (status == AJ_OK && helloResponse.msgId == AJ_REPLY_ID(AJ_METHOD_BUS_SIMPLE_HELLO)) {
+        if (helloResponse.hdr->msgType == AJ_MSG_ERROR) {
+            status = AJ_ERR_CONNECT;
+        } else {
+            AJ_Arg uniqueName, routingProtoVersion;
+            AJ_UnmarshalArg(&helloResponse, &uniqueName);
+            AJ_SkipArg(&helloResponse);
+            AJ_UnmarshalArg(&helloResponse, &routingProtoVersion);
+
+            if (uniqueName.len >= (sizeof(bus->uniqueName) - 1)) {
+                AJ_ErrPrintf(("AJ_ARDP_Connect(): AJ_ERR_RESOURCES\n"));
+                status = AJ_ERR_RESOURCES;
+            } else {
+                memcpy(bus->uniqueName, uniqueName.val.v_string, uniqueName.len);
+                bus->uniqueName[uniqueName.len] = '\0';
+            }
+
+            AJ_InfoPrintf(("Received name: %s and version %u\n", bus->uniqueName, routingProtoVersion.val.v_uint32));
+            if (*(routingProtoVersion.val.v_uint32) < AJ_GetMinProtoVersion()) {
+                AJ_InfoPrintf(("AJ_ARDP_Connect(): Blacklisting routing node, found %u but require >= %u\n",
+                               routingProtoVersion.val.v_uint32, AJ_GetMinProtoVersion()));
+                AddRoutingNodeToBlacklist(service);
+                status = AJ_ERR_CONNECT;
+            }
+        }
+    } else {
+        status = AJ_ERR_CONNECT;
+    }
+
+    AJ_CloseMsg(&helloResponse);
+
+    // reset the transmit queue!
+    AJ_IO_BUF_RESET(&bus->sock.tx);
+
+    if (status == AJ_OK) {
+        bus->isAuthenticated = TRUE;
+    }
+
+    return status;
+}
+
+#endif // AJ_ARDP
 
 void AJ_Disconnect(AJ_BusAttachment* bus)
 {

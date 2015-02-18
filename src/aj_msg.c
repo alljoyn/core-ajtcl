@@ -1694,6 +1694,10 @@ static AJ_Status MarshalMsg(AJ_Message* msg, uint8_t msgType, uint32_t msgId, ui
     uint8_t fieldId;
     uint8_t secure = FALSE;
 
+#ifdef AJ_ARDP
+    ARDP_StartMsgSend(msg->ttl);
+#endif
+
     /*
      * Use the msgId to lookup information in the object and interface descriptions to
      * initialize the message header fields.
@@ -2183,6 +2187,7 @@ AJ_Status AJ_MarshalMethodCall(AJ_BusAttachment* bus, AJ_Message* msg, uint32_t 
     msg->bus = bus;
     msg->destination = destination;
     msg->sessionId = sessionId;
+    msg->ttl = timeout;
     status = MarshalMsg(msg, AJ_MSG_METHOD_CALL, msgId, flags);
     if (status == AJ_OK) {
         status = AJ_AllocReplyContext(msg, timeout);
@@ -2208,6 +2213,7 @@ AJ_Status AJ_MarshalReplyMsg(const AJ_Message* methodCall, AJ_Message* reply)
     reply->destination = methodCall->sender;
     reply->sessionId = methodCall->sessionId;
     reply->replySerial = methodCall->hdr->serialNum;
+    reply->ttl = 0;
     return MarshalMsg(reply, AJ_MSG_METHOD_RET, methodCall->msgId, methodCall->hdr->flags & AJ_FLAG_ENCRYPTED);
 }
 
@@ -2220,6 +2226,7 @@ AJ_Status AJ_MarshalErrorMsg(const AJ_Message* methodCall, AJ_Message* reply, co
     reply->sessionId = methodCall->sessionId;
     reply->replySerial = methodCall->hdr->serialNum;
     reply->error = error;
+    reply->ttl = 0;
     return MarshalMsg(reply, AJ_MSG_ERROR, methodCall->msgId, methodCall->hdr->flags & AJ_FLAG_ENCRYPTED);
 }
 

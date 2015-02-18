@@ -68,6 +68,22 @@ typedef enum {
     AJ_ERR_OLD_VERSION  = 39, /**< Router you connected to is old and unsupported */
     AJ_ERR_NVRAM_READ   = 40, /**< Error while reading from NVRAM */
     AJ_ERR_NVRAM_WRITE  = 41, /**< Error while writing to NVRAM */
+    AJ_ERR_WOULD_BLOCK  = 42, /**< Last operation would block */
+    AJ_ERR_ARDP_DISCONNECTING = 43,
+    AJ_ERR_ARDP_DISCONNECTED,
+    AJ_ERR_ARDP_INVALID_CONNECTION,
+    AJ_ERR_ARDP_REMOTE_CONNECTION_RESET,
+    AJ_ERR_ARDP_INVALID_RESPONSE,
+    AJ_ERR_ARDP_INVALID_STATE,
+    AJ_ERR_ARDP_PERSIST_TIMEOUT,
+    AJ_ERR_ARDP_PROBE_TIMEOUT,
+    AJ_ERR_ARDP_BACKPRESSURE,
+    AJ_ERR_ARDP_SEND_EXPIRED,
+    AJ_ERR_ARDP_RECV_EXPIRED,
+    AJ_ERR_ARDP_VERSION_NOT_SUPPORTED,
+    AJ_ERR_ARDP_WRITE_BLOCKED,
+    AJ_ERR_INVALID_CONFIG,
+    AJ_ERR_OS_ERROR,
     /*
      * REMINDER: Update AJ_StatusText in aj_debug.c if adding a new status code.
      */

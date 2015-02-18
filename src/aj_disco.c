@@ -157,12 +157,6 @@ static AJ_Status ParseIsAt(AJ_IOBuffer* rxBuf, const char* prefix, AJ_Service* s
             return AJ_ERR_INVALID;
         }
         /*
-         * Must be reliable IPV4 or IPV6
-         */
-        if (!(flags & (R4_FLAG | R6_FLAG))) {
-            return status;
-        }
-        /*
          * Get transport mask
          */
         service->transportMask = (p[0] << 8) | p[1];
@@ -178,7 +172,11 @@ static AJ_Status ParseIsAt(AJ_IOBuffer* rxBuf, const char* prefix, AJ_Service* s
             service->addrTypes |= AJ_ADDR_IPV4;
         }
         if (flags & U4_FLAG) {
-            p += sizeof(service->ipv4) + 2;
+            memcpy(&service->ipv4Udp, p, sizeof(service->ipv4Udp));
+            p += sizeof(service->ipv4Udp);
+            service->ipv4portUdp = (p[0] << 8) | p[1];
+            p += 2;
+            service->addrTypes |= AJ_ADDR_UDP4;
         }
         if (flags & R6_FLAG) {
             memcpy(&service->ipv6, p, sizeof(service->ipv6));
@@ -188,7 +186,11 @@ static AJ_Status ParseIsAt(AJ_IOBuffer* rxBuf, const char* prefix, AJ_Service* s
             service->addrTypes |= AJ_ADDR_IPV6;
         }
         if (flags & U6_FLAG) {
-            p += sizeof(service->ipv6) + 2;
+            memcpy(&service->ipv6Udp, p, sizeof(service->ipv6Udp));
+            p += sizeof(service->ipv6Udp);
+            service->ipv6portUdp = (p[0] << 8) | p[1];
+            p += 2;
+            service->addrTypes |= AJ_ADDR_UDP6;
         }
         /*
          * Skip guid if it's present
@@ -780,11 +782,13 @@ static AJ_Status ParseMDNSResp(AJ_IOBuffer* rxBuf, const char* prefix, AJ_Servic
     int i = 0;
     size_t ret = 0;
     size_t size = 0;
-    uint8_t alljoyn_ptr_record = 0;
+    uint8_t alljoyn_ptr_record_tcp = 0;
+    uint8_t alljoyn_ptr_record_udp = 0;
     uint8_t bus_transport = 0;
     uint8_t bus_protocol = 0;
     uint8_t bus_a_record = 0;
-    uint16_t service_port = 0;
+    uint16_t service_port_tcp = 0;
+    uint16_t service_port_udp = 0;
     uint8_t bus_addr[3 * 4 + 3 + 1] = { 0 };
     uint8_t service_target[256] = { 0 };
     MDNSResourceRecord r;
@@ -833,23 +837,37 @@ static AJ_Status ParseMDNSResp(AJ_IOBuffer* rxBuf, const char* prefix, AJ_Servic
         bufsize -= ret;
         p += ret;
         AJ_InfoPrintf(("Processed answer %d\n", (i + 1)));
-        // We only want the tcp transport for now.
+
         if (r.rrType == PTR && !memcmp(r.rrDomainName.name, "_alljoyn._tcp.local", 19)) {
             AJ_InfoPrintf(("Found _alljoyn_.tcp.local PTR record.\n"));
-            alljoyn_ptr_record = 1;
+            alljoyn_ptr_record_tcp = 1;
         }
+
+        if (r.rrType == PTR && !memcmp(r.rrDomainName.name, "_alljoyn._udp.local", 19)) {
+            AJ_InfoPrintf(("Found _alljoyn_._udp.local PTR record.\n"));
+            alljoyn_ptr_record_udp = 1;
+        }
+
         // We ignore the sender's "guid." (32 chars + 1 char for the dot) in the <guid>._alljoyn._tcp.local domain name.
         if (r.rrType == SRV && !memcmp(r.rrDomainName.name + 33, "_alljoyn._tcp.local", 19)) {
             AJ_InfoPrintf(("Found a SRV answer with domain name  %s.\n", r.rdata.srvRData.target.name));
             memset(service_target, 0, 256);
             memcpy(service_target, r.rdata.srvRData.target.name, 256);
-            service_port = r.rdata.srvRData.port;
+            service_port_tcp = r.rdata.srvRData.port;
+        }
+
+        // We ignore the sender's "guid." (32 chars + 1 char for the dot) in the <guid>._alljoyn._udp.local domain name.
+        if (r.rrType == SRV && !memcmp(r.rrDomainName.name + 33, "_alljoyn._udp.local", 19)) {
+            AJ_InfoPrintf(("Found a SRV answer with domain name  %s.\n", r.rdata.srvRData.target.name));
+            memset(service_target, 0, 256);
+            memcpy(service_target, r.rdata.srvRData.target.name, 256);
+            service_port_udp = r.rdata.srvRData.port;
         }
     }
 
     // PTR record must be parsed and service port should be non-zero
     // to continue with the parsing. Zero is an invalid service port.
-    if (!alljoyn_ptr_record || !service_port) {
+    if ((!alljoyn_ptr_record_tcp && !alljoyn_ptr_record_udp) || (!service_port_tcp && !service_port_udp)) {
         return AJ_ERR_NO_MATCH;
     }
 
@@ -917,10 +935,20 @@ static AJ_Status ParseMDNSResp(AJ_IOBuffer* rxBuf, const char* prefix, AJ_Servic
     // PRT record, SRV record, advertise TXT record and A record for the same
     // guid. Note that other records might have been ignored to ensure forward
     // compatibility with other record types that may be in use in the future.
-    if (alljoyn_ptr_record && service_port && bus_transport && bus_protocol && bus_a_record) {
-        service->ipv4port = service_port;
-        memcpy(&service->ipv4, bus_addr, sizeof(service->ipv4));
-        service->addrTypes = AJ_ADDR_IPV4;
+    if ((alljoyn_ptr_record_tcp || alljoyn_ptr_record_udp) && (service_port_tcp || service_port_udp)
+        && bus_transport && bus_protocol && bus_a_record) {
+
+        if (alljoyn_ptr_record_tcp && service_port_tcp) {
+            service->ipv4port = service_port_tcp;
+            memcpy(&service->ipv4, bus_addr, sizeof(service->ipv4));
+            service->addrTypes |= AJ_ADDR_IPV4;
+        }
+
+        if (alljoyn_ptr_record_udp && service_port_udp) {
+            service->ipv4portUdp = service_port_udp;
+            memcpy(&service->ipv4Udp, bus_addr, sizeof(service->ipv4Udp));
+            service->addrTypes |= AJ_ADDR_UDP4;
+        }
         return AJ_OK;
     } else {
         return AJ_ERR_NO_MATCH;
@@ -947,6 +975,7 @@ AJ_Status AJ_Discover(const char* prefix, AJ_Service* service, uint32_t timeout)
     AJ_GUID guid;
 
     AJ_InfoPrintf(("AJ_Discover(prefix=\"%s\", service=0x%p, timeout=%d.)\n", prefix, service, timeout));
+    memset(service, 0, sizeof(AJ_Service));
 
     /*
      * Enable multicast I/O for the discovery packets.

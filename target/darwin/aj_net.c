@@ -255,14 +255,14 @@ AJ_Status AJ_Net_Recv(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)
 static uint8_t rxData[1024];
 static uint8_t txData[1500];
 
-AJ_Status AJ_Net_Connect(AJ_NetSocket* netSock, uint16_t port, uint8_t addrType, const uint32_t* addr)
+AJ_Status AJ_Net_Connect(AJ_BusAttachment* bus, const AJ_Service* service)
 {
     int ret;
     struct sockaddr_storage addrBuf;
     socklen_t addrSize;
     int tcpSock = INVALID_SOCKET;
 
-    AJ_InfoPrintf(("AJ_Net_Connect(netSock=0x%p, port=%d., addrType=%d., addr=0x%p)\n", netSock, port, addrType, addr));
+    AJ_InfoPrintf(("AJ_Net_Connect(netSock=0x%p, addrType=%d.)\n", netSock, addrType));
 
     memset(&addrBuf, 0, sizeof(addrBuf));
 
@@ -271,30 +271,34 @@ AJ_Status AJ_Net_Connect(AJ_NetSocket* netSock, uint16_t port, uint8_t addrType,
         AJ_ErrPrintf(("AJ_Net_Connect(): socket() failed.  status=AJ_ERR_CONNECT\n"));
         goto ConnectError;
     }
-    if (addrType == AJ_ADDR_IPV4) {
+    if (service->addrTypes & AJ_ADDR_IPV4) {
         struct sockaddr_in* sa = (struct sockaddr_in*)&addrBuf;
         sa->sin_family = AF_INET;
-        sa->sin_port = htons(port);
-        sa->sin_addr.s_addr = *addr;
+        sa->sin_port = htons(service->ipv4port);
+        sa->sin_addr.s_addr = service->ipv4;
         addrSize = sizeof(struct sockaddr_in);
-        AJ_InfoPrintf(("AJ_Net_Connect(): Connect to \"%s:%u\"\n", inet_ntoa(sa->sin_addr), port));;
-    } else {
+        AJ_InfoPrintf(("AJ_Net_Connect(): Connect to \"%s:%u\"\n", inet_ntoa(sa->sin_addr), service->ipv4port));;
+    } else if (service->addrTypes & AJ_ADDR_IPV6) {
         struct sockaddr_in6* sa = (struct sockaddr_in6*)&addrBuf;
         sa->sin6_family = AF_INET6;
-        sa->sin6_port = htons(port);
-        memcpy(sa->sin6_addr.s6_addr, addr, sizeof(sa->sin6_addr.s6_addr));
+        sa->sin6_port = htons(service->ipv6port);
+        memcpy(sa->sin6_addr.s6_addr, service->ipv6, sizeof(sa->sin6_addr.s6_addr));
         addrSize = sizeof(struct sockaddr_in6);
+    } else {
+        AJ_ErrPrintf(("AJ_Net_Connect: only TCPv6 and TCPv4 are supported\n"));
+        goto ConnectError;
     }
+
     ret = connect(tcpSock, (struct sockaddr*)&addrBuf, addrSize);
     if (ret < 0) {
         AJ_ErrPrintf(("AJ_Net_Connect(): connect() failed. errno=\"%s\", status=AJ_ERR_CONNECT\n", strerror(errno)));
         goto ConnectError;
     } else {
         netContext.tcpSock = tcpSock;
-        AJ_IOBufInit(&netSock->rx, rxData, sizeof(rxData), AJ_IO_BUF_RX, &netContext);
-        netSock->rx.recv = AJ_Net_Recv;
-        AJ_IOBufInit(&netSock->tx, txData, sizeof(txData), AJ_IO_BUF_TX, &netContext);
-        netSock->tx.send = AJ_Net_Send;
+        AJ_IOBufInit(&bus->sock.rx, rxData, sizeof(rxData), AJ_IO_BUF_RX, &netContext);
+        bus->sock.rx.recv = AJ_Net_Recv;
+        AJ_IOBufInit(&bus->sock.tx, txData, sizeof(txData), AJ_IO_BUF_TX, &netContext);
+        bus->sock.tx.send = AJ_Net_Send;
         AJ_InfoPrintf(("AJ_Net_Connect(): status=AJ_OK\n"));
     }
 

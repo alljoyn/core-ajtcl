@@ -30,8 +30,14 @@
 extern "C" {
 #endif
 
+#define AJ_ADDR_UDP4  0x01
+#define AJ_ADDR_UDP6  0x02
+
 #define AJ_ADDR_IPV4  0x04      /**< ip4 address */
-#define AJ_ADDR_IPV6  0x60      /**< ip6 address */
+#define AJ_ADDR_IPV6  0x08      /**< ip6 address */
+
+struct _AJ_Service;
+struct _AJ_BusAttachment;
 
 /**
  * Abstracts a network socket
@@ -46,7 +52,7 @@ typedef struct _AJ_NetSocket {
  *
  * @return        Return AJ_Status
  */
-AJ_Status AJ_Net_Connect(AJ_NetSocket* netSock, uint16_t port, uint8_t addrType, const uint32_t* addr);
+AJ_Status AJ_Net_Connect(struct _AJ_BusAttachment* bus, const struct _AJ_Service* service);
 
 /**
  * Disconnect from the bus
@@ -92,6 +98,11 @@ void AJ_Net_MCastDown(AJ_MCastSocket* mcastSock);
  * is blocking on select.
  */
 void AJ_Net_Interrupt(void);
+
+
+AJ_Status AJ_ARDP_UDP_Send(void* context, uint8_t* buf, size_t len, size_t* sent);
+
+AJ_Status AJ_ARDP_UDP_Recv(void* context, uint8_t* buf, uint32_t len, uint32_t timeout, uint32_t* recved);
 
 #ifdef __cplusplus
 }
