@@ -334,7 +334,6 @@ static AJ_Status PropSetHandler(AJ_Message* replyMsg, uint32_t propId, void* con
     }
 }
 
-#ifdef ANNOUNCE_BASED_DISCOVERY
 #define UUID_LENGTH 16
 #define APP_ID_SIGNATURE "ay"
 
@@ -401,7 +400,6 @@ static AJ_Status AboutPropGetter(AJ_Message* reply, const char* language)
 
     return status;
 }
-#endif
 
 uint32_t MyBusAuthPwdCB(uint8_t* buf, uint32_t bufLen)
 {
@@ -430,9 +428,7 @@ int AJ_Main()
 
     AJ_PrintXML(AppObjects);
     AJ_RegisterObjects(AppObjects, NULL);
-#ifdef ANNOUNCE_BASED_DISCOVERY
     AJ_AboutRegisterPropStoreGetter(AboutPropGetter);
-#endif
 
     SetBusAuthPwdCallback(MyBusAuthPwdCB);
     while (TRUE) {
