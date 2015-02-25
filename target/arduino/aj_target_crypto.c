@@ -55,9 +55,6 @@ void AJ_RandBytes(uint8_t* rand, uint32_t len)
         GatherBits(key, sizeof(key));
     }
     AJ_AES_Enable(key);
-    /*
-     * This follows the NIST guidelines for using AES as a PRF
-     */
     while (len) {
         *rand = random(256);
         len -= 1;
