@@ -92,17 +92,6 @@ int8_t AJ_CompareTime(AJ_Time timerA, AJ_Time timerB);
  */
 #define AJ_TIMER_FOREVER  -1
 
-
-/**
- * Suspend to low-power mode on embedded devices
- *
- * @param msec milliseconds to wait before waking up
- *
- * @return        Return AJ_Status
- */
-AJ_Status AJ_SuspendWifi(uint32_t msec);
-
-
 /**
  * Pause the current thread for a number of milliseconds
  */
