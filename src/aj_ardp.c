@@ -128,6 +128,7 @@ typedef struct AJ_ARDP_SEND_BUF {
     struct AJ_ARDP_SEND_BUF* next;
     uint16_t dataLen;
     uint8_t retransmits;
+    uint8_t inFlight;
 } ArdpSBuf;
 
 /**
@@ -140,9 +141,11 @@ struct ArdpSnd {
     uint32_t ISS;         /* The initial send sequence number. The number that was sent in the SYN segment */
     uint32_t LCS;         /* Sequence number of last consumed segment (we get this form them) */
     uint32_t DACKT;       /* Delayed ACK timeout from the other side */
+    uint32_t SEGMAX;      /* The maximum number of unacknowledged segments that can be sent */
     ArdpSBuf buf[UDP_SEGMAX]; /* Array holding in-flight sent  buffers. */
     uint32_t msgTTL;      /* TTL associated with the most recent outbound message */
     uint32_t msgLenTotal; /* Length of the most recent outbound message */
+    uint32_t msgLenSent;  /* Cumulative length of all the segments that has been sent so far for the most recent outbound message */
     uint32_t msgSOM;      /* Sequence number of the first segment in the most recent outbound message */
     uint8_t pending;      /* Number of unacknowledged sent buffers */
     uint8_t newMsg;       /* Indicates that the next call to ARDP_Send() will carry new AllJoyn message */
@@ -540,10 +543,12 @@ static AJ_Status UnmarshalSynSegment(uint8_t* buf, struct ArdpSeg* seg)
     segbmax = ntohs(*((uint16_t*)(buf + SEGBMAX_OFFSET)));   /* Max size segment the other side can handle */
 
     if ((segmax < UDP_SEGMAX) || (segbmax < UDP_SEGBMAX)) {
-        AJ_InfoPrintf(("UnmarshalSynSegment: unacceptable segmax=%d, segbmax=%d\n", segmax, segbmax));
+        AJ_WarnPrintf(("UnmarshalSynSegment: unacceptable segmax=%d, segbmax=%d\n", segmax, segbmax));
         return AJ_ERR_RANGE;
     }
 
+    conn->snd.SEGMAX = segmax;
+    AJ_InfoPrintf(("UnmarshalSynSegment: segmax=%d, segbmax=%d\n", segmax, segbmax));
     conn->rcv.CUR = seg->SEQ;
     conn->rcv.LCS = seg->SEQ;
     return AJ_OK;
@@ -559,7 +564,7 @@ static AJ_Status RecvValidateSegment(uint8_t* rxbuf, uint16_t len, struct ArdpSe
 
     if (seg->FLG & ARDP_FLAG_RST) {
         /* This is a disconnect from the remote, no checks are needed */
-        AJ_InfoPrintf(("Receive: Remote disconnect RST\n"));
+        AJ_WarnPrintf(("Receive: Remote disconnect RST\n"));
         AJ_Free(conn);
         conn = NULL;
         return AJ_ERR_ARDP_REMOTE_CONNECTION_RESET;
@@ -668,18 +673,15 @@ static void AdjustRTT(ArdpSBuf* sBuf)
     AJ_InfoPrintf(("AdjustRtt: New mean = %u, var =%u\n", conn->rttMean, conn->rttMeanVar));
 }
 
-static AJ_Status UpdateSndSegments(uint32_t ack, uint32_t lcs)
+static void UpdateSndSegments(uint32_t ack)
 {
     uint16_t index = ack % UDP_SEGMAX;
     ArdpSBuf* sBuf = &conn->snd.buf[index];
     uint32_t i;
 
-    AJ_InfoPrintf(("UpdateSndSegments(): ack=%u, lcs=%u (local lcs %u, pending %d)\n",
-                   ack, lcs, conn->snd.LCS, conn->snd.pending));
-
     /* Nothing to clean up */
     if (conn->snd.pending == 0) {
-        return AJ_OK;
+        return;
     }
 
     /*
@@ -689,33 +691,29 @@ static AJ_Status UpdateSndSegments(uint32_t ack, uint32_t lcs)
         AdjustRTT(sBuf);
     }
 
-    /* Cycle through the buffers from snd.LCS + 1 to ACK */
-    index = (conn->snd.LCS + 1) % UDP_SEGMAX;
-    sBuf = &conn->snd.buf[index];
+    sBuf = &conn->snd.buf[0];
 
-    for (i = 0; i < (ack - conn->snd.LCS); i++) {
-        uint32_t seq = ntohl(*(uint32_t*)((uint8_t*)sBuf->data + SEQ_OFFSET));
-        uint16_t dataLen = ntohs(*(uint16_t*)((uint8_t*)sBuf->data + DLEN_OFFSET));
-
-        if ((dataLen == 0) || (SEQ32_LT(ack, seq))) {
-            return AJ_ERR_ARDP_INVALID_RESPONSE;
-        }
+    /* Cycle through all the buffers */
+    for (i = 0; i < UDP_SEGMAX; i++) {
+        uint32_t seq = ntohl(*(uint32_t*)((uint8_t*)(sBuf->data) + SEQ_OFFSET));
+        uint16_t dataLen = ntohs(*(uint16_t*)((uint8_t*)(sBuf->data) + DLEN_OFFSET));
 
         /* If the remote acknowledged the segment, stop retransmit attempts. */
         AJ_InfoPrintf(("UpdateSndSegments(): cancel retransmit for %u\n", seq));
-        sBuf->timer.retry = 0;
-        sBuf->dataLen = 0;
 
-        /* If the remote consumed the segment, release the holding buffer */
-        if (SEQ32_LET(seq, lcs)) {
+        if (SEQ32_LET(seq, ack) && (sBuf->inFlight != 0)) {
+            sBuf->timer.retry = 0;
+            sBuf->dataLen = 0;
+            sBuf->inFlight = 0;
             sBuf->retransmits = 0;
             conn->snd.pending--;
         }
 
+        if (conn->snd.pending == 0) {
+            break;
+        }
         sBuf = sBuf->next;
     }
-
-    return AJ_OK;
 }
 
 static AJ_Status ArdpMachine(struct ArdpSeg* seg, uint8_t* rxBuf, uint16_t len, uint8_t** dataBuf, uint16_t* dataLen, void**rxContext)
@@ -736,11 +734,11 @@ static AJ_Status ArdpMachine(struct ArdpSeg* seg, uint8_t* rxBuf, uint16_t len, 
 
                 if (status == AJ_OK) {
                     if ((seg->FLG  & ARDP_VERSION_BITS) != ARDP_FLAG_VER) {
-                        AJ_InfoPrintf(("ArdpMachine(): SYN_SENT: Unsupported protocol version 0x%x\n",
+                        AJ_WarnPrintf(("ArdpMachine(): SYN_SENT: Unsupported protocol version 0x%x\n",
                                        seg->FLG & ARDP_VERSION_BITS));
                         status = AJ_ERR_ARDP_VERSION_NOT_SUPPORTED;
                     } else if (!(seg->FLG & ARDP_FLAG_ACK) || (seg->ACK != conn->snd.ISS)) {
-                        AJ_InfoPrintf(("ArdpMachine(): SYN_SENT: does not ACK ISS\n"));
+                        AJ_WarnPrintf(("ArdpMachine(): SYN_SENT: does not ACK ISS\n"));
                         status = AJ_ERR_ARDP_INVALID_RESPONSE;
                     } else {
                         AJ_InfoPrintf(("ArdpMachine(): SYN_SENT: SYN | ACK received. state -> OPEN\n"));
@@ -749,6 +747,7 @@ static AJ_Status ArdpMachine(struct ArdpSeg* seg, uint8_t* rxBuf, uint16_t len, 
                         conn->state = OPEN;
                         conn->snd.buf[0].timer.retry = 0;
                         conn->snd.buf[0].dataLen = 0;
+                        conn->snd.buf[0].inFlight = 0;
 
                         /* Initialize and kick off link timeout timer */
                         InitTimer(&conn->probeTimer, UDP_LINK_TIMEOUT / UDP_KEEPALIVE_RETRIES, UDP_KEEPALIVE_RETRIES);
@@ -784,12 +783,12 @@ static AJ_Status ArdpMachine(struct ArdpSeg* seg, uint8_t* rxBuf, uint16_t len, 
             if (seg->FLG & ARDP_FLAG_ACK) {
                 AJ_InfoPrintf(("ArdpMachine(): OPEN: Got ACK %u LCS %u\n", seg->ACK, seg->LCS));
 
-                if ((IN_RANGE(uint32_t, conn->snd.UNA, ((conn->snd.NXT - conn->snd.UNA) + 1), seg->ACK) == TRUE) ||
-                    (conn->snd.LCS != seg->LCS)) {
+                if (IN_RANGE(uint32_t, conn->snd.UNA, ((conn->snd.NXT - conn->snd.UNA) + 1), seg->ACK) == TRUE) {
                     conn->snd.UNA = seg->ACK + 1;
-                    status = UpdateSndSegments(seg->ACK, seg->LCS);
-                    conn->snd.LCS = seg->LCS;
+                    UpdateSndSegments(seg->ACK);
                 }
+
+                conn->snd.LCS = seg->LCS;
 
                 if (conn->state == CLOSE_WAIT) {
                     if (conn->snd.pending != 0) {
@@ -800,46 +799,44 @@ static AJ_Status ArdpMachine(struct ArdpSeg* seg, uint8_t* rxBuf, uint16_t len, 
                 }
             }
 
-            if (status == AJ_OK) {
-                if (SEQ32_LT(conn->rcv.CUR + 1, seg->ACKNXT)) {
-                    AJ_InfoPrintf(("ArdpMachine(): OPEN: FlushExpiredRcvMessages: seq = %u, expected %u got %u\n",
-                                   seg->SEQ, conn->rcv.CUR + 1, seg->ACKNXT));
-                    //TODO: ExpireRecvMessage()
-                    status = AJ_ERR_ARDP_RECV_EXPIRED;
-                }
-
-                /* If we got NUL segment, send ACK without delay */
-                if (seg->FLG & ARDP_FLAG_NUL) {
-                    SendHeader(ARDP_FLAG_ACK | ARDP_FLAG_VER);
-                } else if (seg->DLEN) {
-                    if (conn->ackTimer.retry == 0) {
-                        InitTimer(&conn->ackTimer, UDP_DELAYED_ACK_TIMEOUT, 1);
-                    }
-                    conn->rcv.pending++;
-
-                    /* Update with new data */
-                    if (SEQ32_LET((conn->rcv.CUR + 1), seg->SEQ)) {
-                        uint32_t index = seg->SEQ % UDP_SEGMAX;
-
-                        AJ_ASSERT(conn->rcv.buf[index].fcnt == 0);
-
-                        conn->rcv.buf[index].seq = seg->SEQ;
-                        conn->rcv.buf[index].som = seg->SOM;
-                        conn->rcv.buf[index].fcnt = seg->FCNT;
-                        conn->rcv.buf[index].dataLen = seg->DLEN;
-                        memcpy(conn->rcv.buf[index].data, rxBuf + ARDP_HEADER_SIZE, seg->DLEN);
-                        *dataBuf = conn->rcv.buf[index].data;
-                        *dataLen = seg->DLEN;
-                        *rxContext = (void*) &conn->rcv.buf[index];
-                        conn->rcv.CUR = seg->SEQ;
-                        AJ_InfoPrintf(("ArdpMachine(): OPEN: received data with seq %u\n", seg->SEQ));
-                    } else {
-                        AJ_InfoPrintf(("ArdpMachine(): OPEN: duplicate data with seq %u (cur=%u)\n", seg->SEQ, conn->rcv.CUR));
-                    }
-                }
-
-                InitTimer(&conn->probeTimer, UDP_LINK_TIMEOUT / UDP_KEEPALIVE_RETRIES, UDP_KEEPALIVE_RETRIES);
+            if (SEQ32_LT(conn->rcv.CUR + 1, seg->ACKNXT)) {
+                AJ_InfoPrintf(("ArdpMachine(): OPEN: FlushExpiredRcvMessages: seq = %u, expected %u got %u\n",
+                               seg->SEQ, conn->rcv.CUR + 1, seg->ACKNXT));
+                status = AJ_ERR_ARDP_RECV_EXPIRED;
             }
+
+            /* If we got NUL segment, send ACK without delay */
+            if (seg->FLG & ARDP_FLAG_NUL) {
+                SendHeader(ARDP_FLAG_ACK | ARDP_FLAG_VER);
+            } else if (seg->DLEN) {
+                if (conn->ackTimer.retry == 0) {
+                    InitTimer(&conn->ackTimer, UDP_DELAYED_ACK_TIMEOUT, 1);
+                }
+                conn->rcv.pending++;
+
+                /* Update with new data */
+                if (SEQ32_LET((conn->rcv.CUR + 1), seg->SEQ)) {
+                    uint32_t index = seg->SEQ % UDP_SEGMAX;
+
+                    AJ_ASSERT(conn->rcv.buf[index].fcnt == 0);
+
+                    conn->rcv.buf[index].seq = seg->SEQ;
+                    conn->rcv.buf[index].som = seg->SOM;
+                    conn->rcv.buf[index].fcnt = seg->FCNT;
+                    conn->rcv.buf[index].dataLen = seg->DLEN;
+                    memcpy(conn->rcv.buf[index].data, rxBuf + ARDP_HEADER_SIZE, seg->DLEN);
+                    *dataBuf = conn->rcv.buf[index].data;
+                    *dataLen = seg->DLEN;
+                    *rxContext = (void*) &conn->rcv.buf[index];
+                    conn->rcv.CUR = seg->SEQ;
+                    AJ_InfoPrintf(("ArdpMachine(): OPEN: received data with seq %u, som %u, fcnt %u\n",
+                                   seg->SEQ, seg->SOM, seg->FCNT));
+                } else {
+                    AJ_InfoPrintf(("ArdpMachine(): OPEN: duplicate data with seq %u (cur=%u)\n", seg->SEQ, conn->rcv.CUR));
+                }
+            }
+
+            InitTimer(&conn->probeTimer, UDP_LINK_TIMEOUT / UDP_KEEPALIVE_RETRIES, UDP_KEEPALIVE_RETRIES);
 
             break;
         }
@@ -868,8 +865,6 @@ AJ_Status ARDP_Recv(uint8_t* rxBuf, uint16_t len, uint8_t** dataBuf, uint16_t* d
     if (rxBuf != NULL) {
         *dataBuf = NULL;
         *dataLen = 0;
-
-        //TODO: AJ_ASSERT(*rxContext == NULL);
 
         status = RecvValidateSegment(rxBuf, len, &seg);
         if (status == AJ_OK) {
@@ -943,8 +938,16 @@ AJ_Status ARDP_Send(uint8_t* txBuf, uint16_t len)
         return status;
     }
 
-    pending = conn->snd.NXT - conn->snd.LCS;
+    pending = (conn->snd.NXT - conn->snd.LCS) - 1;
     sBuf = &(conn->snd.buf[conn->snd.NXT % UDP_SEGMAX]);
+
+    assert(conn->snd.pending <= UDP_SEGMAX);
+    if (conn->snd.pending == UDP_SEGMAX) {
+        AJ_InfoPrintf(("ARDP_Send: backpressure, all (%u) SND buffers are in flight\n", conn->snd.pending));
+        return AJ_ERR_ARDP_BACKPRESSURE;
+    }
+    assert(sBuf->inFlight == 0);
+
     ttl = conn->snd.msgTTL;
     offset = sBuf->dataLen;
 
@@ -952,14 +955,16 @@ AJ_Status ARDP_Send(uint8_t* txBuf, uint16_t len)
     if (conn->snd.newMsg == TRUE) {
         AJ_MsgHeader* hdr = (AJ_MsgHeader*) txBuf;
         conn->snd.msgLenTotal = sizeof(AJ_MsgHeader) + ((hdr->headerLen + 7) & 0xFFFFFFF8) + hdr->bodyLen;
+        conn->snd.msgLenSent = 0;
         AJ_InfoPrintf(("ARDP_Send: new message len = %u\n", conn->snd.msgLenTotal));
         conn->snd.newMsg = FALSE;
         conn->snd.msgSOM = conn->snd.NXT;
     }
 
-    /* Check if there is enough buffer space to fit the data */
-    if ((pending >= UDP_SEGMAX) || ((len + offset) > (ARDP_MAX_DLEN * (UDP_SEGMAX - pending)))) {
-        AJ_InfoPrintf(("ARDP_Send: backpressure, pending %u (partial data length %u)\n", pending, offset));
+    /* Check whether there is enough local buffer space to fit the data.
+     * Also, check if the remote side can currently accept these data. */
+    if (((len + offset) > (ARDP_MAX_DLEN * (UDP_SEGMAX - conn->snd.pending))) || ((len + offset) > (ARDP_MAX_DLEN * (conn->snd.SEGMAX - pending)))) {
+        AJ_InfoPrintf(("ARDP_Send: backpressure, cannot send %u (%u + %u): local send pending %u, remote consume pending %u\n", len + offset, len, offset, conn->snd.pending, pending));
         return AJ_ERR_ARDP_BACKPRESSURE;
     }
 
@@ -992,6 +997,7 @@ AJ_Status ARDP_Send(uint8_t* txBuf, uint16_t len)
 
         memcpy(((uint8_t*) sBuf->data) + offset + ARDP_HEADER_SIZE, txBuf, dataLen - offset);
         sBuf->dataLen = dataLen;
+        assert(sBuf->inFlight == 0);
 
         AJ_InfoPrintf(("ARDP_Send(): len %u, dataLen %u, offset %u\n", len, dataLen, offset));
         /*
@@ -999,10 +1005,13 @@ AJ_Status ARDP_Send(uint8_t* txBuf, uint16_t len)
          * to wait for more data to pack in. Do not send, do not update counters.
          * Note: Soft check (instead of checking len == 0): a precaution for avoiding infinte loop in case we miscalculated.
          */
-        if (len <= (dataLen - offset) && dataLen != (conn->snd.msgLenTotal - ARDP_MAX_DLEN * (fcnt - 1))) {
+        if ((dataLen < ARDP_MAX_DLEN) && dataLen != (conn->snd.msgLenTotal - conn->snd.msgLenSent)) {
             AJ_InfoPrintf(("ARDP_Send(): queued %d bytes\n", dataLen));
             break;
         }
+
+        sBuf->inFlight = 1;
+        conn->snd.msgLenSent += dataLen;
 
         MarshalHeader(sBuf->data, ARDP_FLAG_ACK | ARDP_FLAG_VER, dataLen, ttl, conn->snd.msgSOM, fcnt);
 
@@ -1011,6 +1020,7 @@ AJ_Status ARDP_Send(uint8_t* txBuf, uint16_t len)
 
         if (status != AJ_OK) {
             AJ_ErrPrintf(("ARDP_Send(): %s\n", AJ_StatusText(status)));
+            //TODO: this is probably unrecoverable (accounting will be messed up). We should disconnect.
             return status;
         }
 
@@ -1054,7 +1064,7 @@ AJ_Status ARDP_Connect(uint8_t* data, uint16_t dataLen, void* context)
     AJ_ASSERT(dataLen < (UDP_SEGBMAX - ARDP_SYN_HEADER_SIZE));
     memcpy(((uint8_t*) conn->snd.buf[0].data) + ARDP_SYN_HEADER_SIZE, data, dataLen);
     conn->snd.buf[0].dataLen = dataLen;
-
+    conn->snd.buf[0].inFlight = 1;
     conn->context = context;
 
     status = SendSyn(dataLen);
@@ -1072,9 +1082,9 @@ AJ_Status ARDP_Connect(uint8_t* data, uint16_t dataLen, void* context)
 AJ_Status ARDP_Disconnect(uint8_t forced)
 {
     if (conn != NULL) {
-        AJ_InfoPrintf(("ARDP_Disconnect\n"));
+        AJ_WarnPrintf(("ARDP_Disconnect\n"));
         if ((forced == TRUE) || (conn->snd.pending == 0)) {
-            AJ_InfoPrintf(("ARDP_Disconnect: Send RST\n"));
+            AJ_WarnPrintf(("ARDP_Disconnect: Send RST\n"));
             SendHeader(ARDP_FLAG_RST | ARDP_FLAG_ACK | ARDP_FLAG_VER);
             AJ_Free(conn);
             conn = NULL;
@@ -1150,7 +1160,7 @@ AJ_Status AJ_ARDP_Recv(AJ_IOBuffer* rxBuf, uint32_t len, uint32_t timeout)
     AJ_Status status = AJ_OK;
     AJ_Time now, end;
 
-    AJ_InfoPrintf(("AJ_ARDP_Recv(buf=0x%p, len=%u, timeout=%u)\n", buf, len, timeout));
+    AJ_InfoPrintf(("AJ_ARDP_Recv(rxBuf=0x%p, len=%u, timeout=%u)\n", rxBuf, len, timeout));
 
     if (UDP_Recv_State.rxContext != NULL) {
         uint32_t rx = AJ_IO_BUF_SPACE(rxBuf);
