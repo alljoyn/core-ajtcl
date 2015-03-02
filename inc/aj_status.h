@@ -69,25 +69,25 @@ typedef enum {
     AJ_ERR_NVRAM_READ   = 40, /**< Error while reading from NVRAM */
     AJ_ERR_NVRAM_WRITE  = 41, /**< Error while writing to NVRAM */
     AJ_ERR_WOULD_BLOCK  = 42, /**< Last operation would block */
-    AJ_ERR_ARDP_DISCONNECTING = 43,
-    AJ_ERR_ARDP_DISCONNECTED,
-    AJ_ERR_ARDP_INVALID_CONNECTION,
-    AJ_ERR_ARDP_REMOTE_CONNECTION_RESET,
-    AJ_ERR_ARDP_INVALID_RESPONSE,
-    AJ_ERR_ARDP_INVALID_STATE,
-    AJ_ERR_ARDP_PERSIST_TIMEOUT,
-    AJ_ERR_ARDP_PROBE_TIMEOUT,
-    AJ_ERR_ARDP_BACKPRESSURE,
-    AJ_ERR_ARDP_SEND_EXPIRED,
-    AJ_ERR_ARDP_RECV_EXPIRED,
-    AJ_ERR_ARDP_VERSION_NOT_SUPPORTED,
-    AJ_ERR_ARDP_WRITE_BLOCKED,
-    AJ_ERR_INVALID_CONFIG,
-    AJ_ERR_OS_ERROR,
+    AJ_ERR_ARDP_DISCONNECTING           = 43,
+    AJ_ERR_ARDP_DISCONNECTED            = 44,
+    AJ_ERR_ARDP_INVALID_CONNECTION      = 45,
+    AJ_ERR_ARDP_REMOTE_CONNECTION_RESET = 46,
+    AJ_ERR_ARDP_INVALID_RESPONSE        = 47,
+    AJ_ERR_ARDP_INVALID_STATE           = 48,
+    AJ_ERR_ARDP_PERSIST_TIMEOUT         = 49,
+    AJ_ERR_ARDP_PROBE_TIMEOUT           = 50,
+    AJ_ERR_ARDP_BACKPRESSURE            = 51,
+    AJ_ERR_ARDP_SEND_EXPIRED            = 52,
+    AJ_ERR_ARDP_RECV_EXPIRED            = 53,
+    AJ_ERR_ARDP_VERSION_NOT_SUPPORTED   = 54,
+    AJ_ERR_ARDP_WRITE_BLOCKED           = 55,
+    AJ_ERR_INVALID_CONFIG               = 56,
+    AJ_ERR_OS_ERROR                     = 57,
     /*
      * REMINDER: Update AJ_StatusText in aj_debug.c if adding a new status code.
      */
-    AJ_STATUS_LAST      = 41  /**< The last error status code */
+    AJ_STATUS_LAST      = 58  /**< The last error status code */
 
 } AJ_Status;
 

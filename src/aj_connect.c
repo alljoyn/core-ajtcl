@@ -519,6 +519,8 @@ AJ_Status AJ_FindBusAndConnect(AJ_BusAttachment* bus, const char* serviceName, u
             goto ExitConnect;
         }
 #endif
+
+        // this calls into platform code that will decide whether to use UDP or TCP, based on what is available
         status = AJ_Net_Connect(bus, &service);
         if (status != AJ_OK) {
             AJ_InfoPrintf(("AJ_FindBusAndConnect(): AJ_Net_Connect status=%s\n", AJ_StatusText(status)));
@@ -559,7 +561,6 @@ AJ_Status AJ_FindBusAndConnect(AJ_BusAttachment* bus, const char* serviceName, u
         }
     }
 
-
 ExitConnect:
 
     if (status != AJ_OK) {
@@ -592,9 +593,7 @@ AJ_Status AJ_ARDP_Connect(AJ_BusAttachment* bus, void* context, const AJ_Service
         return status;
     }
 
-    // AJ_UnmarshalMsg will call into Recv
     status = AJ_UnmarshalMsg(bus, &helloResponse, AJ_UDP_CONNECT_TIMEOUT);
-
     if (status == AJ_OK && helloResponse.msgId == AJ_REPLY_ID(AJ_METHOD_BUS_SIMPLE_HELLO)) {
         if (helloResponse.hdr->msgType == AJ_MSG_ERROR) {
             status = AJ_ERR_CONNECT;

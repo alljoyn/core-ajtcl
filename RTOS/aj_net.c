@@ -254,7 +254,7 @@ AJ_Status AJ_Net_Connect(AJ_BusAttachment* bus, const AJ_Service* service)
         AJ_ErrPrintf(("AJ_Net_Connect(): socket() failed.  status=AJ_ERR_CONNECT\n"));
         return AJ_ERR_CONNECT;
     }
-    if (service->addrTypes & AJ_ADDR_IPV4) {
+    if (service->addrTypes & AJ_ADDR_TCP4) {
         // only supported protocol for now!
     } else {
         AJ_WSL_NET_socket_close(tcpSock);

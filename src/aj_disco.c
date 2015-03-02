@@ -169,7 +169,7 @@ static AJ_Status ParseIsAt(AJ_IOBuffer* rxBuf, const char* prefix, AJ_Service* s
             p += sizeof(service->ipv4);
             service->ipv4port = (p[0] << 8) | p[1];
             p += 2;
-            service->addrTypes |= AJ_ADDR_IPV4;
+            service->addrTypes |= AJ_ADDR_TCP4;
         }
         if (flags & U4_FLAG) {
             memcpy(&service->ipv4Udp, p, sizeof(service->ipv4Udp));
@@ -183,7 +183,7 @@ static AJ_Status ParseIsAt(AJ_IOBuffer* rxBuf, const char* prefix, AJ_Service* s
             p += sizeof(service->ipv6);
             service->ipv6port = (p[0] << 8) | p[1];
             p += 2;
-            service->addrTypes |= AJ_ADDR_IPV6;
+            service->addrTypes |= AJ_ADDR_TCP6;
         }
         if (flags & U6_FLAG) {
             memcpy(&service->ipv6Udp, p, sizeof(service->ipv6Udp));
@@ -931,7 +931,7 @@ static AJ_Status ParseMDNSResp(AJ_IOBuffer* rxBuf, const char* prefix, AJ_Servic
         }
     }
 
-    // To report a match, we must have successfully parsed an _alljoyn._tcp.local
+    // To report a match, we must have successfully parsed an _alljoyn._tcp.local OR _alljoyn._udp.local
     // PRT record, SRV record, advertise TXT record and A record for the same
     // guid. Note that other records might have been ignored to ensure forward
     // compatibility with other record types that may be in use in the future.
@@ -941,7 +941,7 @@ static AJ_Status ParseMDNSResp(AJ_IOBuffer* rxBuf, const char* prefix, AJ_Servic
         if (alljoyn_ptr_record_tcp && service_port_tcp) {
             service->ipv4port = service_port_tcp;
             memcpy(&service->ipv4, bus_addr, sizeof(service->ipv4));
-            service->addrTypes |= AJ_ADDR_IPV4;
+            service->addrTypes |= AJ_ADDR_TCP4;
         }
 
         if (alljoyn_ptr_record_udp && service_port_udp) {

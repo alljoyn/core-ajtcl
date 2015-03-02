@@ -260,8 +260,6 @@ AJ_Status AJ_Net_Recv(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)
 static uint8_t rxData[1024];
 static uint8_t txData[1500];
 
-
-
 AJ_Status AJ_Net_Connect(AJ_BusAttachment* bus, const AJ_Service* service)
 {
     int ret;
@@ -288,14 +286,14 @@ AJ_Status AJ_Net_Connect(AJ_BusAttachment* bus, const AJ_Service* service)
         AJ_ErrPrintf(("AJ_Net_Connect(): socket() failed.  status=AJ_ERR_CONNECT\n"));
         goto ConnectError;
     }
-    if (service->addrTypes & AJ_ADDR_IPV4) {
+    if (service->addrTypes & AJ_ADDR_TCP4) {
         struct sockaddr_in* sa = (struct sockaddr_in*)&addrBuf;
         sa->sin_family = AF_INET;
         sa->sin_port = htons(service->ipv4port);
         sa->sin_addr.s_addr = service->ipv4;
         addrSize = sizeof(struct sockaddr_in);
         AJ_InfoPrintf(("AJ_Net_Connect(): Connect to \"%s:%u\"\n", inet_ntoa(sa->sin_addr), service->ipv4port));;
-    } else if (service->addrTypes & AJ_ADDR_IPV6) {
+    } else if (service->addrTypes & AJ_ADDR_TCP6) {
         struct sockaddr_in6* sa = (struct sockaddr_in6*)&addrBuf;
         sa->sin6_family = AF_INET6;
         sa->sin6_port = htons(service->ipv6port);
@@ -334,8 +332,6 @@ ConnectError:
 
     return AJ_ERR_CONNECT;
 }
-
-
 
 void AJ_Net_Disconnect(AJ_NetSocket* netSock)
 {
@@ -953,8 +949,73 @@ void AJ_Net_MCastDown(AJ_MCastSocket* mcastSock)
     CloseMCastSock(mcastSock);
 }
 
-
 #ifdef AJ_ARDP
+
+static AJ_Status AJ_ARDP_UDP_Send(void* context, uint8_t* buf, size_t len, size_t* sent)
+{
+    AJ_Status status = AJ_OK;
+    ssize_t ret;
+    NetContext* ctx = (NetContext*) context;
+
+    AJ_InfoPrintf(("AJ_ARDP_UDP_Send(buf=0x%p, len=%lu)\n", buf, len));
+
+    // we can send( rather than sendto( because we did a UDP connect()
+    ret = send(ctx->udpSock, buf, len, 0);
+    if (ret == -1) {
+        status = AJ_ERR_WRITE;
+    } else {
+        *sent = (size_t) ret;
+        //_AJ_DumpBytes("SEND", buf, ret);
+    }
+
+    return status;
+}
+
+static AJ_Status AJ_ARDP_UDP_Recv(void* context, uint8_t* buf, uint32_t len, uint32_t timeout, uint32_t* recved)
+{
+    fd_set fds;
+    struct timeval tv = { timeout / 1000, 1000 * (timeout % 1000) };
+    int ret;
+    NetContext* ctx = (NetContext*) context;
+    int maxFd = max(ctx->udpSock, interruptFd);
+
+    AJ_InfoPrintf(("AJ_ARDP_UDP_Recv(buf=0x%p, len=%lu, timeout=%u)\n", buf, len, timeout));
+
+    FD_ZERO(&fds);
+    FD_SET(ctx->udpSock, &fds);
+    if (interruptFd > 0) {
+        FD_SET(interruptFd, &fds);
+    }
+
+    blocked = TRUE;
+    ret = select(maxFd + 1, &fds, NULL, NULL, &tv);
+    blocked = FALSE;
+
+    if (ret == 0) {
+        // timeout!
+        return AJ_ERR_TIMEOUT;
+    } else if (ret == -1) {
+        perror("select");
+        return AJ_ERR_READ;
+    } else if ((interruptFd > 0) && FD_ISSET(interruptFd, &fds)) {
+        uint64_t u64;
+        read(interruptFd, &u64, sizeof(u64));
+        return AJ_ERR_INTERRUPTED;
+    } else if (FD_ISSET(ctx->udpSock, &fds)) {
+        ret = recvfrom(ctx->udpSock, buf, len, 0, NULL, 0);
+
+        if (ret == -1) {
+            // this will only happen if we are on a local machine
+            perror("recvfrom");
+            return AJ_ERR_READ;
+        }
+
+        //_AJ_DumpBytes("RECV", buf, ret);
+        *recved = ret;
+    }
+
+    return AJ_OK;
+}
 
 static AJ_Status AJ_Net_ARDP_Connect(AJ_BusAttachment* bus, const AJ_Service* service)
 {
@@ -963,6 +1024,8 @@ static AJ_Status AJ_Net_ARDP_Connect(AJ_BusAttachment* bus, const AJ_Service* se
     struct sockaddr_storage addrBuf;
     socklen_t addrSize;
     int ret;
+
+    ARDP_InitFunctions(AJ_ARDP_UDP_Recv, AJ_ARDP_UDP_Send);
 
     // otherwise backpressure is guaranteed!
     assert(sizeof(txData) <= UDP_SEGMAX * (UDP_SEGBMAX - ARDP_HEADER_SIZE - UDP_HEADER_SIZE));
@@ -1058,70 +1121,6 @@ static void AJ_Net_ARDP_Disconnect(AJ_NetSocket* netSock)
     AJ_ARDP_SetNetSock(NULL);
 }
 
-AJ_Status AJ_ARDP_UDP_Send(void* context, uint8_t* buf, size_t len, size_t* sent)
-{
-    AJ_Status status = AJ_OK;
-    ssize_t ret;
-    NetContext* ctx = (NetContext*) context;
 
-    AJ_InfoPrintf(("AJ_ARDP_UDP_Send(buf=0x%p, len=%lu)\n", buf, len));
-
-    // we can send( rather than sendto( because we did a UDP connect()
-    ret = send(ctx->udpSock, buf, len, 0);
-    if (ret == -1) {
-        status = AJ_ERR_WRITE;
-    } else {
-        *sent = (size_t) ret;
-        //_AJ_DumpBytes("SEND", buf, ret);
-    }
-
-    return status;
-}
-
-AJ_Status AJ_ARDP_UDP_Recv(void* context, uint8_t* buf, uint32_t len, uint32_t timeout, uint32_t* recved)
-{
-    fd_set fds;
-    struct timeval tv = { timeout / 1000, 1000 * (timeout % 1000) };
-    int ret;
-    NetContext* ctx = (NetContext*) context;
-    int maxFd = max(ctx->udpSock, interruptFd);
-
-    AJ_InfoPrintf(("AJ_ARDP_UDP_Recv(buf=0x%p, len=%lu, timeout=%u)\n", buf, len, timeout));
-
-    FD_ZERO(&fds);
-    FD_SET(ctx->udpSock, &fds);
-    if (interruptFd > 0) {
-        FD_SET(interruptFd, &fds);
-    }
-
-    blocked = TRUE;
-    ret = select(maxFd + 1, &fds, NULL, NULL, &tv);
-    blocked = FALSE;
-
-    if (ret == 0) {
-        // timeout!
-        return AJ_ERR_TIMEOUT;
-    } else if (ret == -1) {
-        perror("select");
-        return AJ_ERR_READ;
-    } else if ((interruptFd > 0) && FD_ISSET(interruptFd, &fds)) {
-        uint64_t u64;
-        read(interruptFd, &u64, sizeof(u64));
-        return AJ_ERR_INTERRUPTED;
-    } else if (FD_ISSET(ctx->udpSock, &fds)) {
-        ret = recvfrom(ctx->udpSock, buf, len, 0, NULL, 0);
-
-        if (ret == -1) {
-            // this will only happen if we are on a local machine
-            perror("recvfrom");
-            return AJ_ERR_READ;
-        }
-
-        //_AJ_DumpBytes("RECV", buf, ret);
-        *recved = ret;
-    }
-
-    return AJ_OK;
-}
 
 #endif // AJ_ARDP

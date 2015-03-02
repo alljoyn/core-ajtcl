@@ -153,7 +153,7 @@ AJ_Status AJ_ARDP_Send(struct _AJ_IOBuffer* buf);
 AJ_Status AJ_ARDP_Recv(struct _AJ_IOBuffer* rxBuf, uint32_t len, uint32_t timeout);
 
 /**
- * Set hte NetSocket for the current connection
+ * Set the NetSocket for the current connection
  */
 void AJ_ARDP_SetNetSock(struct _AJ_NetSocket* net_sock);
 
@@ -163,6 +163,12 @@ void AJ_ARDP_SetNetSock(struct _AJ_NetSocket* net_sock);
  *         context - (IN) pointer to ARDP Recv context (should correspond the one in ARDP_Recv() call).
  */
 void ARDP_RecvReady(void* context);
+
+typedef AJ_Status (*ReceiveFunction)(void* context, uint8_t* buf, uint32_t len, uint32_t timeout, uint32_t* recved);
+
+typedef AJ_Status (*SendFunction)(void* context, uint8_t* buf, size_t len, size_t* sent);
+
+void ARDP_InitFunctions(ReceiveFunction recv, SendFunction send);
 
 #ifdef __cplusplus
 }
