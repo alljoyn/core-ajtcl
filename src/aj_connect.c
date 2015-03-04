@@ -701,6 +701,9 @@ AJ_Status AJ_SelectRoutingNodeFromResponseList(AJ_Service* service)
     uint8_t selectedIndex = 0;
     uint32_t runningSum = 0;
     uint8_t skip = 0;
+    uint32_t priority_idx = 0;
+    uint32_t priority_srv = 0;
+    uint32_t random = 0;
     if (RoutingNodeResponselist[0].ipv4) {
         service->ipv4 = RoutingNodeResponselist[0].ipv4;
         service->ipv4port = RoutingNodeResponselist[0].ipv4port;
@@ -752,10 +755,10 @@ AJ_Status AJ_SelectRoutingNodeFromResponseList(AJ_Service* service)
                      * priorities (inclusive) is chosen and the first node whose associated
                      * sum is greater than or equal to the random number is selected.
                      */
-                    uint32_t random = 0;
+                    random = 0;
                     AJ_RandBytes((uint8_t*)&random, sizeof(random));
-                    uint32_t priority_idx = RoutingNodeResponselist[i].priority + runningSum;
-                    uint32_t priority_srv = runningSum;
+                    priority_idx = RoutingNodeResponselist[i].priority + runningSum;
+                    priority_srv = runningSum;
                     runningSum = priority_idx;
                     random %= (runningSum + 1);
                     AJ_InfoPrintf(("P_idx is %u and P_srv is %u and random is %u\n", priority_idx, priority_srv, random));
