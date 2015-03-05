@@ -431,7 +431,10 @@ static AJ_Status DataTimerHandler(ArdpSBuf* sBuf)
     struct ArdpTimer* timer = &sBuf->timer;
     uint32_t msElapsed = AJ_GetElapsedTime(&sBuf->tStart, FALSE);
     uint32_t timeout = GetDataTimeout();
+
+#ifndef NDEBUG
     uint32_t seq = ntohl(*(uint32_t*)((uint8_t*)sBuf->data + SEQ_OFFSET));
+#endif
 
     sBuf->retransmits++;
 
@@ -584,46 +587,48 @@ static AJ_Status RecvValidateSegment(uint8_t* rxbuf, uint16_t len, struct ArdpSe
     seg->SEQ = ntohl(*((uint32_t*)(rxbuf + SEQ_OFFSET))); /* The send sequence of the current segment */
     seg->ACK = ntohl(*((uint32_t*)(rxbuf + ACK_OFFSET))); /* The cumulative acknowledgement number to our sends */
 
-    if (!(seg->FLG & ARDP_FLAG_SYN)) {
-        seg->LCS = ntohl(*((uint32_t*)(rxbuf + LCS_OFFSET))); /* The last consumed segment on receiver side (them) */
-        seg->ACKNXT = ntohl(*((uint32_t*)(rxbuf + ACKNXT_OFFSET))); /* The first valid segment sender wants to be acknowledged */
+    if (seg->FLG & ARDP_FLAG_SYN) {
+        return AJ_OK;
+    }
 
-        AJ_InfoPrintf(("Receive() seq = %u, ack = %u, lcs = %u, acknxt = %u\n",
-                       seg->SEQ, seg->ACK, seg->LCS, seg->ACKNXT));
+    seg->LCS = ntohl(*((uint32_t*)(rxbuf + LCS_OFFSET))); /* The last consumed segment on receiver side (them) */
+    seg->ACKNXT = ntohl(*((uint32_t*)(rxbuf + ACKNXT_OFFSET))); /* The first valid segment sender wants to be acknowledged */
 
-        seg->TTL = ntohl(*((uint32_t*)(rxbuf + TTL_OFFSET)));       /* TTL associated with this segment */
-        seg->SOM = ntohl(*((uint32_t*)(rxbuf + SOM_OFFSET)));       /* Sequence number of the first fragment in message */
-        seg->FCNT = ntohs(*((uint16_t*)(rxbuf + FCNT_OFFSET)));     /* Number of segments comprising fragmented message */
+    AJ_InfoPrintf(("Receive() seq = %u, ack = %u, lcs = %u, acknxt = %u\n",
+                   seg->SEQ, seg->ACK, seg->LCS, seg->ACKNXT));
 
-        /* Perform sequence validation checks */
-        if (SEQ32_LT(conn->snd.NXT, seg->ACK)) {
-            AJ_ErrPrintf(("Receive: ack %u ahead of SND>NXT %u\n", seg->ACK, conn->snd.NXT));
+    seg->TTL = ntohl(*((uint32_t*)(rxbuf + TTL_OFFSET)));       /* TTL associated with this segment */
+    seg->SOM = ntohl(*((uint32_t*)(rxbuf + SOM_OFFSET)));       /* Sequence number of the first fragment in message */
+    seg->FCNT = ntohs(*((uint16_t*)(rxbuf + FCNT_OFFSET)));     /* Number of segments comprising fragmented message */
+
+    /* Perform sequence validation checks */
+    if (SEQ32_LT(conn->snd.NXT, seg->ACK)) {
+        AJ_ErrPrintf(("Receive: ack %u ahead of SND>NXT %u\n", seg->ACK, conn->snd.NXT));
+        return AJ_ERR_ARDP_INVALID_RESPONSE; // TODO. DISCONNECT?
+    }
+
+    if (SEQ32_LT(seg->ACK, seg->LCS)) {
+        AJ_ErrPrintf(("Receive: lcs %u and ack %u out of order\n", seg->LCS, seg->ACK));
+        return AJ_ERR_ARDP_INVALID_RESPONSE; // TODO. DISCONNECT?
+    }
+
+    /*
+     * SEQ and ACKNXT must fall within receive window. In case of segment with no payload,
+     * allow one extra.
+     */
+    if (((seg->SEQ - seg->ACKNXT) > UDP_SEGMAX) || (SEQ32_LT(seg->SEQ, seg->ACKNXT)) ||
+        ((seg->DLEN != 0) && ((seg->SEQ - seg->ACKNXT) == UDP_SEGMAX))) {
+        AJ_ErrPrintf(("Receive: incorrect sequence numbers seg->seq = %u, seg->acknxt = %u\n",
+                      seg->SEQ, seg->ACKNXT));
+        return AJ_ERR_ARDP_INVALID_RESPONSE;
+    }
+
+    /* Additional checks for invalid payload values */
+    if (seg->DLEN != 0) {
+        if ((seg->FCNT == 0) || ((seg->SEQ - seg->SOM) >= seg->FCNT)) {
+            AJ_ErrPrintf(("Receive: incorrect data segment seq = %u, som = %u,  fcnt = %u\n",
+                          seg->SEQ, seg->SOM, seg->FCNT));
             return AJ_ERR_ARDP_INVALID_RESPONSE; // TODO. DISCONNECT?
-        }
-
-        if (SEQ32_LT(seg->ACK, seg->LCS)) {
-            AJ_ErrPrintf(("Receive: lcs %u and ack %u out of order\n", seg->LCS, seg->ACK));
-            return AJ_ERR_ARDP_INVALID_RESPONSE; // TODO. DISCONNECT?
-        }
-
-        /*
-         * SEQ and ACKNXT must fall within receive window. In case of segment with no payload,
-         * allow one extra.
-         */
-        if (((seg->SEQ - seg->ACKNXT) > UDP_SEGMAX) || (SEQ32_LT(seg->SEQ, seg->ACKNXT)) ||
-            ((seg->DLEN != 0) && ((seg->SEQ - seg->ACKNXT) == UDP_SEGMAX))) {
-            AJ_ErrPrintf(("Receive: incorrect sequence numbers seg->seq = %u, seg->acknxt = %u\n",
-                          seg->SEQ, seg->ACKNXT));
-            return AJ_ERR_ARDP_INVALID_RESPONSE;
-        }
-
-        /* Additional checks for invalid payload values */
-        if (seg->DLEN != 0) {
-            if ((seg->FCNT == 0) || ((seg->SEQ - seg->SOM) >= seg->FCNT)) {
-                AJ_ErrPrintf(("Receive: incorrect data segment seq = %u, som = %u,  fcnt = %u\n",
-                              seg->SEQ, seg->SOM, seg->FCNT));
-                return AJ_ERR_ARDP_INVALID_RESPONSE; // TODO. DISCONNECT?
-            }
         }
     }
 
@@ -696,7 +701,6 @@ static void UpdateSndSegments(uint32_t ack)
     /* Cycle through all the buffers */
     for (i = 0; i < UDP_SEGMAX; i++) {
         uint32_t seq = ntohl(*(uint32_t*)((uint8_t*)(sBuf->data) + SEQ_OFFSET));
-        uint16_t dataLen = ntohs(*(uint16_t*)((uint8_t*)(sBuf->data) + DLEN_OFFSET));
 
         /* If the remote acknowledged the segment, stop retransmit attempts. */
         AJ_InfoPrintf(("UpdateSndSegments(): cancel retransmit for %u\n", seq));
@@ -780,6 +784,11 @@ static AJ_Status ArdpMachine(struct ArdpSeg* seg, uint8_t* rxBuf, uint16_t len, 
         {
             AJ_InfoPrintf(("ArdpMachine(): conn->state = OPEN\n"));
 
+            if (seg->FLG & ARDP_FLAG_SYN) {
+                /* Ignore */
+                return AJ_OK;
+            }
+
             if (seg->FLG & ARDP_FLAG_ACK) {
                 AJ_InfoPrintf(("ArdpMachine(): OPEN: Got ACK %u LCS %u\n", seg->ACK, seg->LCS));
 
@@ -857,10 +866,11 @@ AJ_Status ARDP_Recv(uint8_t* rxBuf, uint16_t len, uint8_t** dataBuf, uint16_t* d
     AJ_Status status = AJ_OK;
     struct ArdpSeg seg;
 
+    memset(&seg, 0, sizeof(struct ArdpSeg));
+
     if (conn == NULL) {
         return AJ_ERR_DISALLOWED;
     }
-
 
     if (rxBuf != NULL) {
         *dataBuf = NULL;
