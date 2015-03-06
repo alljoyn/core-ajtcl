@@ -87,6 +87,9 @@ void AJ_TimeAddOffset(AJ_Time* timerA, uint32_t msec);
 AJ_EXPORT
 int8_t AJ_CompareTime(AJ_Time timerA, AJ_Time timerB);
 
+AJ_EXPORT
+uint64_t AJ_DecodeTime(char* der, char* fmt);
+
 /**
  * Indicates a future time so a periodic event won't happen
  */

@@ -134,6 +134,12 @@ uint8_t AJ_StopReadFromStdIn()
     return FALSE;
 }
 
+uint64_t AJ_DecodeTime(char* der, char* fmt)
+{
+    //TODO
+    return 0;
+}
+
 void* AJ_Malloc(size_t sz)
 {
     return malloc(sz);
