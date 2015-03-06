@@ -514,8 +514,7 @@ static AJ_Status CheckTimers()
     if (delta >= conn->probeTimer.delta) {
         if (conn->probeTimer.retry == 0) {
             AJ_ErrPrintf(("CheckTimers: link timeout\n"));
-            ARDP_Disconnect(TRUE);
-            return AJ_ERR_ARDP_DISCONNECTED;
+            return AJ_ERR_ARDP_PROBE_TIMEOUT;
         }
         AJ_InfoPrintf(("CheckTimers: Fire probe timer\n"));
         status = SendHeader(ARDP_FLAG_ACK | ARDP_FLAG_VER | ARDP_FLAG_NUL);
@@ -911,6 +910,7 @@ void ARDP_RecvReady(void* rxContext)
     }
 
     rBuf->fcnt = 0;
+    rBuf->dataLen = 0;
     conn->rcv.LCS = rBuf->seq;
 }
 
