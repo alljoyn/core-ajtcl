@@ -250,10 +250,11 @@ static struct ArdpConnection* conn = NULL;
                                   (((tp) ((beg) + (sz)) < (beg)) && !(((p) < (beg)) && (p) >= (tp) ((beg) + (sz)))))
 
 
+/* Housekeeping for data (inside ARDP rBuf) that have been received and potentially not consumed */
 static struct {
-    uint8_t* recved_buffer;
-    uint16_t datalen;
-    void* rxContext;
+    uint8_t* readBuf;     /* Pointer to current unconsumed data */
+    uint16_t dataLen;     /* How many bytes are left to read */
+    ArdpRBuf* rxContext;  /* Pointer to ARDP rBuf from where the data are being currently consumed */
 } UDP_Recv_State;
 
 
@@ -719,11 +720,30 @@ static void UpdateSndSegments(uint32_t ack)
     }
 }
 
-static AJ_Status ArdpMachine(struct ArdpSeg* seg, uint8_t* rxBuf, uint16_t len, uint8_t** dataBuf, uint16_t* dataLen, void**rxContext)
+static void AddRcvBuffer(struct ArdpSeg* seg, uint8_t* rxBuf, uint16_t dataOffset)
 {
-    AJ_Status status = AJ_OK;;
+    uint32_t index = seg->SEQ % UDP_SEGMAX;
 
-    AJ_InfoPrintf(("ArdpMachine(handle=%p, conn=%p, seg=%p, buf=%p, len=%d)\n", conn, seg, rxBuf, len));
+    AJ_InfoPrintf(("AddRcvBuffer: seq=%u\n", seg->SEQ));
+    AJ_ASSERT(conn->rcv.buf[index].fcnt == 0);
+
+    conn->rcv.buf[index].seq = seg->SEQ;
+    conn->rcv.buf[index].som = seg->SOM;
+    conn->rcv.buf[index].fcnt = seg->FCNT;
+    conn->rcv.buf[index].dataLen = seg->DLEN;
+    memcpy(conn->rcv.buf[index].data, rxBuf + dataOffset, seg->DLEN);
+
+    if (UDP_Recv_State.rxContext == NULL) {
+        UDP_Recv_State.readBuf = conn->rcv.buf[index].data;
+        UDP_Recv_State.dataLen = seg->DLEN;
+        UDP_Recv_State.rxContext = (void*) &conn->rcv.buf[index];
+    }
+}
+static AJ_Status ArdpMachine(struct ArdpSeg* seg, uint8_t* rxBuf, uint16_t len)
+{
+    AJ_Status status = AJ_OK;
+
+    AJ_InfoPrintf(("ArdpMachine(seg=%p, buf=%p, len=%d)\n", seg, rxBuf, len));
 
     switch (conn->state) {
     case SYN_SENT:
@@ -764,12 +784,8 @@ static AJ_Status ArdpMachine(struct ArdpSeg* seg, uint8_t* rxBuf, uint16_t len, 
                 }
             }
 
-            /* No copy here: the assumption is that at this point the Read buffer of the caller is wide open */
             if (status == AJ_OK) {
-                *dataBuf = rxBuf + (2 * seg->HLEN);
-                *dataLen = seg->DLEN;
-                conn->rcv.buf[0].seq = seg->SEQ;
-                *rxContext = (void*) &conn->rcv.buf[0];
+                AddRcvBuffer(seg, rxBuf, ARDP_SYN_HEADER_SIZE);
             }
 
             /* Stop connect retry timer */
@@ -824,18 +840,7 @@ static AJ_Status ArdpMachine(struct ArdpSeg* seg, uint8_t* rxBuf, uint16_t len, 
 
                 /* Update with new data */
                 if (SEQ32_LET((conn->rcv.CUR + 1), seg->SEQ)) {
-                    uint32_t index = seg->SEQ % UDP_SEGMAX;
-
-                    AJ_ASSERT(conn->rcv.buf[index].fcnt == 0);
-
-                    conn->rcv.buf[index].seq = seg->SEQ;
-                    conn->rcv.buf[index].som = seg->SOM;
-                    conn->rcv.buf[index].fcnt = seg->FCNT;
-                    conn->rcv.buf[index].dataLen = seg->DLEN;
-                    memcpy(conn->rcv.buf[index].data, rxBuf + ARDP_HEADER_SIZE, seg->DLEN);
-                    *dataBuf = conn->rcv.buf[index].data;
-                    *dataLen = seg->DLEN;
-                    *rxContext = (void*) &conn->rcv.buf[index];
+                    AddRcvBuffer(seg, rxBuf, ARDP_HEADER_SIZE);
                     conn->rcv.CUR = seg->SEQ;
                     AJ_InfoPrintf(("ArdpMachine(): OPEN: received data with seq %u, som %u, fcnt %u\n",
                                    seg->SEQ, seg->SOM, seg->FCNT));
@@ -863,9 +868,6 @@ static AJ_Status ArdpMachine(struct ArdpSeg* seg, uint8_t* rxBuf, uint16_t len, 
  *       ARDP_Recv: data are being read, buffered, and timers are checked.
  *         rxBuf - (IN) buffer from where to read incoming (socket) data.
  *         len   - (IN) socket buffer size
- *         dataBuf - (OUT) pointer to received data payload.
- *         dataLen - (OUT) length of data payload. Zero, if no data has been received.
- *         rxContext - (OUT) pointer to ARDP Recv context (to be returned with RecvReady() call)
  *       Returns error code:
  *         AJ_OK - all is good
  *         AJ_ERR_ARDP_TTL_EXPIRED - Discard the message that is currently being unMarshalled.
@@ -880,9 +882,8 @@ static AJ_Status ArdpMachine(struct ArdpSeg* seg, uint8_t* rxBuf, uint16_t len, 
  *         AJ_ERR_ARDP_REMOTE_CONNECTION_RESET - Remote requested disconnect.
  *
  */
-static AJ_Status ARDP_Recv(uint8_t* rxBuf, uint16_t len, uint8_t** dataBuf, uint16_t* dataLen, void** rxContext)
+static AJ_Status ARDP_Recv(uint8_t* rxBuf, uint16_t len)
 {
-
     AJ_Status status = AJ_OK;
     struct ArdpSeg seg;
 
@@ -892,27 +893,13 @@ static AJ_Status ARDP_Recv(uint8_t* rxBuf, uint16_t len, uint8_t** dataBuf, uint
         return AJ_ERR_DISALLOWED;
     }
 
-    if (rxBuf != NULL) {
-        *dataBuf = NULL;
-        *dataLen = 0;
-
-        status = RecvValidateSegment(rxBuf, len, &seg);
-        if (status == AJ_OK) {
-            status = ArdpMachine(&seg, rxBuf, len, dataBuf, dataLen, rxContext);
-        }
-    }
-
-    if ((status == AJ_OK) || (status == AJ_ERR_ARDP_RECV_EXPIRED)) {
-        status = CheckTimers();
-    }
-
-    if ((status != AJ_OK) && (status != AJ_ERR_ARDP_RECV_EXPIRED) && (status != AJ_ERR_ARDP_DISCONNECTING) &&
-        (status != AJ_ERR_ARDP_REMOTE_CONNECTION_RESET)) {
-        AJ_ARDP_Disconnect(TRUE);
+    status = RecvValidateSegment(rxBuf, len, &seg);
+    if (status == AJ_OK) {
+        status = ArdpMachine(&seg, rxBuf, len);
     }
 
     if (status != AJ_OK) {
-        AJ_ErrPrintf(("ARDP_Recv(): return %s (0x%x)\n", AJ_StatusText(status), status));
+        AJ_ErrPrintf(("ARDP_Recv(): returned %s (0x%x)\n", AJ_StatusText(status), status));
     }
     return status;
 }
@@ -927,7 +914,7 @@ static void RecvReady(void* rxContext)
         AJ_ASSERT((conn->rcv.LCS + 1) == rBuf->seq);
     } else {
         /* This is the very first call into this function. Connection is being established */
-        AJ_ASSERT(conn->rcv.LCS == conn->rcv.CUR);
+        AJ_ASSERT(conn->rcv.LCS == rBuf->seq);
     }
 
     rBuf->fcnt = 0;
@@ -1159,6 +1146,7 @@ AJ_Status AJ_ARDP_Send(AJ_IOBuffer* buf)
     if (tx > 0) {
         status = ARDP_Send(buf->readPtr, tx);
 
+        /* We essentially block until the backpressure is releived */
         if (status == AJ_ERR_ARDP_BACKPRESSURE && NetSock != NULL) {
             do {
                 AJ_InfoPrintf(("AJ_ARDP_Send: dealing with backpressure\n"));
@@ -1180,10 +1168,8 @@ AJ_Status AJ_ARDP_Send(AJ_IOBuffer* buf)
             return AJ_ERR_WRITE;
         }
 
-        if (status == AJ_OK) {
+        if ((status == AJ_OK) || (status == AJ_ERR_ARDP_RECV_EXPIRED)) {
             buf->readPtr += tx;
-        } else {
-            status = AJ_ERR_WRITE;
         }
     }
 
@@ -1192,70 +1178,90 @@ AJ_Status AJ_ARDP_Send(AJ_IOBuffer* buf)
     }
 
     AJ_InfoPrintf(("AJ_ARDP_Send(): status=AJ_OK\n"));
-    return AJ_OK;
+    return status;
 }
 
+static void UpdateReadBuffer(AJ_IOBuffer* rxBuf, uint32_t len) {
 
+    AJ_InfoPrintf(("UpdateRead: rxBuf %p, len %u\n", rxBuf, len));
+
+    while ((UDP_Recv_State.rxContext != NULL) && len != 0) {
+        ArdpRBuf* rBuf = UDP_Recv_State.rxContext;
+        size_t rx = AJ_IO_BUF_SPACE(rxBuf);
+        uint32_t consumed;
+
+        /* How much buffer space is available */
+        rx = min(rx, len);
+
+        /* How much we can consume from the current rBuf */
+        consumed = min(rx, UDP_Recv_State.dataLen);
+
+        memcpy(rxBuf->writePtr, UDP_Recv_State.readBuf, consumed);
+
+        /* Advance the write pointer */
+        rxBuf->writePtr += consumed;
+        len -= consumed;
+
+        if (consumed == UDP_Recv_State.dataLen) {
+            /*
+             * We are done with the current rBuf. Release and potentially
+             * move on to next rBuf.
+             */
+            AJ_InfoPrintf(("UpdateRead: ready\n"));
+            RecvReady(rBuf);
+
+            /* Advance to the next rBuf */
+            if (rBuf->next->dataLen) {
+                AJ_InfoPrintf(("UpdateRead: Start reading from next RCV\n"));
+                UDP_Recv_State.readBuf = rBuf->next->data;
+                UDP_Recv_State.dataLen = rBuf->next->dataLen;
+                UDP_Recv_State.rxContext = rBuf->next;
+            } else {
+                AJ_InfoPrintf(("UpdateRead: Nothing in next RCV\n"));
+                memset(&UDP_Recv_State, 0, sizeof(UDP_Recv_State));
+            }
+        } else {
+            /* No more space to write data. Update the internal read state and return */
+            UDP_Recv_State.readBuf += rx;
+            UDP_Recv_State.dataLen -= rx;
+            return;
+        }
+    }
+}
+
+/*
+ *       ARDP_Recv: data are being read, buffered, and timers are checked.
+ *         rxBuf - (IN) app buffer to be filled
+ *         len   - (IN) the number of bytes the app wants
+ *         timeout - (IN) the longest time period we can spend here
+ *       Returns error code:
+ *         AJ_OK;
+ *         AJ_ERR_ARDP_RECV_EXPIRED;
+ *         AJ_ERR_TIMEOUT;
+ *         AJ_ERR_INTERRUPTED;
+ *         AJ_ERR_READ;
+ *         AJ_ERR_PROBE_TIMEOUT;
+ *
+ *       !!! Important !!! Upper layer MUST check for those and act accordingly.
+ */
 AJ_Status AJ_ARDP_Recv(AJ_IOBuffer* rxBuf, uint32_t len, uint32_t timeout)
 {
-    AJ_Status status = AJ_OK;
+    AJ_Status status = AJ_ERR_TIMEOUT;
+    AJ_Status localStatus;
+    uint32_t timeout2 = min(timeout, UDP_MINIMUM_TIMEOUT);
     AJ_Time now, end;
 
     AJ_InfoPrintf(("AJ_ARDP_Recv(rxBuf=0x%p, len=%u, timeout=%u)\n", rxBuf, len, timeout));
 
-    if (UDP_Recv_State.rxContext != NULL && len != 0) {
-        uint32_t rx = AJ_IO_BUF_SPACE(rxBuf);
-        rx = min(len, rx);
-
-        if (UDP_Recv_State.datalen <= rx) {
-            ArdpRBuf* rbuf = (ArdpRBuf*) UDP_Recv_State.rxContext;
-            // we have room to consume the entire message
-            memcpy(rxBuf->writePtr, UDP_Recv_State.recved_buffer, UDP_Recv_State.datalen);
-            rxBuf->writePtr += UDP_Recv_State.datalen;
-
-            if (rbuf->next->dataLen) {
-                AJ_InfoPrintf(("AJ_ARDP_Recv: Start reading from next RCV\n"));
-                UDP_Recv_State.recved_buffer = rbuf->next->data;
-                UDP_Recv_State.datalen = rbuf->next->dataLen;
-                UDP_Recv_State.rxContext = rbuf->next;
-            } else {
-                AJ_InfoPrintf(("AJ_ARDP_Recv: Nothing in next RCV\n"));
-                memset(&UDP_Recv_State, 0, sizeof(UDP_Recv_State));
-            }
-
-            AJ_InfoPrintf(("AJ_ARDP_Recv:ready\n"));
-
-            RecvReady(rbuf);
-
-            len -= rx;
-
-            if (len == 0) {
-                // no more room to recv; run the state machine and call it a day
-                return ARDP_Recv(NULL, 0, NULL, NULL, NULL);
-            }
-        } else {
-            if (rx != 0) {
-                // else we don't have enough room!
-                memcpy(rxBuf->writePtr, UDP_Recv_State.recved_buffer, rx);
-                rxBuf->writePtr += rx;
-
-                // save where we were!
-                UDP_Recv_State.recved_buffer += rx;
-                UDP_Recv_State.datalen -= rx;
-                len -= rx;
-            }
-
-            // we still have unconsumed data so we can't recv yet
-            return ARDP_Recv(NULL, 0, NULL, NULL, NULL);
-        }
-    }
-
-    // need to know when we're finished
     AJ_InitTimer(&end);
     AJ_TimeAddOffset(&end, timeout);
 
+    if ((len != 0) && (UDP_Recv_State.rxContext != NULL)) {
+        timeout2 = 0;
+    }
+
     do {
-        uint32_t timeout2 = min(timeout, UDP_MINIMUM_TIMEOUT);
+
         uint32_t received;
         uint8_t buf[UDP_SEGBMAX];
 
@@ -1263,77 +1269,24 @@ AJ_Status AJ_ARDP_Recv(AJ_IOBuffer* rxBuf, uint32_t len, uint32_t timeout)
 
         switch (status) {
         case AJ_ERR_TIMEOUT:
-            status = ARDP_Recv(NULL, 0, NULL, NULL, NULL);
+            if ((len != 0) && (UDP_Recv_State.rxContext != NULL)) {
+                status = AJ_OK;
+                goto UPDATE_READ;
+            }
             break;
 
         case AJ_OK:
-            if ((len == 0) && (UDP_Recv_State.rxContext != NULL)) {
-                uint8_t* recved_buffer = NULL;
-                uint16_t datalen;
-                void* rxContext = NULL;
+            status = ARDP_Recv(buf, received);
 
-                status = ARDP_Recv(buf, received, &recved_buffer, &datalen, &rxContext);
-                // don't throw the data away!
-            } else {
-                status = ARDP_Recv(buf, received, &UDP_Recv_State.recved_buffer, &UDP_Recv_State.datalen, &UDP_Recv_State.rxContext);
+            if ((status == AJ_OK) || (status == AJ_ERR_ARDP_RECV_EXPIRED)) {
+                goto UPDATE_READ;
             }
 
-
-            switch (status) {
-            case AJ_ERR_ARDP_RECV_EXPIRED:
-                // the message being received is no longer valid
-                AJ_IO_BUF_RESET(rxBuf);
-                // intentionally fall through because there might be a new message starting!
-                if (UDP_Recv_State.recved_buffer == NULL) {
-                    // nothing else to copy; simply return
-                    return status;
-                }
-
-            // else fall through
-            case AJ_OK:
-                if (UDP_Recv_State.recved_buffer != NULL) {
-                    size_t rx = AJ_IO_BUF_SPACE(rxBuf);
-                    rx = min(rx, len);
-
-                    if (UDP_Recv_State.datalen <= rx) {
-                        ArdpRBuf* rbuf = (ArdpRBuf*) UDP_Recv_State.rxContext;
-                        // we have room to consume the entire message
-                        memcpy(rxBuf->writePtr, UDP_Recv_State.recved_buffer, UDP_Recv_State.datalen);
-                        rxBuf->writePtr += UDP_Recv_State.datalen;
-
-                        if (rbuf->next->dataLen) {
-                            AJ_InfoPrintf(("AJ_ARDP_Recv: Start reading from next RCV\n"));
-                            UDP_Recv_State.recved_buffer = rbuf->next->data;
-                            UDP_Recv_State.datalen = rbuf->next->dataLen;
-                            UDP_Recv_State.rxContext = rbuf->next;
-                        } else {
-                            AJ_InfoPrintf(("AJ_ARDP_Recv: Nothing in next RCV\n"));
-                            memset(&UDP_Recv_State, 0, sizeof(UDP_Recv_State));
-                        }
-                        AJ_InfoPrintf(("AJ_ARDP_Recv: ready to release RCV\n"));
-
-                        RecvReady(rbuf);
-
-                    } else if (rx != 0) {
-                        AJ_InfoPrintf(("AJ_ARDP_Recv: we don't have enough room!\n"));
-                        // else we don't have enough room!
-                        // only copy if there is room in rxBuf
-                        memcpy(rxBuf->writePtr, UDP_Recv_State.recved_buffer, rx);
-                        rxBuf->writePtr += rx;
-                        // save where we were!
-                        UDP_Recv_State.recved_buffer += rx;
-                        UDP_Recv_State.datalen -= rx;
-                    }
-
-                    return status;
-                }
-                // else this was an ARDP packet that we must ignore
-                break;
-
-            default:
+            if (status != AJ_ERR_ARDP_REMOTE_CONNECTION_RESET) {
+                AJ_WarnPrintf(("AJ_ARDP_Recv: received bad data, disconnecting\n"));
+                AJ_ARDP_Disconnect(TRUE);
                 return AJ_ERR_READ;
-            } // end of inner switch
-
+            }
             break;
 
         case AJ_ERR_INTERRUPTED:
@@ -1341,6 +1294,7 @@ AJ_Status AJ_ARDP_Recv(AJ_IOBuffer* rxBuf, uint32_t len, uint32_t timeout)
             return status;
 
         default:
+            AJ_WarnPrintf(("AJ_ARDP_Recv: Invalid\n"));
             AJ_ASSERT(!"this shouldn't happen!");
             break;
         }
@@ -1348,7 +1302,28 @@ AJ_Status AJ_ARDP_Recv(AJ_IOBuffer* rxBuf, uint32_t len, uint32_t timeout)
         AJ_InitTimer(&now);
     } while (AJ_CompareTime(now, end) < 0);
 
-    return AJ_ERR_TIMEOUT;
+UPDATE_READ:
+
+    if (status == AJ_ERR_ARDP_RECV_EXPIRED) {
+        /* Currently we do not do anything. Just deliver the accumulated
+         * data and inform the upper layer (via status) that the the previous message
+         * maybe incomplete so it should not barf.*/
+        AJ_WarnPrintf(("AJ_ARDP_Recv: Expired message\n"));
+    }
+
+    if ((len != 0) && (UDP_Recv_State.rxContext != NULL)) {
+        UpdateReadBuffer(rxBuf, len);
+    }
+
+    localStatus = CheckTimers();
+
+    if (localStatus != AJ_OK) {
+        status = localStatus;
+    }
+
+    AJ_InfoPrintf(("AJ_ARDP_Recv exit with %s\n", AJ_StatusText(status)));
+
+    return status;
 }
 
 #ifdef __cplusplus
