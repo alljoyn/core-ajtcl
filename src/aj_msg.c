@@ -1910,7 +1910,7 @@ AJ_Arg* AJ_InitArg(AJ_Arg* arg, uint8_t typeId, uint8_t flags, const void* val, 
 
 static AJ_Status VMarshalArgs(AJ_Message* msg, const char** sig, va_list* argpp)
 {
-    AJ_Status status = AJ_OK;
+    AJ_Status status = AJ_ERR_UNEXPECTED;
     AJ_Arg arg;
     AJ_Arg container;
     va_list argp;
@@ -1939,26 +1939,12 @@ static AJ_Status VMarshalArgs(AJ_Message* msg, const char** sig, va_list* argpp)
                  * where the inner call advanced in the signature.
                  */
                 if (status == AJ_OK) {
-                    uint8_t lastNestedTypeId;
-                    AJ_ASSERT(inSig < *sig);
-                    /*
-                     * Since we advanced *sig in the while loop the previous pointer is guaranteed to exist
-                     */
-                    lastNestedTypeId = (uint8_t)*((*sig) - 1);
-
-                    if ((lastNestedTypeId == AJ_STRUCT_CLOSE) || (lastNestedTypeId == AJ_DICT_ENTRY_CLOSE)) {
-                        status = AJ_MarshalCloseContainer(msg, &container);
-                        if (status != AJ_OK) {
-                            break;
-                        }
-                    } else {
-                        status = AJ_ERR_MARSHAL;
-                        break;
-                    }
-                    continue;
-                } else {
+                    status = AJ_MarshalCloseContainer(msg, &container);
+                }
+                if (status != AJ_OK) {
                     break;
                 }
+                continue;
             }
             if ((typeId == AJ_ARG_ARRAY) && IsBasicType(**sig)) {
                 const void* aval = va_arg(argp, const void*);
