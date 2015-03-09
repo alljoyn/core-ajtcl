@@ -37,7 +37,10 @@
 #include "aj_config.h"
 #include "aj_creds.h"
 #include "aj_peer.h"
+
+#ifdef AJ_ARDP
 #include "aj_ardp.h"
+#endif
 
 #if !(defined(ARDUINO) || defined(__linux) || defined(_WIN32) || defined(__MACH__))
 #include "aj_wifi_ctrl.h"
@@ -573,7 +576,7 @@ ExitConnect:
 
 #ifdef AJ_ARDP
 
-AJ_Status AJ_ARDP_Connect(AJ_BusAttachment* bus, void* context, const AJ_Service* service)
+AJ_Status AJ_ARDP_UDP_Connect(AJ_BusAttachment* bus, void* context, const AJ_Service* service)
 {
     AJ_Message hello;
     AJ_GUID localGuid;
@@ -588,7 +591,7 @@ AJ_Status AJ_ARDP_Connect(AJ_BusAttachment* bus, void* context, const AJ_Service
     AJ_MarshalArgs(&hello, "su", guid_buf, 10);
     hello.hdr->bodyLen = hello.bodyBytes;
 
-    status = ARDP_Connect(bus->sock.tx.readPtr, AJ_IO_BUF_AVAIL(&bus->sock.tx), context);
+    status = AJ_ARDP_Connect(bus->sock.tx.readPtr, AJ_IO_BUF_AVAIL(&bus->sock.tx), context);
     if (status != AJ_OK) {
         return status;
     }
