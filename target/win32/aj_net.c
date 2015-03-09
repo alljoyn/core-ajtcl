@@ -2,7 +2,7 @@
  * @file
  */
 /******************************************************************************
- * Copyright (c) 2012-2014, AllSeen Alliance. All rights reserved.
+ * Copyright AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -759,6 +759,7 @@ static void Mcast4Up(const char* group, uint16_t port, uint8_t mdns, uint16_t re
         new_sock.sock = socket(AF_INET, SOCK_DGRAM, 0);
         if (new_sock.sock == INVALID_SOCKET) {
             AJ_ErrPrintf(("Mcast4Up(): socket() failed. WSAGetLastError()=0x%x\n", WSAGetLastError()));
+            continue;
         }
 
         ret = setsockopt(new_sock.sock, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));

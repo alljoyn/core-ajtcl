@@ -1,4 +1,4 @@
-# Copyright (c) 2013 - 2014, AllSeen Alliance. All rights reserved.
+# Copyright AllSeen Alliance. All rights reserved.
 #
 #    Permission to use, copy, modify, and/or distribute this software for any
 #    purpose with or without fee is hereby granted, provided that the above
@@ -210,6 +210,16 @@ elif env['TARG'] == 'bsp':
     # options directly to the compiler/linker 
     env['MAXLINELENGTH'] = 10000
     
+    # Debug/Release Variants
+    if env['VARIANT'] == 'debug':
+        env.Append(CFLAGS=['-g3'])
+        env.Append(CFLAGS=['-ggdb'])
+        env.Append(CFLAGS=['-O0'])
+    else:
+        env.Append(CPPDEFINES=['NDEBUG'])
+        env.Append(CFLAGS=['-Os'])
+        env.Append(LINKFLAGS=['-s'])
+
     if env['AJWSL'] != 'frdm':
         # Set the compiler flags
         env['CFLAGS'] = ['-mthumb', '-fdata-sections', '-ffunction-sections', '-mlong-calls',
@@ -266,8 +276,6 @@ elif env['TARG'] == 'bsp':
         # Add platform dependent defines
         env.Append(CPPDEFINES = ['__SAM3X8E__', 'ARM_MATH_CM3=true', 'BOARD=ARDUINO_DUE_X', 'printf=iprintf', 'AJ_HEAP4'])
 
-        if env['VARIANT'] == 'release':
-            env.Append(CPPDEFINES = ['NDEBUG'])
         # Add platform dependent include paths
         env['CPPPATH'] = [os.getcwd() + '/bsp', os.getcwd() + '/bsp/due', os.getcwd() + '/bsp/due/config',           env['FREE_RTOS_DIR'] + '/Source/include', os.getcwd() + '/RTOS/FreeRTOS',
                           env['FREE_RTOS_DIR'] + '/Source/portable/GCC/ARM_CM3',  env['ATMEL_DIR'] + '/common/boards',
@@ -547,6 +555,8 @@ if env['AJWSL'] == 'due':
     env.Program('test/siglite', ['test/siglite.c'] + env['aj_obj'])
     env.Program('test/nvramtest', ['test/nvramtest.c'] + env['aj_obj'])
     env.Program('test/sessionslite', ['test/sessionslite.c'] + env['aj_obj'])
+    env.Program('test/codisco', ['test/codisco.c'] + env['aj_obj'])
+    env.Program('test/scan-n-con', ['test/scan-n-con.c'] + env['aj_obj'])
 
 elif env['AJWSL'] == 'stm32':
 
@@ -561,6 +571,8 @@ elif env['AJWSL'] == 'stm32':
     env.Program('test/svclite', ['test/svclite.c'], LIBS=[stm_lib])
     env.Program('test/nvramtest', ['test/nvramtest.c'], LIBS=[stm_lib])
     env.Program('test/clientlite', ['test/clientlite.c'], LIBS=[stm_lib])
+    env.Program('test/codisco', ['test/codisco.c'], LIBS=[stm_lib])
+    env.Program('test/scan-n-con', ['test/scan-n-con.c'], LIBS=[stm_lib])
 
 elif env['AJWSL'] == 'frdm':
     srcs = []
@@ -580,6 +592,8 @@ elif env['AJWSL'] == 'frdm':
     
     env.Program('test/svclite', ['test/svclite.c'] + [objects, srcs,  aj_obj])
     env.Program('test/nvramtest', ['test/nvramtest.c'] + [objects, srcs,  aj_obj])
+    env.Program('test/codisco', ['test/codisco.c'] + [objects, srcs,  aj_obj])
+    env.Program('test/scan-n-con', ['test/scan-n-con.c'] + [objects, srcs,  aj_obj])
     
 Export('env')
 

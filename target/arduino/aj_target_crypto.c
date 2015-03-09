@@ -2,7 +2,7 @@
  * @file
  */
 /******************************************************************************
- * Copyright (c) 2013, AllSeen Alliance. All rights reserved.
+ * Copyright AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -55,9 +55,6 @@ void AJ_RandBytes(uint8_t* rand, uint32_t len)
         GatherBits(key, sizeof(key));
     }
     AJ_AES_Enable(key);
-    /*
-     * This follows the NIST guidelines for using AES as a PRF
-     */
     while (len) {
         *rand = random(256);
         len -= 1;

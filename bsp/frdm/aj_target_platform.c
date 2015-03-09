@@ -2,7 +2,7 @@
  * @file
  */
 /******************************************************************************
- * Copyright (c) 2014, AllSeen Alliance. All rights reserved.
+ * Copyright AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -20,6 +20,7 @@
 #include "aj_nvram.h"
 #include "aj_target_platform.h"
 #include "aj_debug.h"
+#include <sys/time.h>
 
 void _AJ_PlatformInit(void)
 {
@@ -59,17 +60,26 @@ void _exit(int i)
 {
     while (1) ;
 }
+
 int _kill(int pid)
 {
     return 1;
 }
+
 int _getpid()
 {
     return 0;
 }
-void _gettimeofday()
-{
-    return;
-}
 
+/* Current time (ms) since boot for _gettimeofday */
+extern uint32_t os_time;
+
+int _gettimeofday(struct timeval* tv, struct timezone* tz)
+{
+    if (tv) {
+        tv->tv_sec = (os_time / 1000);
+        tv->tv_usec = (os_time % 1000) * 1000;
+    }
+    return 0;
+}
 

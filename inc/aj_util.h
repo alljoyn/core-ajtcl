@@ -7,7 +7,7 @@
  * @{
  */
 /******************************************************************************
- * Copyright (c) 2012-2014, AllSeen Alliance. All rights reserved.
+ * Copyright AllSeen Alliance. All rights reserved.
  *
  *    Permission to use, copy, modify, and/or distribute this software for any
  *    purpose with or without fee is hereby granted, provided that the above
@@ -91,17 +91,6 @@ int8_t AJ_CompareTime(AJ_Time timerA, AJ_Time timerB);
  * Indicates a future time so a periodic event won't happen
  */
 #define AJ_TIMER_FOREVER  -1
-
-
-/**
- * Suspend to low-power mode on embedded devices
- *
- * @param msec milliseconds to wait before waking up
- *
- * @return        Return AJ_Status
- */
-AJ_Status AJ_SuspendWifi(uint32_t msec);
-
 
 /**
  * Pause the current thread for a number of milliseconds
