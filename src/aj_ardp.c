@@ -264,7 +264,7 @@ static SendFunction sendFunction;
  * End of definitions
  */
 
-void ARDP_InitFunctions(ReceiveFunction recv, SendFunction send)
+void AJ_ARDP_InitFunctions(ReceiveFunction recv, SendFunction send)
 {
     recvFunction = recv;
     sendFunction = send;
@@ -859,7 +859,28 @@ static AJ_Status ArdpMachine(struct ArdpSeg* seg, uint8_t* rxBuf, uint16_t len, 
     return status;
 }
 
-AJ_Status ARDP_Recv(uint8_t* rxBuf, uint16_t len, uint8_t** dataBuf, uint16_t* dataLen, void** rxContext)
+/*
+ *       ARDP_Recv: data are being read, buffered, and timers are checked.
+ *         rxBuf - (IN) buffer from where to read incoming (socket) data.
+ *         len   - (IN) socket buffer size
+ *         dataBuf - (OUT) pointer to received data payload.
+ *         dataLen - (OUT) length of data payload. Zero, if no data has been received.
+ *         rxContext - (OUT) pointer to ARDP Recv context (to be returned with RecvReady() call)
+ *       Returns error code:
+ *         AJ_OK - all is good
+ *         AJ_ERR_ARDP_TTL_EXPIRED - Discard the message that is currently being unMarshalled.
+ *                                   If dataLen is not zero, the payload is associated with new
+ *                                   message and the old one needs to be discarded.
+ *         Note: If the returned status is anything but AJ_OK or AJ_ERR_ARDP_TTL_EXPIRED,
+ *               the connection does not exist anymore and all the associated resources are freed.
+ *               No further ARDP action is expected/required. Possible error codes:
+ *         AJ_ERR_DISALLOWED - Connection does not exist (efffectively connection record is NULL)
+ *         AJ_ERR_ARDP_DISCONNECTED - ARDP layer issued disconnect based either on outstanding ARDP_Disconnect()
+ *                request or due to invalid response or corrupted data.
+ *         AJ_ERR_ARDP_REMOTE_CONNECTION_RESET - Remote requested disconnect.
+ *
+ */
+static AJ_Status ARDP_Recv(uint8_t* rxBuf, uint16_t len, uint8_t** dataBuf, uint16_t* dataLen, void** rxContext)
 {
 
     AJ_Status status = AJ_OK;
@@ -887,7 +908,7 @@ AJ_Status ARDP_Recv(uint8_t* rxBuf, uint16_t len, uint8_t** dataBuf, uint16_t* d
 
     if ((status != AJ_OK) && (status != AJ_ERR_ARDP_RECV_EXPIRED) && (status != AJ_ERR_ARDP_DISCONNECTING) &&
         (status != AJ_ERR_ARDP_REMOTE_CONNECTION_RESET)) {
-        ARDP_Disconnect(TRUE);
+        AJ_ARDP_Disconnect(TRUE);
     }
 
     if (status != AJ_OK) {
@@ -896,11 +917,11 @@ AJ_Status ARDP_Recv(uint8_t* rxBuf, uint16_t len, uint8_t** dataBuf, uint16_t* d
     return status;
 }
 
-void ARDP_RecvReady(void* rxContext)
+static void RecvReady(void* rxContext)
 {
     ArdpRBuf* rBuf = (ArdpRBuf*) rxContext;
 
-    AJ_InfoPrintf(("ARDP_RecvReady: buf=%p, seq=%u\n", rBuf, rBuf->seq));
+    AJ_InfoPrintf(("RecvReady: buf=%p, seq=%u\n", rBuf, rBuf->seq));
 
     if (rBuf->fcnt != 0) {
         AJ_ASSERT((conn->rcv.LCS + 1) == rBuf->seq);
@@ -914,7 +935,7 @@ void ARDP_RecvReady(void* rxContext)
     conn->rcv.LCS = rBuf->seq;
 }
 
-AJ_Status ARDP_StartMsgSend(uint32_t ttl)
+AJ_Status AJ_ARDP_StartMsgSend(uint32_t ttl)
 {
     if (conn == NULL) {
         return AJ_ERR_DISALLOWED;
@@ -928,7 +949,17 @@ AJ_Status ARDP_StartMsgSend(uint32_t ttl)
     return AJ_OK;
 }
 
-AJ_Status ARDP_Send(uint8_t* txBuf, uint16_t len)
+/*
+ *       Send is a synchronous send. The data being sent are buffered at the protocol
+ *       level.
+ *       Returns error code:
+ *         AJ_OK - all is good
+ *         AJ_ERR_ARDP_TTL_EXPIRED - Discard the message that is currently being marshalled.
+ *         AJ_ERR_ARDP_BACKPRESSURE - Send window does not allow immediate transmission.
+ *         AJ_ERR_DISALLOWED - Connection does not exist (efffectively connection record is NULL)
+ *
+ */
+static AJ_Status ARDP_Send(uint8_t* txBuf, uint16_t len)
 {
     uint16_t pending;
     ArdpSBuf* sBuf;
@@ -1060,7 +1091,7 @@ AJ_Status ARDP_Send(uint8_t* txBuf, uint16_t len)
     return AJ_OK;
 }
 
-AJ_Status ARDP_Connect(uint8_t* data, uint16_t dataLen, void* context)
+AJ_Status AJ_ARDP_Connect(uint8_t* data, uint16_t dataLen, void* context)
 {
     AJ_Status status;
 
@@ -1089,7 +1120,7 @@ AJ_Status ARDP_Connect(uint8_t* data, uint16_t dataLen, void* context)
     return status;
 }
 
-AJ_Status ARDP_Disconnect(uint8_t forced)
+AJ_Status AJ_ARDP_Disconnect(uint8_t forced)
 {
     if (conn != NULL) {
         AJ_WarnPrintf(("ARDP_Disconnect\n"));
@@ -1193,7 +1224,8 @@ AJ_Status AJ_ARDP_Recv(AJ_IOBuffer* rxBuf, uint32_t len, uint32_t timeout)
             }
 
             AJ_InfoPrintf(("AJ_ARDP_Recv:ready\n"));
-            ARDP_RecvReady(rbuf);
+
+            RecvReady(rbuf);
 
             len -= rx;
 
@@ -1279,7 +1311,9 @@ AJ_Status AJ_ARDP_Recv(AJ_IOBuffer* rxBuf, uint32_t len, uint32_t timeout)
                             memset(&UDP_Recv_State, 0, sizeof(UDP_Recv_State));
                         }
                         AJ_InfoPrintf(("AJ_ARDP_Recv: ready to release RCV\n"));
-                        ARDP_RecvReady(rbuf);
+
+                        RecvReady(rbuf);
+
                     } else if (rx != 0) {
                         AJ_InfoPrintf(("AJ_ARDP_Recv: we don't have enough room!\n"));
                         // else we don't have enough room!

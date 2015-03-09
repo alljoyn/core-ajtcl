@@ -42,7 +42,10 @@
 #include "aj_util.h"
 #include "aj_connect.h"
 #include "aj_debug.h"
+
+#ifdef AJ_ARDP
 #include "aj_ardp.h"
+#endif
 
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
@@ -328,7 +331,7 @@ void AJ_Net_Disconnect(AJ_NetSocket* netSock)
         netContext.tcpSock = INVALID_SOCKET;
     } else if (netContext.udpSock != INVALID_SOCKET) {
 #ifdef AJ_ARDP
-        ARDP_Disconnect(TRUE);
+        AJ_ARDP_Disconnect(TRUE);
         AJ_ARDP_SetNetSock(NULL);
 #endif
         shutdown(netContext.udpSock, 0);
@@ -1091,7 +1094,7 @@ static AJ_Status AJ_Net_ARDP_Connect(AJ_BusAttachment* bus, const AJ_Service* se
     socklen_t addrSize;
     DWORD ret;
 
-    ARDP_InitFunctions(AJ_ARDP_UDP_Recv, AJ_ARDP_UDP_Send);
+    AJ_ARDP_InitFunctions(AJ_ARDP_UDP_Recv, AJ_ARDP_UDP_Send);
 
     // otherwise backpressure is guaranteed!
     assert(sizeof(txData) <= UDP_SEGMAX * (UDP_SEGBMAX - ARDP_HEADER_SIZE - UDP_HEADER_SIZE));
@@ -1150,7 +1153,7 @@ static AJ_Status AJ_Net_ARDP_Connect(AJ_BusAttachment* bus, const AJ_Service* se
         wsaOverlapped.hEvent = INVALID_HANDLE_VALUE;
     }
 
-    status = AJ_ARDP_Connect(bus, &netContext, service);
+    status = AJ_ARDP_UDP_Connect(bus, &netContext, service);
     if (status != AJ_OK) {
         goto ConnectError;
     }

@@ -86,7 +86,7 @@ AJ_Status AJ_Connect(AJ_BusAttachment* bus, const char* serviceName, uint32_t ti
 
 
 AJ_EXPORT
-AJ_Status AJ_ARDP_Connect(AJ_BusAttachment* bus, void* context, const AJ_Service* service);
+AJ_Status AJ_ARDP_UDP_Connect(AJ_BusAttachment* bus, void* context, const AJ_Service* service);
 
 /**
  * Find a daemon, connect to it and then authenticate.

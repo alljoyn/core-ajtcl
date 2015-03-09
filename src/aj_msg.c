@@ -40,6 +40,11 @@
 #include "aj_bus.h"
 #include "aj_debug.h"
 #include "aj_config.h"
+
+#ifdef AJ_ARDP
+#include "aj_ardp.h"
+#endif
+
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
  * (usually in debugger).
@@ -416,8 +421,11 @@ static AJ_Status LoadBytes(AJ_IOBuffer* ioBuf, uint16_t numBytes, uint8_t pad)
         AJ_ErrPrintf(("LoadBytes(): AJ_ERR_RESOURCES\n"));
         return AJ_ERR_RESOURCES;
     }
+
+    AJ_InfoPrintf(("LoadBytes(): Start loop numBytes=%u, ioBufBytes=%u\n", numBytes, AJ_IO_BUF_AVAIL(ioBuf)));
     while (AJ_IO_BUF_AVAIL(ioBuf) < numBytes) {
         //#pragma calls = AJ_Net_Recv
+        AJ_InfoPrintf(("LoadBytes(): numBytes=%u, ioBufBytes=%u\n", numBytes, AJ_IO_BUF_AVAIL(ioBuf)));
         status = ioBuf->recv(ioBuf, numBytes - AJ_IO_BUF_AVAIL(ioBuf), UNMARSHAL_TIMEOUT);
         if (status != AJ_OK) {
             /*
@@ -902,6 +910,8 @@ AJ_Status AJ_UnmarshalMsg(AJ_BusAttachment* bus, AJ_Message* msg, uint32_t timeo
     uint32_t hdrPad;
     AJ_Time msgTimer;
 
+    AJ_InfoPrintf(("AJ_UnmarshalMsg()\n"));
+
     AJ_InitTimer(&msgTimer);
     /*
      * Clear message then set the bus
@@ -923,8 +933,10 @@ AJ_Status AJ_UnmarshalMsg(AJ_BusAttachment* bus, AJ_Message* msg, uint32_t timeo
     /*
      * Load the message header
      */
+    AJ_InfoPrintf(("AJ_UnmarshalMsg(): start loop ioBufBytes=%u\n", AJ_IO_BUF_AVAIL(ioBuf)));
     while (AJ_IO_BUF_AVAIL(ioBuf) < sizeof(AJ_MsgHeader)) {
         //#pragma calls = AJ_Net_Recv
+        AJ_InfoPrintf(("AJ_UnmarshalMsg(): ioBufBytes=%u\n", AJ_IO_BUF_AVAIL(ioBuf)));
         status = ioBuf->recv(ioBuf, sizeof(AJ_MsgHeader) - AJ_IO_BUF_AVAIL(ioBuf), timeout);
         if (status != AJ_OK) {
             if (status == AJ_ERR_TIMEOUT) {
@@ -1695,7 +1707,8 @@ static AJ_Status MarshalMsg(AJ_Message* msg, uint8_t msgType, uint32_t msgId, ui
     uint8_t secure = FALSE;
 
 #ifdef AJ_ARDP
-    ARDP_StartMsgSend(msg->ttl);
+    status = AJ_ARDP_StartMsgSend(msg->ttl);
+    //TODO: check the status value (AJ_OK, AJ_ERR_ARDP_TTL_EXPIRED, or AJ_ERR_ARDP_INVALID_CONNECTION)
 #endif
 
     /*

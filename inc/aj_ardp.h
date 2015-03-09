@@ -74,7 +74,7 @@ extern "C" {
  *         AJ_OK - all is good, connection transitioned to SYN_SENT state;
  *         fail error code otherwise
  */
-AJ_Status ARDP_Connect(uint8_t* data, uint16_t dataLen, void* context);
+AJ_Status AJ_ARDP_Connect(uint8_t* data, uint16_t dataLen, void* context);
 
 /*
  *      Disconnect is used to actively close the connection.
@@ -87,7 +87,7 @@ AJ_Status ARDP_Connect(uint8_t* data, uint16_t dataLen, void* context);
  *                  when  there are data to read from the socket and wait for either
  *                  AJ_ERR_ARDP_DISCONNECTED or AJ_ERR_ARDP_REMOTE_CONNECTION_RESET to be retruned.
  */
-AJ_Status ARDP_Disconnect(uint8_t forced);
+AJ_Status AJ_ARDP_Disconnect(uint8_t forced);
 
 /*
  *      StartMsgSend informs the ARDP protocol that next chunk of data to be sent
@@ -97,44 +97,7 @@ AJ_Status ARDP_Disconnect(uint8_t forced);
  *         AJ_ERR_ARDP_TTL_EXPIRED - Discard this message. TTL is less than 1/2 estimated roundtrip time.
  *         AJ_ERR_ARDP_INVALID_CONNECTION - Connection does not exist (efffectively connection record is NULL)
  */
-AJ_Status ARDP_StartMsgSend(uint32_t ttl);
-
-/*
- *       Send is a synchronous send. The data being sent is buffered at the protocol
- *       level.
- *       Returns error code:
- *         AJ_OK - all is good
- *         AJ_ERR_ARDP_TTL_EXPIRED - Discard the message that is currently being marshalled.
- *         AJ_ERR_ARDP_BACKPRESSURE - Send window does not allow immediate transmission.
- *         AJ_ERR_DISALLOWED - Connection does not exist (efffectively connection record is NULL)
- *
- */
-AJ_Status ARDP_Send(uint8_t* txBuf, uint16_t len);
-
-/*
- *       Recv is a main state machine where the data is being read, buffered
- *       timers are checked.
- *         rxBuf - 9IN) buffer from where to read incoming (socket) data.
- *         len   - (IN) socket buffer size
- *         dataBuf - (OUT) pointer to received data payload.
- *         dataLen - (OUT) length of data payload. Zero, if no data has been received.
- *         context - (OUT) pointer to ARDP Recv context (to be retruned with ARDP_RecvReady() call)
- *       Returns error code:
- *         AJ_OK - all is good
- *         AJ_ERR_ARDP_TTL_EXPIRED - Discard the message that is currently being unMarshalled.
- *                                   If dataLen is not zero, the payload is associated with new
- *                                   message and the old one needs to be discarded.
- *         Note: If the returned status is anything but AJ_OK or AJ_ERR_ARDP_TTL_EXPIRED,
- *               the connection does not exist anymore and all the associated resources are freed.
- *               No further ARDP action is expected/required. Possible error codes:
- *         AJ_ERR_DISALLOWED - Connection does not exist (efffectively connection record is NULL)
- *         AJ_ERR_ARDP_DISCONNECTED - ARDP layer issued disconnect based either on outstanding ARDP_Disconnect()
- *                request or due to invalid response or corrupted data.
- *         AJ_ERR_ARDP_REMOTE_CONNECTION_RESET - Remote requested disconnect.
- *
- */
-AJ_Status ARDP_Recv(uint8_t* rxBuf, uint16_t len, uint8_t** dataBuf, uint16_t* dataLen, void** context);
-
+AJ_Status AJ_ARDP_StartMsgSend(uint32_t ttl);
 
 struct _AJ_IOBuffer;
 struct _AJ_NetSocket;
@@ -157,18 +120,11 @@ AJ_Status AJ_ARDP_Recv(struct _AJ_IOBuffer* rxBuf, uint32_t len, uint32_t timeou
  */
 void AJ_ARDP_SetNetSock(struct _AJ_NetSocket* net_sock);
 
-/*
- *       RecvReady informs ARDP layer that the received data buffer that was passed
- *       in ARDP_Recv() has been consumed.
- *         context - (IN) pointer to ARDP Recv context (should correspond the one in ARDP_Recv() call).
- */
-void ARDP_RecvReady(void* context);
-
 typedef AJ_Status (*ReceiveFunction)(void* context, uint8_t* buf, uint32_t len, uint32_t timeout, uint32_t* recved);
 
 typedef AJ_Status (*SendFunction)(void* context, uint8_t* buf, size_t len, size_t* sent);
 
-void ARDP_InitFunctions(ReceiveFunction recv, SendFunction send);
+void AJ_ARDP_InitFunctions(ReceiveFunction recv, SendFunction send);
 
 #ifdef __cplusplus
 }
