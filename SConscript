@@ -220,6 +220,16 @@ elif env['TARG'] == 'bsp':
     # options directly to the compiler/linker 
     env['MAXLINELENGTH'] = 10000
     
+    # Debug/Release Variants
+    if env['VARIANT'] == 'debug':
+        env.Append(CFLAGS=['-g3'])
+        env.Append(CFLAGS=['-ggdb'])
+        env.Append(CFLAGS=['-O0'])
+    else:
+        env.Append(CPPDEFINES=['NDEBUG'])
+        env.Append(CFLAGS=['-Os'])
+        env.Append(LINKFLAGS=['-s'])
+
     if env['AJWSL'] != 'frdm':
         # Set the compiler flags
         env['CFLAGS'] = ['-mthumb', '-fdata-sections', '-ffunction-sections', '-mlong-calls',
@@ -276,8 +286,6 @@ elif env['TARG'] == 'bsp':
         # Add platform dependent defines
         env.Append(CPPDEFINES = ['__SAM3X8E__', 'ARM_MATH_CM3=true', 'BOARD=ARDUINO_DUE_X', 'printf=iprintf', 'AJ_HEAP4'])
 
-        if env['VARIANT'] == 'release':
-            env.Append(CPPDEFINES = ['NDEBUG'])
         # Add platform dependent include paths
         env['CPPPATH'] = [os.getcwd() + '/bsp', os.getcwd() + '/bsp/due', os.getcwd() + '/bsp/due/config',           env['FREE_RTOS_DIR'] + '/Source/include', os.getcwd() + '/RTOS/FreeRTOS',
                           env['FREE_RTOS_DIR'] + '/Source/portable/GCC/ARM_CM3',  env['ATMEL_DIR'] + '/common/boards',

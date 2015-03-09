@@ -974,7 +974,7 @@ AJ_Status AJ_Discover(const char* prefix, AJ_Service* service, uint32_t timeout)
     AJ_MCastSocket sock;
     AJ_GUID guid;
 
-    AJ_InfoPrintf(("AJ_Discover(prefix=\"%s\", service=0x%p, timeout=%d.)\n", prefix, service, timeout));
+    AJ_InfoPrintf(("AJ_Discover(prefix=\"%s\", service=0x%p, timeout=%d)\n", prefix, service, timeout));
     memset(service, 0, sizeof(AJ_Service));
 
     /*
@@ -1021,7 +1021,7 @@ AJ_Status AJ_Discover(const char* prefix, AJ_Service* service, uint32_t timeout)
         status = AJ_GetLocalGUID(&guid);
         if (status != AJ_OK) {
             AJ_ErrPrintf(("AJ_Discover(): No GUID!\n"));
-            return status;
+            goto _Exit;
         }
 
         AJ_IO_BUF_RESET(&sock.tx);

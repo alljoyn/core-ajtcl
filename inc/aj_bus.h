@@ -103,17 +103,18 @@ const char* AJ_GetUniqueName(AJ_BusAttachment* bus);
 AJ_EXPORT
 AJ_Status AJ_BusRequestName(AJ_BusAttachment* bus, const char* name, uint32_t flags);
 
-#define AJ_TRANSPORT_NONE      0x0000    /**< no transports */
-#define AJ_TRANSPORT_LOCAL     0x0001    /**< Local (same device) transport */
-#define AJ_TRANSPORT_TCP       0x0004    /**< TCP/IP transport */
-#define AJ_TRANSPORT_UDP       0x0100    /**< UDP/IP transport */
-#define AJ_TRANSPORT_IP        (AJ_TRANSPORT_TCP | AJ_TRANSPORT_UDP) /**< Any IP-based transport */
-#define AJ_TRANSPORT_ANY       (AJ_TRANSPORT_LOCAL | AJ_TRANSPORT_IP) /**< ANY non-experimental transport */
+#define AJ_TRANSPORT_NONE         0x0000    /**< no transports */
+#define AJ_TRANSPORT_LOCAL        0x0001    /**< Local (same device) transport */
+#define AJ_TRANSPORT_TCP          0x0004    /**< TCP/IP transport */
+#define AJ_TRANSPORT_UDP          0x0100    /**< UDP/IP transport */
+#define AJ_TRANSPORT_EXPERIMENTAL 0x8000    /**< Placeholder for an experimental transport */
+#define AJ_TRANSPORT_IP           (AJ_TRANSPORT_TCP | AJ_TRANSPORT_UDP) /**< Any IP-based transport */
+#define AJ_TRANSPORT_ANY          (AJ_TRANSPORT_LOCAL | AJ_TRANSPORT_IP) /**< ANY non-experimental transport */
 
-#define AJ_TRANSPORT_BLUETOOTH (attempted_use_of_deprecated_definition = 0x0002)  /**< Bluetooth transport */
-#define AJ_TRANSPORT_WLAN      (attempted_use_of_deprecated_definition = 0x0004)  /**< Wireless local-area network transport */
-#define AJ_TRANSPORT_WWAN      (attempted_use_of_deprecated_definition = 0x0008)  /**< Wireless wide-area network transport */
-#define AJ_TRANSPORT_LAN       (attempted_use_of_deprecated_definition = 0x0010)  /**< Wired local-area network transport */
+#define AJ_TRANSPORT_BLUETOOTH    (attempted_use_of_deprecated_definition = 0x0002)  /**< Bluetooth transport */
+#define AJ_TRANSPORT_WLAN         (attempted_use_of_deprecated_definition = 0x0004)  /**< Wireless local-area network transport */
+#define AJ_TRANSPORT_WWAN         (attempted_use_of_deprecated_definition = 0x0008)  /**< Wireless wide-area network transport */
+#define AJ_TRANSPORT_LAN          (attempted_use_of_deprecated_definition = 0x0010)  /**< Wired local-area network transport */
 
 /**
  * Make a method call to release a previously requested well known name.

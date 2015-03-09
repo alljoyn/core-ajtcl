@@ -337,7 +337,6 @@ static AJ_Status PropSetHandler(AJ_Message* replyMsg, uint32_t propId, void* con
     }
 }
 
-#ifdef ANNOUNCE_BASED_DISCOVERY
 #define UUID_LENGTH 16
 #define APP_ID_SIGNATURE "ay"
 
@@ -361,50 +360,86 @@ static AJ_Status MarshalAppId(AJ_Message* msg, const char* appId)
 
 static AJ_Status AboutPropGetter(AJ_Message* reply, const char* language)
 {
-    AJ_Status status;
+    AJ_Status status = AJ_OK;
     AJ_Arg array;
     AJ_GUID theAJ_GUID;
     char machineIdValue[UUID_LENGTH * 2 + 1];
     machineIdValue[UUID_LENGTH * 2] = '\0';
 
-    status = AJ_MarshalContainer(reply, &array, AJ_ARG_ARRAY);
-    if (status == AJ_OK) {
-        status = AJ_GetLocalGUID(&theAJ_GUID);
-        if (status == AJ_OK) {
-            AJ_GUID_ToString(&theAJ_GUID, machineIdValue, UUID_LENGTH * 2 + 1);
-        }
-        if (status == AJ_OK) {
-            status = MarshalAppId(reply, &machineIdValue[0]);
-        }
-        if (status == AJ_OK) {
-            status = AJ_MarshalArgs(reply, "{sv}", "AppName", "s", "svclite");
-        }
-        if (status == AJ_OK) {
-            status = AJ_MarshalArgs(reply, "{sv}", "DeviceId", "s", machineIdValue);
-        }
-        if (status == AJ_OK) {
-            status = AJ_MarshalArgs(reply, "{sv}", "DeviceName", "s", "Tester");
-        }
-        if (status == AJ_OK) {
-            status = AJ_MarshalArgs(reply, "{sv}", "Manufacturer", "s", "QCE");
-        }
-        if (status == AJ_OK) {
-            status = AJ_MarshalArgs(reply, "{sv}", "ModelNumber", "s", "1.0");
-        }
-        if (status == AJ_OK) {
-            status = AJ_MarshalArgs(reply, "{sv}", "DefaultLanguage", "s", "en");
-        }
-        if (status == AJ_OK) {
-            status = AJ_MarshalArgs(reply, "{sv}", "AJSoftwareVersion", "s", AJ_GetVersion());
-        }
-    }
-    if (status == AJ_OK) {
-        status = AJ_MarshalCloseContainer(reply, &array);
+    if ((language != NULL) && (0 != strcmp(language, "en")) && (0 != strcmp(language, ""))) {
+        /* the language supplied was not supported */
+        status = AJ_ERR_NO_MATCH;
     }
 
+    if (status == AJ_OK) {
+        status = AJ_MarshalContainer(reply, &array, AJ_ARG_ARRAY);
+        if (status == AJ_OK) {
+            status = AJ_GetLocalGUID(&theAJ_GUID);
+            if (status == AJ_OK) {
+                AJ_GUID_ToString(&theAJ_GUID, machineIdValue, UUID_LENGTH * 2 + 1);
+            }
+            if (status == AJ_OK) {
+                status = MarshalAppId(reply, &machineIdValue[0]);
+            }
+            if (status == AJ_OK) {
+                status = AJ_MarshalArgs(reply, "{sv}", "AppName", "s", "svclite");
+            }
+            if (status == AJ_OK) {
+                status = AJ_MarshalArgs(reply, "{sv}", "DeviceId", "s", machineIdValue);
+            }
+            if (status == AJ_OK) {
+                status = AJ_MarshalArgs(reply, "{sv}", "DeviceName", "s", "Tester");
+            }
+            if (status == AJ_OK) {
+                status = AJ_MarshalArgs(reply, "{sv}", "Manufacturer", "s", "QCE");
+            }
+            if (status == AJ_OK) {
+                status = AJ_MarshalArgs(reply, "{sv}", "ModelNumber", "s", "1.0");
+            }
+            //SupportedLanguages
+            if (status == AJ_OK) {
+                AJ_Arg dict;
+                AJ_Arg languageListArray;
+                status = AJ_MarshalContainer(reply, &dict, AJ_ARG_DICT_ENTRY);
+                if (status == AJ_OK) {
+                    status = AJ_MarshalArgs(reply, "s", "SupportedLanguages");
+                }
+                if (status == AJ_OK) {
+                    status = AJ_MarshalVariant(reply, "as");
+                }
+                if (status == AJ_OK) {
+                    status = AJ_MarshalContainer(reply, &languageListArray, AJ_ARG_ARRAY);
+                }
+                if (status == AJ_OK) {
+                    status = AJ_MarshalArgs(reply, "s", "en");
+                }
+                if (status == AJ_OK) {
+                    status = AJ_MarshalCloseContainer(reply, &languageListArray);
+                }
+                if (status == AJ_OK) {
+                    status = AJ_MarshalCloseContainer(reply, &dict);
+                }
+
+            }
+            if (status == AJ_OK) {
+                status = AJ_MarshalArgs(reply, "{sv}", "Description", "s", "svclite test app");
+            }
+            if (status == AJ_OK) {
+                status = AJ_MarshalArgs(reply, "{sv}", "DefaultLanguage", "s", "en");
+            }
+            if (status == AJ_OK) {
+                status = AJ_MarshalArgs(reply, "{sv}", "SoftwareVersion", "s", AJ_GetVersion());
+            }
+            if (status == AJ_OK) {
+                status = AJ_MarshalArgs(reply, "{sv}", "AJSoftwareVersion", "s", AJ_GetVersion());
+            }
+        }
+        if (status == AJ_OK) {
+            status = AJ_MarshalCloseContainer(reply, &array);
+        }
+    }
     return status;
 }
-#endif
 
 uint32_t MyBusAuthPwdCB(uint8_t* buf, uint32_t bufLen)
 {
@@ -433,9 +468,7 @@ int AJ_Main()
 
     AJ_PrintXML(AppObjects);
     AJ_RegisterObjects(AppObjects, NULL);
-#ifdef ANNOUNCE_BASED_DISCOVERY
     AJ_AboutRegisterPropStoreGetter(AboutPropGetter);
-#endif
 
     SetBusAuthPwdCallback(MyBusAuthPwdCB);
     while (TRUE) {
