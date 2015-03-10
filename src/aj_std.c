@@ -130,6 +130,7 @@ static const char* const BusIface[] = {
     "!SessionLostWithReason >u >u",
     "?Ping <s <u >u",
     "?SetIdleTimeouts <u <u >u >u >u",
+    "?SimpleHello <s <u >s >s >u",
     NULL
 };
 

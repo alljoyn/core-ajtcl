@@ -61,5 +61,7 @@ void AJ_Initialize(void)
          * Clear the Routing Node black list
          */
         AJ_InitRoutingNodeBlacklist();
+
+        AJ_InitRoutingNodeResponselist();
     }
 }

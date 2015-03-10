@@ -74,6 +74,7 @@ typedef struct _AJ_BusAttachment {
     AJ_AuthListenerFunc authListenerCallback;  /**< Callback for obtaining passwords */
     uint32_t* suites;                       /**< Supported cipher suites */
     size_t numsuites;                       /**< Number of supported cipher suites */
+    uint8_t isAuthenticated;                /**< Has authentication already occured? */
 } AJ_BusAttachment;
 
 /**

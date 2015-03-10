@@ -23,6 +23,9 @@
  */
 #define AJ_MODULE SVCLITE
 
+#define NO_SECURITY
+#define ANNOUNCE_BASED_DISCOVERY
+
 #ifndef NO_SECURITY
 #define SECURE_INTERFACE
 #endif

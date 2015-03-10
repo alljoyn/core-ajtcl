@@ -36,7 +36,7 @@ void _AJ_DumpBytes(const char* tag, const uint8_t* data, uint32_t len)
     char ascii[AJ_DUMP_BYTE_SIZE + 1];
 
     if (tag) {
-        AJ_AlwaysPrintf(("%s:\n", tag));
+        AJ_AlwaysPrintf(("%s: (%u)\n", tag, len));
     }
     ascii[AJ_DUMP_BYTE_SIZE] = '\0';
     for (i = 0; i < len; i += AJ_DUMP_BYTE_SIZE) {
@@ -197,6 +197,23 @@ const char* AJ_StatusText(AJ_Status status)
         AJ_CASE(AJ_ERR_OLD_VERSION);
         AJ_CASE(AJ_ERR_NVRAM_READ);
         AJ_CASE(AJ_ERR_NVRAM_WRITE);
+
+        AJ_CASE(AJ_ERR_WOULD_BLOCK);
+        AJ_CASE(AJ_ERR_ARDP_DISCONNECTING);
+        AJ_CASE(AJ_ERR_ARDP_DISCONNECTED);
+        AJ_CASE(AJ_ERR_ARDP_INVALID_CONNECTION);
+        AJ_CASE(AJ_ERR_ARDP_REMOTE_CONNECTION_RESET);
+        AJ_CASE(AJ_ERR_ARDP_INVALID_RESPONSE);
+        AJ_CASE(AJ_ERR_ARDP_INVALID_STATE);
+        AJ_CASE(AJ_ERR_ARDP_PERSIST_TIMEOUT);
+        AJ_CASE(AJ_ERR_ARDP_PROBE_TIMEOUT);
+        AJ_CASE(AJ_ERR_ARDP_BACKPRESSURE);
+        AJ_CASE(AJ_ERR_ARDP_SEND_EXPIRED);
+        AJ_CASE(AJ_ERR_ARDP_RECV_EXPIRED);
+        AJ_CASE(AJ_ERR_ARDP_VERSION_NOT_SUPPORTED);
+        AJ_CASE(AJ_ERR_ARDP_WRITE_BLOCKED);
+        AJ_CASE(AJ_ERR_INVALID_CONFIG);
+        AJ_CASE(AJ_ERR_OS_ERROR);
 
     default:
         return "<unknown>";
