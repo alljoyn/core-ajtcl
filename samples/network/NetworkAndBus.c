@@ -106,7 +106,7 @@ static AJ_Status ConnectToBus(AJ_BusAttachment* bus)
     service.ipv4port = 9955;
     service.ipv4 = 0x6501A8C0; // 192.168.1.101
     service.addrTypes = AJ_ADDR_IPV4;
-    status = AJ_Discover(serviceName, &service, timeout);
+    status = AJ_Discover(serviceName, &service, timeout, AJ_SELECTION_TIMEOUT);
     if (status != AJ_OK) {
         AJ_InfoPrintf(("AJ_Connect(): AJ_Discover status=%s\n", AJ_StatusText(status)));
         goto ExitConnect;
@@ -119,7 +119,7 @@ static AJ_Status ConnectToBus(AJ_BusAttachment* bus)
         AJ_InfoPrintf(("AJ_Connect(): AJ_Serial_Up status=%s\n", AJ_StatusText(status)));
     }
 #else
-    status = AJ_Discover(serviceName, &service, timeout);
+    status = AJ_Discover(serviceName, &service, timeout, AJ_SELECTION_TIMEOUT);
     if (status != AJ_OK) {
         AJ_InfoPrintf(("AJ_Connect(): AJ_Discover status=%s\n", AJ_StatusText(status)));
         goto ExitConnect;

@@ -360,6 +360,10 @@ static AJ_Status ComposeMDnsReq(AJ_IOBuffer* txBuf, const char* prefix, AJ_GUID*
         0x6e, 0x5f, 0x31, 0x3d                                 // n_1=
     };
 
+    static uint8_t sendmatchonly[] = {                          // m=1
+        0x03, 0x6d, 0x3d, 0x31
+    };
+
     /*
      * Additional record: sender-info.<guid>.local
      */
@@ -408,7 +412,7 @@ static AJ_Status ComposeMDnsReq(AJ_IOBuffer* txBuf, const char* prefix, AJ_GUID*
     memcpy(pkt, local, sizeof(local));
     pkt += sizeof(local);
 
-    dataLength = sizeof(txtvers) + 1 + sizeof(nameone) + strlen(prefix) + 1;
+    dataLength = sizeof(txtvers) + 1 + sizeof(nameone) + strlen(prefix) + 1 + sizeof(sendmatchonly);
     *pkt++ = (uint8_t) (dataLength >> 8);
     *pkt++ = (uint8_t) (dataLength & 0xFF);
 
@@ -425,6 +429,8 @@ static AJ_Status ComposeMDnsReq(AJ_IOBuffer* txBuf, const char* prefix, AJ_GUID*
     memcpy(pkt, prefix, strlen(prefix));
     pkt += strlen(prefix);
     *pkt++ = '*';
+    memcpy(pkt, sendmatchonly, sizeof(sendmatchonly));
+    pkt += sizeof(sendmatchonly);
 
     /*
      * Append sender-info TXT record static fields
@@ -789,6 +795,8 @@ static AJ_Status ParseMDNSResp(AJ_IOBuffer* rxBuf, const char* prefix, AJ_Servic
     uint8_t bus_a_record = 0;
     uint16_t service_port_tcp = 0;
     uint16_t service_port_udp = 0;
+    uint16_t service_priority = 0;
+    uint32_t protocol_version;
     uint8_t bus_addr[3 * 4 + 3 + 1] = { 0 };
     uint8_t service_target[256] = { 0 };
     MDNSResourceRecord r;
@@ -854,6 +862,7 @@ static AJ_Status ParseMDNSResp(AJ_IOBuffer* rxBuf, const char* prefix, AJ_Servic
             memset(service_target, 0, 256);
             memcpy(service_target, r.rdata.srvRData.target.name, 256);
             service_port_tcp = r.rdata.srvRData.port;
+            service_priority = r.rdata.srvRData.priority;
         }
 
         // We ignore the sender's "guid." (32 chars + 1 char for the dot) in the <guid>._alljoyn._udp.local domain name.
@@ -862,6 +871,7 @@ static AJ_Status ParseMDNSResp(AJ_IOBuffer* rxBuf, const char* prefix, AJ_Servic
             memset(service_target, 0, 256);
             memcpy(service_target, r.rdata.srvRData.target.name, 256);
             service_port_udp = r.rdata.srvRData.port;
+            service_priority = r.rdata.srvRData.priority;
         }
     }
 
@@ -907,9 +917,10 @@ static AJ_Status ParseMDNSResp(AJ_IOBuffer* rxBuf, const char* prefix, AJ_Servic
             if (!memcmp(r.rrDomainName.name, "sender-info.", 12) && !memcmp(r.rrDomainName.name + 12, service_target, 38)) {
                 AJ_InfoPrintf(("Found sender-info.* TXT record with full name: %s.\n", r.rrDomainName.name));
                 // If the sender-info TXT record included the protocol version
+                protocol_version = 0;
                 if (r.rdata.textRData.BusNodeProtocolVersion[0]) {
                     // Ensure that it greater than or equal to the minimum allowed
-                    int protocol_version = atoi(r.rdata.textRData.BusNodeProtocolVersion);
+                    protocol_version = atoi(r.rdata.textRData.BusNodeProtocolVersion);
                     if (protocol_version >= AJ_GetMinProtoVersion()) {
                         bus_protocol = 1;
                     }
@@ -917,6 +928,7 @@ static AJ_Status ParseMDNSResp(AJ_IOBuffer* rxBuf, const char* prefix, AJ_Servic
                     // Only protocol version 10 does not send the protocol version
                     // Ensure this is greater than or equal to the minimum allowed
                     if (10 >= AJ_GetMinProtoVersion()) {
+                        protocol_version = 10;
                         bus_protocol = 1;
                     }
                 }
@@ -942,13 +954,18 @@ static AJ_Status ParseMDNSResp(AJ_IOBuffer* rxBuf, const char* prefix, AJ_Servic
             service->ipv4port = service_port_tcp;
             memcpy(&service->ipv4, bus_addr, sizeof(service->ipv4));
             service->addrTypes |= AJ_ADDR_TCP4;
+            service->pv = protocol_version;
+            service->priority = service_priority;
         }
 
         if (alljoyn_ptr_record_udp && service_port_udp) {
             service->ipv4portUdp = service_port_udp;
             memcpy(&service->ipv4Udp, bus_addr, sizeof(service->ipv4Udp));
             service->addrTypes |= AJ_ADDR_UDP4;
+            service->pv = protocol_version;
+            service->priority = service_priority;
         }
+
         return AJ_OK;
     } else {
         return AJ_ERR_NO_MATCH;
@@ -961,21 +978,26 @@ static AJ_Status ParseMDNSResp(AJ_IOBuffer* rxBuf, const char* prefix, AJ_Servic
 
 static uint32_t searchId = 0;
 
-AJ_Status AJ_Discover(const char* prefix, AJ_Service* service, uint32_t timeout)
+AJ_Status AJ_Discover(const char* prefix, AJ_Service* service, uint32_t timeout, uint32_t selectionTimeout)
 {
     AJ_Status status;
     uint32_t burstCount;
     uint32_t interval = AJ_INITIAL_INTERVAL;
     uint32_t queries = 0;
     int32_t discover = (int32_t) timeout;
+    int32_t selection = (int32_t) selectionTimeout;
     int32_t listen;
     AJ_Time discoverTimer;
     AJ_Time listenTimer;
+    AJ_Time selectionTimer;
     AJ_MCastSocket sock;
     AJ_GUID guid;
 
-    AJ_InfoPrintf(("AJ_Discover(prefix=\"%s\", service=0x%p, timeout=%d)\n", prefix, service, timeout));
-    memset(service, 0, sizeof(AJ_Service));
+    if (selectionTimeout > timeout) {
+        selectionTimeout = timeout;
+        selection = (int32_t) selectionTimeout;
+    }
+    AJ_InfoPrintf(("AJ_Discover(prefix=\"%s\", service=0x%p, timeout=%d, selection timeout=%d.)\n", prefix, service, timeout, selectionTimeout));
 
     /*
      * Enable multicast I/O for the discovery packets.
@@ -990,6 +1012,8 @@ AJ_Status AJ_Discover(const char* prefix, AJ_Service* service, uint32_t timeout)
      * Perform discovery until node discovered or overall discover timeout reached
      */
     burstCount = 0;
+    AJ_InitTimer(&selectionTimer);
+    AJ_InfoPrintf(("Selection timer started\n"));
     AJ_InitTimer(&discoverTimer);
     while (discover > 0) {
         burstCount++;
@@ -1060,6 +1084,10 @@ AJ_Status AJ_Discover(const char* prefix, AJ_Service* service, uint32_t timeout)
         /*
          * Do not listen longer than the overall discover timeout
          */
+        if (listen > selection) {
+            listen = selection;
+        }
+
         if (listen > discover) {
             listen = discover;
         }
@@ -1080,13 +1108,14 @@ AJ_Status AJ_Discover(const char* prefix, AJ_Service* service, uint32_t timeout)
                 }
             } else {
                 if (sock.rx.flags & AJ_IO_BUF_MDNS) {
+                    memset(service, 0, sizeof(AJ_Service));
                     status = ParseMDNSResp(&sock.rx, prefix, service);
                     if (status == AJ_OK) {
                         AJ_InfoPrintf(("AJ_Discover(): mDNS discovered \"%s\"\n", prefix));
 
                         // skip blacklisted addresses!
                         if (!AJ_IsRoutingNodeBlacklisted(service)) {
-                            goto _Exit;
+                            AJ_AddRoutingNodeToResponseList(service);
                         } else {
                             AJ_InfoPrintf(("AJ_Discover(): Skipping blacklisted Routing Node\n"));
                         }
@@ -1100,7 +1129,7 @@ AJ_Status AJ_Discover(const char* prefix, AJ_Service* service, uint32_t timeout)
 
                         // skip blacklisted addresses!
                         if (!AJ_IsRoutingNodeBlacklisted(service)) {
-                            goto _Exit;
+                            AJ_AddRoutingNodeToResponseList(service);
                         } else {
                             AJ_InfoPrintf(("AJ_Discover(): Skipping blacklisted Routing Node\n"));
                         }
@@ -1108,11 +1137,21 @@ AJ_Status AJ_Discover(const char* prefix, AJ_Service* service, uint32_t timeout)
                 }
             }
             listen -= AJ_GetElapsedTime(&listenTimer, FALSE);
+            selection -= AJ_GetElapsedTime(&selectionTimer, FALSE);
+            if (selection < 0 && AJ_GetRoutingNodeResponseListSize() > 0) {
+                break;
+            }
+        }
+        selection -= AJ_GetElapsedTime(&selectionTimer, FALSE);
+        if (selection < 0 && AJ_GetRoutingNodeResponseListSize() > 0) {
+            break;
         }
         discover -= AJ_GetElapsedTime(&discoverTimer, FALSE);
     }
 
 _Exit:
+    memset(service, 0, sizeof(AJ_Service));
+    status = AJ_SelectRoutingNodeFromResponseList(service);
     /*
      * All done with multicast for now
      */
