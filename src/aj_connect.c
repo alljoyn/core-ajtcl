@@ -622,7 +622,7 @@ ExitConnect:
 
 #ifdef AJ_ARDP
 
-AJ_Status AJ_ARDP_UDP_Connect(AJ_BusAttachment* bus, void* context, const AJ_Service* service)
+AJ_Status AJ_ARDP_UDP_Connect(AJ_BusAttachment* bus, void* context, const AJ_Service* service, AJ_NetSocket* netSock)
 {
     AJ_Message hello;
     AJ_GUID localGuid;
@@ -637,7 +637,7 @@ AJ_Status AJ_ARDP_UDP_Connect(AJ_BusAttachment* bus, void* context, const AJ_Ser
     AJ_MarshalArgs(&hello, "su", guid_buf, 10);
     hello.hdr->bodyLen = hello.bodyBytes;
 
-    status = AJ_ARDP_Connect(bus->sock.tx.readPtr, AJ_IO_BUF_AVAIL(&bus->sock.tx), context);
+    status = AJ_ARDP_Connect(bus->sock.tx.readPtr, AJ_IO_BUF_AVAIL(&bus->sock.tx), context, netSock);
     if (status != AJ_OK) {
         return status;
     }

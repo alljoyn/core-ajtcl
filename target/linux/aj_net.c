@@ -1033,7 +1033,6 @@ static AJ_Status AJ_Net_ARDP_Connect(AJ_BusAttachment* bus, const AJ_Service* se
     // otherwise backpressure is guaranteed!
     assert(sizeof(txData) <= UDP_SEGMAX * (UDP_SEGBMAX - ARDP_HEADER_SIZE - UDP_HEADER_SIZE));
 
-    AJ_ARDP_SetNetSock(NULL);
     memset(&addrBuf, 0, sizeof(addrBuf));
 
     interruptFd = eventfd(0, O_NONBLOCK);  // Use O_NONBLOCK instead of EFD_NONBLOCK due to bug in OpenWrt's uCLibc
@@ -1084,16 +1083,13 @@ static AJ_Status AJ_Net_ARDP_Connect(AJ_BusAttachment* bus, const AJ_Service* se
         bus->sock.rx.recv = AJ_ARDP_Recv;
         AJ_IOBufInit(&bus->sock.tx, txData, sizeof(txData), AJ_IO_BUF_TX, &netContext);
         bus->sock.tx.send = AJ_ARDP_Send;
-
-        // for AJ_ARDP_Send
-        AJ_ARDP_SetNetSock(&bus->sock);
     } else {
         AJ_ErrPrintf(("AJ_Net_ARDP_Connect(): Error connecting\n"));
         perror("connect");
         goto ConnectError;
     }
 
-    status = AJ_ARDP_UDP_Connect(bus, &netContext, service);
+    status = AJ_ARDP_UDP_Connect(bus, &netContext, service, &bus->sock);
     if (status != AJ_OK) {
         AJ_Net_ARDP_Disconnect(&bus->sock);
         goto ConnectError;
@@ -1116,14 +1112,11 @@ ConnectError:
 
 static void AJ_Net_ARDP_Disconnect(AJ_NetSocket* netSock)
 {
-    AJ_ARDP_Disconnect(TRUE);
+    AJ_ARDP_Disconnect(FALSE);
 
     close(netContext.udpSock);
     netContext.udpSock = INVALID_SOCKET;
     memset(netSock, 0, sizeof(AJ_NetSocket));
-    AJ_ARDP_SetNetSock(NULL);
 }
-
-
 
 #endif // AJ_ARDP

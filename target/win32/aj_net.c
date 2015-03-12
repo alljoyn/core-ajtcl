@@ -331,8 +331,7 @@ void AJ_Net_Disconnect(AJ_NetSocket* netSock)
         netContext.tcpSock = INVALID_SOCKET;
     } else if (netContext.udpSock != INVALID_SOCKET) {
 #ifdef AJ_ARDP
-        AJ_ARDP_Disconnect(TRUE);
-        AJ_ARDP_SetNetSock(NULL);
+        AJ_ARDP_Disconnect(FALSE);
 #endif
         shutdown(netContext.udpSock, 0);
         closesocket(netContext.udpSock);
@@ -1099,7 +1098,6 @@ static AJ_Status AJ_Net_ARDP_Connect(AJ_BusAttachment* bus, const AJ_Service* se
     // otherwise backpressure is guaranteed!
     assert(sizeof(txData) <= UDP_SEGMAX * (UDP_SEGBMAX - ARDP_HEADER_SIZE - UDP_HEADER_SIZE));
 
-    AJ_ARDP_SetNetSock(NULL);
     memset(&addrBuf, 0, sizeof(addrBuf));
 
     if (service->addrTypes & AJ_ADDR_UDP4) {
@@ -1145,15 +1143,13 @@ static AJ_Status AJ_Net_ARDP_Connect(AJ_BusAttachment* bus, const AJ_Service* se
         AJ_IOBufInit(&bus->sock.tx, txData, sizeof(txData), AJ_IO_BUF_TX, &netContext);
         bus->sock.tx.send = AJ_ARDP_Send;
 
-        AJ_ARDP_SetNetSock(&bus->sock);
-
         sendEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
         recvEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
         interruptEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
         wsaOverlapped.hEvent = INVALID_HANDLE_VALUE;
     }
 
-    status = AJ_ARDP_UDP_Connect(bus, &netContext, service);
+    status = AJ_ARDP_UDP_Connect(bus, &netContext, service, &bus->sock);
     if (status != AJ_OK) {
         goto ConnectError;
     }
@@ -1166,7 +1162,6 @@ ConnectError:
         closesocket(udpSock);
     }
 
-    AJ_ARDP_SetNetSock(NULL);
     return AJ_ERR_CONNECT;
 }
 

@@ -174,7 +174,7 @@ void SendBackConnected()
 TEST_F(ARDPTest, TestSynAck)
 {
     State = Connecting;
-    AJ_Status status = AJ_ARDP_Connect((uint8_t*) TestHelloData, sizeof(TestHelloData), NULL);
+    AJ_Status status = AJ_ARDP_Connect((uint8_t*) TestHelloData, sizeof(TestHelloData), NULL, NULL);
     EXPECT_EQ(AJ_OK, status) << "  Actual Status: " << AJ_StatusText(status);
 
     // simulate an accepted connect request
@@ -183,7 +183,7 @@ TEST_F(ARDPTest, TestSynAck)
     // now maybe do some send and receive
 
     State = Disconnecting;
-    status = AJ_ARDP_Disconnect(TRUE);
+    AJ_ARDP_Disconnect(TRUE);
 }
 
 

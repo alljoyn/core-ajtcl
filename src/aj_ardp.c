@@ -53,8 +53,6 @@ uint8_t dbgARDP = 0;
 #define ARDP_FLAG_SDM  0x0001  /**< Sequenced delivery mode option. Indicates in-order sequence delivery is in force. */
 
 #define ARDP_VERSION_BITS 0xC0   /* Bits 6-7 of FLAGS byte in ARDP segment header*/
-#define ARDP_DISCONNECT_RETRY 1  /* Not configurable */
-#define ARDP_DISCONNECT_RETRY_TIMEOUT 1000  /* Not configurable */
 
 /* Reserved TTL value to indicate that data associated with the message has expired */
 #define ARDP_TTL_EXPIRED    0xffffffff
@@ -213,6 +211,7 @@ struct AJ_ARDP_Syn_Hdr {
  * hosts.
  */
 struct ArdpConnection {
+    AJ_NetSocket* netSock;  /* I/O Buffer management socket */
     ArdpState state;        /* The current sate of the connection */
     struct ArdpSnd snd;     /* Send-side related state information */
     struct ArdpRcv rcv;     /* Receive-side related state information */
@@ -220,16 +219,14 @@ struct ArdpConnection {
     struct ArdpTimer probeTimer;   /* Probe (link timeout) timer */
     struct ArdpTimer ackTimer;     /* Delayed ACK timer */
     struct ArdpTimer persistTimer; /* Persist (frozen window) timer */
-    void* context;
+    void* context;          /* Platform independent UDP socket equivalent */
     uint16_t local;         /* ARDP local port for this connection */
     uint16_t foreign;       /* ARDP foreign port for this connection */
-
     uint32_t rttMean;       /* Smoothed RTT value */
     uint32_t rttMeanVar;    /* RTT variance */
     uint32_t backoff;       /* Backoff factor accounting for retransmits on connection, resets to 1 when receive "good ack" */
     uint32_t rttMeanUnit;   /* Smoothed RTT value per UDP MTU */
     uint8_t rttInit;        /* Flag indicating that the first RTT was measured and SRTT calculation applies */
-    uint8_t trafficJam;     /* "Socket Write Block" indicator */
 };
 
 static struct ArdpConnection* conn = NULL;
@@ -889,10 +886,6 @@ static AJ_Status ARDP_Recv(uint8_t* rxBuf, uint16_t len)
 
     memset(&seg, 0, sizeof(struct ArdpSeg));
 
-    if (conn == NULL) {
-        return AJ_ERR_DISALLOWED;
-    }
-
     status = RecvValidateSegment(rxBuf, len, &seg);
     if (status == AJ_OK) {
         status = ArdpMachine(&seg, rxBuf, len);
@@ -1078,7 +1071,7 @@ static AJ_Status ARDP_Send(uint8_t* txBuf, uint16_t len)
     return AJ_OK;
 }
 
-AJ_Status AJ_ARDP_Connect(uint8_t* data, uint16_t dataLen, void* context)
+AJ_Status AJ_ARDP_Connect(uint8_t* data, uint16_t dataLen, void* context, AJ_NetSocket* netSock)
 {
     AJ_Status status;
 
@@ -1094,6 +1087,7 @@ AJ_Status AJ_ARDP_Connect(uint8_t* data, uint16_t dataLen, void* context)
     conn->snd.buf[0].dataLen = dataLen;
     conn->snd.buf[0].inFlight = 1;
     conn->context = context;
+    conn->netSock = netSock;
 
     status = SendSyn(dataLen);
 
@@ -1107,30 +1101,25 @@ AJ_Status AJ_ARDP_Connect(uint8_t* data, uint16_t dataLen, void* context)
     return status;
 }
 
-AJ_Status AJ_ARDP_Disconnect(uint8_t forced)
+void AJ_ARDP_Disconnect(uint8_t forced)
 {
-    if (conn != NULL) {
-        AJ_WarnPrintf(("ARDP_Disconnect\n"));
-        if ((forced == TRUE) || (conn->snd.pending == 0)) {
-            AJ_WarnPrintf(("ARDP_Disconnect: Send RST\n"));
-            SendHeader(ARDP_FLAG_RST | ARDP_FLAG_ACK | ARDP_FLAG_VER);
-            AJ_Free(conn);
-            conn = NULL;
-        } else {
-            AJ_InfoPrintf(("ARDP_Disconnect: wait for tx queue to drain\n"));
-            conn->state = CLOSE_WAIT;
-            return AJ_ERR_ARDP_DISCONNECTING;
-        }
+    AJ_WarnPrintf(("ARDP Disconnect Request (local)\n"));
+    if (conn == NULL) {
+        return;
     }
 
-    return AJ_OK;
-}
+    if ((forced == FALSE) && (conn->snd.pending != 0)) {
+        AJ_InfoPrintf(("ARDP_Disconnect: wait for tx queue to drain\n"));
+        conn->state = CLOSE_WAIT;
+        /* Block here  to give data retransmits a chance to go through */
+        AJ_ARDP_Recv(&conn->netSock->rx, 0, UDP_DISCONNECT_TIMEOUT);
+    }
 
-static AJ_NetSocket* NetSock = NULL;
+    AJ_WarnPrintf(("ARDP_Disconnect: Send RST\n"));
+    SendHeader(ARDP_FLAG_RST | ARDP_FLAG_ACK | ARDP_FLAG_VER);
 
-void AJ_ARDP_SetNetSock(AJ_NetSocket* net_sock)
-{
-    NetSock = net_sock;
+    AJ_Free(conn);
+    conn = NULL;
 }
 
 AJ_Status AJ_ARDP_Send(AJ_IOBuffer* buf)
@@ -1140,19 +1129,22 @@ AJ_Status AJ_ARDP_Send(AJ_IOBuffer* buf)
 
     AJ_InfoPrintf(("AJ_ARDP_Send(buf=0x%p)\n", buf));
 
+    if (conn == NULL) {
+        return AJ_ERR_DISALLOWED;
+    }
+
     AJ_ASSERT(buf->direction == AJ_IO_BUF_TX);
-    AJ_ASSERT(NetSock != NULL);
 
     if (tx > 0) {
         status = ARDP_Send(buf->readPtr, tx);
 
         /* We essentially block until the backpressure is releived */
-        if (status == AJ_ERR_ARDP_BACKPRESSURE && NetSock != NULL) {
+        if (status == AJ_ERR_ARDP_BACKPRESSURE) {
             do {
                 AJ_InfoPrintf(("AJ_ARDP_Send: dealing with backpressure\n"));
                 // if we can't make room in the send window within a certain amount of time,
                 // assume that the connection has failed
-                status = AJ_ARDP_Recv(&NetSock->rx, 0, UDP_BACKPRESSURE_TIMEOUT);
+                status = AJ_ARDP_Recv(&conn->netSock->rx, 0, UDP_BACKPRESSURE_TIMEOUT);
 
                 if (status != AJ_OK && status != AJ_ERR_TIMEOUT) {
                     // something has gone wrong
@@ -1164,7 +1156,7 @@ AJ_Status AJ_ARDP_Send(AJ_IOBuffer* buf)
                 // loop while backpressure continues
             } while (status == AJ_ERR_ARDP_BACKPRESSURE);
         } else if (status != AJ_OK) {
-            // something other than backpressure, or we can't handle because NetSock==NULL
+            // something other than backpressure
             return AJ_ERR_WRITE;
         }
 
@@ -1229,21 +1221,6 @@ static void UpdateReadBuffer(AJ_IOBuffer* rxBuf, uint32_t len) {
     }
 }
 
-/*
- *       ARDP_Recv: data are being read, buffered, and timers are checked.
- *         rxBuf - (IN) app buffer to be filled
- *         len   - (IN) the number of bytes the app wants
- *         timeout - (IN) the longest time period we can spend here
- *       Returns error code:
- *         AJ_OK;
- *         AJ_ERR_ARDP_RECV_EXPIRED;
- *         AJ_ERR_TIMEOUT;
- *         AJ_ERR_INTERRUPTED;
- *         AJ_ERR_READ;
- *         AJ_ERR_PROBE_TIMEOUT;
- *
- *       !!! Important !!! Upper layer MUST check for those and act accordingly.
- */
 AJ_Status AJ_ARDP_Recv(AJ_IOBuffer* rxBuf, uint32_t len, uint32_t timeout)
 {
     AJ_Status status = AJ_ERR_TIMEOUT;
@@ -1252,6 +1229,10 @@ AJ_Status AJ_ARDP_Recv(AJ_IOBuffer* rxBuf, uint32_t len, uint32_t timeout)
     AJ_Time now, end;
 
     AJ_InfoPrintf(("AJ_ARDP_Recv(rxBuf=0x%p, len=%u, timeout=%u)\n", rxBuf, len, timeout));
+
+    if (conn == NULL) {
+        return AJ_ERR_READ;
+    }
 
     AJ_InitTimer(&end);
     AJ_TimeAddOffset(&end, timeout);
@@ -1280,14 +1261,16 @@ AJ_Status AJ_ARDP_Recv(AJ_IOBuffer* rxBuf, uint32_t len, uint32_t timeout)
 
             if ((status == AJ_OK) || (status == AJ_ERR_ARDP_RECV_EXPIRED)) {
                 goto UPDATE_READ;
-            }
-
-            if (status != AJ_ERR_ARDP_REMOTE_CONNECTION_RESET) {
+            } else if (status == AJ_ERR_ARDP_DISCONNECTING) {
+                /* We are waiting for either TX queue to drain or timeout */
+                break;
+            } else if (status != AJ_ERR_ARDP_REMOTE_CONNECTION_RESET) {
                 AJ_WarnPrintf(("AJ_ARDP_Recv: received bad data, disconnecting\n"));
                 AJ_ARDP_Disconnect(TRUE);
-                return AJ_ERR_READ;
             }
-            break;
+            status = AJ_ERR_READ;
+
+        /* Fall through */
 
         case AJ_ERR_INTERRUPTED:
         case AJ_ERR_READ:

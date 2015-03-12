@@ -28,9 +28,10 @@
 extern "C" {
 #endif
 
-#include "aj_target.h"
-#include "aj_status.h"
 #include "aj_bufio.h"
+#include "aj_net.h"
+#include "aj_status.h"
+#include "aj_target.h"
 
 /**
  * @brief Per-protocol-instance (global) configuration variables.
@@ -49,6 +50,7 @@ extern "C" {
 #define UDP_TIMEWAIT 1000  /**< How long do we stay in TIMWAIT state before releasing the per-connection resources */
 #define UDP_MINIMUM_TIMEOUT 100 /**< The minimum amount of time between calls to ARDP_Recv */
 #define UDP_BACKPRESSURE_TIMEOUT 100 /**< How long can backpressure block the program before a disconnect is triggered? */
+#define UDP_DISCONNECT_TIMEOUT 1000  /**< How long can disconnect block the program waiting for TX queue to drain */
 
 #define UDP_SEGBMAX 1472  /**< Maximum size of an ARDP segment (quantum of reliable transmission) */
 #define UDP_SEGMAX 4  /**< Maximum number of ARDP segment in-flight (bandwidth-delay product sizing) */
@@ -66,6 +68,8 @@ extern "C" {
  */
 #define ARDP_FLAG_SIMPLE_MODE 2
 
+struct _AJ_IOBuffer;
+
 /*
  *       ARDP onnection request. Connect begins the SYN,
  *       SYN-ACK, ACK thre-way handshake.
@@ -74,20 +78,15 @@ extern "C" {
  *         AJ_OK - all is good, connection transitioned to SYN_SENT state;
  *         fail error code otherwise
  */
-AJ_Status AJ_ARDP_Connect(uint8_t* data, uint16_t dataLen, void* context);
+AJ_Status AJ_ARDP_Connect(uint8_t* data, uint16_t dataLen, void* context, AJ_NetSocket* netSock);
 
 /*
  *      Disconnect is used to actively close the connection.
  *          forced (IN) - if set to TRUE, the connection should be torn down regardless
  *                        of whether there are pending data retransmits. Otherwise, the
  *                        callee should check the value of returned error code.
- *       Returns error code:
- *          AJ_OK - connection is gone
- *          AJ_ERR_ARDP_DISONNECTING - not all outboud data was ACKed yet. Call ARDP_Recv()
- *                  when  there are data to read from the socket and wait for either
- *                  AJ_ERR_ARDP_DISCONNECTED or AJ_ERR_ARDP_REMOTE_CONNECTION_RESET to be retruned.
  */
-AJ_Status AJ_ARDP_Disconnect(uint8_t forced);
+void AJ_ARDP_Disconnect(uint8_t forced);
 
 /*
  *      StartMsgSend informs the ARDP protocol that next chunk of data to be sent
@@ -98,9 +97,6 @@ AJ_Status AJ_ARDP_Disconnect(uint8_t forced);
  *         AJ_ERR_ARDP_INVALID_CONNECTION - Connection does not exist (efffectively connection record is NULL)
  */
 AJ_Status AJ_ARDP_StartMsgSend(uint32_t ttl);
-
-struct _AJ_IOBuffer;
-struct _AJ_NetSocket;
 
 /**
  * AJ_ARDP_Send will attempt to send the data in buf.  It will attempt to send the message, waiting for
@@ -114,11 +110,6 @@ struct _AJ_NetSocket;
 AJ_Status AJ_ARDP_Send(struct _AJ_IOBuffer* buf);
 
 AJ_Status AJ_ARDP_Recv(struct _AJ_IOBuffer* rxBuf, uint32_t len, uint32_t timeout);
-
-/**
- * Set the NetSocket for the current connection
- */
-void AJ_ARDP_SetNetSock(struct _AJ_NetSocket* net_sock);
 
 typedef AJ_Status (*ReceiveFunction)(void* context, uint8_t* buf, uint32_t len, uint32_t timeout, uint32_t* recved);
 
