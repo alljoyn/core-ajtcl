@@ -226,7 +226,7 @@ AJ_Status AJ_AboutAnnounce(AJ_BusAttachment* bus)
 
     AJ_InfoPrintf(("AJ_AboutAnnounce - announcing port=%d\n", bus->aboutPort));
 
-    status = AJ_MarshalSignal(bus, &announcement, AJ_SIGNAL_ABOUT_ANNOUNCE, NULL, 0, ALLJOYN_FLAG_SESSIONLESS, 0);
+    status = AJ_MarshalSignal(bus, &announcement, AJ_SIGNAL_ABOUT_ANNOUNCE, NULL, 0, AJ_FLAG_SESSIONLESS, 0);
     if (status != AJ_OK) {
         goto ErrorExit;
     }

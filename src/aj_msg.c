@@ -400,19 +400,14 @@ AJ_Status AJ_DeliverMsg(AJ_Message* msg)
 }
 
 /*
- * Timeout after we have started to unmarshal a message.  The entire message is
- * not guaranteed to be in the TCP buffer so an extended timeout can be required
- * to load a message that spans underlying TCP packets.
- */
-#define UNMARSHAL_TIMEOUT 15000ul
-
-/*
  * Make sure we have the required number of bytes in the I/O buffer
  */
-static AJ_Status LoadBytes(AJ_IOBuffer* ioBuf, uint16_t numBytes, uint8_t pad)
+static AJ_Status LoadBytes(AJ_IOBuffer* ioBuf, uint16_t numBytes, uint8_t pad, uint32_t* timeout)
 {
     AJ_Status status = AJ_OK;
+    AJ_Time msgTimer;
 
+    AJ_InitTimer(&msgTimer);
     numBytes += pad;
     /*
      * Needs to be enough headroom in the buffer to satisfy the read
@@ -426,7 +421,8 @@ static AJ_Status LoadBytes(AJ_IOBuffer* ioBuf, uint16_t numBytes, uint8_t pad)
     while (AJ_IO_BUF_AVAIL(ioBuf) < numBytes) {
         //#pragma calls = AJ_Net_Recv
         AJ_InfoPrintf(("LoadBytes(): numBytes=%u, ioBufBytes=%u\n", numBytes, AJ_IO_BUF_AVAIL(ioBuf)));
-        status = ioBuf->recv(ioBuf, numBytes - AJ_IO_BUF_AVAIL(ioBuf), UNMARSHAL_TIMEOUT);
+        status = ioBuf->recv(ioBuf, numBytes - AJ_IO_BUF_AVAIL(ioBuf), *timeout);
+
         if (status != AJ_OK) {
             /*
              * Ignore interrupted recv calls for now we can't handle resumption
@@ -438,6 +434,14 @@ static AJ_Status LoadBytes(AJ_IOBuffer* ioBuf, uint16_t numBytes, uint8_t pad)
              * Timeouts after we have started to unmarshal a message are a bad sign.
              */
             if (status == AJ_ERR_TIMEOUT) {
+                /*
+                 * Work around recv implementations that return too soon.
+                 */
+                uint32_t elapsed = AJ_GetElapsedTime(&msgTimer, FALSE);
+                if (*timeout > elapsed) {
+                    *timeout -= elapsed;
+                    continue;
+                }
                 AJ_ErrPrintf(("LoadBytes(): AJ_ERR_READ\n"));
                 status = AJ_ERR_READ;
             }
@@ -525,7 +529,7 @@ AJ_Status AJ_CloseMsg(AJ_Message* msg)
                 AJ_IO_BUF_RESET(ioBuf);
                 sz = min(msg->bodyBytes, ioBuf->bufSize);
             }
-            status = LoadBytes(ioBuf, sz, 0);
+            status = LoadBytes(ioBuf, sz, 0, &msg->timeout);
             if (status != AJ_OK) {
                 break;
             }
@@ -585,7 +589,7 @@ static AJ_Status Unmarshal(AJ_Message* msg, const char** sig, AJ_Arg* arg);
 static AJ_Status UnmarshalStruct(AJ_Message* msg, const char** sig, AJ_Arg* arg, uint8_t pad)
 {
     AJ_IOBuffer* ioBuf = &msg->bus->sock.rx;
-    AJ_Status status = LoadBytes(ioBuf, 0, pad);
+    AJ_Status status = LoadBytes(ioBuf, 0, pad, &msg->timeout);
     arg->val.v_data = ioBuf->readPtr;
     arg->sigPtr = *sig;
     /*
@@ -620,7 +624,7 @@ static AJ_Status UnmarshalArray(AJ_Message* msg, const char** sig, AJ_Arg* arg, 
     /*
      * Get the byte count for the array
      */
-    status = LoadBytes(ioBuf, 4, pad);
+    status = LoadBytes(ioBuf, 4, pad, &msg->timeout);
     if (status != AJ_OK) {
         return status;
     }
@@ -632,7 +636,7 @@ static AJ_Status UnmarshalArray(AJ_Message* msg, const char** sig, AJ_Arg* arg, 
      * the array element types align on an 8 byte boundary.
      */
     pad = PadForType(typeId, ioBuf);
-    status = LoadBytes(ioBuf, numBytes, pad);
+    status = LoadBytes(ioBuf, numBytes, pad, &msg->timeout);
     if (status != AJ_OK) {
         return status;
     }
@@ -684,7 +688,7 @@ static AJ_Status Unmarshal(AJ_Message* msg, const char** sig, AJ_Arg* arg)
 
     if (IsScalarType(typeId)) {
         sz = SizeOfType(typeId);
-        status = LoadBytes(ioBuf, sz, pad);
+        status = LoadBytes(ioBuf, sz, pad, &msg->timeout);
         if (status != AJ_OK) {
             return status;
         }
@@ -705,7 +709,7 @@ static AJ_Status Unmarshal(AJ_Message* msg, const char** sig, AJ_Arg* arg)
          * Read the string length. Note the length doesn't include the terminating NUL
          * so an empty string in encoded as two zero bytes.
          */
-        status = LoadBytes(ioBuf, lenSize, pad);
+        status = LoadBytes(ioBuf, lenSize, pad, &msg->timeout);
         if (status != AJ_OK) {
             return status;
         }
@@ -716,7 +720,7 @@ static AJ_Status Unmarshal(AJ_Message* msg, const char** sig, AJ_Arg* arg)
             sz = (uint32_t)(*ioBuf->readPtr);
         }
         ioBuf->readPtr += lenSize;
-        status = LoadBytes(ioBuf, sz + 1, 0);
+        status = LoadBytes(ioBuf, sz + 1, 0, &msg->timeout);
         if (status != AJ_OK) {
             return status;
         }
@@ -914,11 +918,12 @@ AJ_Status AJ_UnmarshalMsg(AJ_BusAttachment* bus, AJ_Message* msg, uint32_t timeo
 
     AJ_InitTimer(&msgTimer);
     /*
-     * Clear message then set the bus
+     * Clear message then set the bus and overall timeout
      */
     memset(msg, 0, sizeof(AJ_Message));
     msg->msgId = AJ_INVALID_MSG_ID;
     msg->bus = bus;
+    msg->timeout = timeout;
     /*
      * Check that the read pointer is within the bounds of the recv buffer
      */
@@ -937,15 +942,16 @@ AJ_Status AJ_UnmarshalMsg(AJ_BusAttachment* bus, AJ_Message* msg, uint32_t timeo
     while (AJ_IO_BUF_AVAIL(ioBuf) < sizeof(AJ_MsgHeader)) {
         //#pragma calls = AJ_Net_Recv
         AJ_InfoPrintf(("AJ_UnmarshalMsg(): ioBufBytes=%u\n", AJ_IO_BUF_AVAIL(ioBuf)));
-        status = ioBuf->recv(ioBuf, sizeof(AJ_MsgHeader) - AJ_IO_BUF_AVAIL(ioBuf), timeout);
+        status = ioBuf->recv(ioBuf, sizeof(AJ_MsgHeader) - AJ_IO_BUF_AVAIL(ioBuf), msg->timeout);
+
         if (status != AJ_OK) {
             if (status == AJ_ERR_TIMEOUT) {
                 /*
-                 * Work around recv imlpementations that return too soon.
+                 * Work around recv implementations that return too soon.
                  */
                 uint32_t elapsed = AJ_GetElapsedTime(&msgTimer, FALSE);
-                if (timeout > elapsed) {
-                    timeout -= elapsed;
+                if (msg->timeout > elapsed) {
+                    msg->timeout -= elapsed;
                     continue;
                 }
             }
@@ -997,7 +1003,7 @@ AJ_Status AJ_UnmarshalMsg(AJ_BusAttachment* bus, AJ_Message* msg, uint32_t timeo
     /*
      * Load the header
      */
-    status = LoadBytes(ioBuf, msg->hdr->headerLen + hdrPad, 0);
+    status = LoadBytes(ioBuf, msg->hdr->headerLen + hdrPad, 0, &msg->timeout);
     if (status != AJ_OK) {
         return status;
     }
@@ -1035,7 +1041,7 @@ AJ_Status AJ_UnmarshalMsg(AJ_BusAttachment* bus, AJ_Message* msg, uint32_t timeo
         /*
          * Custom unmarshal the header field - signature is "(yv)" so starts off with STRUCT aligment.
          */
-        status = LoadBytes(ioBuf, 4, PadForType(AJ_ARG_STRUCT, ioBuf));
+        status = LoadBytes(ioBuf, 4, PadForType(AJ_ARG_STRUCT, ioBuf), &msg->timeout);
         if (status != AJ_OK) {
             break;
         }
@@ -1144,7 +1150,7 @@ AJ_Status AJ_UnmarshalMsg(AJ_BusAttachment* bus, AJ_Message* msg, uint32_t timeo
          * If the message is encrypted load the entire message body and decrypt it.
          */
         if (msg->hdr->flags & AJ_FLAG_ENCRYPTED) {
-            status = LoadBytes(ioBuf, msg->hdr->bodyLen, 0);
+            status = LoadBytes(ioBuf, msg->hdr->bodyLen, 0, &msg->timeout);
             if (status == AJ_OK) {
                 status = DecryptMessage(msg);
             }
@@ -1215,7 +1221,7 @@ AJ_Status AJ_SkipArg(AJ_Message* msg)
             /*
              * Just consume the array bytes
              */
-            status = LoadBytes(ioBuf, skippy.len, 0);
+            status = LoadBytes(ioBuf, skippy.len, 0, &msg->timeout);
             if (status == AJ_OK) {
                 ioBuf->readPtr += skippy.len;
                 msg->bodyBytes -= skippy.len;
@@ -1469,7 +1475,7 @@ AJ_Status AJ_UnmarshalRaw(AJ_Message* msg, const void** data, size_t len, size_t
             AJ_ErrPrintf(("AJ_UnmarshalRaw(): AJ_ERR_UNMARSHAL\n"));
             return AJ_ERR_UNMARSHAL;
         }
-        LoadBytes(ioBuf, 0, pad);
+        LoadBytes(ioBuf, 0, pad, &msg->timeout);
         msg->bodyBytes -= pad;
         /*
          * Standard signature matching is now meaningless
@@ -1498,7 +1504,7 @@ AJ_Status AJ_UnmarshalRaw(AJ_Message* msg, const void** data, size_t len, size_t
      * If we try to load more than the available space we will get an error
      */
     len = min(len, AJ_IO_BUF_SPACE(ioBuf));
-    status = LoadBytes(ioBuf, (uint16_t)len, 0);
+    status = LoadBytes(ioBuf, (uint16_t)len, 0, &msg->timeout);
     if (status == AJ_OK) {
         sz = AJ_IO_BUF_AVAIL(ioBuf);
         if (sz < len) {
@@ -1927,7 +1933,7 @@ AJ_Arg* AJ_InitArg(AJ_Arg* arg, uint8_t typeId, uint8_t flags, const void* val, 
 
 static AJ_Status VMarshalArgs(AJ_Message* msg, const char** sig, va_list* argpp)
 {
-    AJ_Status status = AJ_OK;
+    AJ_Status status = AJ_ERR_UNEXPECTED;
     AJ_Arg arg;
     AJ_Arg container;
     va_list argp;
@@ -1956,26 +1962,12 @@ static AJ_Status VMarshalArgs(AJ_Message* msg, const char** sig, va_list* argpp)
                  * where the inner call advanced in the signature.
                  */
                 if (status == AJ_OK) {
-                    uint8_t lastNestedTypeId;
-                    AJ_ASSERT(inSig < *sig);
-                    /*
-                     * Since we advanced *sig in the while loop the previous pointer is guaranteed to exist
-                     */
-                    lastNestedTypeId = (uint8_t)*((*sig) - 1);
-
-                    if ((lastNestedTypeId == AJ_STRUCT_CLOSE) || (lastNestedTypeId == AJ_DICT_ENTRY_CLOSE)) {
-                        status = AJ_MarshalCloseContainer(msg, &container);
-                        if (status != AJ_OK) {
-                            break;
-                        }
-                    } else {
-                        status = AJ_ERR_MARSHAL;
-                        break;
-                    }
-                    continue;
-                } else {
+                    status = AJ_MarshalCloseContainer(msg, &container);
+                }
+                if (status != AJ_OK) {
                     break;
                 }
+                continue;
             }
             if ((typeId == AJ_ARG_ARRAY) && IsBasicType(**sig)) {
                 const void* aval = va_arg(argp, const void*);
