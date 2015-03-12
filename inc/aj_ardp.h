@@ -109,6 +109,21 @@ AJ_Status AJ_ARDP_StartMsgSend(uint32_t ttl);
  */
 AJ_Status AJ_ARDP_Send(struct _AJ_IOBuffer* buf);
 
+/*
+ *       ARDP_Recv: data are being read, buffered, and timers are checked.
+ *         rxBuf - (IN) app buffer to be filled
+ *         len   - (IN) the number of bytes the app wants
+ *         timeout - (IN) the longest time period we can spend here
+ *       Returns error code:
+ *         AJ_OK;
+ *         AJ_ERR_ARDP_RECV_EXPIRED;
+ *         AJ_ERR_ARDP_REMOTE_DISCONNECT;
+ *         AJ_ERR_TIMEOUT;
+ *         AJ_ERR_INTERRUPTED;
+ *         AJ_ERR_READ;
+ *         AJ_ERR_PROBE_TIMEOUT
+ *
+ */
 AJ_Status AJ_ARDP_Recv(struct _AJ_IOBuffer* rxBuf, uint32_t len, uint32_t timeout);
 
 typedef AJ_Status (*ReceiveFunction)(void* context, uint8_t* buf, uint32_t len, uint32_t timeout, uint32_t* recved);

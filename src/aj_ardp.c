@@ -578,7 +578,7 @@ static AJ_Status RecvValidateSegment(uint8_t* rxbuf, uint16_t len, struct ArdpSe
     if (((seg->HLEN * 2) < hdrSz) || (len < hdrSz) || (seg->DLEN + (seg->HLEN * 2)) != len) {
         AJ_ErrPrintf(("Receive: length check failed len = %u, seg->hlen = %u, seg->dlen = %u\n",
                       len, (seg->HLEN * 2), seg->DLEN));
-        return AJ_ERR_ARDP_INVALID_RESPONSE; // TODO. DISCONNECT?
+        return AJ_ERR_INVALID;
     }
 
     seg->SEQ = ntohl(*((uint32_t*)(rxbuf + SEQ_OFFSET))); /* The send sequence of the current segment */
@@ -601,12 +601,12 @@ static AJ_Status RecvValidateSegment(uint8_t* rxbuf, uint16_t len, struct ArdpSe
     /* Perform sequence validation checks */
     if (SEQ32_LT(conn->snd.NXT, seg->ACK)) {
         AJ_ErrPrintf(("Receive: ack %u ahead of SND>NXT %u\n", seg->ACK, conn->snd.NXT));
-        return AJ_ERR_ARDP_INVALID_RESPONSE; // TODO. DISCONNECT?
+        return AJ_ERR_INVALID;
     }
 
     if (SEQ32_LT(seg->ACK, seg->LCS)) {
         AJ_ErrPrintf(("Receive: lcs %u and ack %u out of order\n", seg->LCS, seg->ACK));
-        return AJ_ERR_ARDP_INVALID_RESPONSE; // TODO. DISCONNECT?
+        return AJ_ERR_INVALID;
     }
 
     /*
@@ -617,7 +617,7 @@ static AJ_Status RecvValidateSegment(uint8_t* rxbuf, uint16_t len, struct ArdpSe
         ((seg->DLEN != 0) && ((seg->SEQ - seg->ACKNXT) == UDP_SEGMAX))) {
         AJ_ErrPrintf(("Receive: incorrect sequence numbers seg->seq = %u, seg->acknxt = %u\n",
                       seg->SEQ, seg->ACKNXT));
-        return AJ_ERR_ARDP_INVALID_RESPONSE;
+        return AJ_ERR_INVALID;
     }
 
     /* Additional checks for invalid payload values */
@@ -625,7 +625,7 @@ static AJ_Status RecvValidateSegment(uint8_t* rxbuf, uint16_t len, struct ArdpSe
         if ((seg->FCNT == 0) || ((seg->SEQ - seg->SOM) >= seg->FCNT)) {
             AJ_ErrPrintf(("Receive: incorrect data segment seq = %u, som = %u,  fcnt = %u\n",
                           seg->SEQ, seg->SOM, seg->FCNT));
-            return AJ_ERR_ARDP_INVALID_RESPONSE; // TODO. DISCONNECT?
+            return AJ_ERR_INVALID;
         }
     }
 
@@ -759,7 +759,7 @@ static AJ_Status ArdpMachine(struct ArdpSeg* seg, uint8_t* rxBuf, uint16_t len)
                         status = AJ_ERR_ARDP_VERSION_NOT_SUPPORTED;
                     } else if (!(seg->FLG & ARDP_FLAG_ACK) || (seg->ACK != conn->snd.ISS)) {
                         AJ_WarnPrintf(("ArdpMachine(): SYN_SENT: does not ACK ISS\n"));
-                        status = AJ_ERR_ARDP_INVALID_RESPONSE;
+                        status = AJ_ERR_INVALID;
                     } else {
                         AJ_InfoPrintf(("ArdpMachine(): SYN_SENT: SYN | ACK received. state -> OPEN\n"));
 
@@ -861,24 +861,6 @@ static AJ_Status ArdpMachine(struct ArdpSeg* seg, uint8_t* rxBuf, uint16_t len)
     return status;
 }
 
-/*
- *       ARDP_Recv: data are being read, buffered, and timers are checked.
- *         rxBuf - (IN) buffer from where to read incoming (socket) data.
- *         len   - (IN) socket buffer size
- *       Returns error code:
- *         AJ_OK - all is good
- *         AJ_ERR_ARDP_TTL_EXPIRED - Discard the message that is currently being unMarshalled.
- *                                   If dataLen is not zero, the payload is associated with new
- *                                   message and the old one needs to be discarded.
- *         Note: If the returned status is anything but AJ_OK or AJ_ERR_ARDP_TTL_EXPIRED,
- *               the connection does not exist anymore and all the associated resources are freed.
- *               No further ARDP action is expected/required. Possible error codes:
- *         AJ_ERR_DISALLOWED - Connection does not exist (efffectively connection record is NULL)
- *         AJ_ERR_ARDP_DISCONNECTED - ARDP layer issued disconnect based either on outstanding ARDP_Disconnect()
- *                request or due to invalid response or corrupted data.
- *         AJ_ERR_ARDP_REMOTE_CONNECTION_RESET - Remote requested disconnect.
- *
- */
 static AJ_Status ARDP_Recv(uint8_t* rxBuf, uint16_t len)
 {
     AJ_Status status = AJ_OK;
@@ -913,6 +895,10 @@ static void RecvReady(void* rxContext)
     rBuf->fcnt = 0;
     rBuf->dataLen = 0;
     conn->rcv.LCS = rBuf->seq;
+
+    if (conn->ackTimer.retry == 0) {
+        InitTimer(&conn->ackTimer, 0, 1);
+    }
 }
 
 AJ_Status AJ_ARDP_StartMsgSend(uint32_t ttl)
@@ -962,12 +948,12 @@ static AJ_Status ARDP_Send(uint8_t* txBuf, uint16_t len)
     pending = (conn->snd.NXT - conn->snd.LCS) - 1;
     sBuf = &(conn->snd.buf[conn->snd.NXT % UDP_SEGMAX]);
 
-    assert(conn->snd.pending <= UDP_SEGMAX);
+    AJ_ASSERT(conn->snd.pending <= UDP_SEGMAX);
     if (conn->snd.pending == UDP_SEGMAX) {
         AJ_InfoPrintf(("ARDP_Send: backpressure, all (%u) SND buffers are in flight\n", conn->snd.pending));
         return AJ_ERR_ARDP_BACKPRESSURE;
     }
-    assert(sBuf->inFlight == 0);
+    AJ_ASSERT(sBuf->inFlight == 0);
 
     ttl = conn->snd.msgTTL;
     offset = sBuf->dataLen;
@@ -1018,7 +1004,7 @@ static AJ_Status ARDP_Send(uint8_t* txBuf, uint16_t len)
 
         memcpy(((uint8_t*) sBuf->data) + offset + ARDP_HEADER_SIZE, txBuf, dataLen - offset);
         sBuf->dataLen = dataLen;
-        assert(sBuf->inFlight == 0);
+        AJ_ASSERT(sBuf->inFlight == 0);
 
         AJ_InfoPrintf(("ARDP_Send(): len %u, dataLen %u, offset %u\n", len, dataLen, offset));
         /*
@@ -1041,7 +1027,6 @@ static AJ_Status ARDP_Send(uint8_t* txBuf, uint16_t len)
 
         if (status != AJ_OK) {
             AJ_ErrPrintf(("ARDP_Send(): %s\n", AJ_StatusText(status)));
-            //TODO: this is probably unrecoverable (accounting will be messed up). We should disconnect.
             return status;
         }
 

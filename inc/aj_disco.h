@@ -40,10 +40,10 @@ typedef struct _AJ_Service {
     uint32_t pv;               /**< protocol version */
     uint32_t ipv6[4];          /**< ipv6 address */
 
-    uint16_t ipv4portUdp;         /**< port number of ipv4 */
-    uint16_t ipv6portUdp;         /**< port number of ipv6 */
-    uint32_t ipv4Udp;             /**< ipv4 address */
-    uint32_t ipv6Udp[4];          /**< ipv6 address */
+    uint16_t ipv4portUdp;      /**< port number of ipv4 */
+    uint16_t ipv6portUdp;      /**< port number of ipv6 */
+    uint32_t ipv4Udp;          /**< ipv4 address */
+    uint32_t ipv6Udp[4];       /**< ipv6 address */
 } AJ_Service;
 
 /**

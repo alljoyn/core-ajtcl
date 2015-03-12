@@ -1714,7 +1714,6 @@ static AJ_Status MarshalMsg(AJ_Message* msg, uint8_t msgType, uint32_t msgId, ui
 
 #ifdef AJ_ARDP
     status = AJ_ARDP_StartMsgSend(msg->ttl);
-    //TODO: check the status value (AJ_OK, AJ_ERR_ARDP_TTL_EXPIRED, or AJ_ERR_ARDP_INVALID_CONNECTION)
 #endif
 
     /*
