@@ -146,7 +146,7 @@ static ecc_privatekey prv;
 static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, AJ_Credential*cred)
 {
     AJ_Status status = AJ_ERR_INVALID;
-    X509CertificateChain* tmp;
+    X509CertificateChain* node;
 
     AJ_AlwaysPrintf(("AuthListenerCallback authmechanism %d command %d\n", authmechanism, command));
 
@@ -177,7 +177,7 @@ static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, 
     case AUTH_SUITE_ECDHE_ECDSA:
         switch (command) {
         case AJ_CRED_PRV_KEY:
-            cred->len = KEY_ECC_PRV_SZ;
+            cred->len = sizeof (ecc_privatekey);
             status = AJ_DecodePrivateKeyPEM(&prv, pem_prv);
             if (AJ_OK != status) {
                 return status;
@@ -189,6 +189,13 @@ static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, 
         case AJ_CRED_CERT_CHAIN:
             switch (cred->direction) {
             case AJ_CRED_REQUEST:
+                // Free previous certificate chain
+                while (chain) {
+                    node = chain;
+                    chain = chain->next;
+                    AJ_Free(node->certificate.der.data);
+                    AJ_Free(node);
+                }
                 chain = AJ_X509DecodeCertificateChainPEM(NULL, pem_x509);
                 if (NULL == chain) {
                     return AJ_ERR_INVALID;
@@ -199,10 +206,10 @@ static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, 
                 break;
 
             case AJ_CRED_RESPONSE:
-                tmp = (X509CertificateChain*) cred->data;
-                while (tmp) {
-                    AJ_DumpBytes("CERTIFICATE", tmp->certificate.der.data, tmp->certificate.der.size);
-                    tmp = tmp->next;
+                node = (X509CertificateChain*) cred->data;
+                while (node) {
+                    AJ_DumpBytes("CERTIFICATE", node->certificate.der.data, node->certificate.der.size);
+                    node = node->next;
                 }
                 status = AJ_OK;
                 break;

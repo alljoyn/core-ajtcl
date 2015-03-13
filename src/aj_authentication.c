@@ -557,7 +557,7 @@ static AJ_Status ECDSAMarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
         goto Exit;
     }
     // The credential holds a pointer to an ecc_privatekey
-    if (KEY_ECC_PRV_SZ != cred.len) {
+    if (sizeof (ecc_privatekey) != cred.len) {
         status = AJ_ERR_INVALID;
         goto Exit;
     }
