@@ -539,7 +539,7 @@ int AJ_Main()
                     AJ_AlwaysPrintf(("Usage: schat <msg>\n"));
                     continue;
                 }
-                status = AppSendChatSignal(&bus, 0, chatMsg, ALLJOYN_FLAG_SESSIONLESS, sendTTL);
+                status = AppSendChatSignal(&bus, 0, chatMsg, AJ_FLAG_SESSIONLESS, sendTTL);
             } else if (0 == strcmp("chat", command)) {
                 char* sessionIdString = aj_strtok(NULL, " \r\n");
                 char*chatMsg;

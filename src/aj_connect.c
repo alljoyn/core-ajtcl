@@ -564,13 +564,8 @@ void AJ_Disconnect(AJ_BusAttachment* bus)
 #endif
 
     /*
-     * Free cipher suite memory and clear auth context
+     * Clear auth context
      */
-    if (bus->suites) {
-        AJ_Free(bus->suites);
-        bus->suites = NULL;
-        bus->numsuites = 0;
-    }
     AJ_ClearAuthContext();
 
     /*

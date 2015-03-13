@@ -198,6 +198,7 @@ struct _AJ_Message {
     uint16_t bodyBytes;        /**< Running count of the number body bytes written */
     AJ_BusAttachment* bus;     /**< Bus attachment for this message */
     struct _AJ_Arg* outer;     /**< Container arg current being marshaled */
+    uint32_t timeout;          /**< Remaining time to wait for all bytes of this message */
 
 };
 
