@@ -130,13 +130,13 @@ static void AppDoWork()
 
 static const char PWD[] = "123456";
 
+#if defined(SECURE_INTERFACE) || defined(SECURE_OBJECT)
+
 static uint32_t PasswordCallback(uint8_t* buffer, uint32_t bufLen)
 {
     memcpy(buffer, PWD, sizeof(PWD));
     return sizeof(PWD) - 1;
 }
-
-#if defined(SECURE_INTERFACE) || defined(SECURE_OBJECT)
 
 // Copied from alljoyn/alljoyn_core/test/bbservice.cc
 static const char pem_prv[] = {
@@ -588,6 +588,7 @@ int AJ_Main()
     }
     AJ_WarnPrintf(("svclite EXIT %d\n", status));
 
+#if defined(SECURE_INTERFACE) || defined(SECURE_OBJECT)
     // Clean up certificate chain
     while (chain) {
         node = chain;
@@ -595,6 +596,7 @@ int AJ_Main()
         AJ_Free(node->certificate.der.data);
         AJ_Free(node);
     }
+#endif
 
     return status;
 }
