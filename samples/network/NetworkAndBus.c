@@ -66,13 +66,11 @@ static uint32_t MyBusAuthPwdCB(uint8_t* buf, uint32_t bufLen)
 
 static const char serviceName[] = "org.alljoyn.BusNode";
 
-#define AJ_CONNECT_TIMEOUT 5000
-
 static AJ_Status ConnectToBus(AJ_BusAttachment* bus)
 {
     AJ_Status status;
     AJ_Service service;
-    uint32_t timeout = AJ_CONNECT_TIMEOUT;
+    uint32_t timeout = 5000;
 
 #ifdef AJ_SERIAL_CONNECTION
     AJ_Time start, now;
@@ -132,7 +130,7 @@ static AJ_Status ConnectToBus(AJ_BusAttachment* bus)
      * Now that we have discovered a routing node, we can connect to it.  This is done with AJ_Net_Connect.
      */
 
-    status = AJ_Net_Connect(&bus->sock, service.ipv4port, service.addrTypes & AJ_ADDR_IPV4, &service.ipv4);
+    status = AJ_Net_Connect(bus, &service);
     if (status != AJ_OK) {
         // or retry discovery to find another node that will accept our connection
         AJ_InfoPrintf(("AJ_Connect(): AJ_Net_Connect status=%s\n", AJ_StatusText(status)));

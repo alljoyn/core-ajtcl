@@ -46,6 +46,9 @@ vars.Add(EnumVariable('RTOS', 'RTOS your using', 'mbed', allowed_values=('mbed',
 if default_msvc_version:
     vars.Add(EnumVariable('MSVC_VERSION', 'MSVC compiler version - Windows', default_msvc_version, allowed_values=('8.0', '9.0', '10.0', '11.0', '11.0Exp', '12.0', '12.0Exp')))
 
+if ARGUMENTS.get('TARG', default_target) in ['linux', 'win32']:
+    vars.Add(EnumVariable('ARDP', 'Enable support for ARDP?', 'off', allowed_values=('on', 'off')))
+
 if ARGUMENTS.get('TARG', default_target) == 'win32':
     msvc_version = ARGUMENTS.get('MSVC_VERSION')
     env = Environment(variables = vars, MSVC_VERSION=msvc_version, TARGET_ARCH='x86')
@@ -88,6 +91,10 @@ if env['TARG'] == 'win32':
     env.Append(CFLAGS=['/J', '/W3'])
     env.Append(CPPDEFINES=['_CRT_SECURE_NO_WARNINGS'])
     env.Append(LINKFLAGS=['/NODEFAULTLIB:libcmt.lib'])
+    
+    if env['ARDP'] == 'on':
+        env.Append(CPPDEFINES=['AJ_ARDP'])
+    
     if env['VARIANT'] == 'debug':
         # With a modern Microsoft compiler it is typical to use a pdb file i.e. the /Zi
         # or/ZI CCPDBFLAGS.  However in SCons a pdb file is created for each .obj file.
@@ -109,6 +116,9 @@ if env['TARG'] == 'win32':
     env['aj_targ_headers'] = [Glob('target/' + env['TARG'] + '/*.h')]
     env['aj_targ_srcs'] = [Glob('target/' + env['TARG'] + '/*.c')]
 elif env['TARG'] in [ 'linux' ]:
+    if env['ARDP'] == 'on':
+        env.Append(CPPDEFINES=['AJ_ARDP'])
+
     if os.environ.has_key('CROSS_PREFIX'):
         env.Replace(CC = os.environ['CROSS_PREFIX'] + 'gcc')
         env.Replace(CXX = os.environ['CROSS_PREFIX'] + 'g++')
