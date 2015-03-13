@@ -1436,6 +1436,40 @@ ECDH_derive_pt(affine_point_t* tgt, bigval_t const* k, affine_point_t const* Q)
     return (B_TRUE);
 }
 
+void
+AJ_BigvalEncode(const bigval_t* src, uint8_t* tgt, size_t tgtlen)
+{
+    size_t i;
+    uint8_t v;
+    uint8_t highbytes = big_is_negative(src) ? 0xff : 0;
+
+    /* LSbyte to MS_byte */
+    for (i = 0; i < 4 * BIGLEN; ++i) {
+        if (i < tgtlen) {
+            v = src->data[i / 4] >> (8 * (i % 4));
+            ((uint8_t*)tgt)[tgtlen - 1 - i] = v;
+        }
+    }
+    /* i is live */
+    for (; i < tgtlen; ++i) {
+        ((uint8_t*)tgt)[tgtlen - 1 - i] = highbytes;
+    }
+}
+
+void
+AJ_BigvalDecode(const uint8_t* src, bigval_t* tgt, size_t srclen)
+{
+    size_t i;
+    uint8_t v;
+
+    /* zero the bigval_t */
+    memset(tgt, 0, sizeof (bigval_t));
+    /* scan from LSbyte to MSbyte */
+    for (i = 0; i < srclen && i < 4 * BIGLEN; ++i) {
+        v = ((uint8_t*)src)[srclen - 1 - i];
+        tgt->data[i / 4] |= (uint32_t)v << (8 * (i % 4));
+    }
+}
 
 #ifdef ECDSA
 /*

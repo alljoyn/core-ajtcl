@@ -131,6 +131,15 @@ int8_t AJ_CompareTime(AJ_Time timerA, AJ_Time timerB)
     }
 }
 
+uint64_t AJ_DecodeTime(char* der, char* fmt)
+{
+    struct tm tm;
+    if (!strptime(der, fmt, &tm)) {
+        return 0;
+    }
+    return (uint64_t) timegm(&tm);
+}
+
 void* AJ_Malloc(size_t sz)
 {
     return malloc(sz);

@@ -66,14 +66,12 @@ typedef AJ_Status (*AJ_AuthListenerFunc)(uint32_t authmechanism, uint32_t comman
  * Type for a bus attachment
  */
 typedef struct _AJ_BusAttachment {
-    uint16_t aboutPort;                     /**< The port to use in announcements */
-    char uniqueName[AJ_MAX_NAME_SIZE + 1];  /**< The unique name returned by the hello message */
-    AJ_NetSocket sock;                      /**< Abstracts a network socket */
-    uint32_t serial;                        /**< Next outgoing message serial number */
-    AJ_AuthPwdFunc pwdCallback;             /**< Callback for obtaining passwords */
+    uint16_t aboutPort;                        /**< The port to use in announcements */
+    char uniqueName[AJ_MAX_NAME_SIZE + 1];     /**< The unique name returned by the hello message */
+    AJ_NetSocket sock;                         /**< Abstracts a network socket */
+    uint32_t serial;                           /**< Next outgoing message serial number */
+    AJ_AuthPwdFunc pwdCallback;                /**< Callback for obtaining passwords */
     AJ_AuthListenerFunc authListenerCallback;  /**< Callback for obtaining passwords */
-    uint32_t* suites;                       /**< Supported cipher suites */
-    size_t numsuites;                       /**< Number of supported cipher suites */
     uint8_t isAuthenticated;                /**< Has authentication already occured? */
 } AJ_BusAttachment;
 

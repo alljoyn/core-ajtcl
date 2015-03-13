@@ -105,5 +105,7 @@ extern "C" {
 #ifdef __cplusplus
 }
 #endif
-
+/**
+ * @}
+ */
 #endif //AJ_CONFIG_H

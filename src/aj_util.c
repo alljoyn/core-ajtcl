@@ -160,7 +160,7 @@ AJ_Status AJ_B64ToRaw(const char* pem, size_t pemlen, uint8_t* raw, size_t rawle
     uint32_t b;
     int n = pemlen;
 
-    if (rawlen < 3 * (pemlen / 4) - 2) {
+    if (rawlen < 3 * (pemlen / 4)) {
         return AJ_ERR_RESOURCES;
     }
     if (0 != (pemlen % 4)) {
