@@ -80,10 +80,18 @@ def main(argv=None):
         file_ignore_patterns.append("mouse\.c")
         file_ignore_patterns.append("main\.c")
         file_ignore_patterns.append("aj_target_rtos\.cpp")
+        # v0.57 (alljoyn-js files) note this whitespace script is shared between
+        # ajtcl and alljoyn-js for that reason some alljoyn-js files are added
+        # to this ignore list.
+        file_ignore_patterns.append("io_adc\.c")
+        file_ignore_patterns.append("io_spi\.c")
+        file_ignore_patterns.append("io_uart\.c")
+        file_ignore_patterns.append("io_i2c\.c")
         # v0.57 of has a problem with multi-line strings and lines that start with
         # the '<<' stream operator most of these issues only exist in unit-test code
         file_ignore_patterns.append("BusAttachmentTest\.cc")
-        pass
+        # v0.57 (alljoyn-js file) incorrect handling of the '*' character.
+        file_ignore_patterns.append("ajs_pyconsole\.cc")
 
     # try an load the whitespace.db file.  The file is dictionary of key:value pairs
     # where the key is the name of a file that has been checked by the WS checker
