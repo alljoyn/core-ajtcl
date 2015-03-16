@@ -417,10 +417,8 @@ static uint32_t GetRTO()
     /* RTO = (rttMean + (4 * rttMeanVar)) << backoff */
     uint32_t ms = (MAX((uint32_t)ARDP_MIN_RTO, conn->rttMean + (4 * conn->rttMeanVar))) << conn->backoff;
     AJ_InfoPrintf(("GetRTO(): rto=%u RTO = %u)\n", ms, MIN(ms, (uint32_t)ARDP_MAX_RTO)));
-    if (ABS(ms - conn->snd.DACKT) <= (conn->snd.DACKT >> 1)) {
-        ms += conn->snd.DACKT;
-    }
-    return MIN(ms, (uint32_t)ARDP_MAX_RTO);
+
+    return MIN(MAX(ms, conn->snd.DACKT), (uint32_t)ARDP_MAX_RTO);
 }
 
 static AJ_Status DataTimerHandler(ArdpSBuf* sBuf)
@@ -445,7 +443,7 @@ static AJ_Status DataTimerHandler(ArdpSBuf* sBuf)
             uint8_t* txbuf = (uint8_t*) sBuf->data;
             uint16_t len = sBuf->dataLen + ARDP_HEADER_SIZE;
 
-            //TODO: add TTL checking
+            /* Currently, we do not check TTL for in-flight SND packets */
 
             *((uint32_t*) (txbuf + ACK_OFFSET)) = htonl(conn->rcv.CUR);
             *((uint32_t*) (txbuf + LCS_OFFSET)) = htonl(conn->rcv.LCS);
@@ -537,7 +535,7 @@ static AJ_Status UnmarshalSynSegment(uint8_t* buf, struct ArdpSeg* seg)
     uint16_t segmax;
     uint16_t segbmax;
     conn->foreign = ntohs(*((uint16_t*)(buf + SRC_OFFSET))); /* The source ARDP port */
-    conn->snd.DACKT = ntohl(*((uint32_t*)(buf + DACKT_OFFSET)));     /* Delayed ACK timeout from the other side.  */
+    conn->snd.DACKT = ntohl(*((uint32_t*)(buf + DACKT_OFFSET))); /* Delayed ACK timeout from the other side.  */
 
     segmax = ntohs(*((uint16_t*)(buf + SEGMAX_OFFSET)));     /* Max number of unacknowledged packets other side can buffer */
     segbmax = ntohs(*((uint16_t*)(buf + SEGBMAX_OFFSET)));   /* Max size segment the other side can handle */
@@ -968,8 +966,10 @@ static AJ_Status ARDP_Send(uint8_t* txBuf, uint16_t len)
         conn->snd.msgSOM = conn->snd.NXT;
     }
 
-    /* Check whether there is enough local buffer space to fit the data.
-     * Also, check if the remote side can currently accept these data. */
+    /*
+     * Check whether there is enough local buffer space to fit the data.
+     * Also, check if the remote side can currently accept these data.
+     */
     if (((len + offset) > (ARDP_MAX_DLEN * (UDP_SEGMAX - conn->snd.pending))) || ((len + offset) > (ARDP_MAX_DLEN * (conn->snd.SEGMAX - pending)))) {
         AJ_InfoPrintf(("ARDP_Send: backpressure, cannot send %u (%u + %u): local send pending %u, remote consume pending %u\n", len + offset, len, offset, conn->snd.pending, pending));
         return AJ_ERR_ARDP_BACKPRESSURE;
@@ -1127,21 +1127,23 @@ AJ_Status AJ_ARDP_Send(AJ_IOBuffer* buf)
         if (status == AJ_ERR_ARDP_BACKPRESSURE) {
             do {
                 AJ_InfoPrintf(("AJ_ARDP_Send: dealing with backpressure\n"));
-                // if we can't make room in the send window within a certain amount of time,
-                // assume that the connection has failed
+                /*
+                 * If we can't make room in the send window within a certain amount of time,
+                 * assume that the connection has failed.
+                 */
                 status = AJ_ARDP_Recv(&conn->netSock->rx, 0, UDP_BACKPRESSURE_TIMEOUT);
 
                 if (status != AJ_OK && status != AJ_ERR_TIMEOUT) {
-                    // something has gone wrong
+                    /* Something has gone wrong */
                     AJ_ErrPrintf(("AJ_ARDP_Send: (*recvFunction) returns %s\n", AJ_StatusText(status)));
                     return AJ_ERR_WRITE;
                 }
 
                 status = ARDP_Send(buf->readPtr, tx);
-                // loop while backpressure continues
+                /* Loop while backpressure continues */
             } while (status == AJ_ERR_ARDP_BACKPRESSURE);
         } else if (status != AJ_OK) {
-            // something other than backpressure
+            /* Something other than backpressure */
             return AJ_ERR_WRITE;
         }
 
@@ -1273,9 +1275,11 @@ AJ_Status AJ_ARDP_Recv(AJ_IOBuffer* rxBuf, uint32_t len, uint32_t timeout)
 UPDATE_READ:
 
     if (status == AJ_ERR_ARDP_RECV_EXPIRED) {
-        /* Currently we do not do anything. Just deliver the accumulated
-         * data and inform the upper layer (via status) that the the previous message
-         * maybe incomplete so it should not barf.*/
+        /*
+         * Currently we do not do anything with special expired messages.
+         * Just deliver the accumulated data and inform the upper layer
+         * (via status) that the the previous message may be incomplete.
+         */
         AJ_WarnPrintf(("AJ_ARDP_Recv: Expired message\n"));
     }
 
