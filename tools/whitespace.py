@@ -67,19 +67,22 @@ def main(argv=None):
     # and we can not find another way around the issues we can selectively ignore
     # files only for the legacy version of uncrustify.
     if version == "0.57":
-        # The following are examples of what might de done so far no files are
-        # known that need to selectively be ignored for older versions of uncrustify
-        # in the ajtcl project.
-        # v0.57 does not process the case statements correctly for the json_value.cc file
-        #file_ignore_patterns.append("json_value\.cc")
-        # v0.57 does not process the case statements correctly for the BusAttachment.cc file
-        #file_ignore_patterns.append("BusAttachment\.cc")
-        # v0.57 does not process the case statements and goto labels correctly
-        # for the alljoyn_java.cc file
-        #file_ignore_patterns.append("alljoyn_java\.cc")
+        # v0.57 does not process statments like while(1); correctly it always
+        # wants to add a space between the while and the ';' character. While
+        # statments of this type are common in ajtcl code.
+        file_ignore_patterns.append("aj_wsl_wmi\.c")
+        file_ignore_patterns.append("aj_spi\.c")
+        file_ignore_patterns.append("FreeRTOSConfig\.h")
+        file_ignore_patterns.append("aj_target_mbed\.cpp")
+        file_ignore_patterns.append("syscalls\.c")
+        file_ignore_patterns.append("aj_target_platform\.c")
+        file_ignore_patterns.append("uartfuzztest\.c")
+        file_ignore_patterns.append("mouse\.c")
+        file_ignore_patterns.append("main\.c")
+        file_ignore_patterns.append("aj_target_rtos\.cpp")
         # v0.57 of has a problem with multi-line strings and lines that start with
         # the '<<' stream operator most of these issues only exist in unit-test code
-        #file_ignore_patterns.append("SessionListenerTest\.cc")
+        file_ignore_patterns.append("BusAttachmentTest\.cc")
         pass
 
     # try an load the whitespace.db file.  The file is dictionary of key:value pairs

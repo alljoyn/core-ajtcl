@@ -252,7 +252,7 @@ void AJ_StartScheduler(void)
      * After we create our main task (AllJoyn task) we can't return
      * out of main so we just have to loop forever.
      */
-    while (1) ;
+    while (1);
 }
 
 void AJ_YieldCurrentTask(void)

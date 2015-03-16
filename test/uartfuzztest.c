@@ -35,7 +35,7 @@ static uint8_t* rxBuffer;
 void HardFault_Handler(void)
 {
     assert(0);
-    while (1) ;
+    while (1);
 }
 
 

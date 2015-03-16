@@ -58,7 +58,7 @@ uint8_t AJ_SeedRNG(void)
 
 void _exit(int i)
 {
-    while (1) ;
+    while (1);
 }
 
 int _kill(int pid)

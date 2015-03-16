@@ -1729,7 +1729,9 @@ static AJ_Status MarshalMsg(AJ_Message* msg, uint8_t msgType, uint32_t msgId, ui
     /*
      * Serial number cannot be zero (wire-spec wierdness)
      */
-    do { msg->hdr->serialNum = msg->bus->serial++; } while (msg->bus->serial == 1);
+    do {
+        msg->hdr->serialNum = msg->bus->serial++;
+    } while (msg->bus->serial == 1);
     /*
      * Marshal the header fields
      */
