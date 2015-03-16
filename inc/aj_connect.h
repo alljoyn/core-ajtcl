@@ -85,6 +85,9 @@ AJ_EXPORT
 AJ_Status AJ_Connect(AJ_BusAttachment* bus, const char* serviceName, uint32_t timeout);
 
 
+AJ_EXPORT
+AJ_Status AJ_ARDP_UDP_Connect(AJ_BusAttachment* bus, void* context, const AJ_Service* service, AJ_NetSocket* netSock);
+
 /**
  * Find a daemon, connect to it and then authenticate.
  *
