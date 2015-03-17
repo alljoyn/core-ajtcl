@@ -602,6 +602,7 @@ if env['WS'] != 'off' and not env.GetOption('clean') and not env.GetOption('help
     bin_dir = os.getcwd() + '/tools'
     sys.path.append(bin_dir)
     import whitespace
+    env['uncrustify_cfg_root'] = os.getcwd();
 
     def wsbuild(target, source, env):
         print "Evaluating whitespace compliance..."
@@ -609,9 +610,9 @@ if env['WS'] != 'off' and not env.GetOption('clean') and not env.GetOption('help
         curdir = os.path.abspath(os.path.dirname(wsbuild.func_code.co_filename))
         version = whitespace.get_uncrustify_version()
         if (version == "0.57"):
-            config = os.getcwd() + '/ajuncrustify.0.57.cfg'
+            config = env['uncrustify_cfg_root'] + '/ajuncrustify.0.57.cfg'
         else: #use latest known version
-            config = os.getcwd() + '/ajuncrustify.0.61.cfg'
+            config = env['uncrustify_cfg_root'] + '/ajuncrustify.0.61.cfg'
         print "Config:", config
         print "Note: enter 'scons -h' to see whitespace (WS) options"
         return whitespace.main([env['WS'], config])
