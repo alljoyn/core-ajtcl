@@ -72,6 +72,7 @@ typedef struct _AJ_BusAttachment {
     uint32_t serial;                           /**< Next outgoing message serial number */
     AJ_AuthPwdFunc pwdCallback;                /**< Callback for obtaining passwords */
     AJ_AuthListenerFunc authListenerCallback;  /**< Callback for obtaining passwords */
+    uint8_t isAuthenticated;                /**< Has authentication already occured? */
 } AJ_BusAttachment;
 
 /**

@@ -66,13 +66,11 @@ static uint32_t MyBusAuthPwdCB(uint8_t* buf, uint32_t bufLen)
 
 static const char serviceName[] = "org.alljoyn.BusNode";
 
-#define AJ_CONNECT_TIMEOUT 5000
-
 static AJ_Status ConnectToBus(AJ_BusAttachment* bus)
 {
     AJ_Status status;
     AJ_Service service;
-    uint32_t timeout = AJ_CONNECT_TIMEOUT;
+    uint32_t timeout = 5000;
 
 #ifdef AJ_SERIAL_CONNECTION
     AJ_Time start, now;
@@ -108,7 +106,7 @@ static AJ_Status ConnectToBus(AJ_BusAttachment* bus)
     service.ipv4port = 9955;
     service.ipv4 = 0x6501A8C0; // 192.168.1.101
     service.addrTypes = AJ_ADDR_IPV4;
-    status = AJ_Discover(serviceName, &service, timeout);
+    status = AJ_Discover(serviceName, &service, timeout, AJ_SELECTION_TIMEOUT);
     if (status != AJ_OK) {
         AJ_InfoPrintf(("AJ_Connect(): AJ_Discover status=%s\n", AJ_StatusText(status)));
         goto ExitConnect;
@@ -121,7 +119,7 @@ static AJ_Status ConnectToBus(AJ_BusAttachment* bus)
         AJ_InfoPrintf(("AJ_Connect(): AJ_Serial_Up status=%s\n", AJ_StatusText(status)));
     }
 #else
-    status = AJ_Discover(serviceName, &service, timeout);
+    status = AJ_Discover(serviceName, &service, timeout, AJ_SELECTION_TIMEOUT);
     if (status != AJ_OK) {
         AJ_InfoPrintf(("AJ_Connect(): AJ_Discover status=%s\n", AJ_StatusText(status)));
         goto ExitConnect;
@@ -132,7 +130,7 @@ static AJ_Status ConnectToBus(AJ_BusAttachment* bus)
      * Now that we have discovered a routing node, we can connect to it.  This is done with AJ_Net_Connect.
      */
 
-    status = AJ_Net_Connect(&bus->sock, service.ipv4port, service.addrTypes & AJ_ADDR_IPV4, &service.ipv4);
+    status = AJ_Net_Connect(bus, &service);
     if (status != AJ_OK) {
         // or retry discovery to find another node that will accept our connection
         AJ_InfoPrintf(("AJ_Connect(): AJ_Net_Connect status=%s\n", AJ_StatusText(status)));

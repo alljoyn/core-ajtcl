@@ -217,3 +217,34 @@ AJ_Status AJ_InetToString(uint32_t addr, char* buf, size_t buflen)
     }
     return status;
 }
+
+void AJ_TimeAddOffset(AJ_Time* timerA, uint32_t msec)
+{
+    uint32_t msecNew;
+    if (msec == -1) {
+        timerA->seconds = -1;
+        timerA->milliseconds = -1;
+    } else {
+        msecNew = (timerA->milliseconds + msec);
+        timerA->seconds = timerA->seconds + (msecNew / 1000);
+        timerA->milliseconds = msecNew % 1000;
+    }
+}
+
+
+int8_t AJ_CompareTime(AJ_Time timerA, AJ_Time timerB)
+{
+    if (timerA.seconds == timerB.seconds) {
+        if (timerA.milliseconds == timerB.milliseconds) {
+            return 0;
+        } else if (timerA.milliseconds > timerB.milliseconds) {
+            return 1;
+        } else {
+            return -1;
+        }
+    } else if (timerA.seconds > timerB.seconds) {
+        return 1;
+    } else {
+        return -1;
+    }
+}
