@@ -925,11 +925,12 @@ AJ_Status AJ_UnmarshalMsg(AJ_BusAttachment* bus, AJ_Message* msg, uint32_t timeo
     msg->bus = bus;
     msg->timeout = timeout;
     /*
-     * Check that the read pointer is within the bounds of the recv buffer
+     * Check that the read and write pointers are within the bounds of the recv buffer
      */
-    if ((ioBuf->readPtr < ioBuf->bufStart) || (ioBuf->readPtr > (ioBuf->bufStart + ioBuf->bufSize))) {
-        AJ_ErrPrintf(("AJ_UnmarshalMsg(): Read pointer out of bounds: AJ_ERR_IO_BUFFER\n"));
-        return AJ_ERR_READ; //Read pointer is out of bounds, this is unrecoverable
+    if ((ioBuf->readPtr < ioBuf->bufStart) || (ioBuf->readPtr > (ioBuf->bufStart + ioBuf->bufSize)) ||
+        (ioBuf->writePtr < ioBuf->readPtr) || (ioBuf->writePtr > (ioBuf->bufStart + ioBuf->bufSize))) {
+        AJ_ErrPrintf(("AJ_UnmarshalMsg(): recv buffer pointer out of bounds: AJ_ERR_IO_BUFFER\n"));
+        return AJ_ERR_READ; //Buffer pointer is out of bounds, this is unrecoverable
     }
     /*
      * Move any unconsumed data to the start of the I/O buffer
