@@ -1229,11 +1229,10 @@ AJ_Status AJ_ARDP_Recv(AJ_IOBuffer* rxBuf, uint32_t len, uint32_t timeout)
     }
 
     do {
+        uint32_t received = 0;
+        uint8_t* buf = NULL;
 
-        uint32_t received;
-        uint8_t buf[UDP_SEGBMAX];
-
-        status = (*recvFunction)(rxBuf->context, buf, sizeof(buf), timeout2, &received);
+        status = (*recvFunction)(rxBuf->context, &buf, &received, timeout2);
 
         switch (status) {
         case AJ_ERR_TIMEOUT:

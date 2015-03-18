@@ -134,8 +134,10 @@ static AJ_Status AJ_ARDP_UDP_Send(void* context, uint8_t* txbuf, size_t len, siz
     return AJ_OK;
 }
 
-static AJ_Status AJ_ARDP_UDP_Recv(void* context, uint8_t* buf, uint32_t len, uint32_t timeout, uint32_t* recved)
+static AJ_Status AJ_ARDP_UDP_Recv(void* context, uint8_t** data, uint32_t* recved, uint32_t timeout)
 {
+    *data = ConnectedResponse;
+    *recved = sizeof(ConnectedResponse);
     return AJ_OK;
 }
 
@@ -152,23 +154,19 @@ class ARDPTest : public testing::Test {
     }
 };
 
-
 void SendBackConnected()
 {
+    uint8_t rxData[1024];
+    AJ_Status status;
+    AJ_IOBuffer buf;
+
     *((uint16_t*) (ConnectedResponse + DST_OFFSET)) = htons(local_port);
 
-    uint8_t* buf;
-    uint16_t len;
-    void* context;
-    AJ_Status status;
-
-    // TODO: change to test the external API
-    //AJ_Status status = ARDP_Recv(ConnectedResponse, sizeof(ConnectedResponse), &buf, &len, &context);
+    AJ_IOBufInit(&buf, rxData, sizeof(rxData), AJ_IO_BUF_RX, NULL);
+    status = AJ_ARDP_Recv(&buf, sizeof(rxData), 0);
     EXPECT_EQ(AJ_OK, status) << "  Actual Status: " << AJ_StatusText(status);
 
-
-    EXPECT_EQ(sizeof(TestHelloData), len);
-    EXPECT_TRUE(0 == memcmp(TestHelloData, buf, sizeof(TestHelloData)));
+    EXPECT_TRUE(0 == memcmp(TestHelloData, buf.readPtr, sizeof(TestHelloData)));
 }
 
 TEST_F(ARDPTest, TestSynAck)

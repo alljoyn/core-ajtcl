@@ -968,19 +968,26 @@ static AJ_Status AJ_ARDP_UDP_Send(void* context, uint8_t* buf, size_t len, size_
         status = AJ_ERR_WRITE;
     } else {
         *sent = (size_t) ret;
-        //_AJ_DumpBytes("SEND", buf, ret);
     }
 
     return status;
 }
 
-static AJ_Status AJ_ARDP_UDP_Recv(void* context, uint8_t* buf, uint32_t len, uint32_t timeout, uint32_t* recved)
+static AJ_Status AJ_ARDP_UDP_Recv(void* context, uint8_t** data, uint32_t* recved, uint32_t timeout)
 {
     fd_set fds;
     struct timeval tv = { timeout / 1000, 1000 * (timeout % 1000) };
     int ret;
     NetContext* ctx = (NetContext*) context;
     int maxFd = max(ctx->udpSock, interruptFd);
+
+    /**
+     * Let the platform code own this buffer.  This makes it easier to avoid double-buffering
+     * on platforms that allow it.
+     */
+    static uint8_t buffer[UDP_SEGBMAX];
+
+    *data = NULL;
 
     AJ_InfoPrintf(("AJ_ARDP_UDP_Recv(buf=0x%p, len=%lu, timeout=%u)\n", buf, len, timeout));
 
@@ -1005,7 +1012,7 @@ static AJ_Status AJ_ARDP_UDP_Recv(void* context, uint8_t* buf, uint32_t len, uin
         read(interruptFd, &u64, sizeof(u64));
         return AJ_ERR_INTERRUPTED;
     } else if (FD_ISSET(ctx->udpSock, &fds)) {
-        ret = recvfrom(ctx->udpSock, buf, len, 0, NULL, 0);
+        ret = recvfrom(ctx->udpSock, buffer, sizeof(buffer), 0, NULL, 0);
 
         if (ret == -1) {
             // this will only happen if we are on a local machine
@@ -1013,8 +1020,8 @@ static AJ_Status AJ_ARDP_UDP_Recv(void* context, uint8_t* buf, uint32_t len, uin
             return AJ_ERR_READ;
         }
 
-        //_AJ_DumpBytes("RECV", buf, ret);
         *recved = ret;
+        *data = buffer;
     }
 
     return AJ_OK;
