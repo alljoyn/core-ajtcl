@@ -26,6 +26,7 @@
 #include <string.h>
 #include <assert.h>
 #include <endian.h>
+#include <arpa/inet.h>
 
 #ifndef TRUE
 #define TRUE (1)

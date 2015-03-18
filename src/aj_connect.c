@@ -37,6 +37,10 @@
 #include "aj_config.h"
 #include "aj_creds.h"
 #include "aj_peer.h"
+
+#ifdef AJ_ARDP
+#include "aj_ardp.h"
+#endif
 #include "aj_crypto.h"
 
 #if !(defined(ARDUINO) || defined(__linux) || defined(_WIN32) || defined(__MACH__))
@@ -195,10 +199,60 @@ static AJ_Status AnonymousAuthAdvance(AJ_IOBuffer* rxBuf, AJ_IOBuffer* txBuf) {
     return status;
 }
 
+static AJ_Status SetSignalRules(AJ_BusAttachment* bus)
+{
+    AJ_Status status = AJ_OK;
+    /*
+     * AJ_GUID needs the NameOwnerChanged signal to clear out entries in
+     * its map.  Prior to router version 10 this means we must set a
+     * signal rule to receive every NameOwnerChanged signal.  With
+     * version 10 the router supports the arg[0,1,...] key in match
+     * rules, allowing us to set a signal rule for just the
+     * NameOwnerChanged signals of entries in the map.  See aj_guid.c
+     * for usage of the arg key.
+     */
+    if (AJ_GetRoutingProtoVersion() < 11) {
+        status = AJ_BusSetSignalRule(bus, "type='signal',member='NameOwnerChanged',interface='org.freedesktop.DBus'", AJ_BUS_SIGNAL_ALLOW);
+        if (status == AJ_OK) {
+            uint8_t found_reply = FALSE;
+            AJ_Message msg;
+            AJ_Time timer;
+            AJ_InitTimer(&timer);
+
+            while (found_reply == FALSE && AJ_GetElapsedTime(&timer, TRUE) < 3000) {
+                status = AJ_UnmarshalMsg(bus, &msg, 3000);
+                if (status == AJ_OK) {
+                    switch (msg.msgId) {
+                    case AJ_REPLY_ID(AJ_METHOD_ADD_MATCH):
+                        found_reply = TRUE;
+                        break;
+
+                    default:
+                        // ignore everything else
+                        AJ_BusHandleBusMessage(&msg);
+                        break;
+                    }
+
+                    AJ_CloseMsg(&msg);
+                }
+            }
+        }
+    }
+
+    return status;
+}
+
 AJ_Status AJ_Authenticate(AJ_BusAttachment* bus)
 {
     AJ_Status status = AJ_OK;
     AJ_Message helloResponse;
+
+    if (bus->isAuthenticated) {
+        // ARDP does not do SASL and it sends BusHello as part of the SYN message.
+        // Therefore, Hello has already been sent by the time AJ_Net_Connect() returns,
+        // *before* AJ_Authenticate is called.
+        return AJ_OK;
+    }
 
     /*
      * Send initial NUL byte
@@ -284,6 +338,8 @@ ExitConnect:
 
     if (status != AJ_OK) {
         AJ_InfoPrintf(("AJ_Authenticate(): status=%s\n", AJ_StatusText(status)));
+    } else {
+        bus->isAuthenticated = TRUE;
     }
     return status;
 }
@@ -295,6 +351,7 @@ AJ_Status AJ_Connect(AJ_BusAttachment* bus, const char* serviceName, uint32_t ti
 {
     AJ_Status status;
     AJ_Service service;
+    bus->isAuthenticated = FALSE;
 
 #ifdef AJ_SERIAL_CONNECTION
     AJ_Time start, now;
@@ -368,7 +425,7 @@ AJ_Status AJ_Connect(AJ_BusAttachment* bus, const char* serviceName, uint32_t ti
         goto ExitConnect;
     }
 #endif
-    status = AJ_Net_Connect(&bus->sock, service.ipv4port, service.addrTypes & AJ_ADDR_IPV4, &service.ipv4);
+    status = AJ_Net_Connect(bus, &service);
     if (status != AJ_OK) {
         AJ_InfoPrintf(("AJ_Connect(): AJ_Net_Connect status=%s\n", AJ_StatusText(status)));
         goto ExitConnect;
@@ -394,6 +451,13 @@ AJ_Status AJ_Connect(AJ_BusAttachment* bus, const char* serviceName, uint32_t ti
         goto ExitConnect;
     }
 
+    status = SetSignalRules(bus);
+    if (status != AJ_OK) {
+        AJ_InfoPrintf(("AJ_Connect(): SetSignalRules status=%s\n", AJ_StatusText(status)));
+        goto ExitConnect;
+    }
+
+
 ExitConnect:
 
     if (status != AJ_OK) {
@@ -413,6 +477,7 @@ AJ_Status AJ_FindBusAndConnect(AJ_BusAttachment* bus, const char* serviceName, u
     AJ_Time connectionTimer;
     int32_t connectionTime;
     uint8_t finished = FALSE;
+    bus->isAuthenticated = FALSE;
 
 #ifdef AJ_SERIAL_CONNECTION
     AJ_Time start, now;
@@ -477,7 +542,9 @@ AJ_Status AJ_FindBusAndConnect(AJ_BusAttachment* bus, const char* serviceName, u
             goto ExitConnect;
         }
 #endif
-        status = AJ_Net_Connect(&bus->sock, service.ipv4port, service.addrTypes & AJ_ADDR_IPV4, &service.ipv4);
+
+        // this calls into platform code that will decide whether to use UDP or TCP, based on what is available
+        status = AJ_Net_Connect(bus, &service);
         if (status != AJ_OK) {
             AJ_InfoPrintf(("AJ_FindBusAndConnect(): AJ_Net_Connect status=%s\n", AJ_StatusText(status)));
             goto ExitConnect;
@@ -517,7 +584,7 @@ AJ_Status AJ_FindBusAndConnect(AJ_BusAttachment* bus, const char* serviceName, u
                     break;
                 }
                 AJ_InfoPrintf(("Retrying with a new selection from the routing node response list\n"));
-                status = AJ_Net_Connect(&bus->sock, service.ipv4port, service.addrTypes & AJ_ADDR_IPV4, &service.ipv4);
+                status = AJ_Net_Connect(bus, &service);
                 if (status != AJ_OK) {
                     AJ_InfoPrintf(("AJ_FindBusAndConnect(): AJ_Net_Connect status=%s\n", AJ_StatusText(status)));
                     goto ExitConnect;
@@ -531,11 +598,16 @@ AJ_Status AJ_FindBusAndConnect(AJ_BusAttachment* bus, const char* serviceName, u
                 }
             }
 #endif
-            // else we will end the loop
         }
+
+        status = SetSignalRules(bus);
+        if (status != AJ_OK) {
+            AJ_InfoPrintf(("AJ_FindBusAndConnect(): SetSignalRules status=%s\n", AJ_StatusText(status)));
+            goto ExitConnect;
+        }
+
         AJ_InitRoutingNodeResponselist();
     }
-
 
 ExitConnect:
 
@@ -547,6 +619,72 @@ ExitConnect:
 
     return status;
 }
+
+#ifdef AJ_ARDP
+
+AJ_Status AJ_ARDP_UDP_Connect(AJ_BusAttachment* bus, void* context, const AJ_Service* service, AJ_NetSocket* netSock)
+{
+    AJ_Message hello;
+    AJ_GUID localGuid;
+    char guid_buf[33];
+    AJ_Status status;
+    AJ_Message helloResponse;
+
+    AJ_GetLocalGUID(&localGuid);
+    AJ_GUID_ToString(&localGuid, guid_buf, sizeof(guid_buf));
+
+    AJ_MarshalMethodCall(bus, &hello, AJ_METHOD_BUS_SIMPLE_HELLO, AJ_BusDestination, 0, AJ_FLAG_ALLOW_REMOTE_MSG, AJ_UDP_CONNECT_TIMEOUT);
+    AJ_MarshalArgs(&hello, "su", guid_buf, 10);
+    hello.hdr->bodyLen = hello.bodyBytes;
+
+    status = AJ_ARDP_Connect(bus->sock.tx.readPtr, AJ_IO_BUF_AVAIL(&bus->sock.tx), context, netSock);
+    if (status != AJ_OK) {
+        return status;
+    }
+
+    status = AJ_UnmarshalMsg(bus, &helloResponse, AJ_UDP_CONNECT_TIMEOUT);
+    if (status == AJ_OK && helloResponse.msgId == AJ_REPLY_ID(AJ_METHOD_BUS_SIMPLE_HELLO)) {
+        if (helloResponse.hdr->msgType == AJ_MSG_ERROR) {
+            status = AJ_ERR_CONNECT;
+        } else {
+            AJ_Arg uniqueName, routingProtoVersion;
+            AJ_UnmarshalArg(&helloResponse, &uniqueName);
+            AJ_SkipArg(&helloResponse);
+            AJ_UnmarshalArg(&helloResponse, &routingProtoVersion);
+
+            if (uniqueName.len >= (sizeof(bus->uniqueName) - 1)) {
+                AJ_ErrPrintf(("AJ_ARDP_Connect(): AJ_ERR_RESOURCES\n"));
+                status = AJ_ERR_RESOURCES;
+            } else {
+                memcpy(bus->uniqueName, uniqueName.val.v_string, uniqueName.len);
+                bus->uniqueName[uniqueName.len] = '\0';
+            }
+
+            AJ_InfoPrintf(("Received name: %s and version %u\n", bus->uniqueName, routingProtoVersion.val.v_uint32));
+            if (*(routingProtoVersion.val.v_uint32) < AJ_GetMinProtoVersion()) {
+                AJ_InfoPrintf(("AJ_ARDP_Connect(): Blacklisting routing node, found %u but require >= %u\n",
+                               routingProtoVersion.val.v_uint32, AJ_GetMinProtoVersion()));
+                AddRoutingNodeToBlacklist(service);
+                status = AJ_ERR_CONNECT;
+            }
+        }
+    } else {
+        status = AJ_ERR_CONNECT;
+    }
+
+    AJ_CloseMsg(&helloResponse);
+
+    // reset the transmit queue!
+    AJ_IO_BUF_RESET(&bus->sock.tx);
+
+    if (status == AJ_OK) {
+        bus->isAuthenticated = TRUE;
+    }
+
+    return status;
+}
+
+#endif // AJ_ARDP
 
 void AJ_Disconnect(AJ_BusAttachment* bus)
 {
@@ -625,8 +763,9 @@ void AJ_AddRoutingNodeToResponseList(AJ_Service* service)
         RoutingNodeSlot = RoutingNodeResponselist_idx;
     }
     for (i = 0; i  < AJ_ROUTING_NODE_RESPONSELIST_SIZE; ++i) {
-        if (RoutingNodeResponselist[i].ipv4) {
-            if (RoutingNodeResponselist[i].ipv4 == service->ipv4 && RoutingNodeResponselist[i].ipv4port == service->ipv4port) {
+        if (RoutingNodeResponselist[i].ipv4 || RoutingNodeResponselist[i].ipv4Udp) {
+            if ((RoutingNodeResponselist[i].ipv4 && RoutingNodeResponselist[i].ipv4 == service->ipv4 && RoutingNodeResponselist[i].ipv4port == service->ipv4port)
+                || (RoutingNodeResponselist[i].ipv4Udp && RoutingNodeResponselist[i].ipv4Udp == service->ipv4Udp && RoutingNodeResponselist[i].ipv4portUdp == service->ipv4portUdp)) {
                 // track only the highest protocol version per service
                 if (RoutingNodeResponselist[i].pv < service->pv) {
                     RoutingNodeResponselist[i].pv = service->pv;
@@ -675,6 +814,8 @@ void AJ_AddRoutingNodeToResponseList(AJ_Service* service)
         }
         RoutingNodeResponselist[RoutingNodeSlot].ipv4 = service->ipv4;
         RoutingNodeResponselist[RoutingNodeSlot].ipv4port = service->ipv4port;
+        RoutingNodeResponselist[RoutingNodeSlot].ipv4Udp = service->ipv4Udp;
+        RoutingNodeResponselist[RoutingNodeSlot].ipv4portUdp = service->ipv4portUdp;
         RoutingNodeResponselist[RoutingNodeSlot].addrTypes = service->addrTypes;
         RoutingNodeResponselist[RoutingNodeSlot].pv = service->pv;
         RoutingNodeResponselist[RoutingNodeSlot].priority = service->priority;
@@ -699,9 +840,11 @@ AJ_Status AJ_SelectRoutingNodeFromResponseList(AJ_Service* service)
     uint32_t priority_idx = 0;
     uint32_t priority_srv = 0;
     uint32_t random = 0;
-    if (RoutingNodeResponselist[0].ipv4) {
+    if (RoutingNodeResponselist[0].ipv4 || RoutingNodeResponselist[0].ipv4Udp) {
         service->ipv4 = RoutingNodeResponselist[0].ipv4;
         service->ipv4port = RoutingNodeResponselist[0].ipv4port;
+        service->ipv4Udp = RoutingNodeResponselist[0].ipv4Udp;
+        service->ipv4portUdp = RoutingNodeResponselist[0].ipv4portUdp;
         service->pv = RoutingNodeResponselist[0].pv;
         service->addrTypes = RoutingNodeResponselist[0].addrTypes;
         service->priority = RoutingNodeResponselist[0].priority;
@@ -711,7 +854,7 @@ AJ_Status AJ_SelectRoutingNodeFromResponseList(AJ_Service* service)
             AJ_InfoPrintf(("Index 0 was previously selected\n"));
         }
         for (; i  < AJ_ROUTING_NODE_RESPONSELIST_SIZE; ++i) {
-            if (RoutingNodeResponselist[i].ipv4) {
+            if (RoutingNodeResponselist[i].ipv4 || RoutingNodeResponselist[i].ipv4Udp) {
                 if (RoutingNodeAttemptsResponselist[i]) {
                     AJ_InfoPrintf(("Index %d was previously selected\n", i));
                     continue;
@@ -719,6 +862,8 @@ AJ_Status AJ_SelectRoutingNodeFromResponseList(AJ_Service* service)
                 if (skip) {
                     service->ipv4 = RoutingNodeResponselist[i].ipv4;
                     service->ipv4port = RoutingNodeResponselist[i].ipv4port;
+                    service->ipv4Udp = RoutingNodeResponselist[i].ipv4Udp;
+                    service->ipv4portUdp = RoutingNodeResponselist[i].ipv4portUdp;
                     service->pv = RoutingNodeResponselist[i].pv;
                     service->addrTypes = RoutingNodeResponselist[i].addrTypes;
                     service->priority = RoutingNodeResponselist[i].priority;
@@ -733,6 +878,8 @@ AJ_Status AJ_SelectRoutingNodeFromResponseList(AJ_Service* service)
                 if (RoutingNodeResponselist[i].pv > service->pv || (RoutingNodeResponselist[i].pv == service->pv && RoutingNodeResponselist[i].priority < service->priority)) {
                     service->ipv4 = RoutingNodeResponselist[i].ipv4;
                     service->ipv4port = RoutingNodeResponselist[i].ipv4port;
+                    service->ipv4Udp = RoutingNodeResponselist[i].ipv4Udp;
+                    service->ipv4portUdp = RoutingNodeResponselist[i].ipv4portUdp;
                     service->pv = RoutingNodeResponselist[i].pv;
                     service->addrTypes = RoutingNodeResponselist[i].addrTypes;
                     service->priority = RoutingNodeResponselist[i].priority;
@@ -761,6 +908,8 @@ AJ_Status AJ_SelectRoutingNodeFromResponseList(AJ_Service* service)
                         AJ_InfoPrintf(("Picking index %d on this round\n", i));
                         service->ipv4 = RoutingNodeResponselist[i].ipv4;
                         service->ipv4port = RoutingNodeResponselist[i].ipv4port;
+                        service->ipv4Udp = RoutingNodeResponselist[i].ipv4Udp;
+                        service->ipv4portUdp = RoutingNodeResponselist[i].ipv4portUdp;
                         service->pv = RoutingNodeResponselist[i].pv;
                         service->addrTypes = RoutingNodeResponselist[i].addrTypes;
                         service->priority = RoutingNodeResponselist[i].priority;
@@ -796,6 +945,10 @@ static void AddRoutingNodeToBlacklist(AJ_Service* service)
 {
     RoutingNodeIPBlacklist[RoutingNodeBlacklist_idx] = service->ipv4;
     RoutingNodePortBlacklist[RoutingNodeBlacklist_idx] = service->ipv4port;
+    RoutingNodeBlacklist_idx = (RoutingNodeBlacklist_idx + 1) % AJ_ROUTING_NODE_BLACKLIST_SIZE;
+
+    RoutingNodeIPBlacklist[RoutingNodeBlacklist_idx] = service->ipv4Udp;
+    RoutingNodePortBlacklist[RoutingNodeBlacklist_idx] = service->ipv4portUdp;
     RoutingNodeBlacklist_idx = (RoutingNodeBlacklist_idx + 1) % AJ_ROUTING_NODE_BLACKLIST_SIZE;
 }
 
