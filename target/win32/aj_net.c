@@ -952,7 +952,7 @@ AJ_Status AJ_Net_MCastUp(AJ_MCastSocket* mcastSock)
 
     // create the sending sockets
     Mcast4Up(MDNS_IPV4_MULTICAST_GROUP, MDNS_UDP_PORT, TRUE, ntohs(sin->sin_port));
-    //Mcast6Up(MDNS_IPV6_MULTICAST_GROUP, MDNS_UDP_PORT, TRUE, ntohs(sin->sin_port));
+    Mcast6Up(MDNS_IPV6_MULTICAST_GROUP, MDNS_UDP_PORT, TRUE, ntohs(sin->sin_port));
 
     // create the NS sockets only if considering pre-14.06 routers
     if (AJ_GetMinProtoVersion() < 10) {
