@@ -990,17 +990,17 @@ AJ_Status AJ_UnmarshalMsg(AJ_BusAttachment* bus, AJ_Message* msg, uint32_t timeo
     EndianSwap(msg, AJ_ARG_INT32, &msg->hdr->bodyLen, 3);
     msg->bodyBytes = msg->hdr->bodyLen;
     /*
-     * Make sure the header isn't going to overrun the buffer
+     * The header is null-padded to an 8-byte boundary
+     */
+    hdrPad = (8 - msg->hdr->headerLen) & 7;
+    /*
+     * Make sure the header (plus pad) isn't going to overrun the buffer
      * and that the total header length doesn't overflow.
      */
-    if (msg->hdr->headerLen > (ioBuf->bufSize - sizeof(AJ_MsgHeader))) {
+    if ((msg->hdr->headerLen + hdrPad) > (ioBuf->bufSize - sizeof(AJ_MsgHeader))) {
         AJ_ErrPrintf(("AJ_UnmarshalMsg(): Header was too large: AJ_ERR_HDR_CORRUPT\n"));
         return AJ_ERR_READ; //Unrecoverable state, return read error
     }
-    /*
-     * The header is null padded to an 8 bytes boundary
-     */
-    hdrPad = (8 - msg->hdr->headerLen) & 7;
     /*
      * Load the header
      */
