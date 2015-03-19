@@ -925,11 +925,12 @@ AJ_Status AJ_UnmarshalMsg(AJ_BusAttachment* bus, AJ_Message* msg, uint32_t timeo
     msg->bus = bus;
     msg->timeout = timeout;
     /*
-     * Check that the read pointer is within the bounds of the recv buffer
+     * Check that the read and write pointers are within the bounds of the recv buffer
      */
-    if ((ioBuf->readPtr < ioBuf->bufStart) || (ioBuf->readPtr > (ioBuf->bufStart + ioBuf->bufSize))) {
-        AJ_ErrPrintf(("AJ_UnmarshalMsg(): Read pointer out of bounds: AJ_ERR_IO_BUFFER\n"));
-        return AJ_ERR_READ; //Read pointer is out of bounds, this is unrecoverable
+    if ((ioBuf->readPtr < ioBuf->bufStart) || (ioBuf->readPtr > (ioBuf->bufStart + ioBuf->bufSize)) ||
+        (ioBuf->writePtr < ioBuf->readPtr) || (ioBuf->writePtr > (ioBuf->bufStart + ioBuf->bufSize))) {
+        AJ_ErrPrintf(("AJ_UnmarshalMsg(): recv buffer pointer out of bounds: AJ_ERR_IO_BUFFER\n"));
+        return AJ_ERR_READ; //Buffer pointer is out of bounds, this is unrecoverable
     }
     /*
      * Move any unconsumed data to the start of the I/O buffer
@@ -989,17 +990,17 @@ AJ_Status AJ_UnmarshalMsg(AJ_BusAttachment* bus, AJ_Message* msg, uint32_t timeo
     EndianSwap(msg, AJ_ARG_INT32, &msg->hdr->bodyLen, 3);
     msg->bodyBytes = msg->hdr->bodyLen;
     /*
-     * Make sure the header isn't going to overrun the buffer
+     * The header is null-padded to an 8-byte boundary
+     */
+    hdrPad = (8 - msg->hdr->headerLen) & 7;
+    /*
+     * Make sure the header (plus pad) isn't going to overrun the buffer
      * and that the total header length doesn't overflow.
      */
-    if (msg->hdr->headerLen > (ioBuf->bufSize - sizeof(AJ_MsgHeader))) {
+    if ((msg->hdr->headerLen + hdrPad) > (ioBuf->bufSize - sizeof(AJ_MsgHeader))) {
         AJ_ErrPrintf(("AJ_UnmarshalMsg(): Header was too large: AJ_ERR_HDR_CORRUPT\n"));
         return AJ_ERR_READ; //Unrecoverable state, return read error
     }
-    /*
-     * The header is null padded to an 8 bytes boundary
-     */
-    hdrPad = (8 - msg->hdr->headerLen) & 7;
     /*
      * Load the header
      */
