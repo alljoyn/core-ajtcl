@@ -53,7 +53,7 @@ extern "C" {
 #define UDP_DISCONNECT_TIMEOUT 1000  /**< How long can disconnect block the program waiting for TX queue to drain */
 
 #define UDP_SEGBMAX 1472  /**< Maximum size of an ARDP segment (quantum of reliable transmission) */
-#define UDP_SEGMAX 4  /**< Maximum number of ARDP segment in-flight (bandwidth-delay product sizing) */
+#define UDP_SEGMAX 2  /**< Maximum number of ARDP segment in-flight (bandwidth-delay product sizing) */
 
 
 /* Protocol specific values */
@@ -126,8 +126,34 @@ AJ_Status AJ_ARDP_Send(struct _AJ_IOBuffer* buf);
  */
 AJ_Status AJ_ARDP_Recv(struct _AJ_IOBuffer* rxBuf, uint32_t len, uint32_t timeout);
 
-typedef AJ_Status (*ReceiveFunction)(void* context, uint8_t* buf, uint32_t len, uint32_t timeout, uint32_t* recved);
+/**
+ *  A pointer to the function used by ARDP to receive from a socket
+ *
+ *  @param context - (IN)  The context pointer
+ *  @param buf     - (OUT) A pointer to the underlying data that was received
+ *  @param recved  - (OUT) The number of bytes received into buf
+ *  @param timeout - (IN)  The timeout
+ *
+ *  @return error code
+ *      AJ_OK               if data was recived
+ *      AJ_ERR_TIMEOUT      if no data was received by <timeout> msec
+ *      AJ_ERR_INTERRUPTED  if the receive operation was interrupted by AJ_Net_Interrupt
+ *      AJ_ERR_READ         if an error has occured
+ */
+typedef AJ_Status (*ReceiveFunction)(void* context, uint8_t** buf, uint32_t* recved, uint32_t timeout);
 
+/**
+ *  A pointer to the function used by ARDP to send raw data to a socket
+ *
+ *  @param context - (IN)  The context pointer
+ *  @param buf     - (IN)  A pointer to the buffer to send
+ *  @param recved  - (IN)  The number of bytes to send
+ *  @param timeout - (OUT) The number of bytes actually sent
+ *
+ *  @return error code
+ *      AJ_OK               if data was sent
+ *      AJ_ERR_READ         if an error has occured
+ */
 typedef AJ_Status (*SendFunction)(void* context, uint8_t* buf, size_t len, size_t* sent);
 
 void AJ_ARDP_InitFunctions(ReceiveFunction recv, SendFunction send);

@@ -84,9 +84,23 @@ AJ_Status AJ_Authenticate(AJ_BusAttachment* bus);
 AJ_EXPORT
 AJ_Status AJ_Connect(AJ_BusAttachment* bus, const char* serviceName, uint32_t timeout);
 
-
+#ifdef AJ_ARDP
+/**
+ * Establish an ARDP-based AllJoyn UDP connection.
+ *
+ * @param  bus                The bus attachment to connect.
+ * @param  context            The context that will be used to send and receive data
+ * @param  service            The connection information
+ * @param  netSock            The netSock
+ *
+ * @return
+ *         - AJ_OK if the connection was succesfully established
+ *         - AJ_ERR_TIMEOUT if the connection attempt timed out
+ */
 AJ_EXPORT
 AJ_Status AJ_ARDP_UDP_Connect(AJ_BusAttachment* bus, void* context, const AJ_Service* service, AJ_NetSocket* netSock);
+
+#endif
 
 /**
  * Find a daemon, connect to it and then authenticate.

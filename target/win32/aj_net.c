@@ -1035,16 +1035,19 @@ static AJ_Status AJ_ARDP_UDP_Send(void* context, uint8_t* buf, size_t len, size_
     return status;
 }
 
-static AJ_Status AJ_ARDP_UDP_Recv(void* context, uint8_t* buf, uint32_t len, uint32_t timeout, uint32_t* recved)
+static AJ_Status AJ_ARDP_UDP_Recv(void* context, uint8_t** data, uint32_t* recved, uint32_t timeout)
 {
     NetContext* ctx = (NetContext*) context;
     DWORD ret = SOCKET_ERROR;
     WSAEVENT events[2];
     DWORD flags = 0;
+    static uint8_t buffer[UDP_SEGBMAX];
+
+    *data = NULL;
 
     if (wsaOverlapped.hEvent == INVALID_HANDLE_VALUE) {
-        wsbuf.len = len;
-        wsbuf.buf = buf;
+        wsbuf.len = sizeof(buffer);
+        wsbuf.buf = buffer;
         memset(&wsaOverlapped, 0, sizeof(WSAOVERLAPPED));
         wsaOverlapped.hEvent = recvEvent;
         ret = WSARecvFrom(ctx->udpSock, &wsbuf, 1, NULL, &flags, NULL, NULL, &wsaOverlapped, NULL);
@@ -1064,6 +1067,7 @@ static AJ_Status AJ_ARDP_UDP_Recv(void* context, uint8_t* buf, uint32_t len, uin
         if (WSAGetOverlappedResult(ctx->udpSock, &wsaOverlapped, recved, TRUE, &flags)) {
             WSAResetEvent(wsaOverlapped.hEvent);
             wsaOverlapped.hEvent = INVALID_HANDLE_VALUE;
+            *data = buffer;
             return AJ_OK;
         } else {
             AJ_ErrPrintf(("AJ_ARDP_UDP_Recv(): WSAGetOverlappedResult error; WSAGetLastError()=%d\n", WSAGetLastError()));

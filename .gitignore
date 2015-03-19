@@ -16,6 +16,9 @@ cscope.out
 *.exe
 *.sln
 *.o
+*.d
+*.elf
+*.map
 *.os
 *.ilk
 *.dep
