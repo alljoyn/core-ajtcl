@@ -20,8 +20,10 @@
 
 #include <gtest/gtest.h>
 
+#define AJ_MODULE SECURITYTEST
+
 extern "C" {
-#include "aj_debug.h"
+
 #include "alljoyn.h"
 #include "aj_cert.h"
 #include "aj_peer.h"
@@ -30,8 +32,13 @@ extern "C" {
 #include "aj_authentication.h"
 #include "aj_config.h"
 #include "aj_crypto.h"
+#include "aj_debug.h"
 
 }
+
+#ifndef NDEBUG
+uint8_t dbgSECURITYTEST = 0;
+#endif
 
 #define CONNECT_TIMEOUT    (1000ul * 200)
 #define UNMARSHAL_TIMEOUT  (1000 * 5)

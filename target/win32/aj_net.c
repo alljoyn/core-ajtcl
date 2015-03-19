@@ -264,7 +264,7 @@ AJ_Status AJ_Net_Connect(AJ_BusAttachment* bus, const AJ_Service* service)
     }
 #endif
 
-    AJ_InfoPrintf(("AJ_Net_Connect(netSock=0x%p, addrType=%d.)\n", netSock, addrType));
+    AJ_InfoPrintf(("AJ_Net_Connect(bus=0x%p, addrType=%d.)\n", bus, service->addrTypes));
 
     memset(&addrBuf, 0, sizeof(addrBuf));
 
