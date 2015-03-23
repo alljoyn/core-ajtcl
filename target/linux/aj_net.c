@@ -989,7 +989,7 @@ static AJ_Status AJ_ARDP_UDP_Recv(void* context, uint8_t** data, uint32_t* recve
 
     *data = NULL;
 
-    AJ_InfoPrintf(("AJ_ARDP_UDP_Recv(buf=0x%p, len=%lu, timeout=%u)\n", buf, len, timeout));
+    AJ_InfoPrintf(("AJ_ARDP_UDP_Recv(data=0x%p, recved=0x%p, timeout=%u)\n", data, recved, timeout));
 
     FD_ZERO(&fds);
     FD_SET(ctx->udpSock, &fds);
