@@ -400,11 +400,11 @@ AJ_Status AJ_Connect(AJ_BusAttachment* bus, const char* serviceName, uint32_t ti
 #if HOST_IS_BIG_ENDIAN
     service.ipv4 = 0x7f000001; // 127.0.0.1
 #endif
-    service.addrTypes = AJ_ADDR_IPV4;
+    service.addrTypes = AJ_ADDR_TCP4;
 #elif defined(ARDUINO)
     service.ipv4port = 9955;
     service.ipv4 = 0x6501A8C0; // 192.168.1.101
-    service.addrTypes = AJ_ADDR_IPV4;
+    service.addrTypes = AJ_ADDR_TCP4;
     status = AJ_Discover(serviceName, &service, timeout, selectionTimeout);
     if (status != AJ_OK) {
         AJ_InfoPrintf(("AJ_Connect(): AJ_Discover status=%s\n", AJ_StatusText(status)));
@@ -514,11 +514,11 @@ AJ_Status AJ_FindBusAndConnect(AJ_BusAttachment* bus, const char* serviceName, u
 #if HOST_IS_BIG_ENDIAN
         service.ipv4 = 0x7f000001; // 127.0.0.1
 #endif
-        service.addrTypes = AJ_ADDR_IPV4;
+        service.addrTypes = AJ_ADDR_TCP4;
 #elif defined(ARDUINO)
         service.ipv4port = 9955;
         service.ipv4 = 0x6501A8C0; // 192.168.1.101
-        service.addrTypes = AJ_ADDR_IPV4;
+        service.addrTypes = AJ_ADDR_TCP4;
         AJ_InitTimer(&connectionTimer);
         AJ_InfoPrintf(("AJ_FindBusAndConnect(): Connection timer started\n"));
         status = AJ_Discover(serviceName, &service, timeout, selectionTimeout);

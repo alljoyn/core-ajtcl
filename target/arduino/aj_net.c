@@ -184,7 +184,7 @@ AJ_Status AJ_Net_Connect(AJ_BusAttachment* bus, const AJ_Service* service)
     int ret;
     IPAddress ip(service->ipv4);
 
-    if (!(service->addrTypes & AJ_ADDR_IPV4)) {
+    if (!(service->addrTypes & AJ_ADDR_TCP4)) {
         AJ_ErrPrintf(("AJ_Net_Connect(): only IPV4 TCP supported\n", ret));
         return AJ_ERR_CONNECT;
     }
