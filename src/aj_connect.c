@@ -295,45 +295,6 @@ AJ_Status AJ_Authenticate(AJ_BusAttachment* bus)
         AJ_CloseMsg(&helloResponse);
     }
 
-    if (status == AJ_OK) {
-        /*
-         * AJ_GUID needs the NameOwnerChanged signal to clear out entries in
-         * its map.  Routing protocol version 10 and earlier require setting a
-         * signal rule to receive every NameOwnerChanged signal.
-         * With version 11 and later the protocol supports the arg[0,1,...] keys
-         * in match rules, allowing setting a signal rule for just the
-         * NameOwnerChanged signals of entries in the map.  See aj_guid.c
-         * for usage of the arg keys.
-         */
-        if (AJ_GetRoutingProtoVersion() < 11) {
-            status = AJ_BusSetSignalRule(bus, "type='signal',member='NameOwnerChanged',interface='org.freedesktop.DBus'", AJ_BUS_SIGNAL_ALLOW);
-            if (status == AJ_OK) {
-                uint8_t found_reply = FALSE;
-                AJ_Message msg;
-                AJ_Time timer;
-                AJ_InitTimer(&timer);
-
-                while (found_reply == FALSE && AJ_GetElapsedTime(&timer, TRUE) < 3000) {
-                    status = AJ_UnmarshalMsg(bus, &msg, 3000);
-                    if (status == AJ_OK) {
-                        switch (msg.msgId) {
-                        case AJ_REPLY_ID(AJ_METHOD_ADD_MATCH):
-                            found_reply = TRUE;
-                            break;
-
-                        default:
-                            // ignore everything else
-                            AJ_BusHandleBusMessage(&msg);
-                            break;
-                        }
-
-                        AJ_CloseMsg(&msg);
-                    }
-                }
-            }
-        }
-    }
-
 ExitConnect:
 
     if (status != AJ_OK) {
@@ -600,6 +561,11 @@ AJ_Status AJ_FindBusAndConnect(AJ_BusAttachment* bus, const char* serviceName, u
 #endif
         }
 
+        if (status != AJ_OK) {
+            AJ_InfoPrintf(("AJ_FindBusAndConnect(): AJ_Authenticate status=%s\n", AJ_StatusText(status)));
+            goto ExitConnect;
+        }
+
         status = SetSignalRules(bus);
         if (status != AJ_OK) {
             AJ_InfoPrintf(("AJ_FindBusAndConnect(): SetSignalRules status=%s\n", AJ_StatusText(status)));
@@ -647,10 +613,16 @@ AJ_Status AJ_ARDP_UDP_Connect(AJ_BusAttachment* bus, void* context, const AJ_Ser
         if (helloResponse.hdr->msgType == AJ_MSG_ERROR) {
             status = AJ_ERR_CONNECT;
         } else {
-            AJ_Arg uniqueName, routingProtoVersion;
+            AJ_Arg uniqueName, protoVersion;
             AJ_UnmarshalArg(&helloResponse, &uniqueName);
             AJ_SkipArg(&helloResponse);
-            AJ_UnmarshalArg(&helloResponse, &routingProtoVersion);
+            AJ_UnmarshalArg(&helloResponse, &protoVersion);
+
+            /**
+             * The two most-significant bits are reserved for the nameType,
+             * which we don't currently care about in the thin client
+             */
+            routingProtoVersion = (uint8_t) ((*protoVersion.val.v_uint32) & 0x3FFFFFFF);
 
             if (uniqueName.len >= (sizeof(bus->uniqueName) - 1)) {
                 AJ_ErrPrintf(("AJ_ARDP_Connect(): AJ_ERR_RESOURCES\n"));
@@ -660,10 +632,10 @@ AJ_Status AJ_ARDP_UDP_Connect(AJ_BusAttachment* bus, void* context, const AJ_Ser
                 bus->uniqueName[uniqueName.len] = '\0';
             }
 
-            AJ_InfoPrintf(("Received name: %s and version %u\n", bus->uniqueName, routingProtoVersion.val.v_uint32));
-            if (*(routingProtoVersion.val.v_uint32) < AJ_GetMinProtoVersion()) {
+            AJ_InfoPrintf(("Received name: %s and version %u\n", bus->uniqueName, routingProtoVersion));
+            if (routingProtoVersion < AJ_GetMinProtoVersion()) {
                 AJ_InfoPrintf(("AJ_ARDP_Connect(): Blacklisting routing node, found %u but require >= %u\n",
-                               routingProtoVersion.val.v_uint32, AJ_GetMinProtoVersion()));
+                               routingProtoVersion, AJ_GetMinProtoVersion()));
                 AddRoutingNodeToBlacklist(service);
                 status = AJ_ERR_CONNECT;
             }
