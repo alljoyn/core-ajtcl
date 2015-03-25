@@ -671,9 +671,11 @@ AJ_Status AJ_X509DecodeCertificatePEM(X509Certificate* certificate, const char* 
     return AJ_OK;
 }
 
-X509CertificateChain* AJ_X509DecodeCertificateChainPEM(X509CertificateChain* head, const char* pem)
+X509CertificateChain* AJ_X509DecodeCertificateChainPEM(const char* pem)
 {
     AJ_Status status;
+    X509CertificateChain* head = NULL;
+    X509CertificateChain* curr = NULL;
     X509CertificateChain* node;
     const char* beg = pem;
     const char* end;
@@ -693,8 +695,15 @@ X509CertificateChain* AJ_X509DecodeCertificateChainPEM(X509CertificateChain* hea
         if (AJ_OK != status) {
             return NULL;
         }
-        node->next = head;
-        head = node;
+        // Push on the tail
+        node->next = NULL;
+        if (curr) {
+            curr->next = node;
+            curr = node;
+        } else {
+            head = node;
+            curr = node;
+        }
         beg = strstr(beg, PEM_CERT_BEG);
     }
 
