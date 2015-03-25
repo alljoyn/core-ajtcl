@@ -216,7 +216,7 @@ static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, 
                     AJ_Free(node->certificate.der.data);
                     AJ_Free(node);
                 }
-                chain = AJ_X509DecodeCertificateChainPEM(NULL, pem_x509);
+                chain = AJ_X509DecodeCertificateChainPEM(pem_x509);
                 if (NULL == chain) {
                     return AJ_ERR_INVALID;
                 }

@@ -178,13 +178,15 @@ AJ_Status AJ_X509DecodeCertificatePEM(X509Certificate* certificate, const char* 
 
 /**
  * Decode a PEM encoded X.509 certificate chain.
+ * The order of certificates is important.
+ * This puts the child first, then parents follow.
+ * That is the same order that should be in the pem.
  *
- * @param head        The certificate chain head.
  * @param pem         The input PEM.
  *
  * @return  Return chain on success, NULL on failure
  */
-X509CertificateChain* AJ_X509DecodeCertificateChainPEM(X509CertificateChain* head, const char* pem);
+X509CertificateChain* AJ_X509DecodeCertificateChainPEM(const char* pem);
 
 /**
  * Verify a self-signed X.509 certificate.
