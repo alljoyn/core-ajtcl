@@ -120,6 +120,12 @@ void* AJ_Realloc(void* ptr, size_t size);
 AJ_EXPORT
 void AJ_Free(void* mem);
 
+/**
+ * Zero-fill memory and assure it will not be optimized away
+ */
+AJ_EXPORT
+void AJ_MemZeroSecure(void* s, size_t n);
+
 
 /**
  * Macro for getting the size of an array variable

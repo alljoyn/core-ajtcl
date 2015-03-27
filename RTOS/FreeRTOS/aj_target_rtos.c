@@ -362,6 +362,12 @@ void AJ_Free(void* mem)
     }
 }
 
+void AJ_MemZeroSecure(void* s, size_t n)
+{
+    volatile unsigned char* p = s;
+    while (n--) *p++ = '\0';
+    return;
+}
 
 void* AJ_Realloc(void* ptr, size_t size)
 {

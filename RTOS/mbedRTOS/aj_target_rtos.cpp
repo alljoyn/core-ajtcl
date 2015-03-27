@@ -375,6 +375,13 @@ void* AJ_Realloc(void* ptr, size_t size)
     return ptrNew;
 }
 
+void AJ_MemZeroSecure(void* s, size_t n)
+{
+    volatile unsigned char* p = s;
+    while (n--) *p++ = '\0';
+    return;
+}
+
 uint16_t AJ_EphemeralPort(void)
 {
     uint16_t random = rand() & 0xFFFF;
