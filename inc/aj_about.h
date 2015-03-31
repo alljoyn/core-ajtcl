@@ -69,6 +69,15 @@ AJ_Status AJ_AboutInit(AJ_BusAttachment* bus, uint16_t boundPort);
 AJ_Status AJ_AboutAnnounce(AJ_BusAttachment* bus);
 
 /**
+ * Cancel an about announcement
+ *
+ * @param bus   The bus attachment context
+ *
+ * @return      AJ_OK if canceled successfully
+ */
+AJ_Status AJ_AboutUnannounce(AJ_BusAttachment* bus);
+
+/**
  * Set a device icon to be returned by About
  *
  * @param icon  Pointer to the icon data blob. This pointer must remain live until the next time this
