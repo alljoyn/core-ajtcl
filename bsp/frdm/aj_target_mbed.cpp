@@ -48,7 +48,7 @@ void BoardPrintf(const char* fmat, ...)
     char buf[256];
     va_list args;
     va_start(args, fmat);
-    vsprintf(buf, fmat, args);
+    vsnprintf(buf, 256, fmat, args);
     AJ_EnterCriticalRegion();
     pc.printf(buf);
     AJ_LeaveCriticalRegion();
