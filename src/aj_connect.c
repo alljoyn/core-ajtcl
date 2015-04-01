@@ -730,7 +730,7 @@ void AJ_AddRoutingNodeToResponseList(AJ_Service* service)
     if (RoutingNodeResponselist_idx == AJ_ROUTING_NODE_RESPONSELIST_SIZE) {
         replace = 0;
         RoutingNodeSlot = 0;
-    } else {
+    } else if (RoutingNodeResponselist_idx < AJ_ROUTING_NODE_RESPONSELIST_SIZE) {
         replace = 1;
         RoutingNodeSlot = RoutingNodeResponselist_idx;
     }
