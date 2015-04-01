@@ -433,7 +433,7 @@ static AJ_Status PSKCallback(AJ_AuthenticationContext* ctx, AJ_Message* msg)
 
 static AJ_Status PSKMarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
 {
-    AJ_Status status;
+    AJ_Status status = AJ_ERR_SECURITY;
     const char* anon = "<anonymous>";
     uint8_t verifier[AUTH_VERIFIER_LEN];
 
@@ -774,10 +774,18 @@ static AJ_Status ECDSAUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
     }
 
 Exit:
+    /* In case the list is empty and just node was allocated */
+    if (!head) {
+        if (node) {
+            AJ_Free(node);
+        }
+    }
     while (head) {
         node = head;
         head = head->next;
-        AJ_Free(node);
+        if (node) {
+            AJ_Free(node);
+        }
     }
     return trusted ? AJ_OK : AJ_ERR_SECURITY;
 }

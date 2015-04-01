@@ -689,10 +689,28 @@ X509CertificateChain* AJ_X509DecodeCertificateChainPEM(const char* pem)
         }
         node = (X509CertificateChain*) AJ_Malloc(sizeof (X509CertificateChain));
         if (NULL == node) {
+            /* Free the cert chain */
+            X509CertificateChain* tmp;
+            while (head) {
+                tmp = head;
+                head = head->next;
+                if (tmp) {
+                    AJ_Free(tmp);
+                }
+            }
             return NULL;
         }
         status = AJ_X509DecodeCertificatePEM(&node->certificate, beg, end - beg);
         if (AJ_OK != status) {
+            /* Free the cert chain */
+            X509CertificateChain* tmp;
+            while (head) {
+                tmp = head;
+                head = head->next;
+                if (tmp) {
+                    AJ_Free(tmp);
+                }
+            }
             return NULL;
         }
         // Push on the tail
