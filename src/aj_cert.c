@@ -307,15 +307,20 @@ static AJ_Status DecodeCertificateName(X509DistinguishedName* dn, DER_Element* d
         if (AJ_OK != status) {
             return status;
         }
-        // Only accept UTF8 strings
-        status = AJ_ASN1DecodeElement(&seq, ASN_UTF8, &tmp);
-        if (AJ_OK != status) {
-            return status;
-        }
         if (CompareOID(&oid, OID_DN_OU, sizeof (OID_DN_OU))) {
+            // Only accept UTF8 strings
+            status = AJ_ASN1DecodeElement(&seq, ASN_UTF8, &tmp);
+            if (AJ_OK != status) {
+                return status;
+            }
             dn->ou.data = tmp.data;
             dn->ou.size = tmp.size;
         } else if (CompareOID(&oid, OID_DN_CN, sizeof (OID_DN_CN))) {
+            // Only accept UTF8 strings
+            status = AJ_ASN1DecodeElement(&seq, ASN_UTF8, &tmp);
+            if (AJ_OK != status) {
+                return status;
+            }
             dn->cn.data = tmp.data;
             dn->cn.size = tmp.size;
         }
