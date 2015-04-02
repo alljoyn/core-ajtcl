@@ -342,6 +342,11 @@ int8_t AJ_CompareTime(AJ_Time timerA, AJ_Time timerB)
     }
 }
 
+uint64_t AJ_DecodeTime(char* der, char* fmt)
+{
+    return 0;
+}
+
 /*
  * AJ_Malloc, AJ_Free, and AJ_Realloc must be wrapped with
  * AJ_Enter/LeaveCriticalRegion as to not get interrupted.

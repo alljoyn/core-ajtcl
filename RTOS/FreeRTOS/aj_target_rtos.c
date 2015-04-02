@@ -350,6 +350,11 @@ int8_t AJ_CompareTime(AJ_Time timerA, AJ_Time timerB)
     }
 }
 
+uint64_t AJ_DecodeTime(char* der, char* fmt)
+{
+    return 0;
+}
+
 void* AJ_Malloc(size_t sz)
 {
     return pvPortMalloc(sz);

@@ -546,12 +546,12 @@ static size_t ParseMDNSDomainName(uint8_t const* buffer, uint32_t bufsize, MDNSD
     while (len) {
         if (((*pos & 0xc0) >> 6) == 3 && len > 1) {
             uint32_t pointer = ((pos[0] << 8 | pos[1]) & 0x3FFF);
-            if (payload[pointer] & 0xc0) {
-                AJ_ErrPrintf(("ParseMDNSDomainName(): Invalid compression\n"));
-                return 0;
-            }
             if (pointer >= paylen) {
                 AJ_ErrPrintf(("ParseMDNSDomainName(): Insufficient bufsize\n"));
+                return 0;
+            }
+            if (payload[pointer] & 0xc0) {
+                AJ_ErrPrintf(("ParseMDNSDomainName(): Invalid compression\n"));
                 return 0;
             }
             if (pos >= buffer) {
