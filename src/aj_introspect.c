@@ -1270,7 +1270,7 @@ AJ_Status AJ_UnmarshalPropertyArgs(AJ_Message* msg, uint32_t* propId, const char
 
 AJ_Status AJ_MarshalAllPropertiesArgs(AJ_Message* replyMsg, const char* iface, AJ_BusPropGetCallback callback, void* context)
 {
-    AJ_Status status;
+    AJ_Status status = AJ_ERR_MARSHAL;
     uint8_t oIndex = (replyMsg->msgId >> 24) & ~AJ_REP_ID_FLAG;
     uint8_t pIndex = replyMsg->msgId >> 16;
     uint8_t iIndex;
