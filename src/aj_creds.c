@@ -410,6 +410,10 @@ static AJ_Status AJ_DeleteOldestCredential(uint16_t* deleteSlot)
         AJ_NVRAM_Close(handle);
         if (status != AJ_OK) {
             AJ_ErrPrintf(("AJ_DeleteOldestCredential(): AJ_ERR_FAILURE on read failure \n"));
+            FreeCredentialContent(&cred);
+            if (localCredId) {
+                AJ_Free(localCredId);
+            }
             return status;
         }
 
@@ -419,6 +423,9 @@ static AJ_Status AJ_DeleteOldestCredential(uint16_t* deleteSlot)
             oldestslot = slot;
         }
         FreeCredentialContent(&cred);
+        if (localCredId) {
+            AJ_Free(localCredId);
+        }
     }
 
     if (oldestslot) {
