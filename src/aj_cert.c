@@ -112,6 +112,30 @@ static AJ_Status ASN1DecodeLength(DER_Element* der, DER_Element* out)
     return AJ_OK;
 }
 
+/*
+ * Currently, only UTF8String is supported in AJ certificates, so binary equivalence
+ * is sufficient. If other ASN.1 string types are ever supported, make sure
+ * DNs are stored internally in a canonical form that can still be checked for
+ * binary equivalence, or this function will need to be updated to do the right things.
+   . See RFC 5280 section 7.1 and RFC 4518 for equivalence between different string types.
+ */
+static uint32_t AJ_X509CompareNames(const X509DistinguishedName a, const X509DistinguishedName b)
+{
+    /* Only OU and CN are supported as elements in a DN in AllJoyn */
+    if (a.ou.size != b.ou.size ||
+        a.cn.size != b.cn.size) {
+        return FALSE;
+    }
+
+    if (0 != memcmp(a.ou.data, b.ou.data, a.ou.size) ||
+        0 != memcmp(a.cn.data, b.cn.data, a.cn.size)) {
+        return FALSE;
+    }
+
+    return TRUE;
+
+}
+
 AJ_Status AJ_ASN1DecodeElement(DER_Element* der, uint8_t tag, DER_Element* out)
 {
     uint8_t tmp;
@@ -751,6 +775,14 @@ AJ_Status AJ_X509VerifyChain(const X509CertificateChain* chain, const ecc_public
             status = AJ_X509Verify(&chain->certificate, key);
             if (AJ_OK != status) {
                 return status;
+            }
+        }
+        /* The subject field of the current certificate must equal the issuer field of the next certificate
+         * in the chain.
+         */
+        if (NULL != chain->next) {
+            if (!AJ_X509CompareNames(chain->certificate.tbs.subject, chain->next->certificate.tbs.issuer)) {
+                return AJ_ERR_SECURITY;
             }
         }
         key = &chain->certificate.tbs.publickey;
