@@ -156,6 +156,13 @@ void AJ_Free(void* mem)
     }
 }
 
+void AJ_MemZeroSecure(void* s, size_t n)
+{
+    volatile unsigned char* p = s;
+    while (n--) *p++ = '\0';
+    return;
+}
+
 /*
  * get a line of input from the the file pointer (most likely stdin).
  * This will capture the the num-1 characters or till a newline character is

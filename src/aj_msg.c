@@ -318,6 +318,7 @@ static AJ_Status DecryptMessage(AJ_Message* msg)
         status = AJ_Decrypt_CCM(key, ioBuf->bufStart, mlen - MAC_LENGTH, hLen, MAC_LENGTH, nonce, sizeof(nonce));
         EndianSwap(msg, AJ_ARG_INT32, &msg->hdr->bodyLen, 3);
     }
+    AJ_MemZeroSecure(key, 16);
     return status;
 }
 
@@ -356,6 +357,7 @@ static AJ_Status EncryptMessage(AJ_Message* msg)
         InitNonce(msg, role, nonce);
         status = AJ_Encrypt_CCM(key, ioBuf->bufStart, mlen, hlen, MAC_LENGTH, nonce, sizeof(nonce));
     }
+    AJ_MemZeroSecure(key, 16);
     return status;
 }
 

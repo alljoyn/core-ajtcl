@@ -24,7 +24,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
-#include <aj_debug.h>
+#include <string.h>
+#include "aj_debug.h"
 #include "aj_target.h"
 #include "aj_util.h"
 
@@ -152,6 +153,11 @@ void* AJ_Realloc(void* ptr, size_t size)
 void AJ_Free(void* p)
 {
     free(p);
+}
+
+void AJ_MemZeroSecure(void* s, size_t n)
+{
+    SecureZeroMemory(s, n);
 }
 
 #ifndef NDEBUG
