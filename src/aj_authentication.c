@@ -737,6 +737,12 @@ static AJ_Status ECDSAUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
             AJ_WarnPrintf(("AJ_ECDSA_Unmarshal(msg=%p): Resource error\n", msg));
             goto Exit;
         }
+        /*
+         * Push the certificate on to the front of the chain.
+         * We do this before decoding so that it is cleaned up in case of error.
+         */
+        node->next = head;
+        head = node;
         // Set the der before its consumed
         node->certificate.der.size = der.size;
         node->certificate.der.data = der.data;
@@ -745,9 +751,6 @@ static AJ_Status ECDSAUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
             AJ_WarnPrintf(("AJ_ECDSA_Unmarshal(msg=%p): Certificate decode failed\n", msg));
             goto Exit;
         }
-        // Push the certificate on to the front of the chain
-        node->next = head;
-        head = node;
     }
     if (AJ_ERR_NO_MORE != status) {
         AJ_InfoPrintf(("AJ_ECDSA_Unmarshal(msg=%p): Certificate chain error %s\n", msg, AJ_StatusText(status)));
@@ -777,18 +780,11 @@ static AJ_Status ECDSAUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
     }
 
 Exit:
-    /* In case the list is empty and just node was allocated */
-    if (!head) {
-        if (node) {
-            AJ_Free(node);
-        }
-    }
+    /* Free the cert chain */
     while (head) {
         node = head;
         head = head->next;
-        if (node) {
-            AJ_Free(node);
-        }
+        AJ_Free(node);
     }
     return trusted ? AJ_OK : AJ_ERR_SECURITY;
 }

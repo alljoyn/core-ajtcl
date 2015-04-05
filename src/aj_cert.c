@@ -730,35 +730,16 @@ X509CertificateChain* AJ_X509DecodeCertificateChainPEM(const char* pem)
         beg = beg + strlen(PEM_CERT_BEG);
         end = strstr(beg, PEM_CERT_END);
         if (NULL == end) {
-            return NULL;
+            goto Exit;
         }
         node = (X509CertificateChain*) AJ_Malloc(sizeof (X509CertificateChain));
         if (NULL == node) {
-            /* Free the cert chain */
-            X509CertificateChain* tmp;
-            while (head) {
-                tmp = head;
-                head = head->next;
-                if (tmp) {
-                    AJ_Free(tmp);
-                }
-            }
-            return NULL;
+            goto Exit;
         }
-        status = AJ_X509DecodeCertificatePEM(&node->certificate, beg, end - beg);
-        if (AJ_OK != status) {
-            /* Free the cert chain */
-            X509CertificateChain* tmp;
-            while (head) {
-                tmp = head;
-                head = head->next;
-                if (tmp) {
-                    AJ_Free(tmp);
-                }
-            }
-            return NULL;
-        }
-        // Push on the tail
+        /*
+         * Push the node on to the tail.
+         * We do this before decoding so that it is cleaned up in case of error.
+         */
         node->next = NULL;
         if (curr) {
             curr->next = node;
@@ -767,10 +748,27 @@ X509CertificateChain* AJ_X509DecodeCertificateChainPEM(const char* pem)
             head = node;
             curr = node;
         }
+        status = AJ_X509DecodeCertificatePEM(&node->certificate, beg, end - beg);
+        if (AJ_OK != status) {
+            goto Exit;
+        }
         beg = strstr(beg, PEM_CERT_BEG);
     }
 
     return head;
+
+Exit:
+    /* Free the cert chain */
+    while (head) {
+        node = head;
+        head = head->next;
+        /* Free the der memory if it was created */
+        if (node->certificate.der.data) {
+            AJ_Free(node->certificate.der.data);
+        }
+        AJ_Free(node);
+    }
+    return NULL;
 }
 
 AJ_Status AJ_X509SelfVerify(const X509Certificate* certificate)
