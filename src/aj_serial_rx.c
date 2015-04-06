@@ -196,7 +196,7 @@ AJ_Status AJ_SerialRX_Init(void)
     RxPacket = NULL;
     pendingRecv = 0;
     expectedSeq = 0;
-
+    dataReceived = 0;
     /*
      * The maximum frame size is the packet length plus the header length plus
      * two bytes for the packet boundary bytes.
