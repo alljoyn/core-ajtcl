@@ -166,19 +166,28 @@ AJ_Status AJ_SerialTX_Init()
      * window size.
      */
     for (i = 0; i < AJ_SerialLinkParams.maxWindowSize; ++i) {
+        void* payload;
         prev = txFreeList;
         txFreeList = AJ_Malloc(sizeof(TxPkt));
-        txFreeList->payload = AJ_Malloc(AJ_SerialLinkParams.packetSize);
+        payload = AJ_Malloc(AJ_SerialLinkParams.packetSize);
+        if (!txFreeList || !payload) {
+            return AJ_ERR_RESOURCES;
+        }
+        txFreeList->payload = payload;
         txFreeList->next = prev;
     }
 
     AJ_SlippedBuffer volatile* prevBuf = NULL;
     bufferTxFreeList = NULL;
     for (i = 0; i < AJ_SerialLinkParams.maxWindowSize; i++) {
+        void* buf;
         prevBuf = bufferTxFreeList;
         bufferTxFreeList = AJ_Malloc(sizeof(AJ_SlippedBuffer));
-
-        bufferTxFreeList->buffer = AJ_Malloc(SLIPPED_LEN(AJ_SerialLinkParams.packetSize)); //TODO: calculate slipped length based on packet size
+        buf = AJ_Malloc(SLIPPED_LEN(AJ_SerialLinkParams.packetSize)); //TODO: calculate slipped length based on packet size
+        if (!bufferTxFreeList || !buf) {
+            return AJ_ERR_RESOURCES;
+        }
+        bufferTxFreeList->buffer = buf;
         bufferTxFreeList->actualLen = 0;
         bufferTxFreeList->allocatedLen = SLIPPED_LEN(AJ_SerialLinkParams.packetSize);
         bufferTxFreeList->next = prevBuf;
