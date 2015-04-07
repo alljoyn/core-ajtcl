@@ -469,9 +469,14 @@ static AJ_Status DecodeCertificateExt(X509Extensions* extensions, DER_Element* d
     AJ_Status status;
     DER_Element tmp;
     DER_Element seq;
+    DER_Element savedSeq;
+    DER_Element boolVal;
+    DER_Element intVal;
     DER_Element oid;
     DER_Element oct;
     const uint8_t tags[] = { ASN_OID, ASN_OCTETS };
+    const uint8_t tagsWithCritical[] = { ASN_OID, ASN_BOOLEAN, ASN_OCTETS };
+    const uint8_t tagsCAPathLen[] = { ASN_BOOLEAN, ASN_INTEGER };
 
     memset(extensions, 0, sizeof (X509Extensions));
 
@@ -486,9 +491,15 @@ static AJ_Status DecodeCertificateExt(X509Extensions* extensions, DER_Element* d
         if (AJ_OK != status) {
             return status;
         }
-        status = AJ_ASN1DecodeElements(&seq, tags, sizeof (tags), &oid, &oct);
+        savedSeq.size = seq.size;
+        savedSeq.data = seq.data;
+
+        status = AJ_ASN1DecodeElements(&seq, tagsWithCritical, sizeof (tagsWithCritical), &oid, &boolVal, &oct);
         if (AJ_OK != status) {
-            return status;
+            status = AJ_ASN1DecodeElements(&savedSeq, tags, sizeof (tags), &oid, &oct);
+            if (AJ_OK != status) {
+                return status;
+            }
         }
         if (CompareOID(&oid, OID_BASIC_CONSTRAINTS, sizeof (OID_BASIC_CONSTRAINTS))) {
             status = AJ_ASN1DecodeElement(&oct, ASN_SEQ, &seq);
@@ -497,9 +508,14 @@ static AJ_Status DecodeCertificateExt(X509Extensions* extensions, DER_Element* d
             }
             // Explicit boolean (non-empty sequence)
             if (seq.size) {
-                status = AJ_ASN1DecodeElement(&seq, ASN_BOOLEAN, &tmp);
+                savedSeq.size = seq.size;
+                savedSeq.data = seq.data;
+                status = AJ_ASN1DecodeElements(&seq, tagsCAPathLen, sizeof (tagsCAPathLen), &tmp, &intVal);
                 if (AJ_OK != status) {
-                    return status;
+                    status = AJ_ASN1DecodeElement(&savedSeq, ASN_BOOLEAN, &tmp);
+                    if (AJ_OK != status) {
+                        return status;
+                    }
                 }
                 if (tmp.size) {
                     extensions->ca = *tmp.data;
