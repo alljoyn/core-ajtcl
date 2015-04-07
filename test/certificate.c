@@ -193,6 +193,14 @@ static const char pem_x509_3[] = {
     "-----END CERTIFICATE-----"
 };
 
+/**
+ * the basic constraints is marked as critical.
+ */
+static const char pem_x509_bcCritical[] = {
+    "-----BEGIN CERTIFICATE-----"
+    "MIIBVDCB/KADAgECAhC+Ci4hDqaWuEWj2eDd0zrfMAoGCCqGSM49BAMCMCQxIjAgBgNVBAMMGUFsbEpveW5UZXN0U2VsZlNpZ25lZE5hbWUwHhcNMTUwMzMxMTc0MTQwWhcNMTYwMzMwMTc0MTQwWjAkMSIwIAYDVQQDDBlBbGxKb3luVGVzdFNlbGZTaWduZWROYW1lMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE5nmP2qHqZ6N67jdoVxSA64U+Y+rThK+oAwgR6DNezFKMSgVMA1Snn4qsc1Q+KbaYAMj7hWs6xDUIbz6XTOJBvaMQMA4wDAYDVR0TAQH/BAIwADAKBggqhkjOPQQDAgNHADBEAiBJpmVQof40vG9qjWgBTMkETUT0d1kGADBjQK162bUCygIgAtHmpfRztbtr5hgXYdjx4W3Kw0elmnuIfsvrY86ONZs="
+    "-----END CERTIFICATE-----"
+};
 int AJ_Main(int ac, char** av)
 {
     AJ_Status status = AJ_OK;
@@ -278,6 +286,13 @@ int AJ_Main(int ac, char** av)
     status = AJ_DSAVerifyDigest(digest, &sig, &certificate.tbs.publickey);
     AJ_Printf("Verify: %s\n", AJ_StatusText(status));
 
+    der.data = ecc_x509;
+    der.size = sizeof (ecc_x509);
+    status = DecodePEMCertificate(pem_x509_bcCritical, ecc_x509, &der.size);
+    AJ_ASSERT(AJ_OK == status);
+    status = AJ_X509DecodeCertificateDER(&certificate, &der);
+    AJ_ASSERT(AJ_OK == status);
+    AJ_Printf("Parse cert with basicConstraints marked as critical: %s\n", AJ_StatusText(status));
     return 0;
 }
 
