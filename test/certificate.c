@@ -201,6 +201,25 @@ static const char pem_x509_bcCritical[] = {
     "MIIBVDCB/KADAgECAhC+Ci4hDqaWuEWj2eDd0zrfMAoGCCqGSM49BAMCMCQxIjAgBgNVBAMMGUFsbEpveW5UZXN0U2VsZlNpZ25lZE5hbWUwHhcNMTUwMzMxMTc0MTQwWhcNMTYwMzMwMTc0MTQwWjAkMSIwIAYDVQQDDBlBbGxKb3luVGVzdFNlbGZTaWduZWROYW1lMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE5nmP2qHqZ6N67jdoVxSA64U+Y+rThK+oAwgR6DNezFKMSgVMA1Snn4qsc1Q+KbaYAMj7hWs6xDUIbz6XTOJBvaMQMA4wDAYDVR0TAQH/BAIwADAKBggqhkjOPQQDAgNHADBEAiBJpmVQof40vG9qjWgBTMkETUT0d1kGADBjQK162bUCygIgAtHmpfRztbtr5hgXYdjx4W3Kw0elmnuIfsvrY86ONZs="
     "-----END CERTIFICATE-----"
 };
+
+/**
+ * the basic constraints has a path len field.
+ */
+static const char pem_x509_pathLen[] = {
+    "-----BEGIN CERTIFICATE-----"
+    "MIIBTDCB86ADAgECAhDNAwko47UUmUcr+HFVMJj1MAoGCCqGSM49BAMCMB4xHDAaBgNVBAMME0FsbEpveW5UZXN0Um9vdE5hbWUwHhcNMTUwMzMxMjMyODU2WhcNMTYwMzMwMjMyODU2WjAeMRwwGgYDVQQDDBNBbGxKb3luVGVzdFJvb3ROYW1lMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEwmq2CF9Q1Lh/RfE9ejHMGb+AkgKljRgh3D2uOVCGCvxpMtH4AR+QzAPKwYOHvKewsZIBtC41N5Fb4wFbR3kaSaMTMBEwDwYDVR0TBAgwBgEB/wIBADAKBggqhkjOPQQDAgNIADBFAiAyIj1kEli20k2jRuhmSqyjHJ1rlv0oyLOXpgI5f5P0nAIhALIV4i9VG6+DiL7VgNQ1LQswZMgjEUMuPWL6UyuBDe3z"
+    "-----END CERTIFICATE-----"
+};
+
+/**
+ * the basic constraints has no CA field.
+ */
+static const char pem_x509_no_CA[] = {
+    "-----BEGIN CERTIFICATE-----"
+    "MIIBRTCB66ADAgECAhAIrQyeRPmaj0tCzYi1kc1LMAoGCCqGSM49BAMCMB4xHDAaBgNVBAMME0FsbEpveW5UZXN0Um9vdE5hbWUwHhcNMTUwMzMxMjMyODU2WhcNMTYwMzMwMjMyODU2WjAcMRowGAYDVQQDDBFDZXJ0U2lnbkxpYkNsaWVudDBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABDrQE+EUBFzwtXq/vlG6IYYEpVxEndizIvaysExCBML5uYovNVLfWEqFmEDGLvv3rJkZ0I0xhzSyzLD+Zo4xzU+jDTALMAkGA1UdEwQCMAAwCgYIKoZIzj0EAwIDSQAwRgIhAJ++iDjgYeje0kmJ3cdYTwen1V92Ldz4m0NInbpPX3BOAiEAvUTLYd83T4uXNh6P+JL4Phj3zxVBo2mSvwnuFSyeSOg="
+    "-----END CERTIFICATE-----"
+};
+
 int AJ_Main(int ac, char** av)
 {
     AJ_Status status = AJ_OK;
@@ -293,6 +312,21 @@ int AJ_Main(int ac, char** av)
     status = AJ_X509DecodeCertificateDER(&certificate, &der);
     AJ_ASSERT(AJ_OK == status);
     AJ_Printf("Parse cert with basicConstraints marked as critical: %s\n", AJ_StatusText(status));
+
+    der.data = ecc_x509;
+    der.size = sizeof (ecc_x509);
+    status = DecodePEMCertificate(pem_x509_pathLen, ecc_x509, &der.size);
+    AJ_ASSERT(AJ_OK == status);
+    status = AJ_X509DecodeCertificateDER(&certificate, &der);
+    AJ_ASSERT(AJ_OK == status);
+    AJ_Printf("Parse pathLen: %s\n", AJ_StatusText(status));
+    der.data = ecc_x509;
+    der.size = sizeof (ecc_x509);
+    status = DecodePEMCertificate(pem_x509_no_CA, ecc_x509, &der.size);
+    AJ_ASSERT(AJ_OK == status);
+    status = AJ_X509DecodeCertificateDER(&certificate, &der);
+    AJ_ASSERT(AJ_OK == status);
+    AJ_Printf("Parse no CA: %s\n", AJ_StatusText(status));
     return 0;
 }
 
