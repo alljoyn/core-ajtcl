@@ -30,6 +30,7 @@
 #include "aj_nvram.h"
 #include "aj_debug.h"
 #include "aj_config.h"
+#include "aj_util.h"
 
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
@@ -45,14 +46,17 @@ static AJ_Status FreeCredentialContent(AJ_PeerCred* cred)
         return AJ_OK;
     }
     if ((cred->idLen > 0) && cred->id) {
+        AJ_MemZeroSecure(cred->id, cred->idLen);
         AJ_Free(cred->id);
         cred->idLen = 0;
     }
     if ((cred->associationLen > 0) && cred->association) {
+        AJ_MemZeroSecure(cred->association, cred->associationLen);
         AJ_Free(cred->association);
         cred->associationLen = 0;
     }
     if ((cred->dataLen > 0) && cred->data) {
+        AJ_MemZeroSecure(cred->data, cred->dataLen);
         AJ_Free(cred->data);
         cred->dataLen = 0;
     }

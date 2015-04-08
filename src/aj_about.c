@@ -250,10 +250,24 @@ AJ_Status AJ_AboutAnnounce(AJ_BusAttachment* bus)
     if (status != AJ_OK) {
         goto ErrorExit;
     }
+    bus->aboutSerial = announcement.hdr->serialNum;
     return AJ_DeliverMsg(&announcement);
 
 ErrorExit:
     return status;
+}
+
+AJ_Status AJ_AboutUnannounce(AJ_BusAttachment* bus)
+{
+    AJ_Status status;
+    if (bus->aboutSerial != 0) {
+        status = AJ_BusCancelSessionless(bus, bus->aboutSerial);
+        bus->aboutSerial = 0;
+        return status;
+    } else {
+        AJ_ErrPrintf(("AJ_AboutUnannounce(): No about announcement to cancel\n"));
+        return AJ_ERR_DISALLOWED;
+    }
 }
 
 AJ_Status AJ_AboutHandleGetObjectDescription(AJ_Message* msg, AJ_Message* reply)
