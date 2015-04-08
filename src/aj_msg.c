@@ -1748,7 +1748,7 @@ static AJ_Status MarshalMsg(AJ_Message* msg, uint8_t msgType, uint32_t msgId, ui
      */
     msg->hdr->flags ^= AJ_FLAG_AUTO_START;
     /*
-     * Serial number cannot be zero (wire-spec wierdness)
+     * Serial number cannot be zero (wire-spec weirdness)
      */
     do {
         msg->hdr->serialNum = msg->bus->serial++;
@@ -2226,8 +2226,10 @@ AJ_Status AJ_MarshalReplyMsg(const AJ_Message* methodCall, AJ_Message* reply)
     return MarshalMsg(reply, AJ_MSG_METHOD_RET, methodCall->msgId, methodCall->hdr->flags & AJ_FLAG_ENCRYPTED);
 }
 
-AJ_Status AJ_MarshalErrorMsg(const AJ_Message* methodCall, AJ_Message* reply, const char* error)
+AJ_Status AJ_MarshalErrorMsgWithInfo(const AJ_Message* methodCall, AJ_Message* reply, const char* error, const char* info)
 {
+    AJ_Status status;
+
     AJ_ASSERT(methodCall->hdr->msgType == AJ_MSG_METHOD_CALL);
     memset(reply, 0, sizeof(AJ_Message));
     reply->bus = methodCall->bus;
@@ -2236,7 +2238,19 @@ AJ_Status AJ_MarshalErrorMsg(const AJ_Message* methodCall, AJ_Message* reply, co
     reply->replySerial = methodCall->hdr->serialNum;
     reply->error = error;
     reply->ttl = 0;
-    return MarshalMsg(reply, AJ_MSG_ERROR, methodCall->msgId, methodCall->hdr->flags & AJ_FLAG_ENCRYPTED);
+    if (info) {
+        reply->signature = "s";
+    }
+    status = MarshalMsg(reply, AJ_MSG_ERROR, methodCall->msgId, methodCall->hdr->flags & AJ_FLAG_ENCRYPTED);
+    if ((status == AJ_OK) && info) {
+        status = AJ_MarshalArgs(reply, "s", info);
+    }
+    return status;
+}
+
+AJ_Status AJ_MarshalErrorMsg(const AJ_Message* methodCall, AJ_Message* reply, const char* error)
+{
+    return AJ_MarshalErrorMsgWithInfo(methodCall, reply, error, NULL);
 }
 
 
@@ -2259,7 +2273,7 @@ AJ_Status AJ_MarshalStatusMsg(const AJ_Message* methodCall, AJ_Message* reply, A
         break;
 
     default:
-        status = AJ_MarshalErrorMsg(methodCall, reply, AJ_ErrRejected);
+        status = AJ_MarshalErrorMsgWithInfo(methodCall, reply, AJ_ErrRejected, AJ_StatusText(status));
         break;
     }
     return status;
