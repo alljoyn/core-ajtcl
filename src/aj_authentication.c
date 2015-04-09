@@ -495,6 +495,9 @@ static AJ_Status PSKUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
         status = ComputeVerifier(ctx, "client finished", verifier, sizeof (verifier));
         AJ_SHA256_Update(&ctx->hash, verifier, sizeof (verifier));
         break;
+
+    default:
+        return AJ_ERR_SECURITY;
     }
     if (AJ_OK != status) {
         return AJ_ERR_SECURITY;
