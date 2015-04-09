@@ -160,6 +160,7 @@ AJ_Status AJ_SerialTX_Init()
     resendPrimed = FALSE;
     pendingAcks = 0;
     currentTxAck = 0;
+    dataSent = 1;
 
     /*
      * Data packets: To maximize throughput we need as many packets as the
@@ -231,6 +232,7 @@ void AJ_SerialTX_Shutdown(void)
     // delete the unreliable packet in a moment
     if (txUnreliable == txQueue) {
         txQueue = txUnreliable->next;
+        txUnreliable->next = NULL;
     }
 
     DeleteTxPacket(txQueue);

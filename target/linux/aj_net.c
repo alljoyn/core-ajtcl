@@ -225,7 +225,7 @@ AJ_Status AJ_Net_Recv(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)
     int maxFd = context->tcpSock;
     struct timeval tv = { timeout / 1000, 1000 * (timeout % 1000) };
 
-    AJ_InfoPrintf(("AJ_Net_Recv(buf=0x%p, len=%d., timeout=%d.)\n", buf, len, timeout));
+    // AJ_InfoPrintf(("AJ_Net_Recv(buf=0x%p, len=%d, timeout=%d)\n", buf, len, timeout));
 
     assert(buf->direction == AJ_IO_BUF_RX);
 
@@ -250,13 +250,13 @@ AJ_Status AJ_Net_Recv(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)
     if (rx) {
         ssize_t ret = recv(context->tcpSock, buf->writePtr, rx, 0);
         if ((ret == -1) || (ret == 0)) {
-            AJ_ErrPrintf(("AJ_Net_Recv(): recv() failed. errno=\"%s\", status=AJ_ERR_READ\n", strerror(errno)));
+            AJ_ErrPrintf(("AJ_Net_Recv(): recv() failed. errno=\"%s\"\n", strerror(errno)));
             status = AJ_ERR_READ;
         } else {
+            AJ_InfoPrintf(("AJ_Net_Recv(): recv'd %d from tcp\n", ret));
             buf->writePtr += ret;
         }
     }
-    AJ_InfoPrintf(("AJ_Net_Recv(): status=%s\n", AJ_StatusText(status)));
     return status;
 }
 
@@ -601,7 +601,7 @@ AJ_Status AJ_Net_RecvFrom(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)
     int rc = 0;
     struct timeval tv = { timeout / 1000, 1000 * (timeout % 1000) };
 
-    AJ_InfoPrintf(("AJ_Net_RecvFrom(buf=0x%p, len=%d, timeout=%d)\n", buf, len, timeout));
+    // AJ_InfoPrintf(("AJ_Net_RecvFrom(buf=0x%p, len=%d, timeout=%d)\n", buf, len, timeout));
 
     assert(buf->direction == AJ_IO_BUF_RX);
     assert(context->mDnsRecvSock != INVALID_SOCKET);
@@ -634,7 +634,7 @@ AJ_Status AJ_Net_RecvFrom(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)
         if (rx) {
             ret = recvfrom(context->mDnsRecvSock, buf->writePtr, rx, 0, NULL, 0);
             if (ret == -1) {
-                AJ_ErrPrintf(("AJ_Net_RecvFrom(): mDnsRecvSock recvfrom() failed. errno=\"%s\", status=AJ_ERR_READ\n", strerror(errno)));
+                AJ_ErrPrintf(("AJ_Net_RecvFrom(): mDnsRecvSock recvfrom() failed. errno=\"%s\"\n", strerror(errno)));
                 status = AJ_ERR_READ;
             } else {
                 AJ_InfoPrintf(("AJ_Net_RecvFrom(): recv'd %d from mDNS\n", (int) ret));
@@ -652,7 +652,7 @@ AJ_Status AJ_Net_RecvFrom(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)
         if (rx) {
             ret = recvfrom(context->udp6Sock, buf->writePtr, rx, 0, NULL, 0);
             if (ret == -1) {
-                AJ_ErrPrintf(("AJ_Net_RecvFrom(): recvfrom() failed. errno=\"%s\", status=AJ_ERR_READ\n", strerror(errno)));
+                AJ_ErrPrintf(("AJ_Net_RecvFrom(): recvfrom() failed. errno=\"%s\"\n", strerror(errno)));
                 status = AJ_ERR_READ;
             } else {
                 AJ_InfoPrintf(("AJ_Net_RecvFrom(): recv'd %d from udp6\n", (int) ret));
@@ -670,7 +670,7 @@ AJ_Status AJ_Net_RecvFrom(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)
         if (rx) {
             ret = recvfrom(context->udpSock, buf->writePtr, rx, 0, NULL, 0);
             if (ret == -1) {
-                AJ_ErrPrintf(("AJ_Net_RecvFrom(): recvfrom() failed. errno=\"%s\", status=AJ_ERR_READ\n", strerror(errno)));
+                AJ_ErrPrintf(("AJ_Net_RecvFrom(): recvfrom() failed. errno=\"%s\"\n", strerror(errno)));
                 status = AJ_ERR_READ;
             } else {
                 AJ_InfoPrintf(("AJ_Net_RecvFrom(): recv'd %d from udp\n", (int) ret));
@@ -683,7 +683,9 @@ AJ_Status AJ_Net_RecvFrom(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)
     }
 
 Finished:
-    AJ_InfoPrintf(("AJ_Net_RecvFrom(): status=%s\n", AJ_StatusText(status)));
+    if (status != AJ_OK) {
+        AJ_InfoPrintf(("AJ_Net_RecvFrom(): status=%s\n", AJ_StatusText(status)));
+    }
     return status;
 }
 
