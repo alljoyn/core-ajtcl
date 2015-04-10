@@ -57,9 +57,50 @@ uint8_t dbgMSG = 0;
 #define AJ_DICT_ENTRY_CLOSE      '}'
 
 /*
+ * The size of the previous MAC for encrypted messages
+ */
+#define PREVIOUS_MAC_LENGTH 8
+
+/*
  * The size of the MAC for encrypted messages
  */
-#define MAC_LENGTH 8
+#define MAC_LENGTH 16
+
+/*
+ * The size of the maximum MAC for encrypted messages
+ */
+#define MAX_MAC_LENGTH 16
+
+/*
+ * The minimum version with a full MAC length
+ */
+#define MIN_AUTH_FULL_MAC_LENGTH 0x0003
+
+/*
+ * The size of the previous nonce for encrypted messages
+ */
+#define PREVIOUS_NONCE_LENGTH 5
+
+/*
+ * The size of the MAC for encrypted messages
+ */
+#define NONCE_LENGTH 13
+
+/*
+ * The size of the maximum nonce for encrypted messages
+ */
+#define MAX_NONCE_LENGTH 13
+
+/*
+ * The minimum version with a full MAC length
+ */
+#define MIN_AUTH_FULL_NONCE_LENGTH 0x0003
+
+/*
+ * The minimum version with an extra nonce
+ */
+#define MIN_AUTH_EXTRA_NONCE 0x0003
+
 
 /*
  * gcc defines __va_copy() other compilers allow direct assignent of a va_list
@@ -277,7 +318,35 @@ static uint32_t MessageLen(AJ_Message* msg)
     return sizeof(AJ_MsgHeader) + ((msg->hdr->headerLen + 7) & 0xFFFFFFF8) + msg->hdr->bodyLen;
 }
 
-static void InitNonce(AJ_Message* msg, uint8_t role, uint8_t* nonce)
+static BOOL MessageRequiresLongerCryptoValues(AJ_Message* msg, uint32_t versionCheck)
+{
+    return ((versionCheck <= msg->bus->authVersion) &&                      // version
+            !((msg->hdr->msgType == AJ_MSG_SIGNAL) && !msg->destination));  // rollback for multicast/broadcast
+}
+
+static uint32_t GetMACLength(AJ_Message* msg)
+{
+    uint32_t macLen = MAC_LENGTH;
+
+    if (!MessageRequiresLongerCryptoValues(msg, MIN_AUTH_FULL_MAC_LENGTH)) {
+        macLen = PREVIOUS_MAC_LENGTH;
+    }
+
+    return macLen;
+}
+
+static uint32_t GetNonceLength(AJ_Message* msg)
+{
+    uint32_t nonceLen = NONCE_LENGTH;
+
+    if (!MessageRequiresLongerCryptoValues(msg, MIN_AUTH_FULL_NONCE_LENGTH)) {
+        nonceLen = PREVIOUS_NONCE_LENGTH;
+    }
+
+    return nonceLen;
+}
+
+static AJ_Status InitNonce(AJ_Message* msg, uint8_t role, uint8_t* nonce, uint32_t nonceLen, uint8_t* extraNonce, uint32_t extraNonceLen)
 {
     uint32_t serial = msg->hdr->serialNum;
     nonce[0] = role;
@@ -285,6 +354,18 @@ static void InitNonce(AJ_Message* msg, uint8_t role, uint8_t* nonce)
     nonce[2] = (uint8_t)(serial >> 16);
     nonce[3] = (uint8_t)(serial >> 8);
     nonce[4] = (uint8_t)(serial);
+    if (nonceLen < (PREVIOUS_NONCE_LENGTH + extraNonceLen)) {
+        return AJ_ERR_SECURITY;
+    }
+    if (0 < extraNonceLen) {
+        memcpy(&nonce[PREVIOUS_NONCE_LENGTH], extraNonce, extraNonceLen);
+    }
+    AJ_InfoPrintf(("Nonce %02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x\n",
+                    nonce[0], nonce[1], nonce[2], nonce[3],
+                    nonce[4], nonce[5], nonce[6], nonce[7],
+                    nonce[8], nonce[9], nonce[10], nonce[11],
+                    nonce[12]));
+    return AJ_OK;
 }
 
 static AJ_Status DecryptMessage(AJ_Message* msg)
@@ -292,10 +373,14 @@ static AJ_Status DecryptMessage(AJ_Message* msg)
     AJ_IOBuffer* ioBuf = &msg->bus->sock.rx;
     AJ_Status status;
     uint8_t key[16];
-    uint8_t nonce[5];
+    uint8_t nonce[MAX_NONCE_LENGTH];
     uint8_t role = AJ_ROLE_KEY_UNDEFINED;
     uint32_t mlen = MessageLen(msg);
     uint32_t hLen = mlen - msg->hdr->bodyLen;
+    uint32_t macLen;
+    uint32_t nonceLen;
+    uint32_t extraNonceLen;
+    uint32_t cryptoValsLen;
 
     /*
      * Use the group key for multicast and broadcast signals the session key otherwise.
@@ -313,9 +398,14 @@ static AJ_Status DecryptMessage(AJ_Message* msg)
         AJ_ErrPrintf(("DecryptMessage(): AJ_ERR_SECURITY\n"));
         status = AJ_ERR_SECURITY;
     } else {
-        InitNonce(msg, role, nonce);
+        macLen = GetMACLength(msg);
+        nonceLen = GetNonceLength(msg);
+        extraNonceLen = nonceLen - PREVIOUS_NONCE_LENGTH;
+        cryptoValsLen = macLen + extraNonceLen;
+        AJ_InfoPrintf(("DecryptMessage(): "));
+        InitNonce(msg, role, nonce, sizeof(nonce), ioBuf->bufStart + mlen - extraNonceLen, extraNonceLen);
         EndianSwap(msg, AJ_ARG_INT32, &msg->hdr->bodyLen, 3);
-        status = AJ_Decrypt_CCM(key, ioBuf->bufStart, mlen - MAC_LENGTH, hLen, MAC_LENGTH, nonce, sizeof(nonce));
+        status = AJ_Decrypt_CCM(key, ioBuf->bufStart, mlen - cryptoValsLen, hLen, macLen, nonce, nonceLen);
         EndianSwap(msg, AJ_ARG_INT32, &msg->hdr->bodyLen, 3);
     }
     AJ_MemZeroSecure(key, 16);
@@ -327,20 +417,25 @@ static AJ_Status EncryptMessage(AJ_Message* msg)
     AJ_IOBuffer* ioBuf = &msg->bus->sock.tx;
     AJ_Status status;
     uint8_t key[16];
-    uint8_t nonce[5];
+    uint8_t nonce[MAX_NONCE_LENGTH];
     uint8_t role = AJ_ROLE_KEY_UNDEFINED;
     uint32_t mlen = MessageLen(msg);
     uint32_t hlen = mlen - msg->hdr->bodyLen;
+    uint32_t macLen = GetMACLength(msg);
+    uint32_t nonceLen = GetNonceLength(msg);
+    uint32_t extraNonceLen = nonceLen - PREVIOUS_NONCE_LENGTH;
+    uint32_t cryptoValsLen = macLen + extraNonceLen;
 
     /*
-     * Check there is room to append the MAC
+     * Check there is room to append the MAC and Nonce
      */
-    if (AJ_IO_BUF_SPACE(ioBuf) < MAC_LENGTH) {
+    if (AJ_IO_BUF_SPACE(ioBuf) < cryptoValsLen) {
         AJ_ErrPrintf(("EncryptMessage(): AJ_ERR_RESOURCES\n"));
         return AJ_ERR_RESOURCES;
     }
-    msg->hdr->bodyLen += MAC_LENGTH;
-    ioBuf->writePtr += MAC_LENGTH;
+    msg->hdr->bodyLen += cryptoValsLen;
+    ioBuf->writePtr += cryptoValsLen;
+
     /*
      * Use the group key for multicast and broadcast signals the session key otherwise.
      */
@@ -354,8 +449,12 @@ static AJ_Status EncryptMessage(AJ_Message* msg)
         AJ_ErrPrintf(("EncryptMessage(): AJ_ERR_SECURITY\n"));
         status = AJ_ERR_SECURITY;
     } else {
-        InitNonce(msg, role, nonce);
-        status = AJ_Encrypt_CCM(key, ioBuf->bufStart, mlen, hlen, MAC_LENGTH, nonce, sizeof(nonce));
+        if (MessageRequiresLongerCryptoValues(msg, MIN_AUTH_FULL_NONCE_LENGTH)) {
+            AJ_RandBytes(ioBuf->bufStart + mlen + macLen, extraNonceLen);
+        }
+        AJ_InfoPrintf(("EncryptMessage(): "));
+        InitNonce(msg, role, nonce, sizeof(nonce), ioBuf->bufStart + mlen + macLen, extraNonceLen);
+        status = AJ_Encrypt_CCM(key, ioBuf->bufStart, mlen, hlen, macLen, nonce, nonceLen);
     }
     AJ_MemZeroSecure(key, 16);
     return status;
