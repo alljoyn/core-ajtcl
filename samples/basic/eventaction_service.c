@@ -249,13 +249,11 @@ int AJ_Main(void)
                 break;
 
             case AJ_SIGNAL_SESSION_LOST_WITH_REASON:
-                /* Session was lost so return error to force a disconnect. */
                 {
                     uint32_t id, reason;
                     AJ_UnmarshalArgs(&msg, "uu", &id, &reason);
                     AJ_AlwaysPrintf(("Session lost. ID = %u, reason = %u", id, reason));
                 }
-                status = AJ_ERR_SESSION_LOST;
                 break;
 
             default:
@@ -268,7 +266,7 @@ int AJ_Main(void)
         /* Messages MUST be discarded to free resources. */
         AJ_CloseMsg(&msg);
 
-        if (status == AJ_ERR_SESSION_LOST) {
+        if (status == AJ_ERR_READ) {
             AJ_AlwaysPrintf(("AllJoyn disconnect.\n"));
             AJ_Disconnect(&bus);
             connected = FALSE;
