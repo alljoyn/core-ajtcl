@@ -1119,7 +1119,7 @@ AJ_Status AJ_InitMessageFromMsgId(AJ_Message* msg, uint32_t msgId, uint8_t msgTy
                  */
                 if (!msg->objPath) {
                     status = AJ_ERR_OBJECT_PATH;
-                } else if (*msg->objPath == '*') {
+                } else if (*msg->objPath == '?') {
                     /*
                      * The wildcard object path is a special for case methods implemented by all
                      * objects. In the message header need a valid object path, it doesn't matter
