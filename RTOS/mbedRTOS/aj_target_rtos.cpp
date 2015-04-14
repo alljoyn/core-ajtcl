@@ -70,8 +70,10 @@ struct AJ_TaskHandle {
 
 struct AJ_Queue* AJ_QueueCreate(const char* name) {
     struct AJ_Queue* p = (struct AJ_Queue*)AJ_Malloc(sizeof(struct AJ_Queue));
-    Queue<void, 5>* queue = new Queue<void, 5>();
-    p->q = queue;
+    if (p) {
+        Queue<void, 5>* queue = new Queue<void, 5>();
+        p->q = queue;
+    }
     return p;
 }
 
