@@ -139,7 +139,7 @@ static AJ_Status MarshalObjectDescriptions(AJ_Message* msg)
         goto ErrorExit;
     }
     /*
-     * Announce object that a flagged for announcement and not hidden
+     * Announce objects that are flagged for announcement and not hidden
      */
     for (obj = AJ_InitObjectIterator(&iter, AJ_OBJ_FLAG_ANNOUNCED | AJ_OBJ_FLAG_DESCRIBED, AJ_OBJ_FLAG_HIDDEN); obj != NULL; obj = AJ_NextObject(&iter)) {
         size_t i;
