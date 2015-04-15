@@ -320,7 +320,7 @@ static uint32_t MessageLen(AJ_Message* msg)
 
 static uint32_t MessageRequiresLongerCryptoValues(AJ_Message* msg, uint32_t versionCheck)
 {
-    return ((versionCheck <= msg->bus->authVersion) &&                      // version
+    return ((versionCheck <= (msg->bus->authVersion >> 16)) &&              // version
             !((msg->hdr->msgType == AJ_MSG_SIGNAL) && !msg->destination));  // rollback for multicast/broadcast
 }
 
@@ -359,12 +359,16 @@ static AJ_Status InitNonce(AJ_Message* msg, uint8_t role, uint8_t* nonce, uint32
     }
     if (0 < extraNonceLen) {
         memcpy(&nonce[PREVIOUS_NONCE_LENGTH], extraNonce, extraNonceLen);
+
+        AJ_InfoPrintf(("Nonce %02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x\n",
+                       nonce[0], nonce[1], nonce[2], nonce[3],
+                       nonce[4], nonce[5], nonce[6], nonce[7],
+                       nonce[8], nonce[9], nonce[10], nonce[11],
+                       nonce[12]));
+    } else {
+        AJ_InfoPrintf(("Nonce %02x%02x%02x%02x%02x\n",
+                       nonce[0], nonce[1], nonce[2], nonce[3], nonce[4]));
     }
-    AJ_InfoPrintf(("Nonce %02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x\n",
-                   nonce[0], nonce[1], nonce[2], nonce[3],
-                   nonce[4], nonce[5], nonce[6], nonce[7],
-                   nonce[8], nonce[9], nonce[10], nonce[11],
-                   nonce[12]));
     return AJ_OK;
 }
 
@@ -402,7 +406,7 @@ static AJ_Status DecryptMessage(AJ_Message* msg)
         nonceLen = GetNonceLength(msg);
         extraNonceLen = nonceLen - PREVIOUS_NONCE_LENGTH;
         cryptoValsLen = macLen + extraNonceLen;
-        AJ_InfoPrintf(("DecryptMessage(): "));
+        AJ_InfoPrintf(("DecryptMessage(): \n"));
         InitNonce(msg, role, nonce, sizeof(nonce), ioBuf->bufStart + mlen - extraNonceLen, extraNonceLen);
         EndianSwap(msg, AJ_ARG_INT32, &msg->hdr->bodyLen, 3);
         status = AJ_Decrypt_CCM(key, ioBuf->bufStart, mlen - cryptoValsLen, hLen, macLen, nonce, nonceLen);
