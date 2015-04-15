@@ -439,6 +439,7 @@ AJ_Status AJ_FindBusAndConnect(AJ_BusAttachment* bus, const char* serviceName, u
     int32_t connectionTime;
     uint8_t finished = FALSE;
     bus->isAuthenticated = FALSE;
+    bus->isProbeRequired = TRUE;
 
 #ifdef AJ_SERIAL_CONNECTION
     AJ_Time start, now;
@@ -650,7 +651,10 @@ AJ_Status AJ_ARDP_UDP_Connect(AJ_BusAttachment* bus, void* context, const AJ_Ser
     AJ_IO_BUF_RESET(&bus->sock.tx);
 
     if (status == AJ_OK) {
+        // ARDP does not require additional authentication
         bus->isAuthenticated = TRUE;
+        // ARDP does not require ProbeReq/ProbeAck
+        bus->isProbeRequired = FALSE;
     }
 
     return status;

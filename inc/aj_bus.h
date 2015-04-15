@@ -75,6 +75,7 @@ typedef struct _AJ_BusAttachment {
     uint8_t isAuthenticated;                   /**< Has authentication already occured? */
     uint32_t authVersion;                      /**< Authentication version used */
     uint32_t aboutSerial;                      /**< Serial number for About announcement */
+    uint8_t isProbeRequired;                   /**< Are probe requests required for the live transport? */
 } AJ_BusAttachment;
 
 /**

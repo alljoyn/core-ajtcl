@@ -45,11 +45,6 @@ typedef struct _AJ_BusLinkWatcher {
 static uint32_t busLinkTimeout;          /**< Timeout value for the link to the daemon bus */
 static AJ_BusLinkWatcher busLinkWatcher; /**< Data structure that maintains information for tracking the link to the daemon bus */
 
-/**
- * Forward declaration
- */
-AJ_Status AJ_SendLinkProbeReq(AJ_BusAttachment* bus);
-
 AJ_Status AJ_SetBusLinkTimeout(AJ_BusAttachment* bus, uint32_t timeout)
 {
     if (!timeout) {
@@ -59,6 +54,7 @@ AJ_Status AJ_SetBusLinkTimeout(AJ_BusAttachment* bus, uint32_t timeout)
     busLinkTimeout = timeout * 1000;
     return AJ_OK;
 }
+
 AJ_Status AJ_SetIdleTimeouts(AJ_BusAttachment* bus, uint32_t idleTo, uint32_t probeTo)
 {
     AJ_Status status;
@@ -81,10 +77,22 @@ void AJ_NotifyLinkActive()
     memset(&busLinkWatcher, 0, sizeof(AJ_BusLinkWatcher));
 }
 
+static AJ_Status AJ_SendLinkProbeReq(AJ_BusAttachment* bus)
+{
+    AJ_Status status;
+    AJ_Message msg;
+
+    status = AJ_MarshalSignal(bus, &msg, AJ_SIGNAL_PROBE_REQ, AJ_BusDestination, 0, 0, 0);
+    if (status == AJ_OK) {
+        status = AJ_DeliverMsg(&msg);
+    }
+    return status;
+}
+
 AJ_Status AJ_BusLinkStateProc(AJ_BusAttachment* bus)
 {
     AJ_Status status = AJ_OK;
-    if (busLinkTimeout) {
+    if (bus->isProbeRequired && busLinkTimeout) {
         if (!busLinkWatcher.linkTimerInited) {
             busLinkWatcher.linkTimerInited = TRUE;
             AJ_InitTimer(&(busLinkWatcher.linkTimer));
@@ -119,15 +127,5 @@ AJ_Status AJ_BusLinkStateProc(AJ_BusAttachment* bus)
     return status;
 }
 
-AJ_Status AJ_SendLinkProbeReq(AJ_BusAttachment* bus)
-{
-    AJ_Status status;
-    AJ_Message msg;
 
-    status = AJ_MarshalSignal(bus, &msg, AJ_SIGNAL_PROBE_REQ, AJ_BusDestination, 0, 0, 0);
-    if (status == AJ_OK) {
-        status = AJ_DeliverMsg(&msg);
-    }
-    return status;
-}
 
