@@ -137,7 +137,16 @@ static const char pem_x509[] = {
 };
 
 static const char psk_hint[] = "<anonymous>";
+/*
+ * The tests were changed at some point to make the psk longer.
+ * If doing backcompatibility testing with previous versions (14.08 or before),
+ * define LITE_TEST_BACKCOMPAT to use the old version of the password.
+ */
+#ifndef LITE_TEST_BACKCOMPAT
+static const char psk_char[] = "faaa0af3dd3f1e0379da046a3ab6ca44";
+#else
 static const char psk_char[] = "123456";
+#endif
 static X509CertificateChain* chain = NULL;
 static ecc_privatekey prv;
 static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, AJ_Credential*cred)
