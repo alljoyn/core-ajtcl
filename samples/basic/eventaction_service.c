@@ -126,8 +126,8 @@ static AJ_Status MyAboutPropGetter(AJ_Message* reply, const char* language)
     AJ_Arg array;
     AJ_GUID guid;
     char guidStr[16 * 2 + 1];
-    guidStr[16 * 2] = '\0';
     uint8_t appId[16];
+    guidStr[16 * 2] = '\0';
 
     if ((language != NULL) && (0 != strcmp(language, languages[0])) && (0 != strcmp(language, languages[1])) && (0 != strcmp(language, ""))) {
         /* the language supplied was not supported */
