@@ -18,6 +18,7 @@
  ******************************************************************************/
 #define AJ_MODULE TARGET_UTIL
 
+#include "aj_target.h"
 #include <time.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -27,7 +28,6 @@
 #include <stdarg.h>
 #include <arpa/inet.h>
 #include <aj_debug.h>
-#include "aj_target.h"
 #include "aj_util.h"
 
 uint8_t dbgTARGET_UTIL = 0;

@@ -67,19 +67,6 @@ AJ_Status AJ_GUID_FromString(AJ_GUID* guid, const char* str)
     return AJ_HexToRaw(str, 32, guid->val, 16);
 }
 
-static void DumpNameMapping(void)
-{
-    uint32_t i;
-    for (i = 0; i < AJ_NAME_MAP_GUID_SIZE; ++i) {
-        AJ_InfoPrintf(("\t\tDumpNameMapping([%u] unique=\"%s\", service=\"%s\", reply=\"%u\")\n",
-                       i,
-                       nameMap[i].uniqueName,
-                       nameMap[i].serviceName,
-                       nameMap[i].replySerial
-                       ));
-    }
-}
-
 static NameToGUID* LookupName(const char* name)
 {
     uint32_t i;
@@ -275,7 +262,7 @@ AJ_Status AJ_GUID_HandleAddMatchReply(AJ_Message* msg)
 {
     AJ_Status status;
     NameToGUID* mapping;
-    uint32_t serialNum;
+    uint32_t serialNum = 0;
 
     AJ_InfoPrintf(("AJ_GUID_HandleAddMatchReply(msg=0x%p)\n", msg));
 

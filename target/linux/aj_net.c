@@ -211,7 +211,9 @@ void AJ_Net_Interrupt()
 {
     if (blocked) {
         uint64_t u64;
-        write(interruptFd, &u64, sizeof(u64));
+        if (write(interruptFd, &u64, sizeof(u64)) < 0) {
+            AJ_ErrPrintf(("AJ_Net_Interrupt(): write() failed. errno=\"%s\"\n", strerror(errno)));
+        }
     }
 }
 
@@ -243,7 +245,9 @@ AJ_Status AJ_Net_Recv(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)
     }
     if ((interruptFd >= 0) && FD_ISSET(interruptFd, &fds)) {
         uint64_t u64;
-        read(interruptFd, &u64, sizeof(u64));
+        if (read(interruptFd, &u64, sizeof(u64)) < 0) {
+            AJ_ErrPrintf(("AJ_Net_Recv(): read() failed during interrupt. errno=\"%s\"\n", strerror(errno)));
+        }
         return AJ_ERR_INTERRUPTED;
     }
     rx = min(rx, len);

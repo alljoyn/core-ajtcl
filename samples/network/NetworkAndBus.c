@@ -33,6 +33,7 @@
 #include "aj_bus.h"
 #include "aj_disco.h"
 #include "aj_wifi_ctrl.h"
+#include "aj_guid.h"
 
 #ifndef NDEBUG
 AJ_EXPORT uint8_t dbgNETBUSSAMPLE = 0;
@@ -177,10 +178,13 @@ int AJ_Main(void)
 #ifdef AJ_CONFIGURE_WIFI_UPON_START
 # error This sample cannot be built with AJ_CONFIGURE_WIFI_UPON_START defined
 #endif
+// dhcp_attempts applies to systems in need of network connections
+#if !(defined(ARDUINO) || defined(__linux) || defined(_WIN32) || defined(__MACH__))
+    int32_t dhcp_attempts = 5;
+#endif
 
     AJ_Status status = AJ_OK;
     AJ_BusAttachment bus;
-    int32_t dhcp_attempts = 5;
 
     /*
      * One time initialization before calling any other AllJoyn APIs

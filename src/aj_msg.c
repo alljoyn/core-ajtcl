@@ -2053,7 +2053,6 @@ static AJ_Status VMarshalArgs(AJ_Message* msg, const char** sig, va_list* argpp)
         uint16_t u16;
         uint32_t u32;
         uint64_t u64;
-        const char* inSig = *sig;
         uint8_t typeId = (uint8_t)*((*sig)++);
         void* val;
 
