@@ -69,7 +69,7 @@ static const char* const someSessionlessSignalDesc[] = { "An example sessionless
 #define SAMPLE_SOMESIGNAL_ARG_DESC          AJ_DESCRIPTION_ID(SAMPLE_OBJECT_ID, 1, 3, 1)
 #define SAMPLE_SOMESESSIONLESSSIGNAL_DESC   AJ_DESCRIPTION_ID(SAMPLE_OBJECT_ID, 1, 4, 0)
 
-static const char* const languages[] = { "en", "es" };
+static const char* const languages[] = { "en", "es", NULL };
 
 static const char* MyTranslator(uint32_t descId, const char* lang) {
     uint8_t langIndex;
@@ -139,7 +139,7 @@ static AJ_Status MyAboutPropGetter(AJ_Message* reply, const char* language)
         return status;
     }
     AJ_GUID_ToString(&guid, guidStr, sizeof(guidStr));
-    status = AJ_HexToRaw(guidStr, 16, appId, 16);
+    status = AJ_HexToRaw(guidStr, 0, appId, 16);
     if (status != AJ_OK) {
         return status;
     }
@@ -329,7 +329,7 @@ int AJ_Main(void)
                     char* joiner;
                     AJ_UnmarshalArgs(&msg, "qus", &port, &sessionId, &joiner);
                     status = AJ_BusReplyAcceptSession(&msg, TRUE);
-                    AJ_InfoPrintf(("Accepted session session_id=%u joiner=%s\n", sessionId, joiner));
+                    AJ_AlwaysPrintf(("Accepted session session_id=%u joiner=%s\n", sessionId, joiner));
                 }
                 break;
 
@@ -341,7 +341,7 @@ int AJ_Main(void)
                 {
                     uint32_t id, reason;
                     AJ_UnmarshalArgs(&msg, "uu", &id, &reason);
-                    AJ_AlwaysPrintf(("Session lost. ID = %u, reason = %u", id, reason));
+                    AJ_AlwaysPrintf(("Session lost. ID = %u, reason = %u\n", id, reason));
                 }
                 break;
 

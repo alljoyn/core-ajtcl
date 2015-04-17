@@ -188,7 +188,7 @@ static const char pem_x509[] = {
 };
 
 static const char psk_hint[] = "<anonymous>";
-static const char psk_char[] = "123456";
+static const char psk_char[] = "faaa0af3dd3f1e0379da046a3ab6ca44";
 static X509CertificateChain* chain = NULL;
 static ecc_privatekey prv;
 static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, AJ_Credential*cred)
@@ -311,7 +311,7 @@ int AJ_Main(int ac, char** av)
                       "   -e can be specified multiple times to support multiple encryption suites\n"
                       "-ek <encryption suite>\n"
                       "    Same as -e, except that any existing authentication keys are cleared. This \n"
-                      "    will ensure a new key exchange/password validation occurs\n");
+                      "    will ensure a new key exchange occurs.\n");
             return AJ_ERR_NULL;
         }
         if (!ac) {
