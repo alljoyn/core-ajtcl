@@ -710,7 +710,6 @@ AJ_Status AJ_BusPropGetAll(AJ_Message* msg, AJ_BusPropGetCallback callback, void
 
 AJ_Status AJ_BusEnableSecurity(AJ_BusAttachment* bus, const uint32_t* suites, size_t numsuites)
 {
-    AJ_Status status;
     size_t i;
 
     AJ_InfoPrintf(("AJ_BusEnableSecurity(bus=0x%p, suites=0x%p)\n", bus, suites));

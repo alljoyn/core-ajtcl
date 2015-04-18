@@ -855,7 +855,7 @@ static uint32_t MatchMember(const char* encoding, const AJ_Message* msg)
         /*
          * Advance so that we do not return a '&' character
          */
-        *encoding++;
+        encoding++;
     }
     while (*member) {
         if (*encoding++ != *member++) {
