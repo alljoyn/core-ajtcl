@@ -1407,8 +1407,16 @@ AJ_Status AJ_UnmarshalArg(AJ_Message* msg, AJ_Arg* arg)
             container->sigPtr = sig;
         }
     } else {
-        status = Unmarshal(msg, &sig, arg);
-        msg->sigOffset = (uint8_t)(sig - msg->signature);
+        /*
+         * The signature representing the message body does not match the number of body bytes
+         */
+        if (!msg->bodyBytes) {
+            AJ_ErrPrintf(("AJ_UnmarshalArg(): Message body length is incorrect, status = AJ_ERR_UNMARSHAL\n"));
+            status = AJ_ERR_UNMARSHAL;
+        } else {
+            status = Unmarshal(msg, &sig, arg);
+            msg->sigOffset = (uint8_t)(sig - msg->signature);
+        }
     }
     consumed = (ioBuf->readPtr - argStart);
     if (consumed > msg->bodyBytes) {
