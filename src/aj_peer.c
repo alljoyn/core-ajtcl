@@ -360,7 +360,7 @@ AJ_Status AJ_PeerHandleExchangeGUIDs(AJ_Message* msg, AJ_Message* reply)
         status = AJ_CredentialExpired(cred);
         if (AJ_ERR_KEY_EXPIRED != status) {
             /* record our authVersion */
-            authContext.bus->authVersion = authContext.version;
+            //AJ_SetAuthVersion(msg->sender, authContext.version);
             /* secret not expired or time unknown */
             peerContext.state = AJ_AUTH_SUCCESS;
             /* assert that MASTER_SECRET_LEN == cred->dataLen */
@@ -453,7 +453,7 @@ AJ_Status AJ_PeerHandleExchangeGUIDsReply(AJ_Message* msg)
         status = AJ_CredentialExpired(cred);
         if (AJ_ERR_KEY_EXPIRED != status) {
             /* record our authVersion*/
-            authContext.bus->authVersion = authContext.version;
+            //AJ_SetAuthVersion(msg->sender, authContext.version);
             /* secret not expired or time unknown */
             peerContext.state = AJ_AUTH_SUCCESS;
             /* assert that MASTER_SECRET_LEN == cred->dataLen */
@@ -858,7 +858,7 @@ AJ_Status AJ_PeerHandleKeyAuthentication(AJ_Message* msg, AJ_Message* reply)
     /*
      * Record our authVersion
      */
-    authContext.bus->authVersion = authContext.version;
+    //AJ_SetAuthVersion(msg->sender, authContext.version);
     AJ_InfoPrintf(("Key Authentication Complete\n"));
     peerContext.state = AJ_AUTH_SUCCESS;
 
@@ -916,7 +916,7 @@ AJ_Status AJ_PeerHandleKeyAuthenticationReply(AJ_Message* msg)
     /*
      * Record our authVersion
      */
-    authContext.bus->authVersion = authContext.version;
+    //AJ_SetAuthVersion(msg->sender, authContext.version);
     /*
      * Key authentication complete - start the session
      */
@@ -1015,6 +1015,9 @@ AJ_Status AJ_PeerHandleGenSessionKey(AJ_Message* msg, AJ_Message* reply)
     AJ_RandHex(peerContext.nonce, sizeof(peerContext.nonce), AJ_NONCE_LEN);
     status = KeyGen(msg->sender, AJ_ROLE_KEY_RESPONDER, nonce, peerContext.nonce, (uint8_t*)verifier, sizeof(verifier));
     if (status == AJ_OK) {
+        status = AJ_SetAuthVersion(msg->sender, authContext.version);
+    }
+    if (status == AJ_OK) {
         AJ_MarshalReplyMsg(msg, reply);
         status = AJ_MarshalArgs(reply, "ss", peerContext.nonce, verifier);
     } else {
@@ -1061,6 +1064,9 @@ AJ_Status AJ_PeerHandleGenSessionKeyReply(AJ_Message* msg)
 
     AJ_UnmarshalArgs(msg, "ss", &nonce, &remVerifier);
     status = KeyGen(msg->sender, AJ_ROLE_KEY_INITIATOR, peerContext.nonce, nonce, (uint8_t*)verifier, sizeof(verifier));
+    if (status == AJ_OK) {
+        status = AJ_SetAuthVersion(msg->sender, authContext.version);
+    }
     if (status == AJ_OK) {
         /*
          * Check verifier strings match as expected

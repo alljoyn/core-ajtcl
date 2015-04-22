@@ -48,6 +48,7 @@ typedef struct _NameToGUID {
     uint8_t sessionKey[16];
     uint8_t groupKey[16];
     uint32_t replySerial;
+    uint32_t authVersion;
 } NameToGUID;
 
 static uint8_t localGroupKey[16];
@@ -236,6 +237,46 @@ AJ_Status AJ_GetGroupKey(const char* name, uint8_t* key)
     }
     return AJ_OK;
 }
+
+AJ_Status AJ_SetAuthVersion(const char* name, uint32_t authVersion)
+{
+    NameToGUID* mapping = NULL;
+    AJ_Status status = AJ_ERR_UNKNOWN;
+
+    AJ_InfoPrintf(("AJ_SetAuthVersion(name=\"%s\", authVersion=0x%08x)\n", name, authVersion));
+
+    mapping = LookupName(name);
+    if (mapping) {
+        mapping->authVersion = authVersion;
+        status = AJ_OK;
+    } else {
+        AJ_WarnPrintf(("AJ_SetAuthVersion(): AJ_ERR_NO_MATCH\n"));
+        status = AJ_ERR_NO_MATCH;
+    }
+
+    return status;
+}
+
+AJ_Status AJ_GetAuthVersion(const char* name, uint32_t* authVersion)
+{
+    NameToGUID* mapping = NULL;
+    AJ_Status status = AJ_ERR_UNKNOWN;
+
+    AJ_InfoPrintf(("AJ_GetAuthVersion(name=\"%s\", *authVersion=0x%p)\n", name, authVersion));
+
+    mapping = LookupName(name);
+    if (mapping) {
+        *authVersion = mapping->authVersion;
+        AJ_InfoPrintf(("AJ_GetAuthVersion(): returning authentication version 0x%08x\n", *authVersion));
+        status = AJ_OK;
+    } else {
+        AJ_WarnPrintf(("AJ_SetAuthVersion(): AJ_ERR_NO_MATCH\n"));
+        status = AJ_ERR_NO_MATCH;
+    }
+
+    return status;
+}
+
 
 static AJ_Status SetNameOwnerChangedRule(AJ_BusAttachment* bus, const char* oldOwner, uint8_t rule, uint32_t* serialNum)
 {

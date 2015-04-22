@@ -161,6 +161,30 @@ AJ_Status AJ_GetSessionKey(const char* name, uint8_t* key, uint8_t* role);
 AJ_Status AJ_GetGroupKey(const char* name, uint8_t* key);
 
 /**
+ * Sets the authVersion for an entry in the GUID map.
+ *
+ * @param name           The unique or well-known name for a remote peer or NULL to get the authentication version.
+ * @param authVersion    The uint32_t of the authentication version.
+ *
+ * @return  Return AJ_Status
+ *          - AJ_OK if the key was added
+ *          - AJ_ERR_NO_MATCH if there is no entry to the peer
+ */
+AJ_Status AJ_SetAuthVersion(const char* name, uint32_t authVersion);
+
+/**
+ * Gets an AuthVersion for an entry from the GUID map.
+ *
+ * @param name           The unique or well-known name for a remote peer or NULL to get the authentication version.
+ * @param authVersion    Pointer to a uint32_t to receive the authentication version.
+ *
+ * @return  Return AJ_Status
+ *          - AJ_OK if the key was obtained
+ *          - AJ_ERR_NO_MATCH if there is no entry to the peer
+ */
+AJ_Status AJ_GetAuthVersion(const char* name, uint32_t* authVersion);
+
+/**
  * Handle an add match reply message
  *
  * @param msg    The add match reply message
