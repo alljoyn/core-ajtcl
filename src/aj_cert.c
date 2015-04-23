@@ -690,26 +690,41 @@ AJ_Status AJ_X509DecodeCertificateDER(X509Certificate* certificate, DER_Element*
     return status;
 }
 
-AJ_Status AJ_X509DecodeCertificatePEM(X509Certificate* certificate, const char* pem, size_t len)
+AJ_Status AJ_X509DecodeCertificatePEM(X509Certificate* certificate, const char* pem)
 {
     AJ_Status status;
+    const char* beg = pem;
+    const char* end;
+    size_t len;
 
-    AJ_InfoPrintf(("AJ_X509DecodeCertificatePEM(certificate=%p, pem=%p, len=%zu)\n", certificate, pem, len));
+    AJ_InfoPrintf(("AJ_X509DecodeCertificatePEM(certificate=%p, pem=%s)\n", certificate, pem));
 
+    beg = strstr(beg, PEM_CERT_BEG);
+    if (NULL == beg) {
+        AJ_InfoPrintf(("AJ_X509DecodeCertificatePEM(certificate=%p, pem=%s): Missing %s tag\n", certificate, pem, PEM_CERT_BEG));
+        return AJ_ERR_INVALID;
+    }
+    beg = beg + strlen(PEM_CERT_BEG);
+    end = strstr(beg, PEM_CERT_END);
+    if (NULL == end) {
+        AJ_InfoPrintf(("AJ_X509DecodeCertificatePEM(certificate=%p, pem=%s): Missing %s tag\n", certificate, pem, PEM_CERT_END));
+        return AJ_ERR_INVALID;
+    }
+    len = end - beg;
     certificate->der.size = 3 * len / 4;
     certificate->der.data = AJ_Malloc(certificate->der.size);
     if (NULL == certificate->der.data) {
         return AJ_ERR_RESOURCES;
     }
-    status = AJ_B64ToRaw(pem, len, certificate->der.data, certificate->der.size);
+    status = AJ_B64ToRaw(beg, len, certificate->der.data, certificate->der.size);
     if (AJ_OK != status) {
         AJ_Free(certificate->der.data);
         return status;
     }
-    if ('=' == pem[len - 1]) {
+    if ('=' == beg[len - 1]) {
         certificate->der.size--;
     }
-    if ('=' == pem[len - 2]) {
+    if ('=' == beg[len - 2]) {
         certificate->der.size--;
     }
 
@@ -723,15 +738,9 @@ X509CertificateChain* AJ_X509DecodeCertificateChainPEM(const char* pem)
     X509CertificateChain* curr = NULL;
     X509CertificateChain* node;
     const char* beg = pem;
-    const char* end;
 
     beg = strstr(beg, PEM_CERT_BEG);
     while (beg) {
-        beg = beg + strlen(PEM_CERT_BEG);
-        end = strstr(beg, PEM_CERT_END);
-        if (NULL == end) {
-            goto Exit;
-        }
         node = (X509CertificateChain*) AJ_Malloc(sizeof (X509CertificateChain));
         if (NULL == node) {
             goto Exit;
@@ -748,11 +757,14 @@ X509CertificateChain* AJ_X509DecodeCertificateChainPEM(const char* pem)
             head = node;
             curr = node;
         }
-        status = AJ_X509DecodeCertificatePEM(&node->certificate, beg, end - beg);
+        status = AJ_X509DecodeCertificatePEM(&node->certificate, beg);
         if (AJ_OK != status) {
             goto Exit;
         }
-        beg = strstr(beg, PEM_CERT_BEG);
+        /*
+         * Look for more certificates, anywhere after the current tag.
+         */
+        beg = strstr(beg + 1, PEM_CERT_BEG);
     }
 
     return head;

@@ -27,92 +27,7 @@
 #include "aj_crypto.h"
 #include "aj_crypto_sha2.h"
 
-uint8_t dbgTEST_CERTIFICATE = 0;
-
-static AJ_Status DecodePEMPrivateKey(const char* pem, uint8_t* key, size_t* len)
-{
-    AJ_Status status;
-    char* beg;
-    char* end;
-    const char* tag1 = "-----BEGIN EC PRIVATE KEY-----";
-    const char* tag2 = "-----END EC PRIVATE KEY-----";
-    uint8_t* buf;
-    DER_Element der;
-    DER_Element seq;
-    DER_Element ver;
-    DER_Element prv;
-
-    beg = strstr(pem, tag1);
-    AJ_ASSERT(beg);
-    beg = pem + strlen(tag1);
-    end = strstr(beg, tag2);
-    AJ_ASSERT(end);
-
-    der.size = 3 * (end - beg) / 4;
-    der.data = AJ_Malloc(der.size);
-    AJ_ASSERT(der.data);
-    buf = der.data;
-    status = AJ_B64ToRaw(beg, end - beg, der.data, der.size);
-    AJ_ASSERT(AJ_OK == status);
-    AJ_DumpBytes("DER", der.data, der.size);
-    if ('=' == beg[end - beg - 1]) {
-        der.size--;
-    }
-    if ('=' == beg[end - beg - 2]) {
-        der.size--;
-    }
-    AJ_DumpBytes("DER", der.data, der.size);
-
-    status = AJ_ASN1DecodeElement(&der, ASN_SEQ, &seq);
-    AJ_ASSERT(AJ_OK == status);
-    status = AJ_ASN1DecodeElement(&seq, ASN_INTEGER, &ver);
-    AJ_ASSERT(AJ_OK == status);
-    status = AJ_ASN1DecodeElement(&seq, ASN_OCTETS, &prv);
-    AJ_ASSERT(AJ_OK == status);
-    AJ_ASSERT(1 ==  ver.size);
-    AJ_ASSERT(1 == *ver.data);
-    AJ_ASSERT(*len >= prv.size);
-    memcpy(key, prv.data, prv.size);
-    *len = prv.size;
-    AJ_DumpBytes("KEY", key, prv.size);
-
-    AJ_Free(buf);
-
-    return AJ_OK;
-}
-
-static AJ_Status DecodePEMCertificate(const char* pem, uint8_t* buf, size_t* len)
-{
-    AJ_Status status;
-    char* beg;
-    char* end;
-    const char* tag1 = "-----BEGIN CERTIFICATE-----";
-    const char* tag2 = "-----END CERTIFICATE-----";
-    size_t tmp;
-
-    beg = strstr(pem, tag1);
-    AJ_ASSERT(beg);
-    beg = pem + strlen(tag1);
-    end = strstr(beg, tag2);
-    AJ_ASSERT(end);
-
-    AJ_DumpBytes("PEM", beg, end - beg);
-
-    tmp = 3 * (end - beg) / 4;
-    AJ_ASSERT(*len >= tmp);
-    status = AJ_B64ToRaw(beg, end - beg, buf, tmp);
-    AJ_ASSERT(AJ_OK == status);
-    if ('=' == beg[end - beg - 1]) {
-        tmp--;
-    }
-    if ('=' == beg[end - beg - 2]) {
-        tmp--;
-    }
-    *len = tmp;
-    AJ_DumpBytes("DER", buf, tmp);
-
-    return AJ_OK;
-}
+uint8_t dbgTEST_CERTIFICATE = 1;
 
 static const char pem_x509_self[] = {
     "-----BEGIN CERTIFICATE-----"
@@ -224,109 +139,96 @@ int AJ_Main(int ac, char** av)
 {
     AJ_Status status = AJ_OK;
     X509Certificate certificate;
-    uint8_t ecc_prv[KEY_ECC_PRV_SZ];
-    uint8_t ecc_x509[512];
-    size_t len;
     DER_Element der;
     ecc_privatekey prv;
     ecc_signature sig;
     uint8_t digest[SHA256_DIGEST_LENGTH];
 
-    der.data = ecc_x509;
-    der.size = sizeof (ecc_x509);
-    status = DecodePEMCertificate(pem_x509_self, ecc_x509, &der.size);
+    status = AJ_X509DecodeCertificatePEM(&certificate, pem_x509_self);
     AJ_ASSERT(AJ_OK == status);
-    AJ_DumpBytes("DER", der.data, der.size);
+    der.size = certificate.der.size;
+    der.data = certificate.der.data;
     status = AJ_X509DecodeCertificateDER(&certificate, &der);
     AJ_ASSERT(AJ_OK == status);
     status = AJ_X509SelfVerify(&certificate);
     AJ_Printf("Verify: %s\n", AJ_StatusText(status));
+    AJ_Free(certificate.der.data);
 
     memset(digest, 1, sizeof (digest));
-    AJ_DumpBytes("Digest", digest, sizeof (digest));
 
-    len = KEY_ECC_PRV_SZ;
-    status = DecodePEMPrivateKey(pem_prv_1, ecc_prv, &len);
+    status = AJ_X509DecodeCertificatePEM(&certificate, pem_x509_1);
     AJ_ASSERT(AJ_OK == status);
-    AJ_DumpBytes("KEY", ecc_prv, len);
-    AJ_BigvalDecode(ecc_prv, &prv, len);
-
-    der.data = ecc_x509;
-    der.size = sizeof (ecc_x509);
-    status = DecodePEMCertificate(pem_x509_1, ecc_x509, &der.size);
-    AJ_ASSERT(AJ_OK == status);
-    AJ_DumpBytes("DER", der.data, der.size);
+    der.size = certificate.der.size;
+    der.data = certificate.der.data;
     status = AJ_X509DecodeCertificateDER(&certificate, &der);
     AJ_ASSERT(AJ_OK == status);
-    status = AJ_X509SelfVerify(&certificate);
-    AJ_Printf("Verify: %s\n", AJ_StatusText(status));
+    status = AJ_DecodePrivateKeyPEM(&prv, pem_prv_1);
+    AJ_ASSERT(AJ_OK == status);
     status = AJ_DSASignDigest(digest, &prv, &sig);
     AJ_ASSERT(AJ_OK == status);
     status = AJ_DSAVerifyDigest(digest, &sig, &certificate.tbs.publickey);
     AJ_Printf("Verify: %s\n", AJ_StatusText(status));
+    AJ_Free(certificate.der.data);
 
-    len = KEY_ECC_PRV_SZ;
-    status = DecodePEMPrivateKey(pem_prv_2, ecc_prv, &len);
+    status = AJ_X509DecodeCertificatePEM(&certificate, pem_x509_2);
     AJ_ASSERT(AJ_OK == status);
-    AJ_DumpBytes("KEY", ecc_prv, len);
-    AJ_BigvalDecode(ecc_prv, &prv, len);
-
-    der.data = ecc_x509;
-    der.size = sizeof (ecc_x509);
-    status = DecodePEMCertificate(pem_x509_2, ecc_x509, &der.size);
-    AJ_ASSERT(AJ_OK == status);
-    AJ_DumpBytes("DER", der.data, der.size);
+    der.size = certificate.der.size;
+    der.data = certificate.der.data;
     status = AJ_X509DecodeCertificateDER(&certificate, &der);
     AJ_ASSERT(AJ_OK == status);
     status = AJ_X509SelfVerify(&certificate);
     AJ_Printf("Verify: %s\n", AJ_StatusText(status));
+    status = AJ_DecodePrivateKeyPEM(&prv, pem_prv_2);
+    AJ_ASSERT(AJ_OK == status);
     status = AJ_DSASignDigest(digest, &prv, &sig);
     AJ_ASSERT(AJ_OK == status);
     status = AJ_DSAVerifyDigest(digest, &sig, &certificate.tbs.publickey);
     AJ_Printf("Verify: %s\n", AJ_StatusText(status));
+    AJ_Free(certificate.der.data);
 
-    len = KEY_ECC_PRV_SZ;
-    status = DecodePEMPrivateKey(pem_prv_3, ecc_prv, &len);
+    status = AJ_X509DecodeCertificatePEM(&certificate, pem_x509_3);
     AJ_ASSERT(AJ_OK == status);
-    AJ_DumpBytes("KEY", ecc_prv, len);
-    AJ_BigvalDecode(ecc_prv, &prv, len);
-
-    der.data = ecc_x509;
-    der.size = sizeof (ecc_x509);
-    status = DecodePEMCertificate(pem_x509_3, ecc_x509, &der.size);
-    AJ_ASSERT(AJ_OK == status);
-    AJ_DumpBytes("DER", der.data, der.size);
+    der.size = certificate.der.size;
+    der.data = certificate.der.data;
     status = AJ_X509DecodeCertificateDER(&certificate, &der);
     AJ_ASSERT(AJ_OK == status);
     status = AJ_X509SelfVerify(&certificate);
     AJ_Printf("Verify: %s\n", AJ_StatusText(status));
+    status = AJ_DecodePrivateKeyPEM(&prv, pem_prv_3);
+    AJ_ASSERT(AJ_OK == status);
     status = AJ_DSASignDigest(digest, &prv, &sig);
     AJ_ASSERT(AJ_OK == status);
     status = AJ_DSAVerifyDigest(digest, &sig, &certificate.tbs.publickey);
     AJ_Printf("Verify: %s\n", AJ_StatusText(status));
+    AJ_Free(certificate.der.data);
 
-    der.data = ecc_x509;
-    der.size = sizeof (ecc_x509);
-    status = DecodePEMCertificate(pem_x509_bcCritical, ecc_x509, &der.size);
+    status = AJ_X509DecodeCertificatePEM(&certificate, pem_x509_bcCritical);
     AJ_ASSERT(AJ_OK == status);
+    der.size = certificate.der.size;
+    der.data = certificate.der.data;
     status = AJ_X509DecodeCertificateDER(&certificate, &der);
     AJ_ASSERT(AJ_OK == status);
     AJ_Printf("Parse cert with basicConstraints marked as critical: %s\n", AJ_StatusText(status));
+    AJ_Free(certificate.der.data);
 
-    der.data = ecc_x509;
-    der.size = sizeof (ecc_x509);
-    status = DecodePEMCertificate(pem_x509_pathLen, ecc_x509, &der.size);
+    status = AJ_X509DecodeCertificatePEM(&certificate, pem_x509_pathLen);
     AJ_ASSERT(AJ_OK == status);
+    der.size = certificate.der.size;
+    der.data = certificate.der.data;
     status = AJ_X509DecodeCertificateDER(&certificate, &der);
     AJ_ASSERT(AJ_OK == status);
     AJ_Printf("Parse pathLen: %s\n", AJ_StatusText(status));
-    der.data = ecc_x509;
-    der.size = sizeof (ecc_x509);
-    status = DecodePEMCertificate(pem_x509_no_CA, ecc_x509, &der.size);
+    AJ_Free(certificate.der.data);
+
+    status = AJ_X509DecodeCertificatePEM(&certificate, pem_x509_no_CA);
     AJ_ASSERT(AJ_OK == status);
+    der.size = certificate.der.size;
+    der.data = certificate.der.data;
     status = AJ_X509DecodeCertificateDER(&certificate, &der);
     AJ_ASSERT(AJ_OK == status);
     AJ_Printf("Parse no CA: %s\n", AJ_StatusText(status));
+    AJ_Free(certificate.der.data);
+
     return 0;
 }
 

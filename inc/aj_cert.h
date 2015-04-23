@@ -168,13 +168,12 @@ AJ_Status AJ_X509DecodeCertificateDER(X509Certificate* certificate, DER_Element*
  *
  * @param certificate The output decoded certificate.
  * @param pem         The input PEM.
- * @param len         The input PEM length.
  *
  * @return  Return AJ_Status
  *          - AJ_OK on success
  *          - AJ_ERR_RESOURCES on failure
  */
-AJ_Status AJ_X509DecodeCertificatePEM(X509Certificate* certificate, const char* pem, size_t len);
+AJ_Status AJ_X509DecodeCertificatePEM(X509Certificate* certificate, const char* pem);
 
 /**
  * Decode a PEM encoded X.509 certificate chain.
