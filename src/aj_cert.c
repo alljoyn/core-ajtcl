@@ -99,8 +99,10 @@ static AJ_Status ASN1DecodeLength(DER_Element* der, DER_Element* out)
             return AJ_ERR_INVALID;
         }
         len = 0;
-        while ((n--) && (der->size--)) {
+        while (n && der->size) {
             len = (len << 8) + *(der->data)++;
+            n--;
+            der->size--;
         }
     }
     if (len > der->size) {
@@ -197,14 +199,10 @@ AJ_Status AJ_ASN1DecodeElements(DER_Element* der, const uint8_t* tags, size_t le
         len--;
         status = AJ_ASN1DecodeElement(der, tag, out);
     }
-    // If unconsumed, put it in the next arg (if available)
-    if (der->size) {
-        out = va_arg(argp, DER_Element*);
-        if (out) {
-            out->data = der->data;
-            out->size = der->size;
-        } else {
-            AJ_InfoPrintf(("AJ_ASN1DecodeElements(der=%p, tags=%p, len=%zu): Unconsumed %zu bytes\n", der, tags, len, der->size));
+    if (AJ_OK == status) {
+        // If unset elements, fail
+        if (len) {
+            AJ_InfoPrintf(("AJ_ASN1DecodeElements(der=%p, tags=%p, len=%zu): Uninitialized elements\n", der, tags, len));
             status = AJ_ERR_INVALID;
         }
     }
@@ -241,7 +239,6 @@ AJ_Status AJ_DecodePrivateKeyDER(ecc_privatekey* key, DER_Element* der)
     DER_Element ver;
     DER_Element prv;
     DER_Element alg;
-    DER_Element pub;
     const uint8_t tags1[] = { ASN_SEQ };
     const uint8_t tags2[] = { ASN_INTEGER, ASN_OCTETS, ASN_CONTEXT_SPECIFIC };
 
@@ -249,7 +246,7 @@ AJ_Status AJ_DecodePrivateKeyDER(ecc_privatekey* key, DER_Element* der)
     if (AJ_OK != status) {
         return status;
     }
-    status = AJ_ASN1DecodeElements(&seq, tags2, sizeof (tags2), &ver, &prv, 0, &alg, &pub);
+    status = AJ_ASN1DecodeElements(&seq, tags2, sizeof (tags2), &ver, &prv, 0, &alg);
     if (AJ_OK != status) {
         return status;
     }
