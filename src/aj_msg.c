@@ -101,6 +101,10 @@ uint8_t dbgMSG = 0;
  */
 #define MIN_AUTH_EXTRA_NONCE 0x0003
 
+/*
+ * The fallback version
+ */
+#define MIN_AUTH_FALLBACK_VERSION 0x0002
 
 /*
  * gcc defines __va_copy() other compilers allow direct assignent of a va_list
@@ -320,7 +324,7 @@ static uint32_t MessageLen(AJ_Message* msg)
 
 static uint32_t MessageRequiresLongerCryptoValues(AJ_Message* msg, uint32_t versionCheck)
 {
-    return ((versionCheck <= (msg->bus->authVersion >> 16)) &&              // version
+    return ((versionCheck <= (msg->authVersion >> 16)) &&              // version
             !((msg->hdr->msgType == AJ_MSG_SIGNAL) && !msg->destination));  // rollback for multicast/broadcast
 }
 
@@ -391,8 +395,9 @@ static AJ_Status DecryptMessage(AJ_Message* msg)
      */
     if ((msg->hdr->msgType == AJ_MSG_SIGNAL) && !msg->destination) {
         status = AJ_GetGroupKey(msg->sender, key);
+        msg->authVersion = MIN_AUTH_FALLBACK_VERSION;
     } else {
-        status = AJ_GetSessionKey(msg->sender, key, &role);
+        status = AJ_GetSessionKey(msg->sender, key, &role, &msg->authVersion);
         /*
          * We use the oppsite role when decrypting.
          */
@@ -425,10 +430,24 @@ static AJ_Status EncryptMessage(AJ_Message* msg)
     uint8_t role = AJ_ROLE_KEY_UNDEFINED;
     uint32_t mlen = MessageLen(msg);
     uint32_t hlen = mlen - msg->hdr->bodyLen;
-    uint32_t macLen = GetMACLength(msg);
-    uint32_t nonceLen = GetNonceLength(msg);
-    uint32_t extraNonceLen = nonceLen - PREVIOUS_NONCE_LENGTH;
-    uint32_t cryptoValsLen = macLen + extraNonceLen;
+    uint32_t macLen;
+    uint32_t nonceLen;
+    uint32_t extraNonceLen;
+    uint32_t cryptoValsLen;
+
+    /*
+     * Use the group key for multicast and broadcast signals the session key otherwise.
+     */
+    if ((msg->hdr->msgType == AJ_MSG_SIGNAL) && !msg->destination) {
+        status = AJ_GetGroupKey(NULL, key);
+        msg->authVersion = MIN_AUTH_FALLBACK_VERSION;
+    } else {
+        status = AJ_GetSessionKey(msg->destination, key, &role, &msg->authVersion);
+    }
+    macLen = GetMACLength(msg);
+    nonceLen = GetNonceLength(msg);
+    extraNonceLen = nonceLen - PREVIOUS_NONCE_LENGTH;
+    cryptoValsLen = macLen + extraNonceLen;
 
     /*
      * Check there is room to append the MAC and Nonce
@@ -440,14 +459,7 @@ static AJ_Status EncryptMessage(AJ_Message* msg)
     msg->hdr->bodyLen += cryptoValsLen;
     ioBuf->writePtr += cryptoValsLen;
 
-    /*
-     * Use the group key for multicast and broadcast signals the session key otherwise.
-     */
-    if ((msg->hdr->msgType == AJ_MSG_SIGNAL) && !msg->destination) {
-        status = AJ_GetGroupKey(NULL, key);
-    } else {
-        status = AJ_GetSessionKey(msg->destination, key, &role);
-    }
+
     if (status != AJ_OK) {
         AJ_ErrPrintf(("EncryptMesssage(): peer %s not authenticated", msg->destination));
         AJ_ErrPrintf(("EncryptMessage(): AJ_ERR_SECURITY\n"));

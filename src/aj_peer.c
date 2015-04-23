@@ -145,7 +145,7 @@ static AJ_Status KeyGen(const char* peerName, uint8_t role, const char* nonce1, 
      * Store the session key and compose the verifier string.
      */
     if (status == AJ_OK) {
-        status = AJ_SetSessionKey(peerName, outBuf, role);
+        status = AJ_SetSessionKey(peerName, outBuf, role, authContext.version);
     }
     if (status == AJ_OK) {
         memmove(outBuf, outBuf + AES_KEY_LEN, AJ_VERIFIER_LEN);
@@ -359,8 +359,6 @@ AJ_Status AJ_PeerHandleExchangeGUIDs(AJ_Message* msg, AJ_Message* reply)
     if (AJ_OK == status) {
         status = AJ_CredentialExpired(cred);
         if (AJ_ERR_KEY_EXPIRED != status) {
-            /* record our authVersion */
-            authContext.bus->authVersion = authContext.version;
             /* secret not expired or time unknown */
             peerContext.state = AJ_AUTH_SUCCESS;
             /* assert that MASTER_SECRET_LEN == cred->dataLen */
@@ -452,8 +450,6 @@ AJ_Status AJ_PeerHandleExchangeGUIDsReply(AJ_Message* msg)
     if (AJ_OK == status) {
         status = AJ_CredentialExpired(cred);
         if (AJ_ERR_KEY_EXPIRED != status) {
-            /* record our authVersion*/
-            authContext.bus->authVersion = authContext.version;
             /* secret not expired or time unknown */
             peerContext.state = AJ_AUTH_SUCCESS;
             /* assert that MASTER_SECRET_LEN == cred->dataLen */
@@ -855,10 +851,6 @@ AJ_Status AJ_PeerHandleKeyAuthentication(AJ_Message* msg, AJ_Message* reply)
         goto Exit;
     }
 
-    /*
-     * Record our authVersion
-     */
-    authContext.bus->authVersion = authContext.version;
     AJ_InfoPrintf(("Key Authentication Complete\n"));
     peerContext.state = AJ_AUTH_SUCCESS;
 
@@ -913,10 +905,6 @@ AJ_Status AJ_PeerHandleKeyAuthenticationReply(AJ_Message* msg)
         goto Exit;
     }
 
-    /*
-     * Record our authVersion
-     */
-    authContext.bus->authVersion = authContext.version;
     /*
      * Key authentication complete - start the session
      */
