@@ -48,6 +48,7 @@ typedef struct _NameToGUID {
     uint8_t sessionKey[16];
     uint8_t groupKey[16];
     uint32_t replySerial;
+    uint32_t authVersion;
 } NameToGUID;
 
 static uint8_t localGroupKey[16];
@@ -180,7 +181,7 @@ AJ_Status AJ_SetGroupKey(const char* uniqueName, const uint8_t* key)
     }
 }
 
-AJ_Status AJ_SetSessionKey(const char* uniqueName, const uint8_t* key, uint8_t role)
+AJ_Status AJ_SetSessionKey(const char* uniqueName, const uint8_t* key, uint8_t role, uint32_t authVersion)
 {
     NameToGUID* mapping;
 
@@ -189,6 +190,7 @@ AJ_Status AJ_SetSessionKey(const char* uniqueName, const uint8_t* key, uint8_t r
     mapping = LookupName(uniqueName);
     if (mapping) {
         mapping->keyRole = role;
+        mapping->authVersion = authVersion;
         memcpy(mapping->sessionKey, key, 16);
         return AJ_OK;
     } else {
@@ -197,7 +199,7 @@ AJ_Status AJ_SetSessionKey(const char* uniqueName, const uint8_t* key, uint8_t r
     }
 }
 
-AJ_Status AJ_GetSessionKey(const char* name, uint8_t* key, uint8_t* role)
+AJ_Status AJ_GetSessionKey(const char* name, uint8_t* key, uint8_t* role, uint32_t* authVersion)
 {
     NameToGUID* mapping;
 
@@ -206,6 +208,7 @@ AJ_Status AJ_GetSessionKey(const char* name, uint8_t* key, uint8_t* role)
     mapping = LookupName(name);
     if (mapping) {
         *role = mapping->keyRole;
+        *authVersion = mapping->authVersion;
         memcpy(key, mapping->sessionKey, 16);
         return AJ_OK;
     } else {

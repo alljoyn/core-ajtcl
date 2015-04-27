@@ -199,7 +199,7 @@ struct _AJ_Message {
     AJ_BusAttachment* bus;     /**< Bus attachment for this message */
     struct _AJ_Arg* outer;     /**< Container arg current being marshaled */
     uint32_t timeout;          /**< Remaining time to wait for all bytes of this message */
-
+    uint32_t authVersion;      /**< Authentication version used */
 };
 
 /**
