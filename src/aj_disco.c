@@ -1082,12 +1082,15 @@ AJ_Status AJ_Discover(const char* prefix, AJ_Service* service, uint32_t timeout,
         }
 
         /*
-         * Do not listen longer than the overall discover timeout
+         * If selection period has not passed do not listen longer than the selection timeout
          */
-        if (listen > selection) {
+        if ((selection > 0) && (listen > selection)) {
             listen = selection;
         }
 
+        /*
+         * Do not listen longer than the overall discover timeout
+         */
         if (listen > discover) {
             listen = discover;
         }
@@ -1137,10 +1140,6 @@ AJ_Status AJ_Discover(const char* prefix, AJ_Service* service, uint32_t timeout,
                 }
             }
             listen -= AJ_GetElapsedTime(&listenTimer, FALSE);
-            selection -= AJ_GetElapsedTime(&selectionTimer, FALSE);
-            if (selection < 0 && AJ_GetRoutingNodeResponseListSize() > 0) {
-                break;
-            }
         }
         selection -= AJ_GetElapsedTime(&selectionTimer, FALSE);
         if (selection < 0 && AJ_GetRoutingNodeResponseListSize() > 0) {
