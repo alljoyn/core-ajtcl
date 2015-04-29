@@ -101,6 +101,10 @@ extern "C" {
 #define HOST_ENDIANESS AJ_BIG_ENDIAN
 #endif
 
+#ifndef AJ_NO_TCP
+#define AJ_TCP
+#endif
+
 #ifdef __cplusplus
 }
 #endif
