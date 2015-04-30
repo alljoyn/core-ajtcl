@@ -47,7 +47,8 @@ extern "C" {
 #define ASN_ASCII            0x16
 #define ASN_UTC_TIME         0x17
 #define ASN_GEN_TIME         0x18
-#define ASN_CONTEXT_SPECIFIC 0xA0
+#define ASN_CONTEXT_SPECIFIC 0x80
+#define ASN_UNKNOWN          0xFF
 
 /**
  * Structure for a DER encoded element.
@@ -110,6 +111,8 @@ typedef struct _X509DistinguishedName {
 
 typedef struct _X509Extensions {
     uint32_t ca;                         /**< Certificate authority */
+    DER_Element ski;                     /**< Subject Key Identifier */
+    DER_Element aki;                     /**< Authority Key Identifier */
 } X509Extensions;
 
 typedef struct _X509TbsCertificate {
