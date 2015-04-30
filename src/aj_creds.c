@@ -31,6 +31,7 @@
 #include "aj_debug.h"
 #include "aj_config.h"
 #include "aj_crypto_sha2.h"
+#include "aj_util.h"
 
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
@@ -43,6 +44,7 @@ uint8_t dbgCREDS = 0;
 static void CredFieldFree(AJ_CredField* field)
 {
     if (field && field->data) {
+        AJ_MemZeroSecure(field->data, field->size);
         AJ_Free(field->data);
         field->data = NULL;
     }

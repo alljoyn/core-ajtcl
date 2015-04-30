@@ -32,10 +32,6 @@ extern "C" {
 
 #define AJ_SECURE_MGMT_PORT 101
 
-#define CERT_FMT_ALLJOYN     0
-#define CERT_FMT_JWT         1
-#define CERT_FMT_X509_DER    2
-#define CERT_FMT_X509_PEM    3
 #define AJ_TA_FMT_GUID       0
 
 /**

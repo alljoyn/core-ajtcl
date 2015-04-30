@@ -48,6 +48,7 @@ typedef struct _NameToGUID {
     uint8_t sessionKey[AJ_SESSION_KEY_LEN];
     uint8_t groupKey[AJ_SESSION_KEY_LEN];
     uint32_t replySerial;
+    uint32_t authVersion;
 } NameToGUID;
 
 static uint8_t localGroupKey[AJ_SESSION_KEY_LEN];
@@ -65,19 +66,6 @@ AJ_Status AJ_GUID_ToString(const AJ_GUID* guid, char* buffer, uint32_t bufLen)
 AJ_Status AJ_GUID_FromString(AJ_GUID* guid, const char* str)
 {
     return AJ_HexToRaw(str, 2 * AJ_GUID_LEN, guid->val, AJ_GUID_LEN);
-}
-
-static void DumpNameMapping(void)
-{
-    uint32_t i;
-    for (i = 0; i < AJ_NAME_MAP_GUID_SIZE; ++i) {
-        AJ_InfoPrintf(("\t\tDumpNameMapping([%u] unique=\"%s\", service=\"%s\", reply=\"%u\")\n",
-                       i,
-                       nameMap[i].uniqueName,
-                       nameMap[i].serviceName,
-                       nameMap[i].replySerial
-                       ));
-    }
 }
 
 static NameToGUID* LookupName(const char* name)
@@ -193,7 +181,7 @@ AJ_Status AJ_SetGroupKey(const char* uniqueName, const uint8_t* key)
     }
 }
 
-AJ_Status AJ_SetSessionKey(const char* uniqueName, const uint8_t* key, uint8_t role)
+AJ_Status AJ_SetSessionKey(const char* uniqueName, const uint8_t* key, uint8_t role, uint32_t authVersion)
 {
     NameToGUID* mapping;
 
@@ -202,6 +190,7 @@ AJ_Status AJ_SetSessionKey(const char* uniqueName, const uint8_t* key, uint8_t r
     mapping = LookupName(uniqueName);
     if (mapping) {
         mapping->keyRole = role;
+        mapping->authVersion = authVersion;
         memcpy(mapping->sessionKey, key, AJ_SESSION_KEY_LEN);
         return AJ_OK;
     } else {
@@ -210,7 +199,7 @@ AJ_Status AJ_SetSessionKey(const char* uniqueName, const uint8_t* key, uint8_t r
     }
 }
 
-AJ_Status AJ_GetSessionKey(const char* name, uint8_t* key, uint8_t* role)
+AJ_Status AJ_GetSessionKey(const char* name, uint8_t* key, uint8_t* role, uint32_t* authVersion)
 {
     NameToGUID* mapping;
 
@@ -219,6 +208,7 @@ AJ_Status AJ_GetSessionKey(const char* name, uint8_t* key, uint8_t* role)
     mapping = LookupName(name);
     if (mapping) {
         *role = mapping->keyRole;
+        *authVersion = mapping->authVersion;
         memcpy(key, mapping->sessionKey, AJ_SESSION_KEY_LEN);
         return AJ_OK;
     } else {
@@ -275,7 +265,7 @@ AJ_Status AJ_GUID_HandleAddMatchReply(AJ_Message* msg)
 {
     AJ_Status status;
     NameToGUID* mapping;
-    uint32_t serialNum;
+    uint32_t serialNum = 0;
 
     AJ_InfoPrintf(("AJ_GUID_HandleAddMatchReply(msg=0x%p)\n", msg));
 

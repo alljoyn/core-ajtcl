@@ -28,9 +28,9 @@
 #define AJ_FEATURE_VERSION     1        /**< feature version */
 #define AJ_RELEASE_VERSION     AJ_FEATURE_VERSION /**< deprecated */
 #define AJ_BUGFIX_VERSION      0        /**< bugfix version (0=first, 0x61==a, 0x62==b, etc.) */
-#define AJ_RELEASE_YEAR_STR    0        /**< release year string (two digits) */
-#define AJ_RELEASE_MONTH_STR   0        /**< release month string (two digits) */
-#define AJ_FEATURE_VERSION_STR 1        /**< feature version string (00, 01, 02, ...) */
+#define AJ_RELEASE_YEAR_STR    00       /**< release year string (two digits) */
+#define AJ_RELEASE_MONTH_STR   00       /**< release month string (two digits) */
+#define AJ_FEATURE_VERSION_STR 01       /**< feature version string (00, 01, 02, ...) */
 #define AJ_BUGFIX_VERSION_STR           /**< bugfix version string (blank, a, b, ...) */
 #define AJ_RELEASE_TAG         "v0.0.1"
 

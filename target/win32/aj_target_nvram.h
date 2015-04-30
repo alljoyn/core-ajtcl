@@ -73,4 +73,11 @@ AJ_Status _AJ_LoadNVFromFile();
  */
 AJ_Status _AJ_StoreNVToFile();
 
+/**
+ * Set the file name for persistent storage
+ *
+ * @param path  The file path to set, ignored if NULL
+ */
+void AJ_SetNVRAM_FilePath(const char* path);
+
 #endif

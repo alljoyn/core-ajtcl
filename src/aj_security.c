@@ -34,7 +34,6 @@
 #include "aj_config.h"
 #include "aj_creds.h"
 #include "aj_crypto.h"
-#include "aj_x509.h"
 
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
@@ -1563,13 +1562,13 @@ AJ_Status AJ_SecurityInstallMembershipMethod(AJ_Message* msg, AJ_Message* reply)
             AJ_InfoPrintf(("AJ_SecurityInstallMembershipMethod(msg=%p, reply=%p): Decode DER failed\n", msg, reply));
             goto ExitFail;
         }
-        cred.head.id.size = sizeof (AJ_GUID) + certificate.serial.size;
+        cred.head.id.size = certificate.tbs.issuer.cn.size + certificate.tbs.serial.size;
         cred.head.id.data = AJ_Malloc(cred.head.id.size);
         if (!cred.head.id.data) {
             goto ExitFail;
         }
-        memcpy(cred.head.id.data, (uint8_t*) &certificate.issuer, sizeof (AJ_GUID));
-        memcpy(cred.head.id.data + sizeof (AJ_GUID), certificate.serial.data, certificate.serial.size);
+        memcpy(cred.head.id.data, certificate.tbs.issuer.cn.data, certificate.tbs.issuer.cn.size);
+        memcpy(cred.head.id.data + certificate.tbs.issuer.cn.size, certificate.tbs.serial.data, certificate.tbs.serial.size);
         AJ_DumpBytes("ID", cred.head.id.data, cred.head.id.size);
 
         status = AJ_StoreCredential(&cred);

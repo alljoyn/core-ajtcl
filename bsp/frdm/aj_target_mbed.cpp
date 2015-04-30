@@ -48,9 +48,9 @@ void BoardPrintf(const char* fmat, ...)
     char buf[256];
     va_list args;
     va_start(args, fmat);
-    vsprintf(buf, fmat, args);
+    vsnprintf(buf, 256, fmat, args);
     AJ_EnterCriticalRegion();
-    pc.printf(buf);
+    pc.printf("%s", buf);
     AJ_LeaveCriticalRegion();
     va_end(args);
 }
@@ -80,7 +80,7 @@ aj_spi_status AJ_SPI_WRITE(uint8_t* spi_device, uint8_t byte, uint8_t pcs, uint8
     commandConfig.isEndOfQueue = false;
     dspi_hal_write_data_master_mode(0, &commandConfig, byte);
     /* Wait for the TX Complete flag meaning the SPI operation (write) has finished */
-    while (!dspi_hal_get_status_flag(0, kDspiTxComplete)) ;
+    while (!dspi_hal_get_status_flag(0, kDspiTxComplete));
     /* Un-set the flag for the next call to AJ_SPI_WRITE */
     dspi_hal_clear_status_flag(0, kDspiTxComplete);
 

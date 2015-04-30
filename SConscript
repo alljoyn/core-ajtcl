@@ -46,6 +46,9 @@ vars.Add(EnumVariable('RTOS', 'RTOS your using', 'mbed', allowed_values=('mbed',
 if default_msvc_version:
     vars.Add(EnumVariable('MSVC_VERSION', 'MSVC compiler version - Windows', default_msvc_version, allowed_values=('8.0', '9.0', '10.0', '11.0', '11.0Exp', '12.0', '12.0Exp')))
 
+if ARGUMENTS.get('TARG', default_target) in ['linux', 'win32']:
+    vars.Add(EnumVariable('ARDP', 'Enable support for ARDP?', 'off', allowed_values=('on', 'off')))
+
 if ARGUMENTS.get('TARG', default_target) == 'win32':
     msvc_version = ARGUMENTS.get('MSVC_VERSION')
     env = Environment(variables = vars, MSVC_VERSION=msvc_version, TARGET_ARCH='x86')
@@ -88,6 +91,10 @@ if env['TARG'] == 'win32':
     env.Append(CFLAGS=['/J', '/W3'])
     env.Append(CPPDEFINES=['_CRT_SECURE_NO_WARNINGS'])
     env.Append(LINKFLAGS=['/NODEFAULTLIB:libcmt.lib'])
+    
+    if env['ARDP'] == 'on':
+        env.Append(CPPDEFINES=['AJ_ARDP'])
+    
     if env['VARIANT'] == 'debug':
         # With a modern Microsoft compiler it is typical to use a pdb file i.e. the /Zi
         # or/ZI CCPDBFLAGS.  However in SCons a pdb file is created for each .obj file.
@@ -109,6 +116,9 @@ if env['TARG'] == 'win32':
     env['aj_targ_headers'] = [Glob('target/' + env['TARG'] + '/*.h')]
     env['aj_targ_srcs'] = [Glob('target/' + env['TARG'] + '/*.c')]
 elif env['TARG'] in [ 'linux' ]:
+    if env['ARDP'] == 'on':
+        env.Append(CPPDEFINES=['AJ_ARDP'])
+
     if os.environ.has_key('CROSS_PREFIX'):
         env.Replace(CC = os.environ['CROSS_PREFIX'] + 'gcc')
         env.Replace(CXX = os.environ['CROSS_PREFIX'] + 'g++')
@@ -163,14 +173,14 @@ elif env['TARG'] == 'bsp':
     if env['AJWSL'] == 'off':
         print "AJWSL must be set to a platform to build for the bsp target"
         Exit(2)
-    
+
     # Set the compiler
     env.Replace(CC = env.File('${ARM_TOOLCHAIN_DIR}/arm-none-eabi-gcc'))
     env.Replace(CXX = env.File('${ARM_TOOLCHAIN_DIR}/arm-none-eabi-g++'))
     env.Replace(LINK = env.File('${ARM_TOOLCHAIN_DIR}/arm-none-eabi-gcc'))
-    env.Replace(AR = env.File('${ARM_TOOLCHAIN_DIR}/arm-none-eabi-ar')) 
+    env.Replace(AR = env.File('${ARM_TOOLCHAIN_DIR}/arm-none-eabi-ar'))
 
-    
+
     env['CPPDEFPREFIX']     = '-D'
     env['OBJSUFFIX']        = '.o'
     env['SHOBJSUFFIX']      = '.os'
@@ -195,9 +205,9 @@ elif env['TARG'] == 'bsp':
     env['ASFLAGS']          = ''
     env['ASPPCOM']          = '$AS'
     env['ARFLAGS']          = 'rc'
-    env['ARCOM']            = '$AR $ARFLAGS $TARGET $SOURCES' 
+    env['ARCOM']            = '$AR $ARFLAGS $TARGET $SOURCES'
     env['LIBDIRPREFIX']     = ''
-    env['ASCOM']            = '$CC -o $TARGET -c $CFLAGS $CCFLAGS $_CCCOMCOM $SOURCES' 
+    env['ASCOM']            = '$CC -o $TARGET -c $CFLAGS $CCFLAGS $_CCCOMCOM $SOURCES'
     env['LIBPREFIX'] = 'lib'
     env['LIBSUFFIX'] = '.a'
     env['RANLIB'] = 'ranlib'
@@ -207,9 +217,19 @@ elif env['TARG'] == 'bsp':
     # This was done because scons creates a link file to feed into the linker
     # and arm-none-eabi removes '\' when interpreting a linker file. This
     # prevents scons from creating a link file and just feeding the command line
-    # options directly to the compiler/linker 
+    # options directly to the compiler/linker
     env['MAXLINELENGTH'] = 10000
-    
+
+    # Debug/Release Variants
+    if env['VARIANT'] == 'debug':
+        env.Append(CFLAGS=['-g3'])
+        env.Append(CFLAGS=['-ggdb'])
+        env.Append(CFLAGS=['-O0'])
+    else:
+        env.Append(CPPDEFINES=['NDEBUG'])
+        env.Append(CFLAGS=['-Os'])
+        env.Append(LINKFLAGS=['-s'])
+
     if env['AJWSL'] != 'frdm':
         # Set the compiler flags
         env['CFLAGS'] = ['-mthumb', '-fdata-sections', '-ffunction-sections', '-mlong-calls',
@@ -219,16 +239,16 @@ elif env['TARG'] == 'bsp':
                         '-Wsequence-point', '-Wreturn-type', '-Wswitch', '-Wtrigraphs', '-Wunused',
                         '-Wuninitialized', '-Wfloat-equal', '-Wundef', '-Wshadow', '-Wbad-function-cast',
                         '-Wwrite-strings', '-Wsign-compare', '-Waggregate-return', '-Wmissing-declarations',
-                        '-Wformat', '-Wmissing-format-attribute', '-Wno-deprecated-declarations', 
+                        '-Wformat', '-Wmissing-format-attribute', '-Wno-deprecated-declarations',
                         '-Wpacked', '-Wlong-long', '-Wunreachable-code', '-Wcast-align', '-MD', '-MP']
-        
+
         # Add platform independent source files
         rtos_src = [Glob('RTOS/*.c') + Glob('RTOS/FreeRTOS/*.c') + Glob(env['FREE_RTOS_DIR'] + '/Source/*.c') +
                     [env['FREE_RTOS_DIR'] + '/Source/portable/GCC/ARM_CM3/port.c']]
-    
+
     if env['AJWSL'] == 'due':
         rtos_src += [env['FREE_RTOS_DIR'] + '/Source/portable/MemMang/heap_4.c']
-        
+
         # Add platform dependent sources
         due_src = [Glob('bsp/due/*.c') + [env['ATMEL_DIR'] + '/common/services/clock/sam3x/sysclk.c',
                                           env['ATMEL_DIR'] + '/common/services/spi/sam_spi/spi_master.c',
@@ -258,7 +278,7 @@ elif env['TARG'] == 'bsp':
                                           env['ATMEL_DIR'] + '/sam/services/flash_efc/flash_efc.c',
                                           env['ATMEL_DIR'] + '/sam/utils/syscalls/gcc/syscalls.c',
                                           env['ATMEL_DIR'] + '/sam/drivers/dmac/dmac.c']]
-        
+
         # Add platform dependent linker flags
         env['LINKFLAGS'] = ['-mthumb', '-Wl,--start-group', '-larm_cortexM3l_math', '-lm',
                             '-Wl,--end-group', '-L"' + env['ATMEL_DIR'] + '/thirdparty/CMSIS/Lib/GCC"', '-Wl,--gc-sections', '-Wl,-Map,${TARGET.base}.map',
@@ -266,36 +286,34 @@ elif env['TARG'] == 'bsp':
         # Add platform dependent defines
         env.Append(CPPDEFINES = ['__SAM3X8E__', 'ARM_MATH_CM3=true', 'BOARD=ARDUINO_DUE_X', 'printf=iprintf', 'AJ_HEAP4'])
 
-        if env['VARIANT'] == 'release':
-            env.Append(CPPDEFINES = ['NDEBUG'])
         # Add platform dependent include paths
         env['CPPPATH'] = [os.getcwd() + '/bsp', os.getcwd() + '/bsp/due', os.getcwd() + '/bsp/due/config',           env['FREE_RTOS_DIR'] + '/Source/include', os.getcwd() + '/RTOS/FreeRTOS',
                           env['FREE_RTOS_DIR'] + '/Source/portable/GCC/ARM_CM3',  env['ATMEL_DIR'] + '/common/boards',
                           env['ATMEL_DIR'] + '/common/services/clock',          env['ATMEL_DIR'] + '/common/services/clock/sam3x',
                           env['ATMEL_DIR'] + '/common/services/gpio',           env['ATMEL_DIR'] + '/common/services/ioport',
                           env['ATMEL_DIR'] + '/common/services/freertos/sam',   env['ATMEL_DIR'] + '/common/services/serial/sam_uart',
-                          env['ATMEL_DIR'] + '/common/services/serial',         env['ATMEL_DIR'] + '/common/services/spi', 
+                          env['ATMEL_DIR'] + '/common/services/serial',         env['ATMEL_DIR'] + '/common/services/spi',
                           env['ATMEL_DIR'] + '/common/services/sam_spi',        env['ATMEL_DIR'] + '/common/services/spi/sam_spi/module_config',
                           env['ATMEL_DIR'] + '/common/utils',                   env['ATMEL_DIR'] + '/common/utils/stdio/stdio_serial',
                           env['ATMEL_DIR'] + '/common/drivers/nvm',             env['ATMEL_DIR'] + '/common/nvm/sam/module_config',
-                          env['ATMEL_DIR'] + '/sam/boards',                     env['ATMEL_DIR'] + '/sam/boards/arduino_due_x', 
-                          env['ATMEL_DIR'] + '/sam/drivers/pio',                env['ATMEL_DIR'] + '/sam/drivers/pmc', 
+                          env['ATMEL_DIR'] + '/sam/boards',                     env['ATMEL_DIR'] + '/sam/boards/arduino_due_x',
+                          env['ATMEL_DIR'] + '/sam/drivers/pio',                env['ATMEL_DIR'] + '/sam/drivers/pmc',
                           env['ATMEL_DIR'] + '/sam/drivers/tc',                 env['ATMEL_DIR'] + '/sam/drivers/trng',
-                          env['ATMEL_DIR'] + '/sam/drivers/pdc',                env['ATMEL_DIR'] + '/sam/drivers/uart', 
+                          env['ATMEL_DIR'] + '/sam/drivers/pdc',                env['ATMEL_DIR'] + '/sam/drivers/uart',
                           env['ATMEL_DIR'] + '/sam/drivers/usart',              env['ATMEL_DIR'] + '/sam/drivers/spi',
-                          env['ATMEL_DIR'] + '/sam/drivers/efc',                env['ATMEL_DIR'] + '/sam/utils', 
-                          env['ATMEL_DIR'] + '/sam/utils/cmsis/sam3x/include',  env['ATMEL_DIR'] + '/sam/utils/cmsis/sam3x/source/templates', 
-                          env['ATMEL_DIR'] + '/sam/utils/cmsis/sam3x/include/component', env['ATMEL_DIR'] + '/sam/utils/header_files', 
+                          env['ATMEL_DIR'] + '/sam/drivers/efc',                env['ATMEL_DIR'] + '/sam/utils',
+                          env['ATMEL_DIR'] + '/sam/utils/cmsis/sam3x/include',  env['ATMEL_DIR'] + '/sam/utils/cmsis/sam3x/source/templates',
+                          env['ATMEL_DIR'] + '/sam/utils/cmsis/sam3x/include/component', env['ATMEL_DIR'] + '/sam/utils/header_files',
                           env['ATMEL_DIR'] + '/sam/utils/preprocessor',         env['ATMEL_DIR'] + '/sam/services/flash_efc',
                           env['ATMEL_DIR'] + '/thirdparty/CMSIS/Include',       env['ATMEL_DIR'] + '/thirdparty/CMSIS/Lib/GCC',
                           env['ATMEL_DIR'] + '/sam/boards/arduino_due_x/board_config', env['ATMEL_DIR'] + '/config',
-                          env['ATMEL_DIR'] + '/common/services/clock/sam3x/module_config', env['ATMEL_DIR'] + '/common/services/clock/sam3x', 
+                          env['ATMEL_DIR'] + '/common/services/clock/sam3x/module_config', env['ATMEL_DIR'] + '/common/services/clock/sam3x',
                           env['ATMEL_DIR'] + '/sam/drivers/dmac', env['ATMEL_DIR'] + '/sam/drivers/rstc',
                           os.getcwd() + '/RTOS', os.getcwd() + '/crypto', os.getcwd() + '/crypto/ecc', os.getcwd() + '/external/sha2', os.getcwd() + '/malloc', os.getcwd() + '/inc', os.getcwd() + '/WSL']
     elif env['AJWSL'] == 'stm32':
         env['LINKCOM']          = '$LINK -o $TARGET $LINKFLAGS $__RPATH $SOURCES $_LIBDIRFLAGS $_LIBFLAGS'
         rtos_src += [env['FREE_RTOS_DIR'] + '/Source/portable/MemMang/heap_4.c']
-        
+
         # Add platform dependent sources
         stm_src = [env['STM_SRC_DIR'] + 'Libraries/CMSIS/ST/STM32F4xx/Source/Templates/gcc_ride7/startup_stm32f4xx.s',
                    env['STM_SRC_DIR'] + 'Libraries/CMSIS/ST/STM32F4xx/Source/Templates/system_stm32f4xx.c',
@@ -314,21 +332,21 @@ elif env['TARG'] == 'bsp':
                    'bsp/stm32/aj_spi.c',
                    'bsp/stm32/syscalls.c'
                    ]
-        
+
         # Add platform dependent linker flags
         env['LINKFLAGS'] = ['-mthumb', '-Wl,--start-group', '-lm', '-lc',
                             '-Wl,--end-group', '-Wl,--gc-sections', '-Wl,-Map,${TARGET.base}.map',
                             '-mcpu=cortex-m3', '-T' + env['STM_SRC_DIR'] + 'Project/Peripheral_Examples/SysTick/TrueSTUDIO/SysTick/stm32_flash.ld',
                             '-Wl,--entry=Reset_Handler']
-        
+
         # Add platform dependent defines
-        env.Append(CPPDEFINES = ['STM32F407xx', 'USE_STDPERIPH_DRIVER','HAL_UART_MODULE_ENABLED', 'HAL_RCC_MODULE_ENABLED', 
+        env.Append(CPPDEFINES = ['STM32F407xx', 'USE_STDPERIPH_DRIVER','HAL_UART_MODULE_ENABLED', 'HAL_RCC_MODULE_ENABLED',
                                  'HAL_GPIO_MODULE_ENABLED', 'HAL_USART_MODULE_ENABLED', 'HAL_FLASH_MODULE_ENABLED'])
 
         # Add platform dependent include paths
         env['CPPPATH'] = [os.getcwd() + '/bsp', os.getcwd() + '/bsp/stm32', env['FREE_RTOS_DIR'] + '/Source/include', os.getcwd() + '/RTOS/FreeRTOS',
                           os.getcwd() + '/bsp/stm32/config',
-                          os.getcwd() + '/RTOS', os.getcwd() + '/crypto', os.getcwd() + '/crypto/ecc', os.getcwd() + '/external/sha2', 
+                          os.getcwd() + '/RTOS', os.getcwd() + '/crypto', os.getcwd() + '/crypto/ecc', os.getcwd() + '/external/sha2',
                           os.getcwd() + '/malloc', os.getcwd() + '/inc', os.getcwd() + '/WSL', env['FREE_RTOS_DIR'] + '/Source/portable/GCC/ARM_CM3',
                           env['STM_SRC_DIR'] + 'Utilities/STM32F4-Discovery',
                           env['STM_SRC_DIR'] + 'Libraries/CMSIS/ST/STM32F4xx/Include',
@@ -343,11 +361,11 @@ elif env['TARG'] == 'bsp':
                                   os.getcwd() + '/RTOS'])
         elif env['RTOS'] == 'mbed':
             headers = ['RTOS/aj_target.h', 'RTOS/RTOS.h', 'RTOS/mbedRTOS/aj_target_rtos.h', 'bsp/frdm/aj_target_platform.h', 'bsp/frdm/aj_target_mbed.h']
-            target = [Glob(env['MBED_DIR'] + '/mbed-rtos/rtx/TARGET_M3/TOOLCHAIN_GCC/*.s'), 
-                      Glob('bsp/frdm/*.c'), 
-                      Glob('RTOS/mbedRTOS/*.cpp'), 
-                      Glob('bsp/frdm/*.cpp'), 
-                      Glob(env['MBED_DIR'] + '/mbed-rtos/rtx/*.c'), 
+            target = [Glob(env['MBED_DIR'] + '/mbed-rtos/rtx/TARGET_M3/TOOLCHAIN_GCC/*.s'),
+                      Glob('bsp/frdm/*.c'),
+                      Glob('RTOS/mbedRTOS/*.cpp'),
+                      Glob('bsp/frdm/*.cpp'),
+                      Glob(env['MBED_DIR'] + '/mbed-rtos/rtx/*.c'),
                       Glob(env['MBED_DIR'] + '/mbed-rtos/rtos/*.cpp'),
                       Glob(env['MBED_DIR'] + '/FATFileSystem/*.cpp'),
                       Glob(env['MBED_DIR'] + '/FATFileSystem/ChaN/*.cpp'),
@@ -365,21 +383,21 @@ elif env['TARG'] == 'bsp':
                     env['MBED_DIR'] + '/mbed/TARGET_K64F/TOOLCHAIN_GCC_ARM/mbed_overrides.o',
                     env['MBED_DIR'] + '/mbed/TARGET_K64F/TOOLCHAIN_GCC_ARM/board.o',
                     env['MBED_DIR'] + '/mbed/TARGET_K64F/TOOLCHAIN_GCC_ARM/retarget.o']
-        
+
         env['CCCOM'] = '$CC $CFLAGS $CCFLAGS $_CCCOMCOM -o $TARGET $SOURCES'
-        
+
         if env['RTOS'] == 'freeRTOS':
             env.Append(CPPPATH  = [env['FREE_RTOS_DIR'] + '/Source/include', env['FREE_RTOS_DIR'] + '/Source/portable/GCC/ARM_CM3'])
         elif env['RTOS'] == 'mbed':
             env.Append(CPPPATH  = ['RTOS/mbedRTOS'])
-        env.Append(CPPPATH      = [os.getcwd() + '/bsp' , 
-                              os.getcwd() + '/bsp/frdm', 
-                              os.getcwd() + '/bsp/frdm/config', 
-                              os.getcwd() + '/malloc', 
-                              os.getcwd() + '/WSL', 
-                              os.getcwd() + '/RTOS', 
-                              os.getcwd() + '/inc', 
-                              os.getcwd() + '/external/sha2', 
+        env.Append(CPPPATH      = [os.getcwd() + '/bsp' ,
+                              os.getcwd() + '/bsp/frdm',
+                              os.getcwd() + '/bsp/frdm/config',
+                              os.getcwd() + '/malloc',
+                              os.getcwd() + '/WSL',
+                              os.getcwd() + '/RTOS',
+                              os.getcwd() + '/inc',
+                              os.getcwd() + '/external/sha2',
                               os.getcwd() + '/bsp/config',
                               env['MBED_DIR'] + '/SDFileSystem',
                               env['MBED_DIR'] + '/FATFileSystem',
@@ -425,10 +443,10 @@ elif env['TARG'] == 'bsp':
                               env['MBED_DIR'] + '/mbed/TARGET_K64F/TARGET_Freescale/TARGET_KPSDK_MCUS/TARGET_MCU_K64F/device/MK64F12',
                               env['MBED_DIR'] + '/mbed/TARGET_K64F/TARGET_Freescale/TARGET_KPSDK_MCUS/TARGET_MCU_K64F/TARGET_FRDM',
                               env['MBED_DIR'] + '/mbed/TARGET_K64F/TOOLCHAIN_GCC_ARM'])
-        
-        env['CCFLAGS'] = ['-mcpu=cortex-m4', 
-                          '-mthumb', 
-                          '-mfpu=fpv4-sp-d16', 
+
+        env['CCFLAGS'] = ['-mcpu=cortex-m4',
+                          '-mthumb',
+                          '-mfpu=fpv4-sp-d16',
                           '-c',
                           '-g',
                           '-fno-common',
@@ -441,21 +459,21 @@ elif env['TARG'] == 'bsp':
         env['PRELINKFLAGS'] = ['-mcpu=cortex-m4', '-mthumb', '-Wl,--gc-sections', '--specs=nano.specs', '-u', '_printf_float', '-u', '_scanf_float']
         env['LINKSCRIPT'] = ['-T' + env['MBED_DIR'] + '/mbed/TARGET_K64F/TOOLCHAIN_GCC_ARM/K64FN1M0xxx12.ld']
         env['LIBPATHS'] = ['-L' + env['MBED_DIR'] + '/mbed/TARGET_K64F/TOOLCHAIN_GCC_ARM']
-        env['LINKFLAGS'] = ['-lstdc++', 
-                            '-lgcc', 
-                            '-lmbed', 
-                            '-lm', 
-                            '-lc', 
+        env['LINKFLAGS'] = ['-lstdc++',
+                            '-lgcc',
+                            '-lmbed',
+                            '-lm',
+                            '-lc',
                             '-Wl,-Map,${TARGET.base}.map']
-        env.Append(CPPDEFINES = ['TARGET_K64F', 'TARGET_M4', 'TARGET_Freescale', 'TARGET_KPSDK_MCUS', 'TARGET_KPSDK_CODE', 
-                                 'TARGET_MCU_K64F', 'TARGET_FRDM', 'TOOLCHAIN_GCC_ARM', 'TOOLCHAIN_GCC', '__CORTEX_M4', 
-                                 'ARM_MATH_CM4', '__FPU_PRESENT=1', 'MBED_BUILD_TIMESTAMP=1411582835.22', '__MBED__=1', 
+        env.Append(CPPDEFINES = ['TARGET_K64F', 'TARGET_M4', 'TARGET_Freescale', 'TARGET_KPSDK_MCUS', 'TARGET_KPSDK_CODE',
+                                 'TARGET_MCU_K64F', 'TARGET_FRDM', 'TOOLCHAIN_GCC_ARM', 'TOOLCHAIN_GCC', '__CORTEX_M4',
+                                 'ARM_MATH_CM4', '__FPU_PRESENT=1', 'MBED_BUILD_TIMESTAMP=1411582835.22', '__MBED__=1',
                                  'CPU_MK64FN1M0VMD12', 'FSL_RTOS_MBED', 'TARGET_FF_ARDUINO', '__CORTEX_M4', 'FSL_RTOS_MBED'
                                  'AJ_CONFIGURE_WIFI_UPON_START',
                                  'WIFI_SSID=\\"SEAQUIC-AP3\\"',
                                  'WIFI_PASSPHRASE=\\"123456789\\"'
                                  ])
-            
+
 elif env['TARG'] in [ 'darwin' ]:
     if os.environ.has_key('CROSS_PREFIX'):
         env.Replace(CC = os.environ['CROSS_PREFIX'] + 'gcc')
@@ -569,9 +587,9 @@ elif env['AJWSL'] == 'stm32':
 elif env['AJWSL'] == 'frdm':
     srcs = []
     # The freedom board has its own NVRAM implementation so remove src/aj_nvram.c
-    for h in env['aj_srcs']: 
+    for h in env['aj_srcs']:
         h.remove(env.File('src/aj_nvram.c'))
-        
+
     if env['RTOS'] == 'freeRTOS':
         freertos = [Glob(env['FREE_RTOS_DIR'] + '/Source/*.c') + [env['FREE_RTOS_DIR'] + '/Source/portable/GCC/ARM_CM3/port.c',
                                                               env['FREE_RTOS_DIR'] + '/Source/portable/MemMang/heap_4.c']]
@@ -581,27 +599,33 @@ elif env['AJWSL'] == 'frdm':
 
     env.StaticLibrary('ajtcl_frdm', [objects, srcs,  aj_obj])
     #test_src = env.Object(['bsp/frdm/test_mbed.cpp'])
-    
+
     env.Program('test/svclite', ['test/svclite.c'] + [objects, srcs,  aj_obj])
     env.Program('test/nvramtest', ['test/nvramtest.c'] + [objects, srcs,  aj_obj])
     env.Program('test/codisco', ['test/codisco.c'] + [objects, srcs,  aj_obj])
     env.Program('test/scan-n-con', ['test/scan-n-con.c'] + [objects, srcs,  aj_obj])
-    
+
 Export('env')
 
 if env['WS'] != 'off' and not env.GetOption('clean') and not env.GetOption('help'):
-    # Set the location of the uncrustify config file
-    env['uncrustify_cfg'] = os.getcwd() + '/ajuncrustify.cfg'
-
     import sys
     bin_dir = os.getcwd() + '/tools'
     sys.path.append(bin_dir)
     import whitespace
+    env['uncrustify_cfg_root'] = os.getcwd();
 
     def wsbuild(target, source, env):
         print "Evaluating whitespace compliance..."
         print "Note: enter 'scons -h' to see whitespace (WS) options"
-        return whitespace.main([env['WS'],env['uncrustify_cfg']])
+        curdir = os.path.abspath(os.path.dirname(wsbuild.func_code.co_filename))
+        version = whitespace.get_uncrustify_version()
+        if (version == "0.57"):
+            config = env['uncrustify_cfg_root'] + '/ajuncrustify.0.57.cfg'
+        else: #use latest known version
+            config = env['uncrustify_cfg_root'] + '/ajuncrustify.0.61.cfg'
+        print "Config:", config
+        print "Note: enter 'scons -h' to see whitespace (WS) options"
+        return whitespace.main([env['WS'], config])
 
     env.Command('#/ws_ajtcl', Dir('$DISTDIR'), wsbuild)
 

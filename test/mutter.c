@@ -152,15 +152,19 @@ int AJ_Main()
     uint32_t key;
     uint32_t len;
     uint32_t u;
-    uint32_t v;
     int32_t n;
-    int32_t m;
     uint16_t q;
-    uint16_t r;
     uint8_t y;
     char* str;
     char* sig;
     void* raw;
+
+#ifdef EXPANDED_FORM
+    AJ_Arg struct2;
+    int32_t m;
+    uint16_t r;
+    uint32_t v;
+#endif
 
     const size_t lengthOfShortGUID = 16;
 

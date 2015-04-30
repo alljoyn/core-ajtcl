@@ -30,7 +30,8 @@ def main(argv=None):
     file_patterns = ['*.c', '*.h', '*.cpp', '*.cc']
     valid_commands = ["check", "detail", "fix", "off"]
     uncrustify_config = None
-    required_uncrustify_version = "0.57"
+    supported_uncrustify_versions = ["0.57", "0.61"]
+    recommended_uncrustify_version = "0.61"
     unc_suffix = ".uncrustify"
     wscfg = None
     xit=0
@@ -39,6 +40,58 @@ def main(argv=None):
     whitespace_db_updated = False
     run_ws_check = True
     uncfile = None
+
+    '''Verify uncrustify install and version'''
+    version = get_uncrustify_version()
+    if not version in supported_uncrustify_versions:
+        print ("******************************************************************************")
+        print ("*         NOTICE         **         NOTICE         **         NOTICE         *")
+        print ("******************************************************************************")
+        print ("You are using uncrustify v" + version + ".")
+        print ("You must be using one of the following versions of uncrustify v" + (", v".join(supported_uncrustify_versions)) + "." )
+        print ("Please use the recommended version of uncrustify v" + recommended_uncrustify_version + ".");
+        print "(Or, run SCons with 'WS=off' to bypass the whitespace check)"
+        print ("******************************************************************************")
+        sys.exit(2)
+
+    if version != recommended_uncrustify_version:
+        print ("******************************************************************************")
+        print ("*         NOTICE         **         NOTICE         **         NOTICE         *")
+        print ("******************************************************************************")
+        print ("You are using uncrustify v" + version + ".")
+        print ("Using an older version of uncrustify may result in inaccurate white space scans.")
+        print ("Please use the recommended version of uncrustify v" + recommended_uncrustify_version + ".");
+        print ("******************************************************************************")
+
+    # if an legacy version of uncrustify does not correctly work for a specific file
+    # and we can not find another way around the issues we can selectively ignore
+    # files only for the legacy version of uncrustify.
+    if version == "0.57":
+        # v0.57 does not process statments like while(1); correctly it always
+        # wants to add a space between the while and the ';' character. While
+        # statments of this type are common in ajtcl code.
+        file_ignore_patterns.append("aj_wsl_wmi\.c")
+        file_ignore_patterns.append("aj_spi\.c")
+        file_ignore_patterns.append("FreeRTOSConfig\.h")
+        file_ignore_patterns.append("aj_target_mbed\.cpp")
+        file_ignore_patterns.append("syscalls\.c")
+        file_ignore_patterns.append("aj_target_platform\.c")
+        file_ignore_patterns.append("uartfuzztest\.c")
+        file_ignore_patterns.append("mouse\.c")
+        file_ignore_patterns.append("main\.c")
+        file_ignore_patterns.append("aj_target_rtos\.cpp")
+        # v0.57 (alljoyn-js files) note this whitespace script is shared between
+        # ajtcl and alljoyn-js for that reason some alljoyn-js files are added
+        # to this ignore list.
+        file_ignore_patterns.append("io_adc\.c")
+        file_ignore_patterns.append("io_spi\.c")
+        file_ignore_patterns.append("io_uart\.c")
+        file_ignore_patterns.append("io_i2c\.c")
+        # v0.57 of has a problem with multi-line strings and lines that start with
+        # the '<<' stream operator most of these issues only exist in unit-test code
+        file_ignore_patterns.append("BusAttachmentTest\.cc")
+        # v0.57 (alljoyn-js file) incorrect handling of the '*' character.
+        file_ignore_patterns.append("ajs_pyconsole\.cc")
 
     # try an load the whitespace.db file.  The file is dictionary of key:value pairs
     # where the key is the name of a file that has been checked by the WS checker
@@ -90,14 +143,6 @@ def main(argv=None):
     if not os.path.isfile(uncrustify_config):
         print uncrustify_config + " does not exist or is not a file"
         print_help()
-        sys.exit(2)
-
-    '''Verify uncrustify install and version'''
-    version = get_uncrustify_version()
-    if version != required_uncrustify_version:
-        print ("You are using uncrustify v" + version +
-            ". You must be using uncrustify v" + required_uncrustify_version )
-        print "(Or, run SCons with 'WS=off' to bypass the whitespace check)"
         sys.exit(2)
 
     print "whitespace %s %s" % (wscmd,uncrustify_config)

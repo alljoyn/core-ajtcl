@@ -73,6 +73,9 @@ typedef struct _AJ_BusAttachment {
     AJ_AuthPwdFunc pwdCallback;                /**< Callback for obtaining passwords */
     AJ_AuthListenerFunc authListenerCallback;  /**< Callback for obtaining passwords */
     uint32_t suites[AJ_AUTH_SUITES_NUM];       /**< Supported cipher suites */
+    uint8_t isAuthenticated;                   /**< Has authentication already occured? */
+    uint32_t aboutSerial;                      /**< Serial number for About announcement */
+    uint8_t isProbeRequired;                   /**< Are probe requests required for the live transport? */
 } AJ_BusAttachment;
 
 /**
@@ -101,19 +104,18 @@ const char* AJ_GetUniqueName(AJ_BusAttachment* bus);
 AJ_EXPORT
 AJ_Status AJ_BusRequestName(AJ_BusAttachment* bus, const char* name, uint32_t flags);
 
-#define AJ_TRANSPORT_NONE      0x0000    /**< no transports */
-#define AJ_TRANSPORT_ALL       0xFFFF    /**< ALL Possible transports including EXPERIMENTAL ones */
-#define AJ_TRANSPORT_LOCAL     0x0001    /**< Local (same device) transport */
-#define AJ_TRANSPORT_BLUETOOTH 0x0002    /**< Bluetooth transport */
-#define AJ_TRANSPORT_WLAN      0x0004    /**< Wireless local-area network transport */
-#define AJ_TRANSPORT_WWAN      0x0008    /**< Wireless wide-area network transport */
-#define AJ_TRANSPORT_LAN       0x0010    /**< Wired local-area network transport */
+#define AJ_TRANSPORT_NONE         0x0000    /**< no transports */
+#define AJ_TRANSPORT_LOCAL        0x0001    /**< Local (same device) transport */
+#define AJ_TRANSPORT_TCP          0x0004    /**< TCP/IP transport */
+#define AJ_TRANSPORT_UDP          0x0100    /**< UDP/IP transport */
+#define AJ_TRANSPORT_EXPERIMENTAL 0x8000    /**< Placeholder for an experimental transport */
+#define AJ_TRANSPORT_IP           (AJ_TRANSPORT_TCP | AJ_TRANSPORT_UDP) /**< Any IP-based transport */
+#define AJ_TRANSPORT_ANY          (AJ_TRANSPORT_LOCAL | AJ_TRANSPORT_IP) /**< ANY non-experimental transport */
 
-#define AJ_TRANSPORT_TCP       0x0004    /**< Transport using TCP (same thing as WLAN that implies TCP) */
-#define AJ_TRANSPORT_UDP       0x0100    /**< Transport using the AllJoyn Reliable Datagram Protocol (flavor of reliable UDP) */
-#define AJ_TRANSPORT_IP        (AJ_TRANSPORT_TCP | AJ_TRANSPORT_UDP) /**< Let the system decide which to use */
-
-#define AJ_TRANSPORT_ANY       (AJ_TRANSPORT_ALL)   /**< ANY non-EXPERIMENTAL transport */
+#define AJ_TRANSPORT_BLUETOOTH    (attempted_use_of_deprecated_definition = 0x0002)  /**< Bluetooth transport */
+#define AJ_TRANSPORT_WLAN         (attempted_use_of_deprecated_definition = 0x0004)  /**< Wireless local-area network transport */
+#define AJ_TRANSPORT_WWAN         (attempted_use_of_deprecated_definition = 0x0008)  /**< Wireless wide-area network transport */
+#define AJ_TRANSPORT_LAN          (attempted_use_of_deprecated_definition = 0x0010)  /**< Wired local-area network transport */
 
 /**
  * Make a method call to release a previously requested well known name.
@@ -560,7 +562,6 @@ AJ_Status AJ_BusPropSet(AJ_Message* msg, AJ_BusPropSetCallback callback, void* c
  * @return  Return AJ_Status
  */
 AJ_Status AJ_BusEnableSecurity(AJ_BusAttachment* bus, const uint32_t* suites, size_t numsuites);
-uint8_t AJ_IsSuiteEnabled(AJ_BusAttachment* bus, const uint32_t suite);
 
 #ifdef __cplusplus
 }

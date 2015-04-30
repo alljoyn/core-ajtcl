@@ -524,7 +524,7 @@ static AJ_Status GenXML(XMLWriterFunc XMLWriter, void* context, const AJ_ObjectI
                  * If there is a child check that this is the first instance of this child.
                  */
                 if (child && (FirstInstance(obj->path, child, len) == childObj)) {
-                    if (languageTag != NULL) {
+                    if (languageTag != NULL && childObjectIter.l < AJ_MAX_OBJECT_LISTS) {
                         descLookup = descriptionLookups[childObjectIter.l];
                     } else {
                         descLookup = NULL;
@@ -855,7 +855,7 @@ static uint32_t MatchMember(const char* encoding, const AJ_Message* msg)
         /*
          * Advance so that we do not return a '&' character
          */
-        *encoding++;
+        encoding++;
     }
     while (*member) {
         if (*encoding++ != *member++) {
@@ -1119,7 +1119,7 @@ AJ_Status AJ_InitMessageFromMsgId(AJ_Message* msg, uint32_t msgId, uint8_t msgTy
                  */
                 if (!msg->objPath) {
                     status = AJ_ERR_OBJECT_PATH;
-                } else if (*msg->objPath == '*') {
+                } else if (*msg->objPath == '?') {
                     /*
                      * The wildcard object path is a special for case methods implemented by all
                      * objects. In the message header need a valid object path, it doesn't matter
@@ -1270,7 +1270,7 @@ AJ_Status AJ_UnmarshalPropertyArgs(AJ_Message* msg, uint32_t* propId, const char
 
 AJ_Status AJ_MarshalAllPropertiesArgs(AJ_Message* replyMsg, const char* iface, AJ_BusPropGetCallback callback, void* context)
 {
-    AJ_Status status;
+    AJ_Status status = AJ_ERR_MARSHAL;
     uint8_t oIndex = (replyMsg->msgId >> 24) & ~AJ_REP_ID_FLAG;
     uint8_t pIndex = replyMsg->msgId >> 16;
     uint8_t iIndex;

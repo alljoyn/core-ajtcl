@@ -36,6 +36,7 @@
 #include "aj_config.h"
 #include "aj_about.h"
 #include "aj_security.h"
+#include "aj_authentication.h"
 
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
@@ -481,11 +482,6 @@ AJ_Status AJ_BusHandleBusMessage(AJ_Message* msg)
         status = AJ_PeerHandleKeyAuthentication(msg, &reply);
         break;
 
-    case AJ_METHOD_SEND_MEMBERSHIPS:
-        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_METHOD_SEND_MEMBERSHIPS\n"));
-        status = AJ_PeerHandleSendMemberships(msg, &reply);
-        break;
-
     case AJ_METHOD_SECURITY_CLAIM:
         AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_METHOD_SECURITY_CLAIM\n"));
         status = AJ_SecurityClaimMethod(msg, &reply);
@@ -581,11 +577,6 @@ AJ_Status AJ_BusHandleBusMessage(AJ_Message* msg)
         status = AJ_PeerHandleKeyAuthenticationReply(msg);
         break;
 
-    case AJ_REPLY_ID(AJ_METHOD_SEND_MEMBERSHIPS):
-        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_REPLY_ID(AJ_METHOD_SEND_MEMBERSHIPS)\n"));
-        status = AJ_PeerHandleSendMembershipsReply(msg);
-        break;
-
     case AJ_REPLY_ID(AJ_METHOD_CANCEL_SESSIONLESS):
         AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_REPLY_ID(AJ_METHOD_CANCEL_SESSIONLESS)\n"));
         // handle return code here
@@ -650,72 +641,9 @@ AJ_Status AJ_BusHandleBusMessage(AJ_Message* msg)
      */
     if (status == AJ_OK) {
         AJ_AboutAnnounce(bus);
-        AJ_SecurityNotifyConfig(bus);
+        //AJ_SecurityNotifyConfig(bus);
     }
     return status;
-}
-
-uint8_t AJ_IsSuiteEnabled(AJ_BusAttachment* bus, const uint32_t suite)
-{
-    switch (suite) {
-    case AUTH_SUITE_ECDHE_NULL:
-        return 1 == bus->suites[0];
-
-    case AUTH_SUITE_ECDHE_PSK:
-        return 1 == bus->suites[1];
-
-    case AUTH_SUITE_ECDHE_ECDSA:
-        return 1 == bus->suites[2];
-
-    default:
-        return 0;
-    }
-
-    return 0;
-}
-
-AJ_Status AJ_EnableSuite(AJ_BusAttachment* bus, const uint32_t suite)
-{
-    switch (suite) {
-    case AUTH_SUITE_ECDHE_NULL:
-        bus->suites[0] = 1;
-        break;
-
-    case AUTH_SUITE_ECDHE_PSK:
-        bus->suites[1] = 1;
-        break;
-
-    case AUTH_SUITE_ECDHE_ECDSA:
-        bus->suites[2] = 1;
-        break;
-
-    default:
-        return AJ_ERR_SECURITY;
-    }
-
-    return AJ_OK;
-}
-
-AJ_Status AJ_DisableSuite(AJ_BusAttachment* bus, const uint32_t suite)
-{
-    switch (suite) {
-    case AUTH_SUITE_ECDHE_NULL:
-        bus->suites[0] = 0;
-        break;
-
-    case AUTH_SUITE_ECDHE_PSK:
-        bus->suites[1] = 0;
-        break;
-
-    case AUTH_SUITE_ECDHE_ECDSA:
-        bus->suites[2] = 0;
-        break;
-
-    default:
-        return AJ_ERR_SECURITY;
-    }
-
-    return AJ_OK;
 }
 
 void AJ_BusSetPasswordCallback(AJ_BusAttachment* bus, AJ_AuthPwdFunc pwdCallback)
@@ -723,7 +651,6 @@ void AJ_BusSetPasswordCallback(AJ_BusAttachment* bus, AJ_AuthPwdFunc pwdCallback
 #ifndef NO_SECURITY
     AJ_InfoPrintf(("AJ_BusSetPasswordCallback(bus=0x%p, pwdCallback=0x%p)\n", bus, pwdCallback));
     bus->pwdCallback = pwdCallback;
-    AJ_EnableSuite(bus, AUTH_SUITE_ECDHE_PSK);
 #endif
 }
 
@@ -850,16 +777,12 @@ AJ_Status AJ_BusPropGetAll(AJ_Message* msg, AJ_BusPropGetCallback callback, void
 
 AJ_Status AJ_BusEnableSecurity(AJ_BusAttachment* bus, const uint32_t* suites, size_t numsuites)
 {
-    AJ_Status status;
     size_t i;
 
     AJ_InfoPrintf(("AJ_BusEnableSecurity(bus=0x%p, suites=0x%p)\n", bus, suites));
 
     for (i = 0; i < numsuites; i++) {
-        status = AJ_EnableSuite(bus, suites[i]);
-        if (AJ_OK != status) {
-            return status;
-        }
+        AJ_EnableSuite(suites[i]);
     }
 
     return AJ_OK;

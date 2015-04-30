@@ -859,7 +859,7 @@ int AJ_Main()
         AJ_AlwaysPrintf(("AJ_Main 3\n"));
         AJ_ASSERT(status == AJ_OK);
 
-        AJ_InfoPrintf(("\nDELETE STATUS %u, NVRAMTEST RUN %u TIMES\n", status, count++));
+        AJ_AlwaysPrintf(("\nDELETE STATUS %u, NVRAMTEST RUN %u TIMES\n", status, count++));
 #ifdef READABLE_LOG
         AJ_Sleep(3000);
 #endif
