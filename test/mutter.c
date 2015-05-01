@@ -81,7 +81,9 @@ static const char* const testSignature[] = {
     "(iay)",
     "ia{iv}i",
     "ay",
-    "a{s(us)}"
+    "a{s(us)}",
+    "d",
+    "ad"
 };
 
 typedef struct {
@@ -128,6 +130,7 @@ static const char* const Colors[] = {
     "azure", "blue", "cyan", "dun", "ecru"
 };
 
+static const double doubleData[] = { 1.111, 2.222, 3.333, 4.444, 5.555, 6.666, 777.777, 888.888 };
 static const uint8_t Data8[] = { 0xA0, 0xB0, 0xC0, 0xD0, 0xE0, 0xF0, 0xA1, 0xB1, 0xC2, 0xD3 };
 static const uint16_t Data16[] = { 0xFF01, 0xFF02, 0xFF03, 0xFF04, 0xFF05, 0xFF06 };
 static const char* const string_marshalled_after_scalar_array = "string after array";
@@ -155,6 +158,7 @@ int AJ_Main()
     char* str;
     char* sig;
     void* raw;
+    double d;
 
 #ifdef EXPANDED_FORM
     AJ_Arg struct2;
@@ -838,6 +842,20 @@ int AJ_Main()
                 }
             }
             break;
+
+        case 18:
+            status = AJ_MarshalArgs(&txMsg, "d", 1234.5678);
+            if (status != AJ_OK) {
+                break;
+            }
+            break;
+
+        case 19:
+            status = AJ_MarshalArgs(&txMsg, "ad", doubleData, sizeof(doubleData));
+            if (status != AJ_OK) {
+                break;
+            }
+
         }
         if (status != AJ_OK) {
             AJ_AlwaysPrintf(("Failed %d\n", test));
@@ -1576,6 +1594,31 @@ int AJ_Main()
                 }
             }
             break;
+
+        case 18:
+            memset(&d, 0, sizeof(double));
+            status = AJ_UnmarshalArgs(&rxMsg, "d", &d);
+            if (d != 1234.5678) {
+                AJ_ErrPrintf(("Double test failure\n"));
+                status = AJ_ERR_FAILURE;
+            }
+            if (status != AJ_OK) {
+                break;
+            }
+            break;
+
+        case 19:
+            {
+                status = AJ_UnmarshalArgs(&rxMsg, "ad", (const void**)&raw, &sz);
+                if (status != AJ_OK) {
+                    break;
+                }
+                if (memcmp(raw, doubleData, sz) != 0) {
+                    AJ_ErrPrintf(("Double array test failure\n"));
+                    status = AJ_ERR_FAILURE;
+                    break;
+                }
+            }
         }
 
         if (status != AJ_OK) {
