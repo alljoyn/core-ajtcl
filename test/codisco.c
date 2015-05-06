@@ -25,9 +25,19 @@ static void Print_Connection_Summary(void);
 
 static const char* routingNodeName = "org.alljoyn.BusNode";
 
+/*
+ * To exercise LegacyNS code, set a mininum value via AJ_SetMinProtoVersion.
+ * The protocol version for 14.02 is 9, as specified at:
+ * https://git.allseenalliance.org/cgit/core/alljoyn.git/tree/alljoyn_core/inc/alljoyn/AllJoynStd.h?id=v14.02#n33
+ */
+static const uint8_t minRouterProtocolVersion = 9;
+
 /* All time values are in milliseconds */
 
-static const uint16_t CONNECT_TIMEOUT   = 1000 * 5;
+static const uint32_t CONNECT_TIMEOUT = 1000 * 5;
+
+/* To stress the underlying target's socket creation, set the value to zero */
+static const uint16_t ROUTER_SELECTION_TIMEOUT = 1000 * 2;
 
 /* PAUSE is the delay between connection attempts */
 static const uint16_t PAUSE_MAX   = 1000 * 4; /* Four seconds */
@@ -58,6 +68,8 @@ void AJ_Main(void)
 {
     AJ_Status status = AJ_OK;
     AJ_BusAttachment bus;
+    AJ_Time discoveryTimer;
+    uint32_t timeTakenForDiscovery = 0;
 
     uint16_t timeout = 0;
 
@@ -65,25 +77,20 @@ void AJ_Main(void)
 
     AJ_Printf("\nAllJoyn Release: %s\n\n", AJ_GetVersion());
 
-    /*
-     * Set the minimum protocol version of 'acceptable' router node to 14.02
-     * to exercise LegacyNS code as well.
-     * The protocol version for 14.02 is 9, as specified at:
-     * https://git.allseenalliance.org/cgit/core/alljoyn.git/tree/alljoyn_core/inc/alljoyn/AllJoynStd.h?id=v14.02#n33
-     */
+    AJ_SetMinProtoVersion(minRouterProtocolVersion);
 
-    AJ_SetMinProtoVersion(9);
-
-    /*
-     * Set the selection timeout to a different value from the default.
-     */
-    AJ_SetSelectionTimeout(2000);
+    AJ_SetSelectionTimeout(ROUTER_SELECTION_TIMEOUT);
 
     /* Connect and disconnect forever */
     while (TRUE) {
         AJ_Printf("Attempting to connect to a routing node with prefix: %s ...\n", routingNodeName);
 
+        AJ_InitTimer(&discoveryTimer);
+
         status = AJ_FindBusAndConnect(&bus, routingNodeName, CONNECT_TIMEOUT);
+
+        timeTakenForDiscovery = AJ_GetElapsedTime(&discoveryTimer, FALSE);
+
         num_total_attempts++;
 
         if (AJ_ERR_READ == status || AJ_ERR_WRITE == status ||
@@ -93,6 +100,16 @@ void AJ_Main(void)
         } else if (AJ_ERR_TIMEOUT == status) {
             num_timedout_attempts++;
             AJ_Printf("Timedout while connecting to routing node\n");
+            /*
+             * Discovery timed out. Check whether the API returned in a timely
+             * manner. See whether the actual duration is off by +/- 500ms.
+             * Delay beyond that is unusual.
+             */
+            if (500 < abs(CONNECT_TIMEOUT > timeTakenForDiscovery)) {
+                AJ_Printf("WARN: AJ_FindBusAndConnect API did not return in a timely manner. Timeout parameter: %u Actual time elapsed: %u\n",
+                          CONNECT_TIMEOUT,
+                          timeTakenForDiscovery);
+            }
         } else if (AJ_OK == status) {
             num_successful_attempts++;
             AJ_Printf("Connected to routing node (protocol version = %u). Got unique name - %s\n", AJ_GetRoutingProtoVersion(), AJ_GetUniqueName(&bus));
