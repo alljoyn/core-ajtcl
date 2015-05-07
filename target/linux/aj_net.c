@@ -60,7 +60,7 @@
  * (usually in debugger).
  */
 #ifndef NDEBUG
-uint8_t dbgNET = 1;
+uint8_t dbgNET = 0;
 #endif
 
 #define INVALID_SOCKET (-1)
