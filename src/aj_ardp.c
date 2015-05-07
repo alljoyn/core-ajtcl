@@ -363,6 +363,14 @@ static AJ_Status SendSyn(uint16_t dataLen)
     return (*sendFunction)(conn->context, (uint8_t*) &conn->snd.buf[0].data[0], ARDP_SYN_HEADER_SIZE + dataLen, &sent);
 }
 
+static uint8_t IsDataRetransmitScheduled()
+{
+    if (((conn->snd.UNA + 1) != conn->snd.NXT) && (conn->snd.UNA != conn->snd.NXT)) {
+        return TRUE;
+    }
+    return FALSE;
+}
+
 static void InitTimer(struct ArdpTimer* timer, uint32_t delta, uint8_t retry)
 {
     AJ_InitTimer(&timer->tStart);
@@ -427,14 +435,16 @@ static AJ_Status DataTimerHandler(ArdpSBuf* sBuf)
     struct ArdpTimer* timer = &sBuf->timer;
     uint32_t msElapsed = AJ_GetElapsedTime(&sBuf->tStart, FALSE);
     uint32_t timeout = GetDataTimeout();
-
-#ifndef NDEBUG
-    uint32_t seq = ntohl(*(uint32_t*)((uint8_t*)sBuf->data + SEQ_OFFSET));
-#endif
+    ArdpSBuf* startBuf = sBuf;
 
     sBuf->retransmits++;
 
     do {
+
+#ifndef NDEBUG
+        uint32_t seq = ntohl(*(uint32_t*)((uint8_t*)sBuf->data + SEQ_OFFSET));
+#endif
+
         if ((msElapsed >= timeout) && (timer->retry > UDP_MIN_DATA_RETRIES)) {
             AJ_ErrPrintf(("DataTimerHandler(): hit timeout for %u\n", seq));
             status = AJ_ERR_TIMEOUT;
@@ -458,8 +468,10 @@ static AJ_Status DataTimerHandler(ArdpSBuf* sBuf)
                 if (conn->rttInit) {
                     timer->delta = GetRTO();
                 } else {
-                    timer->delta = UDP_INITIAL_DATA_TIMEOUT;
+                    timer->delta = MIN(UDP_INITIAL_DATA_TIMEOUT << conn->backoff, (uint32_t)ARDP_MAX_RTO);
                 }
+                AJ_InfoPrintf(("DataTimerHandler: backoff %u, delta %u\n", conn->backoff, timer->delta));
+
                 timer->retry++;
                 AJ_InfoPrintf(("DataTimerHandler: cancel ackTimer\n"));
                 conn->ackTimer.retry = 0;
@@ -469,7 +481,7 @@ static AJ_Status DataTimerHandler(ArdpSBuf* sBuf)
             }
         }
         sBuf = sBuf->next;
-    } while (status == AJ_OK && (sBuf->timer.retry != 0)); /* Here "retry" check equates checking for "in flight" */
+    } while (status == AJ_OK && (sBuf->timer.retry != 0) && (sBuf != startBuf)); /* Here "retry" check equates checking for "in flight" */
 
     return status;
 }
@@ -516,6 +528,9 @@ static AJ_Status CheckTimers()
         status = SendHeader(ARDP_FLAG_ACK | ARDP_FLAG_VER | ARDP_FLAG_NUL);
         AJ_InitTimer(&conn->probeTimer.tStart);
         conn->probeTimer.retry--;
+        if (IsDataRetransmitScheduled() == FALSE) {
+            conn->rttInit = FALSE;
+        }
     }
 
     status = CheckDataTimers();
@@ -697,10 +712,10 @@ static void UpdateSndSegments(uint32_t ack)
     for (i = 0; i < UDP_SEGMAX; i++) {
         uint32_t seq = ntohl(*(uint32_t*)((uint8_t*)(sBuf->data) + SEQ_OFFSET));
 
-        /* If the remote acknowledged the segment, stop retransmit attempts. */
-        AJ_InfoPrintf(("UpdateSndSegments(): cancel retransmit for %u\n", seq));
-
         if (SEQ32_LET(seq, ack) && (sBuf->inFlight != 0)) {
+            /* If the remote acknowledged the segment, stop retransmit attempts. */
+            AJ_InfoPrintf(("UpdateSndSegments(): cancel retransmit for %u\n", seq));
+
             sBuf->timer.retry = 0;
             sBuf->dataLen = 0;
             sBuf->inFlight = 0;
