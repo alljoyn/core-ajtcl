@@ -227,6 +227,7 @@ struct ArdpConnection {
     uint32_t backoff;       /* Backoff factor accounting for retransmits on connection, resets to 1 when receive "good ack" */
     uint32_t rttMeanUnit;   /* Smoothed RTT value per UDP MTU */
     uint8_t rttInit;        /* Flag indicating that the first RTT was measured and SRTT calculation applies */
+    uint8_t confirm;        /* Flag to indicate that progress happened, do not send ARP re-probe */
 };
 
 static struct ArdpConnection* conn = NULL;
@@ -328,6 +329,7 @@ static AJ_Status SendHeader(uint8_t flags)
 {
     uint32_t buf32[ARDP_HEADER_SIZE >> 2];
     size_t sent;
+    AJ_Status status;
 
     AJ_InfoPrintf(("SendHeader(flags=0x%02x, seq=%u, ack=%u)\n", flags, conn->snd.NXT, conn->rcv.CUR));
 
@@ -338,7 +340,11 @@ static AJ_Status SendHeader(uint8_t flags)
     conn->ackTimer.retry = 0;
     conn->rcv.pending = 0;
 
-    return (*sendFunction)(conn->context, (uint8_t*) &buf32, ARDP_HEADER_SIZE, &sent);
+    status = (*sendFunction)(conn->context, (uint8_t*) &buf32, ARDP_HEADER_SIZE, &sent, conn->confirm);
+    if (status == AJ_OK) {
+        conn->confirm = FALSE;
+    }
+    return status;
 }
 
 static AJ_Status SendSyn(uint16_t dataLen)
@@ -360,7 +366,7 @@ static AJ_Status SendSyn(uint16_t dataLen)
     *((uint16_t*) (txbuf + OPTIONS_OFFSET)) = htons(ARDP_FLAG_SIMPLE_MODE | ARDP_FLAG_SDM);
     *((uint16_t*) (txbuf + SYN_RSRV_OFFSET)) = 0;
 
-    return (*sendFunction)(conn->context, (uint8_t*) &conn->snd.buf[0].data[0], ARDP_SYN_HEADER_SIZE + dataLen, &sent);
+    return (*sendFunction)(conn->context, (uint8_t*) &conn->snd.buf[0].data[0], ARDP_SYN_HEADER_SIZE + dataLen, &sent, FALSE);
 }
 
 static void InitTimer(struct ArdpTimer* timer, uint32_t delta, uint8_t retry)
@@ -380,7 +386,7 @@ static AJ_Status ConnectTimerHandler()
         size_t sent;
         uint16_t len = conn->snd.buf[0].dataLen + ARDP_SYN_HEADER_SIZE;
         AJ_InfoPrintf(("ConnectTimerHandler: send %d bytes\n", len));
-        status = (*sendFunction)(conn->context, (uint8_t*) conn->snd.buf[0].data, len, &sent);
+        status = (*sendFunction)(conn->context, (uint8_t*) conn->snd.buf[0].data, len, &sent, FALSE);
         if (status == AJ_ERR_WOULD_BLOCK) {
             status = AJ_OK;
         }
@@ -450,7 +456,7 @@ static AJ_Status DataTimerHandler(ArdpSBuf* sBuf)
             *((uint32_t*) (txbuf + ACKNXT_OFFSET)) = htonl(conn->snd.UNA);
 
             AJ_InfoPrintf(("DataTimerHandler: send %d bytes (seq %u, ack %u)\n", len, seq, conn->rcv.CUR));
-            status =  (*sendFunction)(conn->context, (uint8_t*) sBuf->data, len, &sent);
+            status =  (*sendFunction)(conn->context, (uint8_t*) sBuf->data, len, &sent, conn->confirm);
             AJ_InitTimer(&sBuf->timer.tStart);
 
             if (status == AJ_OK) {
@@ -464,6 +470,7 @@ static AJ_Status DataTimerHandler(ArdpSBuf* sBuf)
                 AJ_InfoPrintf(("DataTimerHandler: cancel ackTimer\n"));
                 conn->ackTimer.retry = 0;
                 conn->rcv.pending = 0;
+                conn->confirm = FALSE;
             } else {
                 AJ_ErrPrintf(("DataTimerHandler():Write to Socket went bad"));
             }
@@ -770,6 +777,8 @@ static AJ_Status ArdpMachine(struct ArdpSeg* seg, uint8_t* rxBuf, uint16_t len)
                         /* Initialize and kick off link timeout timer */
                         InitTimer(&conn->probeTimer, UDP_LINK_TIMEOUT / UDP_KEEPALIVE_RETRIES, UDP_KEEPALIVE_RETRIES);
 
+                        conn->confirm = TRUE;
+
                         /*
                          * <SEQ=snd.NXT><ACK=RCV.CUR><ACK>
                          */
@@ -816,6 +825,7 @@ static AJ_Status ArdpMachine(struct ArdpSeg* seg, uint8_t* rxBuf, uint16_t len)
                         return AJ_ERR_ARDP_DISCONNECTED;
                     }
                 }
+                conn->confirm = TRUE;
             }
 
             if (SEQ32_LT(conn->rcv.CUR + 1, seg->ACKNXT)) {
@@ -1023,7 +1033,7 @@ static AJ_Status ARDP_Send(uint8_t* txBuf, uint16_t len)
         MarshalHeader(sBuf->data, ARDP_FLAG_ACK | ARDP_FLAG_VER, dataLen, ttl, conn->snd.msgSOM, fcnt);
 
         AJ_InfoPrintf(("ARDP_Send(): send %d bytes (seq %u, ack %u)\n", ARDP_HEADER_SIZE + dataLen, conn->snd.NXT, conn->rcv.CUR));
-        status = (*sendFunction)(conn->context, (uint8_t*) sBuf->data, ARDP_HEADER_SIZE + dataLen, &sent);
+        status = (*sendFunction)(conn->context, (uint8_t*) sBuf->data, ARDP_HEADER_SIZE + dataLen, &sent, conn->confirm);
 
         if (status != AJ_OK) {
             AJ_ErrPrintf(("ARDP_Send(): %s\n", AJ_StatusText(status)));
@@ -1033,6 +1043,7 @@ static AJ_Status ARDP_Send(uint8_t* txBuf, uint16_t len)
         AJ_InfoPrintf(("ArdpSend(): cancel ackTimer\n"));
         conn->ackTimer.retry = 0;
         conn->rcv.pending = 0;
+        conn->confirm = FALSE;
 
         len -= (dataLen - offset);
 
