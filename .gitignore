@@ -32,6 +32,7 @@ html
 latex
 build
 ajlite.nvram
+ajtcl.nvram
 libajtcl.so
 ajtcl.dll
 whitespace.db
@@ -44,6 +45,7 @@ samples/secure/SecureServiceECDHE
 test/base64
 test/certificate
 test/codisco
+test/ctrdrbg
 test/nvramdump
 test/sessionslite
 test/sigtest
