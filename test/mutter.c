@@ -1717,6 +1717,7 @@ int AJ_Main()
             while (status == AJ_OK) {
                 size_t len;
                 uint8_t* data;
+                char buf[20];
 #ifdef EXPANDED_FORM
                 status = AJ_UnmarshalContainer(&rxMsg, &struct2, AJ_ARG_STRUCT);
                 if (status != AJ_OK) {
@@ -1740,7 +1741,6 @@ int AJ_Main()
                     break;
                 }
 #endif
-                char buf[20];
                 memcpy(buf, data, len);
                 buf[len] = '\0';
                 AJ_AlwaysPrintf(("Unmarshal %d %s\n", y, buf));
