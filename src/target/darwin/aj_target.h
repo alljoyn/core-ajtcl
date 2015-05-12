@@ -46,7 +46,7 @@
 
 #define WORD_ALIGN(x) ((x & 0x3) ? ((x >> 2) + 1) << 2 : x)
 
-#if __BYTE_ORDER == __LITTLE_ENDIAN
+#if defined(__LITTLE_ENDIAN__)
 #define HOST_IS_LITTLE_ENDIAN  TRUE
 #define HOST_IS_BIG_ENDIAN     FALSE
 #else

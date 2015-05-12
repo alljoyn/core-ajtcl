@@ -62,6 +62,5 @@ if env['VARIANT'] == 'debug':
     env.Append(CFLAGS = '-g')
 else:
     env.Append(CFLAGS = '-Os')
-    env.Append(LINKFLAGS = '-s')
 
-env['build_shared'] = True
+#env['build_shared'] = True
