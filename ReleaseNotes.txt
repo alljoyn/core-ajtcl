@@ -6,6 +6,11 @@ Fully Validated Platforms
 1) Linux Ubuntu 14.04 LTS (64 bit)
 2) Windows 7 (64 bit)
 
+See the release review page for other platforms that have not been fully
+verified, but may work:
+wiki.allseenalliance.org/core/core_15.04_release_review?&#regression_test
+
+
 Features added in Version 15.04
 -------------------------------
 * Allow the setting of the UNMARSHAL_TIMEOUT (ASACORE-695). This gives
@@ -22,6 +27,7 @@ Features added in Version 15.04
 * EXPERIMENTAL: UDP Transport for TC <-> RN connections. Thin Client to Routing
   Node version of a UDP-based transport (ASACORE-1404).
 
+
 Issues Addressed in Version 15.04
 ---------------------------------
 ASACORE-1247  Thin Core Library basic samples fail under Windows
@@ -34,7 +40,11 @@ https://jira.allseenalliance.org/issues/?jql=project%3D%22Core%20SW%22%20and%20f
 
 Known Issues in Version 14.12
 -----------------------------
-No significant issues to call out. For a complete list of open issues:
+ASACORE-1948 Debug flag left on in target/linux/aj_net.c
+ASACORE-1949 TC ARDP fix wasn't included in 15.04
+ASACORE-1952 Double type does not work
+
+For a complete list of open issues:
 https://jira.allseenalliance.org/issues/?jql=project%3D%22Core%20SW%22%20and%20%20resolution%20%3D%20Unresolved%20and%20type%20not%20in%20%28task%2C%20%22New%20Feature%22%29%20and%20component%20%3D%20%22Thin%20Core%20Library%22%20order%20by%20priority%20DESC%2C%20id%20ASC
 
 
