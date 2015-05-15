@@ -960,7 +960,7 @@ void AJ_Net_MCastDown(AJ_MCastSocket* mcastSock)
 
 #ifdef AJ_ARDP
 
-static AJ_Status AJ_ARDP_UDP_Send(void* context, uint8_t* buf, size_t len, size_t* sent)
+static AJ_Status AJ_ARDP_UDP_Send(void* context, uint8_t* buf, size_t len, size_t* sent, uint8_t confirm)
 {
     AJ_Status status = AJ_OK;
     ssize_t ret;
@@ -969,7 +969,7 @@ static AJ_Status AJ_ARDP_UDP_Send(void* context, uint8_t* buf, size_t len, size_
     AJ_InfoPrintf(("AJ_ARDP_UDP_Send(buf=0x%p, len=%lu)\n", buf, len));
 
     // we can send( rather than sendto( because we did a UDP connect()
-    ret = send(ctx->udpSock, buf, len, 0);
+    ret = send(ctx->udpSock, buf, len, (confirm == TRUE) ? MSG_CONFIRM : 0);
     if (ret == -1) {
         status = AJ_ERR_WRITE;
     } else {

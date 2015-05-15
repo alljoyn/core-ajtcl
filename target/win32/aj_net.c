@@ -1004,7 +1004,7 @@ void AJ_Net_MCastDown(AJ_MCastSocket* mcastSock)
 
 #ifdef AJ_ARDP
 
-static AJ_Status AJ_ARDP_UDP_Send(void* context, uint8_t* buf, size_t len, size_t* sent)
+static AJ_Status AJ_ARDP_UDP_Send(void* context, uint8_t* buf, size_t len, size_t* sent, uint8_t confirm)
 {
     AJ_Status status = AJ_OK;
     DWORD ret;

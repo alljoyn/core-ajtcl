@@ -81,7 +81,7 @@ static uint8_t ConnectedResponse[] = {
 };
 
 
-static AJ_Status AJ_ARDP_UDP_Send(void* context, uint8_t* txbuf, size_t len, size_t* sent)
+static AJ_Status AJ_ARDP_UDP_Send(void* context, uint8_t* txbuf, size_t len, size_t* sent, uint8_t confirm)
 {
     switch (State) {
     case Connecting:
