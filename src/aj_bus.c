@@ -320,7 +320,7 @@ AJ_Status AJ_BusAddSignalRule(AJ_BusAttachment* bus, const char* signalName, con
 
     str[0] = "type='signal',member='";
     str[1] = signalName;
-    str[2] = "'interface='";
+    str[2] = "',interface='";
     str[3] = interfaceName;
     str[4] = "'";
 
