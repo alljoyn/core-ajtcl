@@ -226,7 +226,7 @@ void AJ_WSL_ModuleInit(void)
 AJ_Status AJ_WSL_DriverStart(void)
 {
     AJ_CreateTask(AJ_WSL_MBoxListenAndProcessTask, (const signed char*)"AJWSLMBoxListen", 1000, NULL, 2, &AJ_WSL_MBoxListenHandle);
-    while (!AJ_WSL_IsDriverStarted()) ;
+    while (!AJ_WSL_IsDriverStarted());
     return AJ_OK;
 }
 
@@ -736,7 +736,7 @@ void HardFault_Handler(void)
 {
     AJ_AlwaysPrintf(("HARD FAULT OCCURED, PRINTING DRIVER TRACEBACK\n"));
     AJ_WSL_PrintDriverTraceback();
-    while (1) ;
+    while (1);
 }
 
 #endif

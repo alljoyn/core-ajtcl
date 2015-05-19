@@ -32,7 +32,7 @@ extern int __io_getchar(void) __attribute__((weak));
 
 int _exit(int s)
 {
-    while (1) ;
+    while (1);
 }
 
 caddr_t _sbrk(int inc)

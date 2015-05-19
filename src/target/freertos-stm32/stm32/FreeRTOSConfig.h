@@ -74,7 +74,7 @@
 #define configKERNEL_INTERRUPT_PRIORITY                 (LOWEST_PRIORITY << (8 - PRIORITY_BITS))
 #define configMAX_SYSCALL_INTERRUPT_PRIORITY            (configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY << (8 - PRIORITY_BITS))
 
-#define configASSERT(x)                                 if ((x) == 0) { taskDISABLE_INTERRUPTS(); while (1) ; }
+#define configASSERT(x)                                 if ((x) == 0) { taskDISABLE_INTERRUPTS(); while (1); }
 #define INCLUDE_MODULE_TEST                             0
 
 #define vPortSVCHandler SVC_Handler
