@@ -254,15 +254,25 @@ AJ_Status AJ_Net_Connect(AJ_BusAttachment* bus, const AJ_Service* service)
     SOCKADDR_STORAGE addrBuf;
     socklen_t addrSize;
     SOCKET sock;
+    AJ_Status status = AJ_ERR_CONNECT;
 
     /* Initialize Winsock, if not done already */
     WinsockCheck();
 
 #ifdef AJ_ARDP
     if (service->addrTypes & (AJ_ADDR_UDP4 | AJ_ADDR_UDP6)) {
-        return AJ_Net_ARDP_Connect(bus, service);
+        status = AJ_Net_ARDP_Connect(bus, service);
+        if (status == AJ_OK) {
+            return status;
+        }
     }
 #endif
+
+#ifndef AJ_TCP
+    // if no TCP, we're finished
+    return status;
+#endif
+    // else fall through to TCP
 
     AJ_InfoPrintf(("AJ_Net_Connect(bus=0x%p, addrType=%d.)\n", bus, service->addrTypes));
 

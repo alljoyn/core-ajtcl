@@ -47,6 +47,7 @@ if default_msvc_version:
     vars.Add(EnumVariable('MSVC_VERSION', 'MSVC compiler version - Windows', default_msvc_version, allowed_values=('8.0', '9.0', '10.0', '11.0', '11.0Exp', '12.0', '12.0Exp')))
 
 if ARGUMENTS.get('TARG', default_target) in ['linux', 'win32']:
+    vars.Add(EnumVariable('TCP', 'Enable support for TCP?', 'on', allowed_values=('on', 'off')))
     vars.Add(EnumVariable('ARDP', 'Enable support for ARDP?', 'off', allowed_values=('on', 'off')))
 
 if ARGUMENTS.get('TARG', default_target) == 'win32':
@@ -82,6 +83,10 @@ if restrict != '':
         print 'Invalid value for DEBUG_RESTRICT'
         Exit(0)
 
+if ARGUMENTS.get('TARG', default_target) in ['linux', 'win32']:
+    if env['TCP'] == 'off' and env['ARDP'] == 'off':
+        print 'Must enable at least one of TCP and ARDP'
+        Exit(0)
 
 # Define compile/link options only for win32/linux.
 # In case of target platforms, the compilation/linking does not take place
@@ -91,7 +96,9 @@ if env['TARG'] == 'win32':
     env.Append(CFLAGS=['/J', '/W3'])
     env.Append(CPPDEFINES=['_CRT_SECURE_NO_WARNINGS'])
     env.Append(LINKFLAGS=['/NODEFAULTLIB:libcmt.lib'])
-    
+
+    if env['TCP'] == 'off':
+        env.Append(CPPDEFINES=['AJ_NO_TCP'])
     if env['ARDP'] == 'on':
         env.Append(CPPDEFINES=['AJ_ARDP'])
     
@@ -118,6 +125,8 @@ if env['TARG'] == 'win32':
 elif env['TARG'] in [ 'linux' ]:
     if env['ARDP'] == 'on':
         env.Append(CPPDEFINES=['AJ_ARDP'])
+    if env['TCP'] == 'off':
+        env.Append(CPPDEFINES=['AJ_NO_TCP'])
 
     if os.environ.has_key('CROSS_PREFIX'):
         env.Replace(CC = os.environ['CROSS_PREFIX'] + 'gcc')

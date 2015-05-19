@@ -273,11 +273,19 @@ AJ_Status AJ_Net_Connect(AJ_BusAttachment* bus, const AJ_Service* service)
     struct sockaddr_storage addrBuf;
     socklen_t addrSize;
     int tcpSock = INVALID_SOCKET;
+    AJ_Status status = AJ_ERR_CONNECT;
 
 #ifdef AJ_ARDP
     if (service->addrTypes & (AJ_ADDR_UDP4 | AJ_ADDR_UDP6)) {
-        return AJ_Net_ARDP_Connect(bus, service);
+        status = AJ_Net_ARDP_Connect(bus, service);
+        if (status == AJ_OK) {
+            return status;
+        }
     }
+#endif
+
+#ifndef AJ_TCP
+    return status;
 #endif
 
     interruptFd = eventfd(0, O_NONBLOCK);  // Use O_NONBLOCK instead of EFD_NONBLOCK due to bug in OpenWrt's uCLibc
