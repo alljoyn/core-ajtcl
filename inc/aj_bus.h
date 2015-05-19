@@ -74,6 +74,7 @@ typedef struct _AJ_BusAttachment {
     AJ_AuthListenerFunc authListenerCallback;  /**< Callback for obtaining passwords */
     uint8_t isAuthenticated;                   /**< Has authentication already occured? */
     uint32_t aboutSerial;                      /**< Serial number for About announcement */
+    uint8_t isProbeRequired;                   /**< Are probe requests required for the live transport? */
 } AJ_BusAttachment;
 
 /**
