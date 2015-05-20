@@ -751,6 +751,17 @@ static AJ_Status ECDSAUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
             AJ_WarnPrintf(("AJ_ECDSA_Unmarshal(msg=%p): Certificate decode failed\n", msg));
             goto Exit;
         }
+        if (NULL == head) {
+            // If this is the first certificate, check that it signed the verifier.
+            status = AJ_DSAVerifyDigest(digest, &sig, &node->certificate.tbs.publickey);
+            if (AJ_OK != status) {
+                AJ_InfoPrintf(("AJ_ECDSA_Unmarshal(msg=%p): Signature invalid\n", msg));
+                goto Exit;
+            }
+        }
+        // Push the certificate on to the front of the chain
+        node->next = head;
+        head = node;
     }
     if (AJ_ERR_NO_MORE != status) {
         AJ_InfoPrintf(("AJ_ECDSA_Unmarshal(msg=%p): Certificate chain error %s\n", msg, AJ_StatusText(status)));
@@ -762,6 +773,10 @@ static AJ_Status ECDSAUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
     }
     status = AJ_UnmarshalCloseContainer(msg, &container1);
     if (AJ_OK != status) {
+        goto Exit;
+    }
+    if (NULL == head) {
+        AJ_InfoPrintf(("AJ_ECDSA_Unmarshal(msg=%p): Missing certificate chain\n", msg));
         goto Exit;
     }
 
