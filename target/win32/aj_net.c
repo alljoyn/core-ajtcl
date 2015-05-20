@@ -42,6 +42,7 @@
 #include "aj_util.h"
 #include "aj_connect.h"
 #include "aj_debug.h"
+#include "aj_config.h"
 
 #ifdef AJ_ARDP
 #include "aj_ardp.h"
