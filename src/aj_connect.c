@@ -99,6 +99,7 @@ void SetBusAuthPwdCallback(BusAuthPwdFunc callback)
      */
 }
 
+#ifdef AJ_TCP
 static AJ_Status SendHello(AJ_BusAttachment* bus)
 {
     AJ_Status status;
@@ -137,10 +138,7 @@ static AJ_Status WriteLine(AJ_IOBuffer* txBuf, char* line) {
     txBuf->writePtr += strlen(line);
     return txBuf->send(txBuf);
 }
-uint8_t AJ_GetRoutingProtoVersion(void)
-{
-    return routingProtoVersion;
-}
+
 /**
  * Since the routing node expects any of its clients to use SASL with Anonymous
  * or PINX in order to connect, this method will send the necessary SASL
@@ -199,6 +197,13 @@ static AJ_Status AnonymousAuthAdvance(AJ_IOBuffer* rxBuf, AJ_IOBuffer* txBuf) {
     return status;
 }
 
+#endif
+
+uint8_t AJ_GetRoutingProtoVersion(void)
+{
+    return routingProtoVersion;
+}
+
 static AJ_Status SetSignalRules(AJ_BusAttachment* bus)
 {
     AJ_Status status = AJ_OK;
@@ -254,6 +259,7 @@ AJ_Status AJ_Authenticate(AJ_BusAttachment* bus)
         return AJ_OK;
     }
 
+#ifdef AJ_TCP
     /*
      * Send initial NUL byte
      */
@@ -302,6 +308,7 @@ ExitConnect:
     } else {
         bus->isAuthenticated = TRUE;
     }
+#endif
     return status;
 }
 
