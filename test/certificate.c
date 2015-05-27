@@ -182,6 +182,78 @@ static const char pem_x509_9[] = {
     "-----END CERTIFICATE-----"
 };
 
+// Identity certificate
+static const char pem_x509_10[] = {
+    "-----BEGIN CERTIFICATE-----"
+    "MIIB8DCCAZagAwIBAgIBATAKBggqhkjOPQQDAjANMQswCQYDVQQDDAJjbjAeFw0x"
+    "NTA1MjcwNDAyMjZaFw0xNjA1MjYwNDAyMjZaMA0xCzAJBgNVBAMMAmNuMFkwEwYH"
+    "KoZIzj0CAQYIKoZIzj0DAQcDQgAEPEPcAowvgJcSAVbZgJp1TjZ84VHtgITq/Ex3"
+    "ayLMGrJ1aqA6+s9eOEYNGqvrZfQHRFcaM7m5MmRDn4J8PT+1oaOB5jCB4zAMBgNV"
+    "HRMBAf8EAjAAMCwGA1UdDgEB/wQiBCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    "AAAAAAAAADAuBgNVHSMBAf8EJDAigCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    "AAAAAAAAADARBgorBgEEAYLefAEBBAMCAQEwIwYDVR0RAQH/BBkwF6AVBgorBgEE"
+    "AYLefAEEoAcMBWFsaWFzMD0GCisGAQQBgt58AQIELzAtBglghkgBZQMEAgEEIAAA"
+    "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMAoGCCqGSM49BAMCA0gAMEUC"
+    "ICFbqG+E5iUdjJTQ8GtLKHL8s9+sSR5zg/1YM/4sqZ0bAiEAqRjQlb4ibzd10Mdu"
+    "RXFLrCSQ+ZD6LX4t2nzTthmPbx0="
+    "-----END CERTIFICATE-----"
+};
+
+// Security group certificate
+static const char pem_x509_11[] = {
+    "-----BEGIN CERTIFICATE-----"
+    "MIIBuzCCAWKgAwIBAgIBATAKBggqhkjOPQQDAjANMQswCQYDVQQDDAJjbjAeFw0x"
+    "NTA1MjcwNDAzMzhaFw0xNjA1MjYwNDAzMzhaMA0xCzAJBgNVBAMMAmNuMFkwEwYH"
+    "KoZIzj0CAQYIKoZIzj0DAQcDQgAEPEPcAowvgJcSAVbZgJp1TjZ84VHtgITq/Ex3"
+    "ayLMGrJ1aqA6+s9eOEYNGqvrZfQHRFcaM7m5MmRDn4J8PT+1oaOBsjCBrzAMBgNV"
+    "HRMBAf8EAjAAMCwGA1UdDgEB/wQiBCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    "AAAAAAAAADAuBgNVHSMBAf8EJDAigCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    "AAAAAAAAADARBgorBgEEAYLefAEBBAMCAQIwLgYDVR0RAQH/BCQwIqAgBgorBgEE"
+    "AYLefAEDoBIEEAAAAAAAAAAAAAAAAAAAAAAwCgYIKoZIzj0EAwIDRwAwRAIgaGVf"
+    "HMKMdNPoBegHdikjI+tpNRWeh1rwg4xzKBnftWQCIFA6AK0Zm4cJfCvMw+Dx/rXa"
+    "xqmf9RLcTk6jT96b0wGC"
+    "-----END CERTIFICATE-----"
+};
+
+void PrintElement(char* tag, DER_Element* der, uint8_t type)
+{
+    size_t i;
+
+    if (0 == der->size) {
+        return;
+    }
+
+    AJ_AlwaysPrintf(("%s: ", tag));
+    for (i = 0; i < der->size; i++) {
+        switch (type) {
+        case ASN_OCTETS:
+            AJ_AlwaysPrintf(("%02X", der->data[i]));
+            break;
+
+        case ASN_UTF8:
+            AJ_AlwaysPrintf(("%c", (char) der->data[i]));
+            break;
+        }
+    }
+    AJ_AlwaysPrintf(("\n"));
+}
+
+void PrintCertificate(X509Certificate* certificate)
+{
+    AJ_AlwaysPrintf(("Certificate\n"));
+    PrintElement("    Serial    ", &certificate->tbs.serial, ASN_OCTETS);
+    PrintElement("    Issuer  OU", &certificate->tbs.issuer.ou, ASN_UTF8);
+    PrintElement("    Issuer  CN", &certificate->tbs.issuer.cn, ASN_UTF8);
+    PrintElement("    Subject OU", &certificate->tbs.subject.ou, ASN_UTF8);
+    PrintElement("    Subject CN", &certificate->tbs.subject.cn, ASN_UTF8);
+    AJ_AlwaysPrintf(("    Extensions\n"));
+    PrintElement("        SKI   ", &certificate->tbs.extensions.ski, ASN_OCTETS);
+    PrintElement("        AKI   ", &certificate->tbs.extensions.aki, ASN_OCTETS);
+    PrintElement("        Alias ", &certificate->tbs.extensions.alias, ASN_UTF8);
+    PrintElement("        Group ", &certificate->tbs.extensions.group, ASN_OCTETS);
+    PrintElement("        Digest", &certificate->tbs.extensions.digest, ASN_OCTETS);
+}
+
 AJ_Status ParseCertificate(X509Certificate* certificate, const char* pem, uint8_t verify)
 {
     AJ_Status status = AJ_OK;
@@ -199,6 +271,7 @@ AJ_Status ParseCertificate(X509Certificate* certificate, const char* pem, uint8_
     if (AJ_OK != status) {
         return status;
     }
+    PrintCertificate(certificate);
     if (verify) {
         status = AJ_X509SelfVerify(certificate);
         AJ_Printf("Verify: %s\n", AJ_StatusText(status));
@@ -250,7 +323,9 @@ int AJ_Main(int ac, char** av)
     status = ParseCertificate(&certificate, pem_x509_6, 0);
     status = ParseCertificate(&certificate, pem_x509_7, 0);
     status = ParseCertificate(&certificate, pem_x509_8, 0);
-    status = ParseCertificate(&certificate, pem_x509_9, 0);
+    status = ParseCertificate(&certificate, pem_x509_9, 1);
+    status = ParseCertificate(&certificate, pem_x509_10, 1);
+    status = ParseCertificate(&certificate, pem_x509_11, 1);
 
     return 0;
 }

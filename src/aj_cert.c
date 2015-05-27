@@ -232,6 +232,18 @@ const uint8_t OID_BASIC_CONSTRAINTS[] = { 0x55, 0x1D, 0x13 };
 const uint8_t OID_SKI[]               = { 0x55, 0x1D, 0x0E };
 // 2.5.29.35
 const uint8_t OID_AKI[]               = { 0x55, 0x1D, 0x23 };
+// 2.5.29.27
+const uint8_t OID_SUB_ALTNAME[]       = { 0x55, 0x1D, 0x11 };
+// 2.16.840.1.101.3.4.2.1
+const uint8_t OID_HASH_SHA256[]       = { 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x01 };
+// 1.3.6.1.4.1.44924.1.1
+const uint8_t OID_CUSTOM_TYPE[]       = { 0x2B, 0x06, 0x01, 0x04, 0x01, 0x82, 0xDE, 0x7C, 0x01, 0x01 };
+// 1.3.6.1.4.1.44924.1.2
+const uint8_t OID_CUSTOM_DIGEST[]     = { 0x2B, 0x06, 0x01, 0x04, 0x01, 0x82, 0xDE, 0x7C, 0x01, 0x02 };
+// 1.3.6.1.4.1.44924.1.3
+const uint8_t OID_CUSTOM_GROUP[]      = { 0x2B, 0x06, 0x01, 0x04, 0x01, 0x82, 0xDE, 0x7C, 0x01, 0x03 };
+// 1.3.6.1.4.1.44924.1.4
+const uint8_t OID_CUSTOM_ALIAS[]      = { 0x2B, 0x06, 0x01, 0x04, 0x01, 0x82, 0xDE, 0x7C, 0x01, 0x04 };
 
 uint8_t CompareOID(DER_Element* der, const uint8_t* oid, size_t len)
 {
@@ -479,7 +491,9 @@ static AJ_Status DecodeCertificateExt(X509Extensions* extensions, DER_Element* d
     DER_Element oct;
     uint8_t tag;
     uint8_t critical;
-    const uint8_t tags[] = { ASN_CONTEXT_SPECIFIC };
+    const uint8_t tags1[] = { ASN_CONTEXT_SPECIFIC };
+    const uint8_t tags2[] = { ASN_OID, ASN_OCTETS };
+    const uint8_t tags3[] = { ASN_OID, ASN_CONTEXT_SPECIFIC };
 
     memset(extensions, 0, sizeof (X509Extensions));
 
@@ -508,8 +522,6 @@ static AJ_Status DecodeCertificateExt(X509Extensions* extensions, DER_Element* d
             }
             if (0x1 == tmp.size) {
                 critical = *tmp.data;
-                AJ_InfoPrintf(("Critical OID\n"));
-                AJ_DumpBytes("OID", oid.data, oid.size);
             }
         }
         status = AJ_ASN1DecodeElement(&seq, ASN_OCTETS, &oct);
@@ -548,19 +560,72 @@ static AJ_Status DecodeCertificateExt(X509Extensions* extensions, DER_Element* d
             }
             extensions->ski.data = tmp.data;
             extensions->ski.size = tmp.size;
-            AJ_DumpBytes("SKI", tmp.data, tmp.size);
         } else if (CompareOID(&oid, OID_AKI, sizeof (OID_AKI))) {
             status = AJ_ASN1DecodeElement(&oct, ASN_SEQ, &seq);
             if (AJ_OK != status) {
                 return status;
             }
-            status = AJ_ASN1DecodeElements(&seq, tags, sizeof (tags), 0, &tmp);
+            status = AJ_ASN1DecodeElements(&seq, tags1, sizeof (tags1), 0, &tmp);
             if (AJ_OK != status) {
                 return status;
             }
             extensions->aki.data = tmp.data;
             extensions->aki.size = tmp.size;
-            AJ_DumpBytes("AKI", tmp.data, tmp.size);
+        } else if (CompareOID(&oid, OID_CUSTOM_TYPE, sizeof (OID_CUSTOM_TYPE))) {
+            status = AJ_ASN1DecodeElement(&oct, ASN_INTEGER, &tmp);
+            if (AJ_OK != status) {
+                return status;
+            }
+            if (sizeof (uint32_t) < tmp.size) {
+                return AJ_ERR_INVALID;
+            }
+            extensions->type = 0;
+            while (tmp.size--) {
+                extensions->type <<= 8;
+                extensions->type |= *tmp.data++;
+            }
+        } else if (CompareOID(&oid, OID_CUSTOM_DIGEST, sizeof (OID_CUSTOM_DIGEST))) {
+            status = AJ_ASN1DecodeElement(&oct, ASN_SEQ, &seq);
+            if (AJ_OK != status) {
+                return status;
+            }
+            status = AJ_ASN1DecodeElements(&seq, tags2, sizeof (tags2), &oid, &oct);
+            if (AJ_OK != status) {
+                return status;
+            }
+            if (!CompareOID(&oid, OID_HASH_SHA256, sizeof (OID_HASH_SHA256))) {
+                return AJ_ERR_INVALID;
+            }
+            extensions->digest.data = oct.data;
+            extensions->digest.size = oct.size;
+        } else if (CompareOID(&oid, OID_SUB_ALTNAME, sizeof (OID_SUB_ALTNAME))) {
+            status = AJ_ASN1DecodeElement(&oct, ASN_SEQ, &seq);
+            if (AJ_OK != status) {
+                return status;
+            }
+            status = AJ_ASN1DecodeElements(&seq, tags1, sizeof (tags1), 0, &tmp);
+            if (AJ_OK != status) {
+                return status;
+            }
+            status = AJ_ASN1DecodeElements(&tmp, tags3, sizeof (tags3), &oid, 0, &oct);
+            if (AJ_OK != status) {
+                return status;
+            }
+            if (CompareOID(&oid, OID_CUSTOM_GROUP, sizeof (OID_CUSTOM_GROUP))) {
+                status = AJ_ASN1DecodeElement(&oct, ASN_OCTETS, &tmp);
+                if (AJ_OK != status) {
+                    return status;
+                }
+                extensions->group.data = tmp.data;
+                extensions->group.size = tmp.size;
+            } else if (CompareOID(&oid, OID_CUSTOM_ALIAS, sizeof (OID_CUSTOM_ALIAS))) {
+                status = AJ_ASN1DecodeElement(&oct, ASN_UTF8, &tmp);
+                if (AJ_OK != status) {
+                    return status;
+                }
+                extensions->alias.data = tmp.data;
+                extensions->alias.size = tmp.size;
+            }
         } else {
             // Unknown OID, if critical return error
             if (critical) {

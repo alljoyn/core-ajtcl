@@ -111,8 +111,12 @@ typedef struct _X509DistinguishedName {
 
 typedef struct _X509Extensions {
     uint32_t ca;                         /**< Certificate authority */
+    uint32_t type;                       /**< Certificate type in AllJoyn ecosystem */
     DER_Element ski;                     /**< Subject Key Identifier */
     DER_Element aki;                     /**< Authority Key Identifier */
+    DER_Element alias;                   /**< Alias (subject alt name) */
+    DER_Element group;                   /**< Group (subject alt name) */
+    DER_Element digest;                  /**< Associated digest */
 } X509Extensions;
 
 typedef struct _X509TbsCertificate {
