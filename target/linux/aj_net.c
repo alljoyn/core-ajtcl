@@ -347,6 +347,8 @@ AJ_Status AJ_Net_Connect(AJ_BusAttachment* bus, const AJ_Service* service)
 {
     AJ_Status status = AJ_ERR_CONNECT;
 
+    AJ_InfoPrintf(("AJ_Net_Connect(bus=0x%p, addrType=%d.)\n", bus, service->addrTypes));
+
 #ifdef AJ_ARDP
     if (service->addrTypes & (AJ_ADDR_UDP4 | AJ_ADDR_UDP6)) {
         status = AJ_Net_ARDP_Connect(bus, service);

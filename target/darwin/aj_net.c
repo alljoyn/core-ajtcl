@@ -262,7 +262,7 @@ AJ_Status AJ_Net_Connect(AJ_BusAttachment* bus, const AJ_Service* service)
     socklen_t addrSize;
     int tcpSock = INVALID_SOCKET;
 
-    AJ_InfoPrintf(("AJ_Net_Connect(netSock=0x%p, addrType=%d.)\n", netSock, addrType));
+    AJ_InfoPrintf(("AJ_Net_Connect(bus=0x%p, addrType=%d.)\n", bus, service->addrTypes));
 
     memset(&addrBuf, 0, sizeof(addrBuf));
 
@@ -781,6 +781,18 @@ static uint32_t chooseMDnsRecvAddr()
     uint32_t recvAddr = 0;
     struct ifaddrs* addrs;
     struct ifaddrs* addr;
+
+#ifndef NDEBUG
+    const char*env = getenv("ER_DEBUG_MDNS_RECV_ADDR");
+    if (env) {
+        struct in_addr ip;
+        if (inet_pton(AF_INET, env, &ip)) {
+            return ip.s_addr;
+        }
+
+        AJ_ErrPrintf(("chooseMDnsRecvAddr(): ER_DEBUG_MDNS_RECV_ADDR address (%s) is not a valid IPv4 address \n", env));
+    }
+#endif
 
     getifaddrs(&addrs);
     addr = addrs;
