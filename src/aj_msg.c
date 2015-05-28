@@ -1838,6 +1838,10 @@ static AJ_Status MarshalMsg(AJ_Message* msg, uint8_t msgType, uint32_t msgId, ui
     uint8_t fieldId;
     uint8_t secure = FALSE;
 
+    if (!ioBuf->bufStart) {
+        AJ_ErrPrintf(("MarshalMsg(): ioBuf has not been initialized\n"));
+        return AJ_ERR_IO_BUFFER;
+    }
 #ifdef AJ_ARDP
     status = AJ_ARDP_StartMsgSend(msg->ttl);
 #endif
