@@ -44,44 +44,6 @@ uint8_t dbgCERTIFICATE = 0;
 #define PEM_CERT_BEG "-----BEGIN CERTIFICATE-----"
 #define PEM_CERT_END "-----END CERTIFICATE-----"
 
-void HostU32ToBigEndianU8(uint32_t* u32, size_t len, uint8_t* u8)
-{
-    uint32_t x;
-    size_t i;
-
-    for (i = 0; i < len; i += sizeof (uint32_t)) {
-        x = u32[i / sizeof (uint32_t)];
-#if HOST_IS_LITTLE_ENDIAN
-        x = AJ_ByteSwap32(x);
-#endif
-        memcpy(&u8[i], &x, sizeof (x));
-    }
-}
-
-static void BigEndianU8ToHostU32(uint8_t* u8, uint32_t* u32, size_t len)
-{
-    uint32_t x;
-    size_t i;
-
-    for (i = 0; i < len; i += sizeof (uint32_t)) {
-        memcpy(&x, &u8[i], sizeof (x));
-#if HOST_IS_LITTLE_ENDIAN
-        x = AJ_ByteSwap32(x);
-#endif
-        u32[i / sizeof (uint32_t)] = x;
-    }
-}
-
-void AJ_BigEndianEncodePublicKey(ecc_publickey* publickey, uint8_t* b8)
-{
-    HostU32ToBigEndianU8((uint32_t*) publickey, sizeof (ecc_publickey), b8);
-}
-
-void AJ_BigEndianDecodePublicKey(ecc_publickey* publickey, uint8_t* b8)
-{
-    BigEndianU8ToHostU32(b8, (uint32_t*) publickey, sizeof (ecc_publickey));
-}
-
 static uint8_t ASN1DecodeTag(DER_Element* der)
 {
     return der->size ? *der->data : ASN_UNKNOWN;
@@ -253,7 +215,7 @@ uint8_t CompareOID(DER_Element* der, const uint8_t* oid, size_t len)
     return (0 == memcmp(der->data, oid, len));
 }
 
-AJ_Status AJ_DecodePrivateKeyDER(ecc_privatekey* key, DER_Element* der)
+AJ_Status AJ_DecodePrivateKeyDER(AJ_ECCPrivateKey* key, DER_Element* der)
 {
     AJ_Status status;
     DER_Element seq;
@@ -277,12 +239,12 @@ AJ_Status AJ_DecodePrivateKeyDER(ecc_privatekey* key, DER_Element* der)
     if (KEY_ECC_PRV_SZ != prv.size) {
         return AJ_ERR_INVALID;
     }
-    AJ_BigvalDecode(prv.data, key, KEY_ECC_SZ);
+    memcpy(key->x, prv.data, KEY_ECC_SZ);
 
     return status;
 }
 
-AJ_Status AJ_DecodePrivateKeyPEM(ecc_privatekey* key, const char* pem)
+AJ_Status AJ_DecodePrivateKeyPEM(AJ_ECCPrivateKey* key, const char* pem)
 {
     AJ_Status status;
     const char* beg;
@@ -432,7 +394,7 @@ static AJ_Status DecodeCertificateTime(X509Validity* validity, DER_Element* der)
     return status;
 }
 
-static AJ_Status DecodeCertificatePub(ecc_publickey* pub, DER_Element* der)
+static AJ_Status DecodeCertificatePub(AJ_ECCPublicKey* pub, DER_Element* der)
 {
     AJ_Status status;
     DER_Element seq;
@@ -441,8 +403,6 @@ static AJ_Status DecodeCertificatePub(ecc_publickey* pub, DER_Element* der)
     DER_Element oid2;
     const uint8_t tags1[] = { ASN_SEQ, ASN_BITS };
     const uint8_t tags2[] = { ASN_OID, ASN_OID };
-
-    memset(pub, 0, sizeof (ecc_publickey));
 
     status = AJ_ASN1DecodeElements(der, tags1, sizeof (tags1), &seq, &bit);
     if (AJ_OK != status) {
@@ -474,10 +434,11 @@ static AJ_Status DecodeCertificatePub(ecc_publickey* pub, DER_Element* der)
     }
     bit.data += 2;
     bit.size -= 2;
-    AJ_BigvalDecode(bit.data, &pub->x, KEY_ECC_SZ);
-    bit.data += KEY_ECC_SZ;
-    bit.size -= KEY_ECC_SZ;
-    AJ_BigvalDecode(bit.data, &pub->y, KEY_ECC_SZ);
+
+    pub->alg = KEY_ALG_ECDSA_SHA256;
+    pub->crv = KEY_CRV_NISTP256;
+    memcpy(pub->x, bit.data, KEY_ECC_SZ);
+    memcpy(pub->y, bit.data + KEY_ECC_SZ, KEY_ECC_SZ);
 
     return status;
 }
@@ -699,7 +660,7 @@ static AJ_Status DecodeCertificateTBS(X509TbsCertificate* tbs, DER_Element* der)
     return status;
 }
 
-static AJ_Status DecodeCertificateSig(ecc_signature* signature, DER_Element* der)
+static AJ_Status DecodeCertificateSig(AJ_ECCSignature* signature, DER_Element* der)
 {
     AJ_Status status;
     DER_Element seq;
@@ -727,10 +688,17 @@ static AJ_Status DecodeCertificateSig(ecc_signature* signature, DER_Element* der
         int2.data++;
         int2.size--;
     }
+    if (KEY_ECC_SZ < int1.size) {
+        return AJ_ERR_INVALID;
+    }
+    if (KEY_ECC_SZ < int2.size) {
+        return AJ_ERR_INVALID;
+    }
 
-    memset(signature, 0, sizeof (ecc_signature));
-    AJ_BigvalDecode(int1.data, &signature->r, int1.size);
-    AJ_BigvalDecode(int2.data, &signature->s, int2.size);
+    memset(signature, 0, sizeof (AJ_ECCSignature));
+    // Copy into lsb
+    memcpy(signature->r + (KEY_ECC_SZ - int1.size), int1.data, int1.size);
+    memcpy(signature->s + (KEY_ECC_SZ - int2.size), int2.data, int2.size);
 
     return status;
 }
@@ -892,16 +860,16 @@ Exit:
 AJ_Status AJ_X509SelfVerify(const X509Certificate* certificate)
 {
     AJ_InfoPrintf(("AJ_X509SelfVerify(certificate=%p)\n", certificate));
-    return AJ_ECDSAVerify(certificate->raw.data, certificate->raw.size, &certificate->signature, &certificate->tbs.publickey);
+    return AJ_X509Verify(certificate, &certificate->tbs.publickey);
 }
 
-AJ_Status AJ_X509Verify(const X509Certificate* certificate, const ecc_publickey* key)
+AJ_Status AJ_X509Verify(const X509Certificate* certificate, const AJ_ECCPublicKey* key)
 {
     AJ_InfoPrintf(("AJ_X509Verify(certificate=%p, key=%p)\n", certificate, key));
     return AJ_ECDSAVerify(certificate->raw.data, certificate->raw.size, &certificate->signature, key);
 }
 
-AJ_Status AJ_X509VerifyChain(const X509CertificateChain* chain, const ecc_publickey* key)
+AJ_Status AJ_X509VerifyChain(const X509CertificateChain* chain, const AJ_ECCPublicKey* key)
 {
     AJ_Status status;
 

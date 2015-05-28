@@ -263,6 +263,26 @@ AJ_Status AJ_IntToString(int32_t val, char* buf, size_t buflen);
  */
 AJ_Status AJ_InetToString(uint32_t addr, char* buf, size_t buflen);
 
+/**
+ * Convert unsigned 32-bit int array to network order (big endian) bytes.
+ *
+ * @param u32  Unsigned 32-bit array
+ * @param len  Length of 32-bit array
+ * @param u8   Unsigned 8-bit array
+ *
+ */
+void HostU32ToBigEndianU8(uint32_t* u32, size_t len, uint8_t* u8);
+
+/**
+ * Convert network order (big endian) bytes to unsigned 32-bit int array.
+ *
+ * @param u8   Unsigned 8-bit array
+ * @param u32  Unsigned 32-bit array
+ * @param len  Length of 32-bit array
+ *
+ */
+void BigEndianU8ToHostU32(uint8_t* u8, uint32_t* u32, size_t len);
+
 #ifdef __cplusplus
 }
 #endif

@@ -124,7 +124,7 @@ typedef struct _X509TbsCertificate {
     X509DistinguishedName issuer;        /**< The issuer's identity */
     X509Validity validity;               /**< The validity period */
     X509DistinguishedName subject;       /**< The subject's identity */
-    ecc_publickey publickey;             /**< The subject's public key */
+    AJ_ECCPublicKey publickey;           /**< The subject's public key */
     X509Extensions extensions;           /**< The certificate extensions */
 } X509TbsCertificate;
 
@@ -137,7 +137,7 @@ typedef struct _X509Certificate {
     DER_Element der;                     /**< Certificate DER encoding */
     DER_Element raw;                     /**< The raw tbs section */
     X509TbsCertificate tbs;              /**< The TBS section of the certificate */
-    ecc_signature signature;             /**< The certificate signature */
+    AJ_ECCSignature signature;           /**< The certificate signature */
 } X509Certificate;
 
 /**
@@ -158,7 +158,7 @@ typedef struct _X509CertificateChain {
  *          - AJ_OK on success
  *          - AJ_ERR_INVALID on all failures
  */
-AJ_Status AJ_DecodePrivateKeyPEM(ecc_privatekey* key, const char* pem);
+AJ_Status AJ_DecodePrivateKeyPEM(AJ_ECCPrivateKey* key, const char* pem);
 
 /**
  * Decode a ASN.1 DER encoded X.509 certificate.
@@ -217,7 +217,7 @@ AJ_Status AJ_X509SelfVerify(const X509Certificate* certificate);
  *          - AJ_OK on success
  *          - AJ_ERR_SECURITY on failure
  */
-AJ_Status AJ_X509Verify(const X509Certificate* certificate, const ecc_publickey* key);
+AJ_Status AJ_X509Verify(const X509Certificate* certificate, const AJ_ECCPublicKey* key);
 
 /**
  * Verify a chain of X.509 certificates.
@@ -230,35 +230,7 @@ AJ_Status AJ_X509Verify(const X509Certificate* certificate, const ecc_publickey*
  *          - AJ_OK on success
  *          - AJ_ERR_SECURITY on failure
  */
-AJ_Status AJ_X509VerifyChain(const X509CertificateChain* chain, const ecc_publickey* key);
-
-/**
- * Convert unsigned 32-bit int array to network order (big endian) bytes.
- *
- * @param u32  Unsigned 32-bit array
- * @param len  Length of 32-bit array
- * @param u8   Unsigned 8-bit array
- *
- */
-void HostU32ToBigEndianU8(uint32_t* u32, size_t len, uint8_t* u8);
-
-/**
- * Old encoding of native public key.
- *
- * @param publickey  The ECC public key
- * @param[out] b8    Big endian byte array
- *
- */
-void AJ_BigEndianEncodePublicKey(ecc_publickey* publickey, uint8_t* b8);
-
-/**
- * Old decoding of native public key.
- *
- * @param[out] publickey  The ECC public key
- * @param b8              Big endian byte array
- *
- */
-void AJ_BigEndianDecodePublicKey(ecc_publickey* publickey, uint8_t* b8);
+AJ_Status AJ_X509VerifyChain(const X509CertificateChain* chain, const AJ_ECCPublicKey* key);
 
 #ifdef __cplusplus
 }

@@ -35,7 +35,6 @@
 #include "aj_peer.h"
 #include "aj_config.h"
 #include "aj_about.h"
-#include "aj_security.h"
 #include "aj_authentication.h"
 
 /**
@@ -480,71 +479,6 @@ AJ_Status AJ_BusHandleBusMessage(AJ_Message* msg)
     case AJ_METHOD_KEY_AUTHENTICATION:
         AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_METHOD_KEY_AUTHENTICATION\n"));
         status = AJ_PeerHandleKeyAuthentication(msg, &reply);
-        break;
-
-    case AJ_METHOD_SECURITY_CLAIM:
-        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_METHOD_SECURITY_CLAIM\n"));
-        status = AJ_SecurityClaimMethod(msg, &reply);
-        break;
-
-    case AJ_METHOD_SECURITY_INSTALL_POLICY:
-        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_METHOD_SECURITY_INSTALL_POLICY\n"));
-        status = AJ_SecurityInstallPolicyMethod(msg, &reply);
-        break;
-
-    case AJ_METHOD_SECURITY_REMOVE_POLICY:
-        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_METHOD_SECURITY_REMOVE_POLICY\n"));
-        status = AJ_SecurityRemovePolicyMethod(msg, &reply);
-        break;
-
-    case AJ_METHOD_SECURITY_GET_POLICY:
-        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_METHOD_SECURITY_GET_POLICY\n"));
-        status = AJ_SecurityGetPolicyMethod(msg, &reply);
-        break;
-
-    case AJ_METHOD_SECURITY_INSTALL_IDENTITY:
-        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_METHOD_SECURITY_INSTALL_IDENTITY\n"));
-        status = AJ_SecurityInstallIdentityMethod(msg, &reply);
-        break;
-
-    case AJ_METHOD_SECURITY_REMOVE_IDENTITY:
-        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_METHOD_SECURITY_REMOVE_IDENTITY\n"));
-        status = AJ_SecurityRemoveIdentityMethod(msg, &reply);
-        break;
-
-    case AJ_METHOD_SECURITY_GET_IDENTITY:
-        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_METHOD_SECURITY_GET_IDENTITY\n"));
-        status = AJ_SecurityGetIdentityMethod(msg, &reply);
-        break;
-
-    case AJ_METHOD_SECURITY_INSTALL_MEMBERSHIP:
-        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_METHOD_SECURITY_INSTALL_MEMBERSHIP\n"));
-        status = AJ_SecurityInstallMembershipMethod(msg, &reply);
-        break;
-
-    case AJ_METHOD_SECURITY_INSTALL_AUTHDATA:
-        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_METHOD_SECURITY_INSTALL_AUTHDATA\n"));
-        status = AJ_SecurityInstallMembershipAuthDataMethod(msg, &reply);
-        break;
-
-    case AJ_METHOD_SECURITY_REMOVE_MEMBERSHIP:
-        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_METHOD_SECURITY_REMOVE_MEMBERSHIP\n"));
-        status = AJ_SecurityRemoveMembershipMethod(msg, &reply);
-        break;
-
-    case AJ_METHOD_SECURITY_GET_MANIFEST:
-        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_METHOD_SECURITY_GET_MANIFEST\n"));
-        status = AJ_SecurityGetManifestMethod(msg, &reply);
-        break;
-
-    case AJ_METHOD_SECURITY_RESET:
-        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_METHOD_SECURITY_RESET\n"));
-        status = AJ_SecurityResetMethod(msg, &reply);
-        break;
-
-    case AJ_METHOD_SECURITY_GET_PUBLICKEY:
-        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_METHOD_SECURITY_GET_PUBLICKEY\n"));
-        status = AJ_SecurityGetPublicKeyMethod(msg, &reply);
         break;
 
     case AJ_REPLY_ID(AJ_METHOD_EXCHANGE_GUIDS):

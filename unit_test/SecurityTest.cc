@@ -148,7 +148,7 @@ static const char psk_char[] = "faaa0af3dd3f1e0379da046a3ab6ca44";
 static const char psk_char[] = "123456";
 #endif
 static X509CertificateChain* chain = NULL;
-static ecc_privatekey prv;
+static AJ_ECCPrivateKey prv;
 static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, AJ_Credential*cred)
 {
     AJ_Status status = AJ_ERR_INVALID;
@@ -183,7 +183,7 @@ static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, 
     case AUTH_SUITE_ECDHE_ECDSA:
         switch (command) {
         case AJ_CRED_PRV_KEY:
-            cred->len = sizeof (ecc_privatekey);
+            cred->len = sizeof (AJ_ECCPrivateKey);
             status = AJ_DecodePrivateKeyPEM(&prv, pem_prv);
             if (AJ_OK != status) {
                 return status;

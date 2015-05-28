@@ -183,62 +183,6 @@ AJ_Status TestCreds()
     return status;
 }
 
-AJ_Status TestKeyInfoCreds()
-{
-    AJ_Status status;
-    AJ_KeyInfo pub1;
-    AJ_KeyInfo pub2;
-    AJ_KeyInfo prv1;
-    AJ_KeyInfo prv2;
-    AJ_KeyInfo test;
-    AJ_GUID guid;
-    char hex[1 + 2 * sizeof (AJ_GUID)];
-
-    AJ_AlwaysPrintf(("Start TestKeyInfoCreds\n"));
-
-    memset(&pub1, 0, sizeof (AJ_KeyInfo));
-    memset(&pub2, 0, sizeof (AJ_KeyInfo));
-    memset(&prv1, 0, sizeof (AJ_KeyInfo));
-    memset(&prv2, 0, sizeof (AJ_KeyInfo));
-
-    status = AJ_KeyInfoGenerate(&pub1, &prv1, KEY_USE_SIG);
-    AJ_ASSERT(AJ_OK == status);
-    status = AJ_KeyInfoSetLocal(&pub1, AJ_KEYINFO_ECDSA_SIG_PUB);
-    AJ_ASSERT(AJ_OK == status);
-    status = AJ_KeyInfoSetLocal(&prv1, AJ_KEYINFO_ECDSA_SIG_PRV);
-    AJ_ASSERT(AJ_OK == status);
-    memset(&test, 0, sizeof (AJ_KeyInfo));
-    status = AJ_KeyInfoGetLocal(&test, AJ_KEYINFO_ECDSA_SIG_PUB);
-    AJ_ASSERT(AJ_OK == status);
-    AJ_ASSERT(0 == memcmp(&pub1, &test, sizeof (AJ_KeyInfo)));
-    memset(&test, 0, sizeof (AJ_KeyInfo));
-    status = AJ_KeyInfoGetLocal(&test, AJ_KEYINFO_ECDSA_SIG_PRV);
-    AJ_ASSERT(AJ_OK == status);
-    AJ_ASSERT(0 == memcmp(&prv1, &test, sizeof (AJ_KeyInfo)));
-
-    AJ_RandBytes(guid.val, sizeof (guid));
-    AJ_DumpBytes("GUID", guid.val, sizeof (guid));
-    AJ_GUID_ToString(&guid, hex, 100);
-    AJ_AlwaysPrintf(("KeyInfo guid %s\n", hex));
-
-    status = AJ_KeyInfoGenerate(&pub2, &prv2, KEY_USE_SIG);
-    AJ_ASSERT(AJ_OK == status);
-    status = AJ_KeyInfoSet(&pub2, AJ_KEYINFO_ECDSA_SIG_PUB, &guid);
-    AJ_ASSERT(AJ_OK == status);
-    status = AJ_KeyInfoSet(&prv2, AJ_KEYINFO_ECDSA_SIG_PRV, &guid);
-    AJ_ASSERT(AJ_OK == status);
-    memset(&test, 0, sizeof (AJ_KeyInfo));
-    status = AJ_KeyInfoGet(&test, AJ_KEYINFO_ECDSA_SIG_PUB, &guid);
-    AJ_ASSERT(AJ_OK == status);
-    AJ_ASSERT(0 == memcmp(&pub2, &test, sizeof (AJ_KeyInfo)));
-    memset(&test, 0, sizeof (AJ_KeyInfo));
-    status = AJ_KeyInfoGet(&test, AJ_KEYINFO_ECDSA_SIG_PRV, &guid);
-    AJ_ASSERT(AJ_OK == status);
-    AJ_ASSERT(0 == memcmp(&prv2, &test, sizeof (AJ_KeyInfo)));
-
-    return status;
-}
-
 AJ_Status TestExist()
 {
     AJ_Status status = AJ_OK;
@@ -863,10 +807,6 @@ int AJ_Main()
 #ifdef READABLE_LOG
         AJ_Sleep(3000);
 #endif
-
-        status = TestKeyInfoCreds();
-        AJ_InfoPrintf(("\nKEYINFO STATUS %u, NVRAMTEST RUN %u TIMES\n", status, count++));
-        AJ_ASSERT(status == AJ_OK);
 
         status = TestNVRAMPeek();
         AJ_InfoPrintf(("\nNVRAM Peek STATUS %u\n", status));

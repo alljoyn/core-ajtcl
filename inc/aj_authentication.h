@@ -46,8 +46,8 @@ extern "C" {
 #define AUTH_SERVER            1
 
 typedef struct _KeyExchangeContext {
-    ecc_publickey pub;
-    ecc_privatekey prv;
+    AJ_ECCPublicKey pub;
+    AJ_ECCPrivateKey prv;
 } KeyExchangeContext;
 
 /**

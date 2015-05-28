@@ -29,40 +29,6 @@
 extern "C" {
 #endif
 
-typedef enum {B_FALSE, B_TRUE} boolean_t;
-
-
-#define BIGLEN 9
-/*
- * For P256 bigval_t types hold 288-bit 2's complement numbers (9
- * 32-bit words).  For P192 they hold 224-bit 2's complement numbers
- * (7 32-bit words).
- *
- * The representation is little endian by word and native endian
- * within each word.
- */
-
-typedef struct {
-    uint32_t data[BIGLEN];
-} bigval_t;
-
-
-typedef struct {
-    bigval_t x;
-    bigval_t y;
-    uint32_t infinity;
-} affine_point_t;
-
-typedef struct {
-    bigval_t r;
-    bigval_t s;
-} ECDSA_sig_t;
-
-typedef bigval_t ecc_privatekey;
-typedef affine_point_t ecc_publickey;
-typedef affine_point_t ecc_secret;
-typedef ECDSA_sig_t ecc_signature;
-
 /**
  * ECC type sizes
  */
@@ -72,112 +38,131 @@ typedef ECDSA_sig_t ecc_signature;
 #define KEY_ECC_SEC_SZ (2 * KEY_ECC_SZ)
 #define KEY_ECC_SIG_SZ (2 * KEY_ECC_SZ)
 
+/* Size of affine_point_t */
+#define KEY_ECC_OLD_SZ (2 * 19 * sizeof (uint32_t))
+
 /**
- * Generates the Ephemeral Diffie-Hellman key pair.
+ * We currently only support one type of key
+ * This structure can be modified to support more in the future
+ */
+#define KEY_ALG_ECDSA_SHA256 0
+#define KEY_CRV_NISTP256     0
+typedef struct _AJ_ECCPublicKey {
+    uint8_t alg;                   /**< Algorithm */
+    uint8_t crv;                   /**< Elliptic curve */
+    uint8_t x[KEY_ECC_SZ];
+    uint8_t y[KEY_ECC_SZ];
+} AJ_ECCPublicKey;
+
+typedef struct _AJ_ECCPrivateKey {
+    uint8_t alg;                   /**< Algorithm */
+    uint8_t crv;                   /**< Elliptic curve */
+    uint8_t x[KEY_ECC_SZ];
+} AJ_ECCPrivateKey;
+
+typedef AJ_ECCPrivateKey AJ_ECCSecret;
+
+typedef struct _AJ_ECCSignature {
+    uint8_t alg;                   /**< Algorithm */
+    uint8_t crv;                   /**< Elliptic curve */
+    uint8_t r[KEY_ECC_SZ];
+    uint8_t s[KEY_ECC_SZ];
+} AJ_ECCSignature;
+
+/**
+ * Generates an ECC key pair.
  *
- * @param publicKey The output public key
- * @param privateKey The output private key
+ * @param pub The output public key
+ * @param prv The output private key
  *
  * @return  - AJ_OK if the key pair is successfully generated.
  *          - AJ_ERR_SECURITY otherwise
  */
-AJ_Status AJ_GenerateDHKeyPair(ecc_publickey* publicKey, ecc_privatekey* privateKey);
+AJ_Status AJ_GenerateECCKeyPair(AJ_ECCPublicKey* pub, AJ_ECCPrivateKey* prv);
 
 /**
  * Generates the Diffie-Hellman share secret.
  *
- * @param peerPublicKey The peer's public key
- * @param privateKey The private key
- * @param secret The output share secret
+ * @param pub The peer's public key
+ * @param prv The private key
+ * @param sec The output share secret
  *
  * @return  - AJ_OK if the share secret is successfully generated.
  *          - AJ_ERR_SECURITY otherwise
  */
-AJ_Status AJ_GenerateShareSecret(ecc_publickey* peerPublicKey, ecc_privatekey* privateKey, ecc_secret* secret);
-
-/**
- * Generates the DSA key pair.
- *
- * @param publicKey The output public key
- * @param privateKey The output private key
- * @return  - AJ_OK if the key pair is successfully generated
- *          - AJ_ERR_SECURITY otherwise
- */
-AJ_Status AJ_GenerateECDSAKeyPair(ecc_publickey* publicKey, ecc_privatekey* privateKey);
+AJ_Status AJ_GenerateShareSecret(AJ_ECCPublicKey* pub, AJ_ECCPrivateKey* prv, AJ_ECCSecret* sec);
 
 /**
  * Sign a digest using the DSA key
  * @param digest The digest to sign
- * @param signingPrivateKey The signing private key
+ * @param prv The signing private key
  * @param sig The output signature
  * @return  - AJ_OK if the signing process succeeds
  *          - AJ_ERR_SECURITY otherwise
  */
-AJ_Status AJ_ECDSASignDigest(const uint8_t* digest, const ecc_privatekey* signingPrivateKey, ecc_signature* sig);
+AJ_Status AJ_ECDSASignDigest(const uint8_t* digest, const AJ_ECCPrivateKey* prv, AJ_ECCSignature* sig);
 
 /**
  * Sign a buffer using the DSA key
  * @param buf The buffer to sign
  * @param len The buffer len
- * @param signingPrivateKey The signing private key
+ * @param prv The signing private key
  * @param sig The output signature
  * @return  - AJ_OK if the signing process succeeds
  *          - AJ_ERR_SECURITY otherwise
  */
-AJ_Status AJ_ECDSASign(const uint8_t* buf, uint16_t len, const ecc_privatekey* signingPrivateKey, ecc_signature* sig);
+AJ_Status AJ_ECDSASign(const uint8_t* buf, uint16_t len, const AJ_ECCPrivateKey* prv, AJ_ECCSignature* sig);
 
 /**
  * Verify DSA signature of a digest
  * @param digest The digest to sign
  * @param sig The signature
- * @param pubKey The signing public key
+ * @param pub The signing public key
  * @return  - AJ_OK if the signature verification succeeds
  *          - AJ_ERR_SECURITY otherwise
  */
-AJ_Status AJ_ECDSAVerifyDigest(const uint8_t* digest, const ecc_signature* sig, const ecc_publickey* pubKey);
+AJ_Status AJ_ECDSAVerifyDigest(const uint8_t* digest, const AJ_ECCSignature* sig, const AJ_ECCPublicKey* pub);
 
 /**
  * Verify DSA signature of a buffer
  * @param buf The buffer to sign
  * @param len The buffer len
  * @param sig The signature
- * @param pubKey The signing public key
+ * @param pub The signing public key
  * @return  - AJ_OK if the signature verification succeeds
  *          - AJ_ERR_SECURITY otherwise
  */
-AJ_Status AJ_ECDSAVerify(const uint8_t* buf, uint16_t len, const ecc_signature* sig, const ecc_publickey* pubKey);
+AJ_Status AJ_ECDSAVerify(const uint8_t* buf, uint16_t len, const AJ_ECCSignature* sig, const AJ_ECCPublicKey* pub);
 
 /**
- * Encode Bigval to big-endian byte array
- * @param src    The input bigval
- * @param tgt    The output buffer
- * @param tgtlen The output buffer length
+ * Old encoding of native public key.
+ *
+ * @param pub          The ECC public key
+ * @param[out] b8      Big endian byte array
+ *
  */
-void AJ_BigvalEncode(const bigval_t* src, uint8_t* tgt, size_t tgtlen);
+void AJ_BigEndianDecodePublicKey(AJ_ECCPublicKey* pu, uint8_t* b8);
 
 /**
- * Decode Bigval from big-endian byte array
- * @param src    The input buffer
- * @param tgt    The output bigval
- * @param srclen The input buffer length
+ * Old decoding of native public key.
+ *
+ * @param[out] pub     The ECC public key
+ * @param b8           Big endian byte array
+ *
  */
-void AJ_BigvalDecode(const uint8_t* src, bigval_t* tgt, size_t srclen);
+void AJ_BigEndianEncodePublicKey(AJ_ECCPublicKey* pub, uint8_t* b8);
 
 /**
- * Encode Bigval to big-endian byte array
- * @param src    The input bigval
- * @param tgt    The output buffer
- * @param tgtlen The output buffer length
+ * Generates the Diffie-Hellman share secret using old encoding.
+ *
+ * @param pub The peer's public key
+ * @param prv The private key
+ * @param sec The output share secret
+ *
+ * @return  - AJ_OK if the share secret is successfully generated.
+ *          - AJ_ERR_SECURITY otherwise
  */
-void AJ_BigvalEncode(const bigval_t* src, uint8_t* tgt, size_t tgtlen);
-
-/**
- * Decode Bigval from big-endian byte array
- * @param src    The input buffer
- * @param tgt    The output bigval
- * @param srclen The input buffer length
- */
-void AJ_BigvalDecode(const uint8_t* src, bigval_t* tgt, size_t srclen);
+AJ_Status AJ_GenerateShareSecretOld(AJ_ECCPublicKey* pub, AJ_ECCPrivateKey* prv, AJ_ECCPublicKey* sec);
 
 #ifdef __cplusplus
 }

@@ -42,7 +42,6 @@ uint8_t dbgAUTHENTICATION = 0;
 // Enabled suites (this should initialize to zero)
 static uint32_t suites[AJ_AUTH_SUITES_NUM];
 
-#define ECC_NIST_P256      0
 #define SIG_FMT            0
 #define AUTH_VERIFIER_LEN  SHA256_DIGEST_LENGTH
 
@@ -82,12 +81,12 @@ static AJ_Status ComputeVerifier(AJ_AuthenticationContext* ctx, const char* labe
 static AJ_Status ECDHEMarshalV1(AJ_AuthenticationContext* ctx, AJ_Message* msg)
 {
     AJ_Status status;
-    uint8_t buf[1 + sizeof (ecc_publickey)];
+    uint8_t buf[1 + KEY_ECC_OLD_SZ];
 
     AJ_InfoPrintf(("ECDHEMarshalV1(ctx=%p, msg=%p)\n", ctx, msg));
 
     // Encode the public key
-    buf[0] = ECC_NIST_P256;
+    buf[0] = ctx->kectx.pub.crv;
     AJ_BigEndianEncodePublicKey(&ctx->kectx.pub, &buf[1]);
     // Marshal the encoded key
     status = AJ_MarshalArgs(msg, "v", "ay", buf, sizeof (buf));
@@ -99,18 +98,13 @@ static AJ_Status ECDHEMarshalV1(AJ_AuthenticationContext* ctx, AJ_Message* msg)
 static AJ_Status ECDHEMarshalV2(AJ_AuthenticationContext* ctx, AJ_Message* msg)
 {
     AJ_Status status;
-    uint8_t buf[KEY_ECC_PUB_SZ];
-    uint8_t fmt = ECC_NIST_P256;
 
     AJ_InfoPrintf(("ECDHEMarshalV2(ctx=%p, msg=%p)\n", ctx, msg));
 
-    // Encode the public key
-    AJ_BigvalEncode(&ctx->kectx.pub.x, buf, KEY_ECC_SZ);
-    AJ_BigvalEncode(&ctx->kectx.pub.y, buf + KEY_ECC_SZ, KEY_ECC_SZ);
     // Marshal the encoded key
-    status = AJ_MarshalArgs(msg, "v", "(yay)", fmt, buf, sizeof (buf));
-    AJ_SHA256_Update(&ctx->hash, &fmt, sizeof (fmt));
-    AJ_SHA256_Update(&ctx->hash, buf, sizeof (buf));
+    status = AJ_MarshalArgs(msg, "v", "(yay)", ctx->kectx.pub.crv, ctx->kectx.pub.x, KEY_ECC_PUB_SZ);
+    AJ_SHA256_Update(&ctx->hash, &ctx->kectx.pub.crv, sizeof (uint8_t));
+    AJ_SHA256_Update(&ctx->hash, ctx->kectx.pub.x, KEY_ECC_PUB_SZ);
 
     return status;
 }
@@ -123,7 +117,7 @@ static AJ_Status ECDHEMarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
 
     // Generate key pair if client
     if (AUTH_CLIENT == ctx->role) {
-        status = AJ_GenerateDHKeyPair(&ctx->kectx.pub, &ctx->kectx.prv);
+        status = AJ_GenerateECCKeyPair(&ctx->kectx.pub, &ctx->kectx.prv);
         if (AJ_OK != status) {
             AJ_InfoPrintf(("ECDHEMarshal(ctx=%p, msg=%p): Key generation failed\n", ctx, msg));
             return status;
@@ -144,8 +138,8 @@ static AJ_Status ECDHEUnmarshalV1(AJ_AuthenticationContext* ctx, AJ_Message* msg
     AJ_Status status;
     uint8_t* data;
     size_t size;
-    ecc_publickey pub;
-    ecc_secret secret;
+    AJ_ECCPublicKey pub;
+    AJ_ECCPublicKey secret;
 
     AJ_InfoPrintf(("ECDHEUnmarshalV1(ctx=%p, msg=%p)\n", ctx, msg));
 
@@ -155,11 +149,11 @@ static AJ_Status ECDHEUnmarshalV1(AJ_AuthenticationContext* ctx, AJ_Message* msg
         AJ_InfoPrintf(("ECDHEUnmarshalV1(ctx=%p, msg=%p): Unmarshal error\n", ctx, msg));
         return status;
     }
-    if (1 + sizeof (ecc_publickey) != size) {
+    if ((1 + KEY_ECC_OLD_SZ) != size) {
         AJ_InfoPrintf(("ECDHEUnmarshalV1(ctx=%p, msg=%p): Invalid key material\n", ctx, msg));
         return AJ_ERR_SECURITY;
     }
-    if (ECC_NIST_P256 != data[0]) {
+    if (KEY_CRV_NISTP256 != data[0]) {
         AJ_InfoPrintf(("ECDHEUnmarshalV1(ctx=%p, msg=%p): Invalid curve\n", ctx, msg));
         return AJ_ERR_SECURITY;
     }
@@ -169,14 +163,14 @@ static AJ_Status ECDHEUnmarshalV1(AJ_AuthenticationContext* ctx, AJ_Message* msg
     AJ_SHA256_Update(&ctx->hash, data, size);
 
     // Generate shared secret
-    status = AJ_GenerateShareSecret(&pub, &ctx->kectx.prv, &secret);
+    status = AJ_GenerateShareSecretOld(&pub, &ctx->kectx.prv, &secret);
     if (AJ_OK != status) {
         AJ_InfoPrintf(("ECDHEUnmarshalV1(ctx=%p, msg=%p): Generate secret error\n", ctx, msg));
         return status;
     }
 
     // Encode the shared secret
-    size = sizeof (ecc_secret);
+    size = KEY_ECC_OLD_SZ;
     data = AJ_Malloc(size);
     if (NULL == data) {
         return AJ_ERR_RESOURCES;
@@ -191,22 +185,21 @@ static AJ_Status ECDHEUnmarshalV1(AJ_AuthenticationContext* ctx, AJ_Message* msg
 static AJ_Status ECDHEUnmarshalV2(AJ_AuthenticationContext* ctx, AJ_Message* msg)
 {
     AJ_Status status;
-    uint8_t fmt;
     uint8_t* data;
     size_t size;
-    ecc_publickey pub;
-    ecc_secret secret;
+    AJ_ECCPublicKey pub;
+    AJ_ECCSecret sec;
     AJ_SHA256_Context sha;
 
     AJ_InfoPrintf(("ECDHEUnmarshalV2(ctx=%p, msg=%p)\n", ctx, msg));
 
     // Unmarshal the encoded key
-    status = AJ_UnmarshalArgs(msg, "v", "(yay)", &fmt, &data, &size);
+    status = AJ_UnmarshalArgs(msg, "v", "(yay)", &pub.crv, &data, &size);
     if (AJ_OK != status) {
         AJ_InfoPrintf(("ECDHEUnmarshalV2(ctx=%p, msg=%p): Unmarshal error\n", ctx, msg));
         return status;
     }
-    if (ECC_NIST_P256 != fmt) {
+    if (KEY_CRV_NISTP256 != pub.crv) {
         AJ_InfoPrintf(("ECDHEUnmarshalV2(ctx=%p, msg=%p): Invalid curve\n", ctx, msg));
         return AJ_ERR_SECURITY;
     }
@@ -214,35 +207,28 @@ static AJ_Status ECDHEUnmarshalV2(AJ_AuthenticationContext* ctx, AJ_Message* msg
         AJ_InfoPrintf(("ECDHEUnmarshalV2(ctx=%p, msg=%p): Invalid key material\n", ctx, msg));
         return AJ_ERR_SECURITY;
     }
-    // Decode the public key
-    memset(&pub, 0, sizeof (ecc_publickey));
-    AJ_BigvalDecode(data, &pub.x, KEY_ECC_SZ);
-    AJ_BigvalDecode(data + KEY_ECC_SZ, &pub.y, KEY_ECC_SZ);
-    AJ_SHA256_Update(&ctx->hash, &fmt, sizeof (fmt));
-
+    // Copy the public key
+    memcpy(pub.x, data, KEY_ECC_SZ);
+    memcpy(pub.y, data + KEY_ECC_SZ, KEY_ECC_SZ);
+    AJ_SHA256_Update(&ctx->hash, &pub.crv, sizeof (uint8_t));
     AJ_SHA256_Update(&ctx->hash, data, size);
 
     // Generate shared secret
-    status = AJ_GenerateShareSecret(&pub, &ctx->kectx.prv, &secret);
+    status = AJ_GenerateShareSecret(&pub, &ctx->kectx.prv, &sec);
     if (AJ_OK != status) {
         AJ_InfoPrintf(("ECDHEUnmarshalV2(ctx=%p, msg=%p): Generate secret error\n", ctx, msg));
         return status;
     }
 
     // Encode the shared secret
-    size = KEY_ECC_PRV_SZ;
+    size = SHA256_DIGEST_LENGTH;
     data = AJ_Malloc(size);
     if (NULL == data) {
         return AJ_ERR_RESOURCES;
     }
-    // Only use x-coordinate for secret
-    AJ_BigvalEncode(&secret.x, data, KEY_ECC_SZ);
-    // Reuse the data buffer - hash of the point
-    AJ_ASSERT(SHA256_DIGEST_LENGTH <= size);
     AJ_SHA256_Init(&sha);
-    AJ_SHA256_Update(&sha, data, size);
+    AJ_SHA256_Update(&sha, sec.x, KEY_ECC_SZ);
     AJ_SHA256_Final(&sha, data);
-    size = SHA256_DIGEST_LENGTH;
     status = ComputeMasterSecret(ctx, data, size);
     AJ_Free(data);
 
@@ -257,7 +243,7 @@ static AJ_Status ECDHEUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
 
     // Generate key pair if server
     if (AUTH_SERVER == ctx->role) {
-        status = AJ_GenerateDHKeyPair(&ctx->kectx.pub, &ctx->kectx.prv);
+        status = AJ_GenerateECCKeyPair(&ctx->kectx.pub, &ctx->kectx.prv);
         if (AJ_OK != status) {
             AJ_InfoPrintf(("ECDHEUnmarshal(ctx=%p, msg=%p): Key generation failed\n", ctx, msg));
             return status;
@@ -510,20 +496,14 @@ static AJ_Status PSKUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
     return status;
 }
 
-typedef struct _SigInfoCtx {
-    ecc_privatekey prv;
-    ecc_signature sig;
-    uint8_t sig_r[KEY_ECC_SZ];
-    uint8_t sig_s[KEY_ECC_SZ];
-} SigInfoCtx;
-
 static AJ_Status ECDSAMarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
 {
     AJ_Status status;
     AJ_Arg container1;
     AJ_Arg container2;
     AJ_Credential cred;
-    SigInfoCtx* sig = NULL;
+    AJ_ECCPrivateKey* prv;
+    AJ_ECCSignature sig;
     uint8_t verifier[SHA256_DIGEST_LENGTH];
     X509CertificateChain* chain = NULL;
     uint8_t fmt;
@@ -552,30 +532,22 @@ static AJ_Status ECDSAMarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
         goto Exit;
     }
 
-    // Put the signature context on the heap
-    sig = (SigInfoCtx*) AJ_Malloc(sizeof (SigInfoCtx));
-    if (NULL == sig) {
-        status = AJ_ERR_RESOURCES;
-        goto Exit;
-    }
-    // The credential holds a pointer to an ecc_privatekey
-    if (sizeof (ecc_privatekey) != cred.len) {
+    // The credential holds a pointer to an AJ_ECCPrivateKey
+    if (sizeof (AJ_ECCPrivateKey) != cred.len) {
         status = AJ_ERR_INVALID;
         goto Exit;
     }
-    memcpy((uint8_t*) &sig->prv, cred.data, cred.len);
+    prv = (AJ_ECCPrivateKey*) cred.data;
     ctx->expiration = cred.expiration;
 
     // Sign verifier
-    status = AJ_ECDSASignDigest(verifier, &sig->prv, &sig->sig);
+    status = AJ_ECDSASignDigest(verifier, prv, &sig);
     if (AJ_OK != status) {
         AJ_WarnPrintf(("AJ_ECDSA_Marshal(msg=%p): Sign verifier error\n", msg));
         goto Exit;
     }
-    AJ_BigvalEncode(&sig->sig.r, sig->sig_r, KEY_ECC_SZ);
-    AJ_BigvalEncode(&sig->sig.s, sig->sig_s, KEY_ECC_SZ);
-    AJ_SHA256_Update(&ctx->hash, sig->sig_r, KEY_ECC_SZ);
-    AJ_SHA256_Update(&ctx->hash, sig->sig_s, KEY_ECC_SZ);
+    AJ_SHA256_Update(&ctx->hash, sig.r, KEY_ECC_SZ);
+    AJ_SHA256_Update(&ctx->hash, sig.s, KEY_ECC_SZ);
 
     // Marshal signature
     status = AJ_MarshalVariant(msg, "(vyv)");
@@ -586,12 +558,10 @@ static AJ_Status ECDSAMarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
     if (AJ_OK != status) {
         goto Exit;
     }
-    status = AJ_MarshalArgs(msg, "v", "(yv)", SIG_FMT, "(ayay)", sig->sig_r, KEY_ECC_SZ, sig->sig_s, KEY_ECC_SZ);
+    status = AJ_MarshalArgs(msg, "v", "(yv)", SIG_FMT, "(ayay)", sig.r, KEY_ECC_SZ, sig.s, KEY_ECC_SZ);
     if (AJ_OK != status) {
         goto Exit;
     }
-    AJ_Free(sig);
-    sig = NULL;
 
     // Marshal certificate chain
     fmt = CERT_FMT_X509_DER;
@@ -634,9 +604,6 @@ static AJ_Status ECDSAMarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
     status = AJ_MarshalCloseContainer(msg, &container1);
 
 Exit:
-    if (sig) {
-        AJ_Free(sig);
-    }
     return status;
 }
 
@@ -650,7 +617,7 @@ static AJ_Status ECDSAUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
     const char* variant;
     uint8_t fmt;
     DER_Element der;
-    ecc_signature sig;
+    AJ_ECCSignature sig;
     uint8_t* sig_r;
     uint8_t* sig_s;
     size_t len_r;
@@ -697,8 +664,8 @@ static AJ_Status ECDSAUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
     if ((KEY_ECC_SZ != len_r) || (KEY_ECC_SZ != len_s)) {
         goto Exit;
     }
-    AJ_BigvalDecode(sig_r, &sig.r, KEY_ECC_SZ);
-    AJ_BigvalDecode(sig_s, &sig.s, KEY_ECC_SZ);
+    memcpy(sig.r, sig_r, KEY_ECC_SZ);
+    memcpy(sig.s, sig_s, KEY_ECC_SZ);
     AJ_SHA256_Update(&ctx->hash, sig_r, KEY_ECC_SZ);
     AJ_SHA256_Update(&ctx->hash, sig_s, KEY_ECC_SZ);
 
@@ -750,6 +717,15 @@ static AJ_Status ECDSAUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
             AJ_WarnPrintf(("AJ_ECDSA_Unmarshal(msg=%p): Certificate decode failed\n", msg));
             goto Exit;
         }
+
+        /* If this is the first certificate, check that it signed the verifier */
+        if (NULL == node->next) {
+            status = AJ_ECDSAVerifyDigest(digest, &sig, &node->certificate.tbs.publickey);
+            if (AJ_OK != status) {
+                AJ_InfoPrintf(("AJ_ECDSA_Unmarshal(msg=%p): Signature invalid\n", msg));
+                goto Exit;
+            }
+        }
     }
     if (AJ_ERR_NO_MORE != status) {
         AJ_InfoPrintf(("AJ_ECDSA_Unmarshal(msg=%p): Certificate chain error %s\n", msg, AJ_StatusText(status)));
@@ -761,6 +737,10 @@ static AJ_Status ECDSAUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
     }
     status = AJ_UnmarshalCloseContainer(msg, &container1);
     if (AJ_OK != status) {
+        goto Exit;
+    }
+    if (NULL == head) {
+        AJ_InfoPrintf(("AJ_ECDSA_Unmarshal(msg=%p): Certificate chain missing %s\n", msg, AJ_StatusText(status)));
         goto Exit;
     }
 

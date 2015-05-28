@@ -286,37 +286,31 @@ int AJ_Main(int ac, char** av)
 {
     AJ_Status status = AJ_OK;
     X509Certificate certificate;
-    ecc_privatekey prv;
-    ecc_signature sig;
-    uint8_t digest[SHA256_DIGEST_LENGTH];
+    AJ_ECCPublicKey pub;
+    AJ_ECCPrivateKey prv;
+    AJ_ECCSignature sig;
+    uint8_t buffer[128];
+
+    status = AJ_GenerateECCKeyPair(&pub, &prv);
+    AJ_ASSERT(AJ_OK == status);
+    status = AJ_ECDSASign(buffer, sizeof (buffer), &prv, &sig);
+    AJ_ASSERT(AJ_OK == status);
+    status = AJ_ECDSAVerify(buffer, sizeof (buffer), &sig, &pub);
+    AJ_ASSERT(AJ_OK == status);
 
     status = ParseCertificate(&certificate, pem_x509_self, 1);
-
-    memset(digest, 1, sizeof (digest));
 
     status = ParseCertificate(&certificate, pem_x509_1, 0);
     status = AJ_DecodePrivateKeyPEM(&prv, pem_prv_1);
     AJ_ASSERT(AJ_OK == status);
-    status = AJ_ECDSASignDigest(digest, &prv, &sig);
-    AJ_ASSERT(AJ_OK == status);
-    status = AJ_ECDSAVerifyDigest(digest, &sig, &certificate.tbs.publickey);
-    AJ_Printf("Verify: %s\n", AJ_StatusText(status));
 
     status = ParseCertificate(&certificate, pem_x509_2, 0);
     status = AJ_DecodePrivateKeyPEM(&prv, pem_prv_2);
     AJ_ASSERT(AJ_OK == status);
-    status = AJ_ECDSASignDigest(digest, &prv, &sig);
-    AJ_ASSERT(AJ_OK == status);
-    status = AJ_ECDSAVerifyDigest(digest, &sig, &certificate.tbs.publickey);
-    AJ_Printf("Verify: %s\n", AJ_StatusText(status));
 
     status = ParseCertificate(&certificate, pem_x509_3, 0);
     status = AJ_DecodePrivateKeyPEM(&prv, pem_prv_3);
     AJ_ASSERT(AJ_OK == status);
-    status = AJ_ECDSASignDigest(digest, &prv, &sig);
-    AJ_ASSERT(AJ_OK == status);
-    status = AJ_ECDSAVerifyDigest(digest, &sig, &certificate.tbs.publickey);
-    AJ_Printf("Verify: %s\n", AJ_StatusText(status));
 
     status = ParseCertificate(&certificate, pem_x509_4, 0);
     status = ParseCertificate(&certificate, pem_x509_5, 0);
