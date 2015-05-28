@@ -24,8 +24,6 @@ const char AJ_DBusDestination[] = "org.freedesktop.DBus";
 const char AJ_BusDestination[] = "org.alljoyn.Bus";
 
 const char AJ_ErrServiceUnknown[] = "org.freedesktop.DBus.Error.ServiceUnknown";
-const char AJ_ErrSecurityViolation[] = "org.alljoyn.Bus.SecurityViolation";
-const char AJ_ErrAuthorisationRequired[] = "org.alljoyn.Bus.AuthorisationRequired";
 const char AJ_ErrTimeout[] = "org.alljoyn.Bus.Timeout";
 const char AJ_ErrRejected[] = "org.alljoyn.Bus.Rejected";
 const char AJ_ErrResources[] = "org.alljoyn.Bus.Resources";
@@ -34,6 +32,9 @@ const char AJ_ErrInvalidValue[] = "org.alljoyn.Error.InvalidValue";
 const char AJ_ErrFeatureNotAvailable[] = "org.alljoyn.Error.FeatureNotAvailable";
 const char AJ_ErrMaxSizeExceeded[] = "org.alljoyn.Error.MaxSizeExceeded";
 const char AJ_ErrLanguageNotSuppored[] = "org.alljoyn.Error.LanguageNotSupported";
+/* Security specific errors */
+const char AJ_ErrSecurityViolation[] = "org.alljoyn.Bus.SecurityViolation";
+const char AJ_ErrPermissionDenied[] = "org.alljoyn.Bus.PermissionDenied";
 
 static const char DBusObjectPath[] = "/org/freedesktop/DBus";
 static const char DBusInterface[] = "org.freedesktop.DBus";
@@ -59,9 +60,12 @@ static const char AboutIconInterface[] = "org.alljoyn.Icon";
 
 const char AllSeenIntrospectableInterface[] = "#org.allseen.Introspectable";
 
-static const char SecurityObjectPath[] = "/org/allseen/Security/PermissionMgmt";
-static const char SecurityInterface[] = "$org.allseen.Security.PermissionMgmt"; //This is a secure interface
-static const char SecurityNotifyInterface[] = "org.alljoyn.Security.PermissionMgmt.Notification";
+static const char ApplicationObjectPath[] = "/org/alljoyn/Bus/Application";
+static const char ApplicationInterface[] = "org.alljoyn.Bus.Application";
+static const char SecurityObjectPath[] = "/org/alljoyn/Bus/Security";
+static const char SecurityApplicationInterface[] = "$org.alljoyn.Bus.Security.Application";
+static const char SecurityClaimableApplicationInterface[] = "$org.alljoyn.Bus.Security.ClaimableApplication";
+static const char SecurityManagedApplicationInterface[] = "$org.alljoyn.Bus.Security.ManagedApplication";
 
 const char* const AJ_PropertiesIface[] = {
     DBusPropsInterface,
@@ -187,27 +191,50 @@ static const char* const AboutIconIface[] = {
     NULL
 };
 
-static const char* const SecurityIface[] = {
-    SecurityInterface,
-    "?Claim <(yv) <ay <(yay)",
-    "?InstallPolicy <(yv)",
-    "?RemovePolicy",
-    "?GetPolicy >(yv)",
-    "?InstallIdentity <(yay)",
-    "?RemoveIdentity",
-    "?GetIdentity >(yay)",
-    "?InstallMembership <a(yay)",
-    "?InstallMembershipAuthData <ay <ay <(yv)",
-    "?RemoveMembership <ay <ay",
-    "?GetManifest >(yv)",
-    "?Reset",
-    "?GetPublicKey >(yv)",
+static const char* const ApplicationIface[] = {
+    ApplicationInterface,
+    "@Version >q",
+    "!&State >(yyayay) >q",
     NULL
 };
 
-static const char* const SecurityNotifyIface[] = {
-    SecurityNotifyInterface,
-    "!&NotifyConfig >(yv) >y >u >a(ayay)",
+static const char* const SecurityApplicationIface[] = {
+    SecurityApplicationInterface,
+    "@Version >q",
+    "@ApplicationState >q",
+    "@ManifestTemplateDigest >(yay)",
+    "@EccPublicKey >(yyayay)",
+    "@ManufacturerCertificate >a(yay)",
+    "@ManifestTemplate >a(ssa(syy))",
+    "@ClaimCapabilities >q",
+    "@ClaimCapabilitiesAdditionalInfo >q",
+    NULL
+};
+
+static const char* const SecurityClaimableApplicationIface[] = {
+    SecurityClaimableApplicationInterface,
+    "@Version >q",
+    "?Claim <(yyayay) <ay <ay <(yyayay) <ay <a(yay) <a(ssa(syy))",
+    NULL
+};
+
+static const char* const SecurityManagedApplicationIface[] = {
+    SecurityManagedApplicationInterface,
+    "@Version >q",
+    "@Identity >a(yay)",
+    "@Manifest >a(ssa(syy))",
+    "@IdentityCertificateId >(ayyyayay)",
+    "@PolicyVersion >u",
+    "@Policy >(qua(a(ya(yyayay)ay)a(ssa(syy))))",
+    "@DefaultPolicy >(qua(a(ya(yyayay)ay)a(ssa(syy))))",
+    "@MembershipSummaries >a(ayyyayay)",
+    "?Reset",
+    "?UpdateIdentity <a(yay) <a(ssa(syy))",
+    "?UpdatePolicy <(qua(a(ya(yyayay)ay)a(ssa(syy))))",
+    "?ResetPolicy",
+    "?InstallMembership <a(yay)",
+    "?RemoveMembership <(ayyyayay)",
+    NULL
 };
 
 static const AJ_InterfaceDescription PeerIfaces[] = {
@@ -221,9 +248,17 @@ static const AJ_InterfaceDescription BusIfaces[] = {
     NULL
 };
 
+static const AJ_InterfaceDescription ApplicationIfaces[] = {
+    AJ_PropertiesIface,
+    ApplicationIface,
+    NULL
+};
+
 static const AJ_InterfaceDescription SecurityIfaces[] = {
-    SecurityIface,
-    SecurityNotifyIface,
+    AJ_PropertiesIface,
+    SecurityApplicationIface,
+    SecurityClaimableApplicationIface,
+    SecurityManagedApplicationIface,
     NULL
 };
 
@@ -258,13 +293,14 @@ static const AJ_InterfaceDescription AboutIconIfaces[] = {
  * Ordering of these objects is important
  */
 const AJ_Object AJ_StandardObjects[] = {
-    { DBusObjectPath,      DBusIfaces,      AJ_OBJ_FLAG_IS_PROXY,  NULL },
-    { BusObjectPath,       BusIfaces,       AJ_OBJ_FLAG_IS_PROXY,  NULL },
-    { PeerObjectPath,      PeerIfaces,      0,                     NULL },
-    { "?",                 CommonIfaces,    0,                     NULL },
-    { DaemonObjectPath,    DaemonIfaces,    AJ_OBJ_FLAG_IS_PROXY,  NULL },
-    { AboutObjectPath,     AboutIfaces,     AJ_OBJ_FLAG_ANNOUNCED, NULL },
-    { AboutIconObjectPath, AboutIconIfaces, AJ_OBJ_FLAG_ANNOUNCED, NULL },
-    { SecurityObjectPath,  SecurityIfaces,  0,                     NULL },
-    { NULL,                NULL,            0,                     NULL }
+    { DBusObjectPath,        DBusIfaces,        AJ_OBJ_FLAG_IS_PROXY,  NULL },
+    { BusObjectPath,         BusIfaces,         AJ_OBJ_FLAG_IS_PROXY,  NULL },
+    { PeerObjectPath,        PeerIfaces,        0,                     NULL },
+    { "?",                   CommonIfaces,      0,                     NULL },
+    { DaemonObjectPath,      DaemonIfaces,      AJ_OBJ_FLAG_IS_PROXY,  NULL },
+    { AboutObjectPath,       AboutIfaces,       AJ_OBJ_FLAG_ANNOUNCED, NULL },
+    { AboutIconObjectPath,   AboutIconIfaces,   AJ_OBJ_FLAG_ANNOUNCED, NULL },
+    { ApplicationObjectPath, ApplicationIfaces, 0,                     NULL },
+    { SecurityObjectPath,    SecurityIfaces,    0,                     NULL },
+    { NULL,                  NULL,              0,                     NULL }
 };

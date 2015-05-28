@@ -144,25 +144,44 @@
 #define AJ_METHOD_ABOUT_ICON_GET_CONTENT       AJ_BUS_MESSAGE_ID(6, 1, 4)
 
 /*
- * Members of /security/PermissionMgmt interface org.alljoyn.Security.PermissionMgmt
+ * Members of interface org.alljoyn.Bus.Application
  */
-#define AJ_METHOD_SECURITY_CLAIM               AJ_BUS_MESSAGE_ID(7, 0,  0)    /**< method for claiming an application */
-#define AJ_METHOD_SECURITY_INSTALL_POLICY      AJ_BUS_MESSAGE_ID(7, 0,  1)    /**< method for installing the policy */
-#define AJ_METHOD_SECURITY_REMOVE_POLICY       AJ_BUS_MESSAGE_ID(7, 0,  2)    /**< method for removing the policy */
-#define AJ_METHOD_SECURITY_GET_POLICY          AJ_BUS_MESSAGE_ID(7, 0,  3)    /**< method for getting the policy */
-#define AJ_METHOD_SECURITY_INSTALL_IDENTITY    AJ_BUS_MESSAGE_ID(7, 0,  4)    /**< method for installing the identity */
-#define AJ_METHOD_SECURITY_REMOVE_IDENTITY     AJ_BUS_MESSAGE_ID(7, 0,  5)    /**< method for removing the identity */
-#define AJ_METHOD_SECURITY_GET_IDENTITY        AJ_BUS_MESSAGE_ID(7, 0,  6)    /**< method for getting the identity */
-#define AJ_METHOD_SECURITY_INSTALL_MEMBERSHIP  AJ_BUS_MESSAGE_ID(7, 0,  7)    /**< method for installing a membership */
-#define AJ_METHOD_SECURITY_INSTALL_AUTHDATA    AJ_BUS_MESSAGE_ID(7, 0,  8)    /**< method for installing a membership authorisation */
-#define AJ_METHOD_SECURITY_REMOVE_MEMBERSHIP   AJ_BUS_MESSAGE_ID(7, 0,  9)    /**< method for removing a membership */
-#define AJ_METHOD_SECURITY_GET_MANIFEST        AJ_BUS_MESSAGE_ID(7, 0, 10)    /**< method for getting the manifest */
-#define AJ_METHOD_SECURITY_RESET               AJ_BUS_MESSAGE_ID(7, 0, 11)    /**< method for resetting an application */
-#define AJ_METHOD_SECURITY_GET_PUBLICKEY       AJ_BUS_MESSAGE_ID(7, 0, 12)    /**< method for getting the publickey */
+#define AJ_METHOD_APPLICATION_GET_PROP             AJ_BUS_MESSAGE_ID(7, 0, AJ_PROP_GET)
+#define AJ_METHOD_APPLICATION_SET_PROP             AJ_BUS_MESSAGE_ID(7, 0, AJ_PROP_SET)
+#define AJ_PROPERTY_APPLICATION_VERSION            AJ_BUS_MESSAGE_ID(7, 1, 0)
+#define AJ_SIGNAL_APPLICATION_STATE                AJ_BUS_MESSAGE_ID(7, 1, 1)
+
 /*
- * Members of /security/PermissionMgmt interface org.alljoyn.Security.PermissionMgmt.Notification
+ * Members of interface org.alljoyn.Bus.Security.Application
+ * Members of interface org.alljoyn.Bus.Security.ClaimableApplication
+ * Members of interface org.alljoyn.Bus.Security.ManagedApplication
  */
-#define AJ_SIGNAL_SECURITY_NOTIFY_CONFIG       AJ_BUS_MESSAGE_ID(7, 1, 0)
+#define AJ_METHOD_SECURITY_GET_PROP                AJ_BUS_MESSAGE_ID(8, 0,  AJ_PROP_GET)
+#define AJ_METHOD_SECURITY_SET_PROP                AJ_BUS_MESSAGE_ID(8, 0,  AJ_PROP_SET)
+#define AJ_PROPERTY_SEC_VERSION                    AJ_BUS_MESSAGE_ID(8, 1,  0)
+#define AJ_PROPERTY_SEC_APPLICATION_STATE          AJ_BUS_MESSAGE_ID(8, 1,  1)
+#define AJ_PROPERTY_SEC_MANIFEST_DIGEST            AJ_BUS_MESSAGE_ID(8, 1,  2)
+#define AJ_PROPERTY_SEC_ECC_PUBLICKEY              AJ_BUS_MESSAGE_ID(8, 1,  3)
+#define AJ_PROPERTY_SEC_MANUFACTURER_CERTIFICATE   AJ_BUS_MESSAGE_ID(8, 1,  4)
+#define AJ_PROPERTY_SEC_MANIFEST_TEMPLATE          AJ_BUS_MESSAGE_ID(8, 1,  5)
+#define AJ_PROPERTY_SEC_CLAIM_CAPABILITIES         AJ_BUS_MESSAGE_ID(8, 1,  6)
+#define AJ_PROPERTY_SEC_CLAIM_CAPABILITIES_INFO    AJ_BUS_MESSAGE_ID(8, 1,  7)
+#define AJ_PROPERTY_CLAIMABLE_VERSION              AJ_BUS_MESSAGE_ID(8, 2,  0)
+#define AJ_METHOD_CLAIMABLE_CLAIM                  AJ_BUS_MESSAGE_ID(8, 2,  1)
+#define AJ_PROPERTY_MANAGED_VERSION                AJ_BUS_MESSAGE_ID(8, 3,  0)
+#define AJ_PROPERTY_MANAGED_IDENTITY               AJ_BUS_MESSAGE_ID(8, 3,  1)
+#define AJ_PROPERTY_MANAGED_MANIFEST               AJ_BUS_MESSAGE_ID(8, 3,  2)
+#define AJ_PROPERTY_MANAGED_IDENTITY_CERT_ID       AJ_BUS_MESSAGE_ID(8, 3,  3)
+#define AJ_PROPERTY_MANAGED_POLICY_VERSION         AJ_BUS_MESSAGE_ID(8, 3,  4)
+#define AJ_PROPERTY_MANAGED_POLICY                 AJ_BUS_MESSAGE_ID(8, 3,  5)
+#define AJ_PROPERTY_MANAGED_DEFAULT_POLICY         AJ_BUS_MESSAGE_ID(8, 3,  6)
+#define AJ_PROPERTY_MANAGED_MEMBERSHIP_SUMMARY     AJ_BUS_MESSAGE_ID(8, 3,  7)
+#define AJ_METHOD_MANAGED_RESET                    AJ_BUS_MESSAGE_ID(8, 3,  8)
+#define AJ_METHOD_MANAGED_UPDATE_IDENTITY          AJ_BUS_MESSAGE_ID(8, 3,  7)
+#define AJ_METHOD_MANAGED_UPDATE_POLICY            AJ_BUS_MESSAGE_ID(8, 3, 10)
+#define AJ_METHOD_MANAGED_RESET_POLICY             AJ_BUS_MESSAGE_ID(8, 3, 11)
+#define AJ_METHOD_MANAGED_INSTALL_MEMBERSHIP       AJ_BUS_MESSAGE_ID(8, 3, 12)
+#define AJ_METHOD_MANAGED_REMOVE_MEMBERSHIP        AJ_BUS_MESSAGE_ID(8, 3, 13)
 
 /**
  * Message identifier that indicates a message was invalid.
@@ -188,7 +207,7 @@ extern const char AJ_BusDestination[16];
  * Error message strings
  */
 extern const char AJ_ErrSecurityViolation[34];     /**< Error security violation string */
-extern const char AJ_ErrAuthorisationRequired[38]; /**< Error authorisation required string */
+extern const char AJ_ErrPermissionDenied[33];      /**< Error permission denied string */
 extern const char AJ_ErrTimeout[24];               /**< Error timeout string */
 extern const char AJ_ErrRejected[25];              /**< Error rejected string */
 extern const char AJ_ErrResources[26];             /**< Error resource string */
@@ -232,10 +251,11 @@ extern const char AllSeenIntrospectableInterface[28];
  * The AllSeen introspection interface with the additional descriptions
  */
 extern const char* const AJ_AllSeenIntrospectionIface[4];
+
 /**
  * The standard objects that implement AllJoyn core functionality
  */
-extern const AJ_Object AJ_StandardObjects[9];
+extern const AJ_Object AJ_StandardObjects[10];
 
 /**
  * @}

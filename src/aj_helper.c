@@ -25,6 +25,7 @@
 #include "aj_link_timeout.h"
 #include "aj_debug.h"
 #include "aj_config.h"
+#include "aj_security.h"
 
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
@@ -355,12 +356,24 @@ AJ_Status AJ_StartService(AJ_BusAttachment* bus,
         AJ_CloseMsg(&msg);
     }
 
-    if (status == AJ_OK) {
-        status = AJ_AboutInit(bus, port);
-    } else {
+    if (AJ_OK != status) {
         AJ_WarnPrintf(("AJ_StartService(): AJ_Disconnect(): status=%s\n", AJ_StatusText(status)));
         AJ_Disconnect(bus);
+        return status;
     }
+    status = AJ_AboutInit(bus, port);
+    if (AJ_OK != status) {
+        AJ_WarnPrintf(("AJ_StartService(): AJ_AboutInit returned status=%s\n", AJ_StatusText(status)));
+        AJ_Disconnect(bus);
+        return status;
+    }
+    status = AJ_SecurityServerInit(bus);
+    if (AJ_OK != status) {
+        AJ_WarnPrintf(("AJ_StartService(): AJ_SecurityInit returned status=%s\n", AJ_StatusText(status)));
+        AJ_Disconnect(bus);
+        return status;
+    }
+
     return status;
 }
 

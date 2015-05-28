@@ -35,6 +35,7 @@
 #include "aj_peer.h"
 #include "aj_config.h"
 #include "aj_about.h"
+#include "aj_security.h"
 #include "aj_authentication.h"
 
 /**
@@ -560,6 +561,40 @@ AJ_Status AJ_BusHandleBusMessage(AJ_Message* msg)
         break;
 #endif
 
+    case AJ_METHOD_APPLICATION_GET_PROP:
+        return AJ_ApplicationGetProperty(msg);
+
+    case AJ_METHOD_SECURITY_GET_PROP:
+        return AJ_SecurityGetProperty(msg);
+
+    case AJ_METHOD_CLAIMABLE_CLAIM:
+        status = AJ_SecurityClaimMethod(msg, &reply);
+        break;
+
+    case AJ_METHOD_MANAGED_RESET:
+        status = AJ_SecurityResetMethod(msg, &reply);
+        break;
+
+    case AJ_METHOD_MANAGED_UPDATE_IDENTITY:
+        status = AJ_SecurityUpdateIdentityMethod(msg, &reply);
+        break;
+
+    case AJ_METHOD_MANAGED_UPDATE_POLICY:
+        status = AJ_SecurityUpdatePolicyMethod(msg, &reply);
+        break;
+
+    case AJ_METHOD_MANAGED_RESET_POLICY:
+        status = AJ_SecurityResetPolicyMethod(msg, &reply);
+        break;
+
+    case AJ_METHOD_MANAGED_INSTALL_MEMBERSHIP:
+        status = AJ_SecurityInstallMembershipMethod(msg, &reply);
+        break;
+
+    case AJ_METHOD_MANAGED_REMOVE_MEMBERSHIP:
+        status = AJ_SecurityRemoveMembershipMethod(msg, &reply);
+        break;
+
     default:
         AJ_InfoPrintf(("AJ_BusHandleBusMessage(): default\n"));
         if (msg->hdr->msgType == AJ_MSG_METHOD_CALL) {
@@ -575,7 +610,7 @@ AJ_Status AJ_BusHandleBusMessage(AJ_Message* msg)
      */
     if (status == AJ_OK) {
         AJ_AboutAnnounce(bus);
-        //AJ_SecurityNotifyConfig(bus);
+        AJ_ApplicationStateSignal(bus);
     }
     return status;
 }
