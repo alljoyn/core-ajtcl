@@ -341,7 +341,7 @@ USART_InitTypeDef UartHandle;
 
 int __io_putchar(char c)
 {
-    while (USART_GetFlagStatus(USART2, USART_FLAG_TXE) == RESET) ;
+    while (USART_GetFlagStatus(USART2, USART_FLAG_TXE) == RESET);
 
     if (c == '\n') {
         USART_SendData(USART2, '\r');
@@ -447,7 +447,7 @@ uint64_t AJ_ByteSwap64(uint64_t x)
 
 uint8_t AJ_SeedRNG(void)
 {
-    while (RNG_GetFlagStatus(RNG_FLAG_DRDY) == RESET) ;
+    while (RNG_GetFlagStatus(RNG_FLAG_DRDY) == RESET);
     return RNG_GetRandomNumber();
 }
 

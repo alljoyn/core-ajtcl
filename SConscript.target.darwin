@@ -64,3 +64,4 @@ else:
     env.Append(CFLAGS = '-Os')
 
 #env['build_shared'] = True
+#env['connectivity_options'] = [ 'tcp', 'ardp' ]

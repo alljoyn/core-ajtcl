@@ -179,6 +179,10 @@ void* AJ_WSL_Malloc(size_t size)
     if (!mem) {
         mem = AJ_Malloc(size);
     }
+    if (!mem) {
+        AJ_ErrPrintf(("AJ_WSL_Malloc(): Malloc failed\n"));
+        AJ_Reboot();
+    }
     AJ_LeaveCriticalRegion();
     return mem;
 }

@@ -107,6 +107,7 @@ env.Append(LIBPATH = ['$ATMEL_DIR/thirdparty/CMSIS/Lib/GCC'])
 env.Install('#dist/include/ajtcl', Glob('src/wsl/*.h'))
 env.Install('#dist/include/ajtcl', Glob('src/target/freertos-due/*.h'))
 env.Install('#dist/include/ajtcl', Glob('src/freertos/*.h'))
+env.Install('#dist/include/ajtcl', Glob('src/bsp/*.h'))
 
 # The Atmel software pack requires that you provide "conf_uart_serial.h" as a
 # configurable header file.  Install that file to '#dist/include' where it will
@@ -170,3 +171,4 @@ else:
     env.Append(LINKFLAGS = '-s')
 
 env['build_shared'] = False
+#env['connectivity_options'] = [ 'tcp', 'ardp' ]

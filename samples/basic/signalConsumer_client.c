@@ -264,6 +264,10 @@ int AJ_Main(void)
         case AJ_ERR_SESSION_LOST:
             AJ_ErrPrintf(("The session was lost\n"));
             break;
+
+        default:
+            AJ_ErrPrintf(("AJ_UnmarshalMsg() returned '%s'.\n", AJ_StatusText(status)));
+            break;
         }
 
         /* Messages MUST be discarded to free resources. */

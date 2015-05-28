@@ -123,5 +123,7 @@ void AJ_ResumeTX();
 #ifdef __cplusplus
 }
 #endif
-
+/**
+ * @}
+ */
 #endif /* _AJ_SERIO_H */

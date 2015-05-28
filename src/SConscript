@@ -44,8 +44,8 @@ if src_env['freertos']:
 if src_env['mbedrtos']:
     src_env.Append(CPPPATH = Dir(['mbedrtos']))
     src_env['srcs'] += Glob('mbedrtos/*.cpp')
+    src_env['srcs'] += Glob('mbedrtos/*.c')
 if src_env['wsl']:
-    src_env.Install('#../include/ajtcl', Glob('wsl/*.h'))
     src_env.Append(CPPPATH = Dir(['target/$TARG']))
     src_env.Append(CPPPATH = Dir(['bsp']))
     src_env['srcs'] += Glob('wsl/*.c')
@@ -54,10 +54,6 @@ src_env.Append(CPPPATH = Dir(['.']))
 
 # Compile sources and create libraries
 objs = src_env.StaticObject(src_env['srcs'])
-
-# Some targets have pre-compiled object files to link in
-if src_env['system_objects']:
-    objs += src_env['system_objects']
 
 lib = src_env.Library("ajtcl", objs)
 src_env.Install('#dist/lib', lib)

@@ -7,7 +7,7 @@ src_env['external_sha2'] = True
 src_env['malloc'] = True
 src_env['freertos'] = False
 src_env['mbedrtos'] = True
-src_env['wsl'] = src_env['AJWSL']
+src_env['wsl'] = True
 src_env['nvram'] = False
 
 # Target source
@@ -21,13 +21,5 @@ mbed_files = [Glob(src_env['MBED_DIR'] + '/mbed-rtos/rtx/TARGET_M3/TOOLCHAIN_GCC
               Glob(src_env['MBED_DIR'] + '/FATFileSystem/*.cpp'),
               Glob(src_env['MBED_DIR'] + '/FATFileSystem/ChaN/*.cpp'),
               Glob(src_env['MBED_DIR'] + '/SDFileSystem/*.cpp')]
-
-# Pre-compiled object files for the K64F
-src_env['system_objects'] = [src_env['MBED_DIR'] + '/mbed/TARGET_K64F/TOOLCHAIN_GCC_ARM/startup_MK64F12.o',
-                      src_env['MBED_DIR'] + '/mbed/TARGET_K64F/TOOLCHAIN_GCC_ARM/cmsis_nvic.o',
-                      src_env['MBED_DIR'] + '/mbed/TARGET_K64F/TOOLCHAIN_GCC_ARM/system_MK64F12.o',
-                      src_env['MBED_DIR'] + '/mbed/TARGET_K64F/TOOLCHAIN_GCC_ARM/mbed_overrides.o',
-                      src_env['MBED_DIR'] + '/mbed/TARGET_K64F/TOOLCHAIN_GCC_ARM/board.o',
-                      src_env['MBED_DIR'] + '/mbed/TARGET_K64F/TOOLCHAIN_GCC_ARM/retarget.o']
 
 src_env['srcs'].extend([targ_files, mbed_files])

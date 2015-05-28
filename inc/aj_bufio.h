@@ -132,5 +132,7 @@ void AJ_IOBufRebase(AJ_IOBuffer* ioBuf, size_t preserve);
 #ifdef __cplusplus
 }
 #endif
-
+/**
+ * @}
+ */
 #endif

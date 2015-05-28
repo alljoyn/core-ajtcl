@@ -115,8 +115,19 @@ if not env['V']:
 env['build'] = True
 env['build_shared'] = False
 env['build_unit_tests'] = True
+env['connectivity_options'] = [ 'tcp' ]
 
 env.SConscript('SConscript.target.$TARG')
+
+vars = Variables()
+vars.Add('CONNECTIVITY', 'Connectivity mechanism to connect to a routing node (any of ' + ', '.join(env['connectivity_options']) + ')', os.environ.get('AJ_CONNECTIVITY', 'tcp'))
+vars.Update(env)
+Help(vars.GenerateHelpText(env))
+env['connectivity'] = [ opt.upper() for opt in env['connectivity_options'] if opt in env['CONNECTIVITY'].lower() ]
+
+if len(env['connectivity']) == 0 and not GetOption('help'):
+    print '*** Must enable at least one of ' + env['connectivity_options']
+    Exit(1)
 
 #######################################################
 # Build Configuration
@@ -133,6 +144,8 @@ if env.has_key('DEBUG_RESTRICT'):
     env.Append(CPPDEFINES = { 'AJ_DEBUG_RESTRICT' : env['DEBUG_RESTRICT'] })
 if env['VARIANT'] == 'release':
     env.Append(CPPDEFINES = [ 'NDEBUG' ])
+
+env.Append(CPPDEFINES = [ 'AJ_' + conn for conn in env['connectivity'] ])
 
 #######################################################
 # Include path

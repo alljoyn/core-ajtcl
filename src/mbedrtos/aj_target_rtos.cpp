@@ -70,8 +70,10 @@ struct AJ_TaskHandle {
 
 struct AJ_Queue* AJ_QueueCreate(const char* name) {
     struct AJ_Queue* p = (struct AJ_Queue*)AJ_Malloc(sizeof(struct AJ_Queue));
-    Queue<void, 5>* queue = new Queue<void, 5>();
-    p->q = queue;
+    if (p) {
+        Queue<void, 5>* queue = new Queue<void, 5>();
+        p->q = queue;
+    }
     return p;
 }
 
@@ -342,6 +344,11 @@ int8_t AJ_CompareTime(AJ_Time timerA, AJ_Time timerB)
     }
 }
 
+uint64_t AJ_DecodeTime(char* der, char* fmt)
+{
+    return 0;
+}
+
 /*
  * AJ_Malloc, AJ_Free, and AJ_Realloc must be wrapped with
  * AJ_Enter/LeaveCriticalRegion as to not get interrupted.
@@ -373,6 +380,13 @@ void* AJ_Realloc(void* ptr, size_t size)
     ptrNew = realloc(ptr, size);
     AJ_LeaveCriticalRegion();
     return ptrNew;
+}
+
+void AJ_MemZeroSecure(void* s, size_t n)
+{
+    volatile unsigned char* p = (volatile unsigned char*)s;
+    while (n--) *p++ = '\0';
+    return;
 }
 
 uint16_t AJ_EphemeralPort(void)

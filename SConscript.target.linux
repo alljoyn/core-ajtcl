@@ -65,3 +65,4 @@ else:
     env.Append(LINKFLAGS = '-s')
 
 env['build_shared'] = True
+env['connectivity_options'] = [ 'tcp', 'ardp' ]

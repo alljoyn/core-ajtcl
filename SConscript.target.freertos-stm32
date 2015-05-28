@@ -106,6 +106,7 @@ env.Append(LINKFLAGS = [
 env.Install('#dist/include/ajtcl', Glob('src/wsl/*.h'))
 env.Install('#dist/include/ajtcl', Glob('src/target/freertos-stm32/*.h'))
 env.Install('#dist/include/ajtcl', Glob('src/freertos/*.h'))
+env.Install('#dist/include/ajtcl', Glob('src/bsp/*.h'))
 
 # The STM32 software pack requires that you provide "stm32f4xx_conf.h" as a
 # configurable header file.  Install that file to '#dist/include' where it will
@@ -128,3 +129,4 @@ else:
     env.Append(LINKFLAGS = '-s')
 
 env['build_shared'] = False
+#env['connectivity_options'] = [ 'tcp', 'ardp' ]

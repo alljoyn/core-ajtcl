@@ -270,7 +270,7 @@ AJ_Status AJ_RegisterObjectListWithDescriptions(const AJ_Object* objList, uint8_
 /**
  * Register a local array of languages that will allow for a description to be supplied.
  *
- * @param languages The list of languages that are supported for descriptions.
+ * @param languages The NULL-terminated list of languages that are supported for descriptions.
  */
 AJ_EXPORT
 void AJ_RegisterDescriptionLanguages(const char* const* languages);

@@ -18,6 +18,9 @@ config.log
 *.exe
 *.sln
 *.o
+*.d
+*.elf
+*.map
 *.os
 *.ilk
 *.dep
@@ -30,3 +33,14 @@ ajlite.nvram
 .whitespace.db
 *.pyc
 *.exp
+samples/basic/eventaction_service
+samples/network/net_bus
+samples/secure/SecureClientECDHE
+samples/secure/SecureServiceECDHE
+test/base64
+test/certificate
+test/codisco
+test/ctrdrbg
+test/nvramdump
+test/sessionslite
+test/sigtest

@@ -24,7 +24,7 @@
 #include <ajtcl/aj_buf.h>
 #include <ajtcl/aj_rtos.h>
 
-#include "aj_bsp.h"
+#include <ajtcl/aj_bsp.h>
 #include <ajtcl/aj_wsl_target.h>
 #include <ajtcl/aj_wsl_spi.h>
 #include <ajtcl/aj_wsl_htc.h>

@@ -152,5 +152,7 @@ void AJ_SHA256_GetDigest();
 #ifdef __cplusplus
 }
 #endif
-
+/**
+ * @}
+ */
 #endif

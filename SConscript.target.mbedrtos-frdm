@@ -4,7 +4,6 @@ Import('env')
 
 # Target specific SCons command line variables
 vars = Variables()
-vars.Add(BoolVariable('AJWSL',             'Compile driver for the QCA4004 for a specific platform', os.environ.get('AJ_AJWSL', True)))
 vars.Add(PathVariable('MBED_DIR',          'Path to the mbed source code repository',                os.environ.get('AJ_MBED_DIR'), PathVariable))
 vars.Add(PathVariable('ARM_TOOLCHAIN_DIR', 'Path to the GNU ARM toolchain bin folder',               os.environ.get('AJ_ARM_TOOLCHAIN_DIR'), PathVariable.PathIsDir))
 vars.Update(env)
@@ -38,8 +37,9 @@ env.Replace(LIBDIRPREFIX    = '-L')
 env.Replace(LIBDIRSUFFIX    = '')
 env.Replace(LIBLINKPREFIX   = '-l')
 env.Replace(LIBLINKSUFFIX   = '')
-env.Replace(LINKCOM         = '$LINK $PRELINKFLAGS $LINKSCRIPT $LIBPATHS -o $TARGET $__RPATH $SOURCES $_LIBDIRFLAGS $_LIBFLAGS $LINKFLAGS')
+env.Replace(LINKCOM         = '$LINK $PRELINKFLAGS $LINKSCRIPT $LIBPATHS -o $TARGET $__RPATH $SOURCES $system_objects $_LIBDIRFLAGS $_LIBFLAGS $LINKFLAGS')
 env.Replace(CCFLAGS         = '')
+env.Replace(CXXFLAGS        = '')
 env.Replace(CPPFLAGS        = '')
 env.Replace(ASFLAGS         = '')
 env.Replace(ASPPCOM         = '$AS')
@@ -171,6 +171,19 @@ env.Append(CPPPATH = [env['MBED_DIR'] + '/mbed-rtos',
                       env['MBED_DIR'] + '/mbed/TARGET_K64F/TARGET_Freescale/TARGET_KPSDK_MCUS/TARGET_MCU_K64F/TARGET_FRDM',
                       env['MBED_DIR'] + '/mbed/TARGET_K64F/TOOLCHAIN_GCC_ARM'])
 
+# Pre-compiled object files for the K64F
+env['system_objects'] = [env['MBED_DIR'] + '/mbed/TARGET_K64F/TOOLCHAIN_GCC_ARM/startup_MK64F12.o',
+                      env['MBED_DIR'] + '/mbed/TARGET_K64F/TOOLCHAIN_GCC_ARM/cmsis_nvic.o',
+                      env['MBED_DIR'] + '/mbed/TARGET_K64F/TOOLCHAIN_GCC_ARM/system_MK64F12.o',
+                      env['MBED_DIR'] + '/mbed/TARGET_K64F/TOOLCHAIN_GCC_ARM/mbed_overrides.o',
+                      env['MBED_DIR'] + '/mbed/TARGET_K64F/TOOLCHAIN_GCC_ARM/board.o',
+                      env['MBED_DIR'] + '/mbed/TARGET_K64F/TOOLCHAIN_GCC_ARM/retarget.o']
+
+env.Install('#dist/include/ajtcl', Glob('src/target/mbedrtos-frdm/*.h'))
+env.Install('#dist/include/ajtcl', Glob('src/mbedrtos/*.h'))
+env.Install('#dist/include/ajtcl', Glob('src/wsl/*.h'))
+env.Install('#dist/include/ajtcl', Glob('src/bsp/*.h'))
+
 # Debug/Release Variants
 if env['VARIANT'] == 'debug':
     env.Append(CFLAGS = '-g3')
@@ -179,3 +192,4 @@ else:
     env.Append(LINKFLAGS = '-s')
 
 env['build_shared'] = False
+#env['connectivity_options'] = [ 'tcp', 'ardp' ]

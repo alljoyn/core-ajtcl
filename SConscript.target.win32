@@ -29,3 +29,4 @@ else:
     env.Append(LINKFLAGS = [ '/opt:ref', '/NODEFAULTLIB:libcmt.lib' ])
 
 #env['build_shared'] = True
+env['connectivity_options'] = [ 'tcp', 'ardp' ]

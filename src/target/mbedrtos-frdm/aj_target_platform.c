@@ -17,8 +17,8 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
-#include <ajtcl/aj_nvram.h>
 #include <ajtcl/aj_target_platform.h>
+#include <ajtcl/aj_nvram.h>
 #include <ajtcl/aj_debug.h>
 
 void _AJ_PlatformInit(void)
