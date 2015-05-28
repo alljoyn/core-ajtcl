@@ -611,18 +611,14 @@ static AJ_Status DecodeCertificateExt(X509Extensions* extensions, DER_Element* d
             if (AJ_OK != status) {
                 return status;
             }
+            status = AJ_ASN1DecodeElement(&oct, ASN_OCTETS, &tmp);
+            if (AJ_OK != status) {
+                return status;
+            }
             if (CompareOID(&oid, OID_CUSTOM_GROUP, sizeof (OID_CUSTOM_GROUP))) {
-                status = AJ_ASN1DecodeElement(&oct, ASN_OCTETS, &tmp);
-                if (AJ_OK != status) {
-                    return status;
-                }
                 extensions->group.data = tmp.data;
                 extensions->group.size = tmp.size;
             } else if (CompareOID(&oid, OID_CUSTOM_ALIAS, sizeof (OID_CUSTOM_ALIAS))) {
-                status = AJ_ASN1DecodeElement(&oct, ASN_UTF8, &tmp);
-                if (AJ_OK != status) {
-                    return status;
-                }
                 extensions->alias.data = tmp.data;
                 extensions->alias.size = tmp.size;
             }
