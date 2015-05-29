@@ -24,7 +24,7 @@
 #include <aj_nvram.h>
 #include <aj_crypto_ecc.h>
 
-uint8_t dbgNVRAMDUMP = 0;
+uint8_t dbgNVRAMDUMP = 1;
 extern void AJ_NVRAM_Layout_Print();
 AJ_Status DumpNVRAM();
 
@@ -40,27 +40,31 @@ AJ_Status DumpNVRAM()
 {
     AJ_Status status;
     uint16_t slot = AJ_CREDS_NV_ID_BEGIN;
-    AJ_Cred cred;
+    uint16_t type;
+    AJ_CredField id;
+    uint32_t expiration;
+    AJ_CredField data;
 
     AJ_NVRAM_Layout_Print();
     AJ_AlwaysPrintf(("Remaining Size %d\n", AJ_NVRAM_GetSizeRemaining()));
 
-    AJ_AlwaysPrintf(("SLOT | TYPE | ID | EXPIRATION | ASSOCIATION | DATA\n"));
+    AJ_AlwaysPrintf(("SLOT | TYPE | ID | EXPIRATION | DATA\n"));
     for (; slot < AJ_CREDS_NV_ID_END; slot++) {
         if (!AJ_NVRAM_Exist(slot)) {
             continue;
         }
-        status = AJ_ReadCredential(&cred, slot);
+        id.data = NULL;
+        data.data = NULL;
+        status = AJ_CredentialRead(&type, &id, &expiration, &data, slot);
         if (AJ_OK == status) {
-            AJ_AlwaysPrintf(("%04X | %04X | ", slot, cred.head.type));
-            printhex(cred.head.id.data, cred.head.id.size);
-            AJ_AlwaysPrintf((" | %08X | ", cred.body.expiration));
-            printhex(cred.body.association.data, cred.body.association.size);
-            AJ_AlwaysPrintf((" | "));
-            //printhex(cred.body.data.data, cred.body.data.size);
-            AJ_DumpBytes("", cred.body.data.data, cred.body.data.size);
+            AJ_AlwaysPrintf(("%04X | %04X | ", slot, type));
+            printhex(id.data, id.size);
+            AJ_AlwaysPrintf((" | %08X | ", expiration));
+            //printhex(data.data, data.size);
+            AJ_DumpBytes("", data.data, data.size);
             AJ_AlwaysPrintf(("\n"));
-            AJ_CredFree(&cred);
+            AJ_CredFieldFree(&id);
+            AJ_CredFieldFree(&data);
         }
     }
     return AJ_OK;

@@ -183,10 +183,10 @@ static AJ_Status SaveMasterSecret(const AJ_GUID* peerGuid, uint32_t expiration)
          * NVRAM otherwise delete any stale credentials that might be stored.
          */
         if (AJ_AUTH_SUCCESS == peerContext.state) {
-            status = AJ_StorePeerSecret(peerGuid, authContext.mastersecret, AJ_MASTER_SECRET_LEN, expiration);
+            status = AJ_CredentialSetPeer(peerGuid, expiration, authContext.mastersecret, AJ_MASTER_SECRET_LEN);
         } else {
             AJ_WarnPrintf(("SaveMasterSecret(peerGuid=%p, expiration=%d): Invalid state\n", peerGuid, expiration));
-            status = AJ_DeletePeerCredential(peerGuid);
+            status = AJ_CredentialDeletePeer(peerGuid);
         }
     } else {
         status = AJ_ERR_SECURITY;
@@ -303,7 +303,8 @@ AJ_Status AJ_PeerHandleExchangeGUIDs(AJ_Message* msg, AJ_Message* reply)
     char* str;
     AJ_GUID remoteGuid;
     AJ_GUID localGuid;
-    AJ_Cred cred;
+    uint32_t expiration;
+    AJ_CredField data;
 
     AJ_InfoPrintf(("AJ_PeerHandleExchangeGuids(msg=%p, reply=%p)\n", msg, reply));
 
@@ -353,18 +354,17 @@ AJ_Status AJ_PeerHandleExchangeGUIDs(AJ_Message* msg, AJ_Message* reply)
     /*
      * If we have a mastersecret stored - use it
      */
-    status = AJ_GetPeerCredential(peerContext.peerGuid, &cred);
+    data.size = AJ_MASTER_SECRET_LEN;
+    data.data = authContext.mastersecret;
+    status = AJ_CredentialGetPeer(peerContext.peerGuid, &expiration, &data);
     if (AJ_OK == status) {
-        status = AJ_CredentialExpired(&cred);
+        status = AJ_CredentialExpired(expiration);
         if (AJ_ERR_KEY_EXPIRED != status) {
             /* secret not expired or time unknown */
             peerContext.state = AJ_AUTH_SUCCESS;
-            /* assert that MASTER_SECRET_LEN == cred.body.data.size */
-            memcpy(authContext.mastersecret, cred.body.data.data, cred.body.data.size);
         } else {
-            AJ_DeletePeerCredential(peerContext.peerGuid);
+            AJ_CredentialDeletePeer(peerContext.peerGuid);
         }
-        AJ_CredBodyFree(&cred.body);
     }
 
     /*
@@ -387,7 +387,8 @@ AJ_Status AJ_PeerHandleExchangeGUIDsReply(AJ_Message* msg)
     AJ_Status status;
     const char* guidStr;
     AJ_GUID remoteGuid;
-    AJ_Cred cred;
+    uint32_t expiration;
+    AJ_CredField data;
 
     AJ_InfoPrintf(("AJ_PeerHandleExchangeGUIDsReply(msg=%p)\n", msg));
 
@@ -444,21 +445,19 @@ AJ_Status AJ_PeerHandleExchangeGUIDsReply(AJ_Message* msg)
     /*
      * If we have a mastersecret stored - use it
      */
-    status = AJ_GetPeerCredential(peerContext.peerGuid, &cred);
+    data.size = AJ_MASTER_SECRET_LEN;
+    data.data = authContext.mastersecret;
+    status = AJ_CredentialGetPeer(peerContext.peerGuid, &expiration, &data);
     if (AJ_OK == status) {
-        status = AJ_CredentialExpired(&cred);
+        status = AJ_CredentialExpired(expiration);
         if (AJ_ERR_KEY_EXPIRED != status) {
             /* secret not expired or time unknown */
             peerContext.state = AJ_AUTH_SUCCESS;
-            /* assert that MASTER_SECRET_LEN == cred.body.data.size */
-            memcpy(authContext.mastersecret, cred.body.data.data, cred.body.data.size);
-            AJ_CredBodyFree(&cred.body);
             status = GenSessionKey(msg);
             return status;
         } else {
-            AJ_DeletePeerCredential(peerContext.peerGuid);
+            AJ_CredentialDeletePeer(peerContext.peerGuid);
         }
-        AJ_CredBodyFree(&cred.body);
     }
 
     /*

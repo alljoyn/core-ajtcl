@@ -32,6 +32,7 @@
 #include "aj_config.h"
 #include "aj_crypto_sha2.h"
 #include "aj_util.h"
+#include "aj_cert.h"
 
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
@@ -41,223 +42,97 @@
 uint8_t dbgCREDS = 0;
 #endif
 
-static void CredFieldFree(AJ_CredField* field)
+static AJ_Status CredValueRead(uint8_t* data, size_t size, AJ_NV_DATASET* handle)
 {
-    if (field && field->data) {
-        AJ_MemZeroSecure(field->data, field->size);
-        AJ_Free(field->data);
-        field->data = NULL;
-    }
+    return (size == AJ_NVRAM_Read(data, size, handle)) ? AJ_OK : AJ_ERR_FAILURE;
 }
 
-static AJ_Status CredFieldGet(AJ_CredField* field, uint8_t size, AJ_NV_DATASET* handle)
+static AJ_Status CredValueWrite(const uint8_t* data, size_t size, AJ_NV_DATASET* handle)
 {
+    return (size == AJ_NVRAM_Write(data, size, handle)) ? AJ_OK : AJ_ERR_FAILURE;
+}
+
+/**
+ * If a data buffer exists in the input field,
+ * the contents will be written straight to that buffer.
+ * Its size taken into account.
+ * If no data buffer exists in the input field,
+ * a new buffer will be allocated and the contents written to it.
+ * The caller must be aware, so they know whether to free it.
+ */
+static AJ_Status CredFieldRead(AJ_CredField* field, AJ_NV_DATASET* handle)
+{
+    uint16_t size;
+
     /* Read size */
-    field->size = 0;
-    if (size != AJ_NVRAM_Read(&field->size, size, handle)) {
+    if (sizeof (uint16_t) != AJ_NVRAM_Read((uint8_t*) &size, sizeof (uint16_t), handle)) {
         return AJ_ERR_FAILURE;
     }
+
+    /* If no data to read, return */
+    if (0 == size) {
+        field->size = 0;
+        return AJ_OK;
+    }
+
+    if (NULL == field->data) {
+        /* If field->data not passed in, allocate memory for it */
+        field->size = 0;
+        field->data = (uint8_t*) AJ_Malloc(size);
+        if (NULL != field->data) {
+            field->size = size;
+        }
+    }
+
+    /* Check sufficient buffer */
+    if (field->size < size) {
+        return AJ_ERR_RESOURCES;
+    }
+
     /* Read data */
-    field->data = NULL;
-    if (field->size) {
-        field->data = (uint8_t*) AJ_Malloc(field->size);
-        if (!field->data) {
-            return AJ_ERR_FAILURE;
-        }
-        if (field->size != AJ_NVRAM_Read(field->data, field->size, handle)) {
-            return AJ_ERR_FAILURE;
-        }
+    if (size != AJ_NVRAM_Read(field->data, field->size, handle)) {
+        return AJ_ERR_FAILURE;
     }
 
     return AJ_OK;
 }
 
-static AJ_Status CredFieldSet(const AJ_CredField* field, uint8_t size, AJ_NV_DATASET* handle)
+static AJ_Status CredFieldWrite(const AJ_CredField* field, AJ_NV_DATASET* handle)
 {
+    uint16_t size = 0;
+
+    if (NULL != field) {
+        size = field->size;
+    }
+
     /* Write size */
-    if (size != AJ_NVRAM_Write((uint8_t*) &field->size, size, handle)) {
+    if (sizeof (uint16_t) != AJ_NVRAM_Write((uint8_t*) &size, sizeof (uint16_t), handle)) {
         return AJ_ERR_FAILURE;
     }
+
+    /* If no data to write, return */
+    if (0 == size) {
+        return AJ_OK;
+    }
+
     /* Write data */
-    if (field->size) {
-        if (field->size != AJ_NVRAM_Write((uint8_t*) field->data, field->size, handle)) {
-            return AJ_ERR_FAILURE;
-        }
+    if (field->size != AJ_NVRAM_Write((uint8_t*) field->data, field->size, handle)) {
+        return AJ_ERR_FAILURE;
     }
 
     return AJ_OK;
 }
 
-static AJ_Status CredHeadGet(AJ_CredHead* head, AJ_NV_DATASET* handle)
+static uint16_t CredentialSize(uint16_t type, const AJ_CredField* id, uint32_t expiration, const AJ_CredField* data)
 {
-    AJ_Status status;
-
-    /* Read type */
-    if (sizeof (head->type) != AJ_NVRAM_Read(&head->type, sizeof (head->type), handle)) {
-        return AJ_ERR_FAILURE;
+    uint16_t size = sizeof (type) + sizeof (id->size) + sizeof (data->size) + sizeof (expiration);
+    if (id) {
+        size += id->size;
     }
-    /* Read id */
-    status = CredFieldGet(&head->id, sizeof (uint8_t), handle);
-    if (AJ_OK != status) {
-        return AJ_ERR_FAILURE;
+    if (data) {
+        size += data->size;
     }
-
-    return status;
-}
-
-void AJ_CredHeadFree(AJ_CredHead* head)
-{
-    AJ_InfoPrintf(("AJ_CredHeadFree(head=%p)\n", head));
-
-    if (head) {
-        CredFieldFree(&head->id);
-    }
-}
-
-static AJ_Status CredHeadSet(const AJ_CredHead* head, AJ_NV_DATASET* handle)
-{
-    AJ_Status status;
-
-    /* Write type */
-    if (sizeof (head->type) != AJ_NVRAM_Write((uint8_t*) &head->type, sizeof (head->type), handle)) {
-        return AJ_ERR_FAILURE;
-    }
-    /* Write id */
-    status = CredFieldSet(&head->id, sizeof (uint8_t), handle);
-    if (AJ_OK != status) {
-        return AJ_ERR_FAILURE;
-    }
-
-    return status;
-}
-
-void AJ_CredBodyFree(AJ_CredBody* body)
-{
-    AJ_InfoPrintf(("AJ_CredBodyFree(body=%p)\n", body));
-
-    if (body) {
-        CredFieldFree(&body->association);
-        CredFieldFree(&body->data);
-    }
-}
-
-static AJ_Status CredBodyGet(AJ_CredBody* body, AJ_NV_DATASET* handle)
-{
-    AJ_Status status;
-
-    /* Read expiration */
-    if (sizeof (body->expiration) != AJ_NVRAM_Read(&body->expiration, sizeof (body->expiration), handle)) {
-        return AJ_ERR_FAILURE;
-    }
-    /* Read association */
-    status = CredFieldGet(&body->association, sizeof (uint8_t), handle);
-    if (AJ_OK != status) {
-        return AJ_ERR_FAILURE;
-    }
-    /* Read data */
-    status = CredFieldGet(&body->data, sizeof (uint16_t), handle);
-    if (AJ_OK != status) {
-        return AJ_ERR_FAILURE;
-    }
-
-    return status;
-}
-
-static AJ_Status CredBodySet(const AJ_CredBody* body, AJ_NV_DATASET* handle)
-{
-    AJ_Status status;
-
-    /* Write expiration */
-    if (sizeof (body->expiration) != AJ_NVRAM_Write((uint8_t*) &body->expiration, sizeof (body->expiration), handle)) {
-        return AJ_ERR_FAILURE;
-    }
-    /* Write association */
-    status = CredFieldSet(&body->association, sizeof (uint8_t), handle);
-    if (AJ_OK != status) {
-        return AJ_ERR_FAILURE;
-    }
-    /* Write data */
-    status = CredFieldSet(&body->data, sizeof (uint16_t), handle);
-    if (AJ_OK != status) {
-        return AJ_ERR_FAILURE;
-    }
-
-    return status;
-}
-
-static size_t CredentialSize(const AJ_Cred* cred)
-{
-    // type(2):idLen(1):id(idLen):expiration(4):assLen(1):ass(assLen):dataLen(2):data(dataLen)
-    return sizeof (cred->head.type) +
-           sizeof (cred->head.id.size) + cred->head.id.size +
-           sizeof (cred->body.expiration) +
-           sizeof (cred->body.association.size) + cred->body.association.size +
-           sizeof (cred->body.data.size) + cred->body.data.size;
-}
-
-void AJ_CredFree(AJ_Cred* cred)
-{
-    AJ_InfoPrintf(("AJ_CredFree(cred=%p)\n", cred));
-
-    if (cred) {
-        AJ_CredHeadFree(&cred->head);
-        AJ_CredBodyFree(&cred->body);
-    }
-}
-
-AJ_Status AJ_ReadCredential(AJ_Cred* cred, uint16_t slot)
-{
-    AJ_Status status;
-    AJ_NV_DATASET* handle;
-
-    AJ_InfoPrintf(("AJ_ReadCredential(cred=%p, slot=%d)\n", cred, slot));
-
-    memset(cred, 0, sizeof (AJ_Cred));
-    handle = AJ_NVRAM_Open(slot, "r", 0);
-    if (!handle) {
-        return AJ_ERR_FAILURE;
-    }
-    status = CredHeadGet(&cred->head, handle);
-    if (AJ_OK != status) {
-        goto Exit;
-    }
-    status = CredBodyGet(&cred->body, handle);
-    if (AJ_OK != status) {
-        goto Exit;
-    }
-
-Exit:
-    AJ_NVRAM_Close(handle);
-
-    return status;
-}
-
-AJ_Status AJ_SetCredential(const AJ_Cred* cred, uint16_t slot)
-{
-    AJ_Status status = AJ_OK;
-    AJ_NV_DATASET* handle;
-    size_t len;
-
-    AJ_InfoPrintf(("AJ_SetCredential(cred=%p, slot=%d)\n", cred, slot));
-
-    len = CredentialSize(cred);
-    handle = AJ_NVRAM_Open(slot, "w", len);
-    if (!handle) {
-        return AJ_ERR_FAILURE;
-    }
-    status = CredHeadSet(&cred->head, handle);
-    if (AJ_OK != status) {
-        AJ_NVRAM_Close(handle);
-        return AJ_ERR_FAILURE;
-    }
-    status = CredBodySet(&cred->body, handle);
-    if (AJ_OK != status) {
-        AJ_NVRAM_Close(handle);
-        return AJ_ERR_FAILURE;
-    }
-    AJ_NVRAM_Close(handle);
-
-    return AJ_OK;
+    return size;
 }
 
 static uint16_t FindCredsEmptySlot()
@@ -273,28 +148,15 @@ static uint16_t FindCredsEmptySlot()
     return 0;
 }
 
-static AJ_Status CompareHead(const AJ_CredHead* head, const AJ_CredHead* test)
-{
-    if (head->type != test->type) {
-        return AJ_ERR_INVALID;
-    }
-    if (0 == head->id.size) {
-        return AJ_OK;
-    }
-    if (head->id.size != test->id.size) {
-        return AJ_ERR_INVALID;
-    }
-    if (0 != memcmp(head->id.data, test->id.data, head->id.size)) {
-        return AJ_ERR_INVALID;
-    }
-    return AJ_OK;
-}
-
-static uint16_t FindCredential(const AJ_CredHead* head, AJ_CredBody* body, uint16_t slot)
+static uint16_t CredentialFind(uint16_t type, const AJ_CredField* id, uint32_t* expiration, AJ_CredField* data)
 {
     AJ_Status status;
-    AJ_CredHead test;
     AJ_NV_DATASET* handle;
+    uint16_t slot = AJ_CREDS_NV_ID_BEGIN;
+    uint32_t exp;
+    uint16_t value;
+    AJ_CredField field;
+    uint8_t found;
 
     for (; slot < AJ_CREDS_NV_ID_END; slot++) {
         if (!AJ_NVRAM_Exist(slot)) {
@@ -302,218 +164,283 @@ static uint16_t FindCredential(const AJ_CredHead* head, AJ_CredBody* body, uint1
         }
         handle = AJ_NVRAM_Open(slot, "r", 0);
         if (!handle) {
-            return 0;
+            continue;
         }
-        status = CredHeadGet(&test, handle);
+        /* Read type */
+        status = CredValueRead((uint8_t*) &value, sizeof (uint16_t), handle);
         if (AJ_OK != status) {
             AJ_NVRAM_Close(handle);
             return 0;
         }
-        status = CompareHead(head, &test);
-        AJ_CredHeadFree(&test);
+        /* Read id */
+        field.data = NULL;
+        status = CredFieldRead(&field, handle);
         if (AJ_OK != status) {
+            AJ_NVRAM_Close(handle);
+            return 0;
+        }
+        found = 1;
+        /* Compare type */
+        if (found && value != type) {
+            found = 0;
+        }
+        /* Compare id */
+        if (found && id) {
+            if ((field.size != id->size) || (0 != memcmp(field.data, id->data, field.size))) {
+                found = 0;
+            }
+        }
+        AJ_CredFieldFree(&field);
+        if (!found) {
             AJ_NVRAM_Close(handle);
             continue;
         }
-        /* Found */
-        if (body) {
-            status = CredBodyGet(body, handle);
-            if (AJ_OK != status) {
-                slot = 0;
-            }
+        if ((NULL == expiration) && (NULL == data)) {
+            /* No more fields requested */
+            AJ_NVRAM_Close(handle);
+            return slot;
         }
+        status = CredValueRead((uint8_t*) &exp, sizeof (uint32_t), handle);
+        if (AJ_OK != status) {
+            AJ_NVRAM_Close(handle);
+            return 0;
+        }
+        if (expiration) {
+            *expiration = exp;
+        }
+        if (NULL == data) {
+            /* No more fields requested */
+            AJ_NVRAM_Close(handle);
+            return slot;
+        }
+        status = CredFieldRead(data, handle);
         AJ_NVRAM_Close(handle);
+        if (AJ_OK != status) {
+            return 0;
+        }
         return slot;
     }
 
     return 0; /* not found */
 }
 
-static uint16_t DeleteOldestCredential()
+static AJ_Status DeleteOldestCredential(uint16_t* deleted)
 {
     AJ_Status status = AJ_ERR_INVALID;
+    AJ_NV_DATASET* handle;
     uint16_t slot = AJ_CREDS_NV_ID_BEGIN;
     uint16_t oldestslot = 0;
     uint32_t oldestexp = 0xFFFFFFFF;
-    AJ_Cred cred;
+    uint16_t type;
+    AJ_CredField id;
+    uint32_t expiration;
 
-    AJ_InfoPrintf(("DeleteOldestCredential()\n"));
+    AJ_InfoPrintf(("DeleteOldestCredential(deleted=%p)\n", deleted));
 
     for (; slot < AJ_CREDS_NV_ID_END; slot++) {
         if (!AJ_NVRAM_Exist(slot)) {
             continue;
         }
-        status = AJ_ReadCredential(&cred, slot);
-        if (AJ_OK != status) {
-            AJ_ErrPrintf(("DeleteOldestCredential(): fail to read type and id\n"));
-            return AJ_ERR_FAILURE;
+        handle = AJ_NVRAM_Open(slot, "r", 0);
+        if (!handle) {
+            continue;
         }
-        if (AJ_CRED_TYPE_GENERIC != cred.head.type) {
-            AJ_CredFree(&cred);
+        status = CredValueRead((uint8_t*) &type, sizeof (uint16_t), handle);
+        if (AJ_OK != status) {
+            AJ_NVRAM_Close(handle);
+            continue;
+        }
+        if (AJ_CRED_TYPE_GENERIC != type) {
+            AJ_NVRAM_Close(handle);
+            continue;
+        }
+        /* Read id */
+        id.size = 0;
+        id.data = NULL;
+        status = CredFieldRead(&id, handle);
+        AJ_CredFieldFree(&id);
+        if (AJ_OK != status) {
+            AJ_NVRAM_Close(handle);
+            continue;
+        }
+        status = CredValueRead((uint8_t*) &expiration, sizeof (uint32_t), handle);
+        if (AJ_OK != status) {
+            AJ_NVRAM_Close(handle);
             continue;
         }
         /* If older */
-        if (cred.body.expiration <= oldestexp) {
-            oldestexp = cred.body.expiration;
+        if (expiration <= oldestexp) {
+            oldestexp = expiration;
             oldestslot = slot;
         }
     }
 
     if (oldestslot) {
-        AJ_InfoPrintf(("DeleteOldestCredential(): slot=%d exp=0x%08X\n", oldestslot, oldestexp));
+        AJ_InfoPrintf(("DeleteOldestCredential(deleted=%p): slot=%d exp=%08X\n", deleted, oldestslot, oldestexp));
         AJ_NVRAM_Delete(oldestslot);
+        *deleted = oldestslot;
+        return AJ_OK;
     }
 
-    return oldestslot;
+    return AJ_ERR_UNKNOWN;
 }
 
-AJ_Status AJ_GetCredential(const AJ_CredHead* head, AJ_CredBody* body)
-{
-    AJ_InfoPrintf(("AJ_GetCredential(head=%p, body=%p)\n", head, body));
-    return FindCredential(head, body, AJ_CREDS_NV_ID_BEGIN) ? AJ_OK : AJ_ERR_UNKNOWN;
-}
-
-AJ_Status AJ_GetNextCredential(const AJ_CredHead* head, AJ_CredBody* body, uint16_t* slot)
-{
-    AJ_InfoPrintf(("AJ_GetNextCredential(head=%p, body=%p, slot=%d)\n", head, body, slot));
-    *slot = FindCredential(head, body, *slot);
-    return *slot ? AJ_OK : AJ_ERR_UNKNOWN;
-}
-
-AJ_Status AJ_StorePeerSecret(const AJ_GUID* guid, const uint8_t* secret,
-                             const uint8_t len, uint32_t expiration)
-{
-    AJ_Cred cred;
-    AJ_Status status;
-
-    AJ_InfoPrintf(("AJ_StorePeerSecret(guid=%p, secret=%p, len=%d, expiration=0x%08X)\n", guid, secret, len, expiration));
-
-    cred.head.type = AJ_CRED_TYPE_GENERIC;
-    cred.head.id.size = sizeof (AJ_GUID);
-    cred.head.id.data = (uint8_t*) guid;
-    cred.body.expiration = expiration;
-    cred.body.association.size = 0;
-    cred.body.association.data = NULL;
-    cred.body.data.size = len;
-    cred.body.data.data = (uint8_t*) secret;
-    status = AJ_StoreCredential(&cred);
-
-    return status;
-}
-
-AJ_Status AJ_DeleteCredential(const AJ_CredHead* head)
-{
-    AJ_Status status = AJ_ERR_FAILURE;
-    uint16_t slot = FindCredential(head, NULL, AJ_CREDS_NV_ID_BEGIN);
-
-    AJ_InfoPrintf(("AJ_DeleteCredential(head=%p)\n", head));
-
-    if (slot > 0) {
-        status = AJ_NVRAM_Delete(slot);
-    }
-
-    return status;
-}
-
-AJ_Status AJ_DeletePeerCredential(const AJ_GUID* guid)
-{
-    AJ_CredHead head;
-
-    head.type = AJ_CRED_TYPE_GENERIC;
-    head.id.size = sizeof (AJ_GUID);
-    head.id.data = (uint8_t*) guid;
-
-    return AJ_DeleteCredential(&head);
-}
-
-AJ_Status AJ_ClearCredentials(uint16_t type)
+static AJ_Status CredentialWrite(uint16_t type, const AJ_CredField* id, uint32_t expiration, const AJ_CredField* data, uint16_t slot)
 {
     AJ_Status status = AJ_OK;
-    uint16_t id = AJ_CREDS_NV_ID_BEGIN;
-    AJ_CredHead head;
+    AJ_NV_DATASET* handle;
+    size_t size;
+
+    AJ_InfoPrintf(("CredentialWrite(type=%04x, id=%p, expiration=%08x, data=%p, slot=%d)\n", type, id, expiration, data, slot));
+
+    size = CredentialSize(type, id, expiration, data);
+    handle = AJ_NVRAM_Open(slot, "w", size);
+    if (!handle) {
+        return AJ_ERR_FAILURE;
+    }
+    status = CredValueWrite((uint8_t*) &type, sizeof (uint16_t), handle);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+    status = CredFieldWrite(id, handle);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+    status = CredValueWrite((uint8_t*) &expiration, sizeof (uint32_t), handle);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+    status = CredFieldWrite(data, handle);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+
+Exit:
+    AJ_NVRAM_Close(handle);
+
+    return status;
+}
+
+AJ_Status AJ_CredentialRead(uint16_t* type, AJ_CredField* id, uint32_t* expiration, AJ_CredField* data, uint16_t slot)
+{
+    AJ_Status status;
     AJ_NV_DATASET* handle;
 
-    AJ_InfoPrintf(("AJ_ClearCredentials()\n"));
+    AJ_InfoPrintf(("AJ_CredentialRead(type=%p, id=%p, expiration=%p, data=%p, slot=%d)\n", type, id, expiration, data, slot));
 
-    for (; id < AJ_CREDS_NV_ID_END; ++id) {
-        if (!AJ_NVRAM_Exist(id)) {
-            continue;
+    handle = AJ_NVRAM_Open(slot, "r", 0);
+    if (!handle) {
+        return AJ_ERR_FAILURE;
+    }
+    status = CredValueRead((uint8_t*) type, sizeof (uint16_t), handle);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+    status = CredFieldRead(id, handle);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+    status = CredValueRead((uint8_t*) expiration, sizeof (uint32_t), handle);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+    status = CredFieldRead(data, handle);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+
+Exit:
+    AJ_NVRAM_Close(handle);
+
+    return status;
+}
+
+AJ_Status AJ_CredentialSet(uint16_t type, const AJ_CredField* id, uint32_t expiration, const AJ_CredField* data)
+{
+    AJ_Status status = AJ_OK;
+    uint16_t slot;
+    uint32_t size;
+
+    AJ_InfoPrintf(("AJ_CredentialSet(type=%04x, id=%p, expiration=%08x, data=%p)\n", type, id, expiration, data));
+
+    slot = CredentialFind(type, id, NULL, NULL);
+    if (!slot) {
+        /*
+         * Check there is sufficient space left.
+         * If there isn't, keep deleting oldest credential until there is.
+         */
+        size = CredentialSize(type, id, expiration, data);
+        size = WORD_ALIGN(size);
+        slot = FindCredsEmptySlot();
+        while ((AJ_OK == status) && (!slot || (size >= AJ_NVRAM_GetSizeRemaining()))) {
+            status = DeleteOldestCredential(&slot);
         }
-        if (type) {
-            handle = AJ_NVRAM_Open(id, "r", 0);
-            if (!handle) {
-                return AJ_ERR_FAILURE;
-            }
-            status = CredHeadGet(&head, handle);
-            if (AJ_OK != status) {
-                AJ_NVRAM_Close(handle);
-                return AJ_ERR_FAILURE;
-            }
-            if (type != head.type) {
-                AJ_CredHeadFree(&head);
-                AJ_NVRAM_Close(handle);
-                continue;
-            }
-            AJ_CredHeadFree(&head);
-            AJ_NVRAM_Close(handle);
-        }
-        AJ_NVRAM_Delete(id);
+    }
+
+    if (slot) {
+        status = CredentialWrite(type, id, expiration, data, slot);
+    } else {
+        status = AJ_ERR_FAILURE;
     }
 
     return status;
 }
 
-AJ_Status AJ_GetPeerCredential(const AJ_GUID* guid, AJ_Cred* cred)
+AJ_Status AJ_CredentialGet(uint16_t type, const AJ_CredField* id, uint32_t* expiration, AJ_CredField* data)
 {
-    AJ_InfoPrintf(("AJ_GetPeerCredential(guid=%p, cred=%p)\n", guid, cred));
-
-    cred->head.type = AJ_CRED_TYPE_GENERIC;
-    cred->head.id.size = sizeof (AJ_GUID);
-    cred->head.id.data = (uint8_t*) guid;
-
-    return AJ_GetCredential(&cred->head, &cred->body);
+    AJ_InfoPrintf(("AJ_CredentialGet(type=%04x, id=%p, expiration=%p, data=%p)\n", type, id, expiration, data));
+    return CredentialFind(type, id, expiration, data) ? AJ_OK : AJ_ERR_UNKNOWN;
 }
 
-AJ_Status AJ_GetLocal(uint16_t slot, uint8_t* data, size_t len)
+static AJ_Status CredentialSetLocal(uint16_t slot, const uint8_t* data, uint16_t size)
 {
-    AJ_Status status = AJ_ERR_FAILURE;
+    AJ_Status status;
     AJ_NV_DATASET* handle;
 
-    AJ_InfoPrintf(("AJ_GetLocal(slot=%d, data=%p, len=%zu)\n", slot, data, len));
-
-    if (AJ_NVRAM_Exist(slot)) {
-        handle = AJ_NVRAM_Open(slot, "r", 0);
-        if (handle) {
-            if (len == AJ_NVRAM_Read(data, len, handle)) {
-                status = AJ_OK;
-            } else {
-                AJ_ErrPrintf(("AJ_GetLocal(): fail to read slot length %zu bytes from slot = %d\n", len, slot));
-            }
-            status = AJ_NVRAM_Close(handle);
-        }
+    handle = AJ_NVRAM_Open(slot, "w", size);
+    if (!handle) {
+        AJ_WarnPrintf(("CredentialSetLocal(slot=%d, data=%p, size=%d): Error opening slot\n", slot, data, size));
+        return AJ_ERR_FAILURE;
     }
+    if (size == AJ_NVRAM_Write(data, size, handle)) {
+        status = AJ_OK;
+    } else {
+        AJ_WarnPrintf(("CredentialSetLocal(slot=%d, data=%p, size=%d): Error writing slot\n", slot, data, size));
+        status = AJ_ERR_FAILURE;
+    }
+    AJ_NVRAM_Close(handle);
 
     return status;
 }
 
-AJ_Status AJ_SetLocal(uint16_t slot, uint8_t* data, size_t len)
+static AJ_Status CredentialGetLocal(uint16_t slot, uint8_t* data, uint16_t size)
 {
-    AJ_Status status = AJ_ERR_FAILURE;
+    AJ_Status status;
     AJ_NV_DATASET* handle;
 
-    AJ_InfoPrintf(("AJ_SetLocal(slot=%d, data=%p, len=%zu)\n", slot, data, len));
-
-    handle = AJ_NVRAM_Open(slot, "w", len);
-    if (handle) {
-        if (len == AJ_NVRAM_Write(data, len, handle)) {
-            status = AJ_OK;
-        } else {
-            AJ_ErrPrintf(("AJ_SetLocal(): fail to write slot length %zu bytes to slot = %d\n", len, slot));
-        }
-        status = AJ_NVRAM_Close(handle);
+    if (!AJ_NVRAM_Exist(slot)) {
+        return AJ_ERR_FAILURE;
     }
+    handle = AJ_NVRAM_Open(slot, "r", 0);
+    if (!handle) {
+        AJ_WarnPrintf(("CredentialGetLocal(slot=%d, data=%p, size=%d): Error opening slot\n", slot, data, size));
+        return AJ_ERR_FAILURE;
+    }
+    if (size == AJ_NVRAM_Read(data, size, handle)) {
+        status = AJ_OK;
+    } else {
+        AJ_WarnPrintf(("CredentialGetLocal(slot=%d, data=%p, size=%d): Error reading slot\n", slot, data, size));
+        status = AJ_ERR_FAILURE;
+    }
+    AJ_NVRAM_Close(handle);
 
     return status;
+}
+
+static AJ_Status CredentialSetGUID(AJ_GUID* guid)
+{
+    AJ_InfoPrintf(("CredentialSetGUID(guid=%p)\n", guid));
+    return CredentialSetLocal(AJ_LOCAL_GUID_NV_ID, (uint8_t*) guid, sizeof (AJ_GUID));
 }
 
 AJ_Status AJ_GetLocalGUID(AJ_GUID* guid)
@@ -522,22 +449,144 @@ AJ_Status AJ_GetLocalGUID(AJ_GUID* guid)
 
     AJ_InfoPrintf(("AJ_GetLocalGUID(guid=%p)\n", guid));
 
-    status = AJ_GetLocal(AJ_LOCAL_GUID_NV_ID, (uint8_t*) guid, sizeof (AJ_GUID));
+    status = CredentialGetLocal(AJ_LOCAL_GUID_NV_ID, (uint8_t*) guid, sizeof (AJ_GUID));
     if (AJ_OK != status) {
         AJ_RandBytes((uint8_t*) guid, sizeof (AJ_GUID));
-        status = AJ_SetLocalGUID(guid);
+        status = CredentialSetGUID(guid);
     }
 
     return status;
 }
 
-AJ_Status AJ_SetLocalGUID(AJ_GUID* guid)
+AJ_Status AJ_CredentialSetPeer(const AJ_GUID* guid, uint32_t expiration, const uint8_t* secret, uint16_t size)
 {
-    AJ_InfoPrintf(("AJ_SetLocalGUID(guid=%p)\n", guid));
-    return AJ_SetLocal(AJ_LOCAL_GUID_NV_ID, (uint8_t*) guid, sizeof (AJ_GUID));
+    AJ_CredField id;
+    AJ_CredField data;
+    AJ_Status status;
+
+    AJ_InfoPrintf(("AJ_CredentialSetPeer(guid=%p, expiration=%08X, secret=%p, size=%d)\n", guid, expiration, secret, size));
+
+    id.size = sizeof (AJ_GUID);
+    id.data = (uint8_t*) guid;
+    data.size = size;
+    data.data = (uint8_t*) secret;
+    status = AJ_CredentialSet(AJ_CRED_TYPE_GENERIC, &id, expiration, &data);
+
+    return status;
 }
 
-AJ_Status AJ_CredentialExpired(AJ_Cred* cred)
+AJ_Status AJ_CredentialGetPeer(const AJ_GUID* guid, uint32_t* expiration, AJ_CredField* data)
+{
+    AJ_CredField id;
+
+    id.size = sizeof (AJ_GUID);
+    id.data = (uint8_t*) guid;
+
+    return AJ_CredentialGet(AJ_CRED_TYPE_GENERIC, &id, expiration, data);
+}
+
+AJ_Status AJ_CredentialSetECCPublicKey(uint16_t type, const AJ_CredField* id, uint32_t expiration, const AJ_ECCPublicKey* pub)
+{
+    AJ_CredField data;
+
+    data.size = sizeof (AJ_ECCPublicKey);
+    data.data = (uint8_t*) pub;
+
+    return AJ_CredentialSet(type | AJ_CRED_TYPE_PUBLIC, id, expiration, &data);
+}
+
+AJ_Status AJ_CredentialGetECCPublicKey(uint16_t type, const AJ_CredField* id, uint32_t* expiration, AJ_ECCPublicKey* pub)
+{
+    AJ_CredField data;
+
+    data.size = sizeof (AJ_ECCPublicKey);
+    data.data = (uint8_t*) pub;
+
+    return AJ_CredentialGet(type | AJ_CRED_TYPE_PUBLIC, id, NULL, &data);
+}
+
+AJ_Status AJ_CredentialSetECCPrivateKey(uint16_t type, const AJ_CredField* id, uint32_t expiration, const AJ_ECCPrivateKey* prv)
+{
+    AJ_CredField data;
+
+    data.size = sizeof (AJ_ECCPrivateKey);
+    data.data = (uint8_t*) prv;
+
+    return AJ_CredentialSet(type | AJ_CRED_TYPE_PRIVATE, id, expiration, &data);
+}
+
+AJ_Status AJ_CredentialGetECCPrivateKey(uint16_t type, const AJ_CredField* id, uint32_t* expiration, AJ_ECCPrivateKey* prv)
+{
+    AJ_CredField data;
+
+    data.size = sizeof (AJ_ECCPrivateKey);
+    data.data = (uint8_t*) prv;
+
+    return AJ_CredentialGet(type | AJ_CRED_TYPE_PRIVATE, id, NULL, &data);
+}
+
+AJ_Status AJ_CredentialDelete(uint16_t type, const AJ_CredField* id)
+{
+    AJ_Status status = AJ_ERR_FAILURE;
+    uint16_t slot = CredentialFind(type, id, NULL, NULL);
+
+    AJ_InfoPrintf(("AJ_CredentialDelete(type=%04x, id=%p)\n", type, id));
+
+    if (slot > 0) {
+        status = AJ_NVRAM_Delete(slot);
+    }
+
+    return status;
+}
+
+AJ_Status AJ_CredentialDeletePeer(const AJ_GUID* guid)
+{
+    AJ_CredField id;
+
+    id.size = sizeof (AJ_GUID);
+    id.data = (uint8_t*) guid;
+
+    return AJ_CredentialDelete(AJ_CRED_TYPE_GENERIC, &id);
+}
+
+AJ_Status AJ_ClearCredentials(uint16_t type)
+{
+    AJ_Status status = AJ_OK;
+    uint16_t slot = AJ_CREDS_NV_ID_BEGIN;
+    uint16_t test;
+    AJ_NV_DATASET* handle;
+
+    AJ_InfoPrintf(("AJ_ClearCredentials(type=%04x)\n", type));
+
+    for (; slot < AJ_CREDS_NV_ID_END; ++slot) {
+        if (!AJ_NVRAM_Exist(slot)) {
+            continue;
+        }
+        if (type) {
+            handle = AJ_NVRAM_Open(slot, "r", 0);
+            if (!handle) {
+                AJ_WarnPrintf(("AJ_ClearCredentials(type=%04x): Error opening slot %d\n", type, slot));
+                continue;
+            }
+            status = CredValueRead((uint8_t*) &test, sizeof (uint16_t), handle);
+            if (AJ_OK != status) {
+                AJ_WarnPrintf(("AJ_ClearCredentials(type=%04x): Error reading slot %d\n", type, slot));
+                AJ_NVRAM_Close(handle);
+                continue;
+            }
+            if (test != type) {
+                AJ_NVRAM_Close(handle);
+                continue;
+            }
+            AJ_NVRAM_Close(handle);
+        }
+        AJ_NVRAM_Delete(slot);
+    }
+
+    return status;
+}
+
+AJ_Status AJ_CredentialExpired(uint32_t expiration)
 {
     AJ_Time now;
 
@@ -547,45 +596,18 @@ AJ_Status AJ_CredentialExpired(AJ_Cred* cred)
         return AJ_ERR_INVALID;
     }
 
-    if (cred->body.expiration > now.seconds) {
+    if (expiration > now.seconds) {
         return AJ_OK;
     }
 
     return AJ_ERR_KEY_EXPIRED; /* expires */
 }
 
-AJ_Status AJ_StoreCredential(AJ_Cred* cred)
+void AJ_CredFieldFree(AJ_CredField* field)
 {
-    AJ_Status status = AJ_OK;
-    uint16_t slot;
-    uint32_t len;
-
-    AJ_InfoPrintf(("AJ_StoreCredential(cred=%p)\n", cred));
-
-    if (!cred) {
-        return AJ_ERR_FAILURE;
+    if (field && field->data) {
+        AJ_MemZeroSecure(field->data, field->size);
+        AJ_Free(field->data);
+        field->data = NULL;
     }
-
-    slot = FindCredential(&cred->head, NULL, AJ_CREDS_NV_ID_BEGIN);
-    if (!slot) {
-        /*
-         * Check there is sufficient space left.
-         * If there isn't, keep deleting oldest credential until there is.
-         */
-        len = CredentialSize(cred);
-        len = WORD_ALIGN(len);
-        slot = FindCredsEmptySlot();
-        while ((AJ_OK == status) && (!slot || (len >= AJ_NVRAM_GetSizeRemaining()))) {
-            AJ_InfoPrintf(("AJ_StoreCredential(cred=%p): Remaining %d Required %d Slot %d\n", cred, AJ_NVRAM_GetSizeRemaining(), len, slot));
-            slot = DeleteOldestCredential();
-        }
-    }
-
-    if (slot) {
-        status = AJ_SetCredential(cred, slot);
-    } else {
-        status = AJ_ERR_FAILURE;
-    }
-
-    return status;
 }
