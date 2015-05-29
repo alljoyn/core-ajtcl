@@ -43,7 +43,30 @@ extern "C" {
 #define CLAIM_PSK_APPLICATION          0x0002
 
 /**
+ * Set the application claim configuration
+ *
+ * @param state        Claim state
+ * @param capabilities Claim capabilities
+ * @param info         Claim capabilities info
+ *
+ */
+void AJ_SecuritySetClaimConfig(uint16_t state, uint16_t capabilities, uint16_t info);
+
+/**
+ * Initialistion for client security module
+ * Generates key pair if not found
+ *
+ * @param bus        The bus attachment
+ *
+ * @return
+ *          - AJ_OK on success
+ *          - AJ_ERR_RESOURCES on failure
+ */
+AJ_Status AJ_SecurityClientInit(AJ_BusAttachment* bus);
+
+/**
  * Initialistion for server security module
+ * Generates key pair if not found
  * Binds to the permission management port
  *
  * @param bus        The bus attachment

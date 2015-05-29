@@ -367,7 +367,7 @@ AJ_Status AJ_StartService(AJ_BusAttachment* bus,
         AJ_Disconnect(bus);
         return status;
     }
-    status = AJ_SecurityServerInit(bus);
+    status = AJ_SecurityInit(bus);
     if (AJ_OK != status) {
         AJ_WarnPrintf(("AJ_StartService(): AJ_SecurityInit returned status=%s\n", AJ_StatusText(status)));
         AJ_Disconnect(bus);
@@ -624,10 +624,19 @@ AJ_Status StartClient(AJ_BusAttachment* bus,
         }
         AJ_CloseMsg(&msg);
     }
-    if (status != AJ_OK && !connected) {
+
+    if ((AJ_OK != status) && !connected) {
         AJ_WarnPrintf(("AJ_StartClient(): Client disconnecting from bus: status=%s\n", AJ_StatusText(status)));
         AJ_Disconnect(bus);
+        return status;
     }
+    status = AJ_SecurityInit(bus);
+    if (AJ_OK != status) {
+        AJ_WarnPrintf(("AJ_StartClient(): AJ_SecurityInit returned status=%s\n", AJ_StatusText(status)));
+        AJ_Disconnect(bus);
+        return status;
+    }
+
     return status;
 }
 

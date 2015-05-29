@@ -2400,3 +2400,48 @@ AJ_Status AJ_MarshalStatusMsg(const AJ_Message* methodCall, AJ_Message* reply, A
     }
     return status;
 }
+
+AJ_Status AJ_SetMsgBody(AJ_Message* msg, char sig, uint8_t* data, uint16_t size)
+{
+    AJ_IOBuffer* buf = &msg->bus->sock.tx;
+    uint8_t* start = buf->writePtr;
+    uint8_t pad;
+
+    /* Determine padding from signature */
+    pad = PadForType(sig, buf);
+    /* Write body */
+    WriteBytes(msg, data, size, pad);
+    msg->bodyBytes += (uint16_t)(buf->writePtr - start);
+
+    return AJ_OK;
+}
+
+AJ_Status AJ_GetMsgBody(AJ_Message* msg, char sig, uint8_t** data, uint16_t* size)
+{
+    AJ_IOBuffer* buf = &msg->bus->sock.rx;
+    uint8_t pad;
+
+    /* Determine padding from signature */
+    pad = PadForType(sig, buf);
+    /* Skip over padding */
+    if (AJ_IO_BUF_AVAIL(buf) < pad) {
+        AJ_WarnPrintf(("GetMsgBody(msg=%p, data=%p, size=%p): insufficient buffer available\n", msg, data, size));
+        return AJ_ERR_RESOURCES;
+    }
+    buf->readPtr += pad;
+    /* Message body starts here */
+    *data = buf->readPtr;
+    /* Size is at the start of body */
+    EndianSwap(msg, AJ_ARG_UINT32, buf->readPtr, 1);
+    *size = *((uint32_t*)buf->readPtr);
+    /* To account for padding? */
+    *size += 8;
+    if (AJ_IO_BUF_AVAIL(buf) < *size) {
+        AJ_WarnPrintf(("GetMsgBody(msg=%p, data=%p, size=%p): insufficient buffer available\n", msg, data, size));
+        return AJ_ERR_RESOURCES;
+    }
+    /* Move the read pointer on */
+    buf->readPtr += *size;
+
+    return AJ_OK;
+}
