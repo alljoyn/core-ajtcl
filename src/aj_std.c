@@ -166,6 +166,7 @@ static const char* const PeerAuthIface[] = {
     "?ExchangeSuites <au >au",
     "?KeyExchange <u <v >u >v",
     "?KeyAuthentication <v >v",
+    "?SendManifest <a(ssa(syy)) >a(ssa(syy))",
     "?SendMemberships <a(yv)",
     "@Mechanisms >s",
     "@Version >u",
@@ -223,7 +224,7 @@ static const char* const SecurityManagedApplicationIface[] = {
     "@Version >q",
     "@Identity >a(yay)",
     "@Manifest >a(ssa(syy))",
-    "@IdentityCertificateId >(ayyyayay)",
+    "@IdentityCertificateId >(ayayyyayay)",
     "@PolicyVersion >u",
     "@Policy >(qua(a(ya(yyayay)ay)a(ssa(syy))))",
     "@DefaultPolicy >(qua(a(ya(yyayay)ay)a(ssa(syy))))",
@@ -301,6 +302,6 @@ const AJ_Object AJ_StandardObjects[] = {
     { AboutObjectPath,       AboutIfaces,       AJ_OBJ_FLAG_ANNOUNCED, NULL },
     { AboutIconObjectPath,   AboutIconIfaces,   AJ_OBJ_FLAG_ANNOUNCED, NULL },
     { ApplicationObjectPath, ApplicationIfaces, 0,                     NULL },
-    { SecurityObjectPath,    SecurityIfaces,    0,                     NULL },
+    { SecurityObjectPath,    SecurityIfaces,    AJ_OBJ_FLAG_SECURE,    NULL },
     { NULL,                  NULL,              0,                     NULL }
 };

@@ -217,6 +217,23 @@ AJ_Status AJ_GetSessionKey(const char* name, uint8_t* key, uint8_t* role, uint32
     }
 }
 
+AJ_Status AJ_GetPeerIndex(const char* name, uint32_t* peer)
+{
+    NameToGUID* mapping;
+
+    AJ_InfoPrintf(("AJ_GetPeerIndex(name=\"%s\", peer=%p)\n", name, peer));
+
+    mapping = LookupName(name);
+    if (mapping) {
+        *peer = (mapping - nameMap);
+        AJ_ASSERT(*peer < AJ_NAME_MAP_GUID_SIZE);
+        return AJ_OK;
+    } else {
+        AJ_WarnPrintf(("AJ_GetPeerIndex(name=\"%s\"): AJ_ERR_NO_MATCH\n", name));
+        return AJ_ERR_NO_MATCH;
+    }
+}
+
 AJ_Status AJ_GetGroupKey(const char* name, uint8_t* key)
 {
     AJ_InfoPrintf(("AJ_GetGroupKey(name=\"%s\", key=0x%p)\n", name, key));

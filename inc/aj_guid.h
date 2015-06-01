@@ -152,6 +152,18 @@ AJ_Status AJ_SetGroupKey(const char* uniqueName, const uint8_t* key);
 AJ_Status AJ_GetSessionKey(const char* name, uint8_t* key, uint8_t* role, uint32_t* authVersion);
 
 /**
+ * Gets the peer index in the name map, used for access control list
+ *
+ * @param name  The unique or well-known name for a remote peer
+ * @param peer  The peer index
+ *
+ * @return  Return AJ_Status
+ *          - AJ_OK if the index was obtained
+ *          - AJ_ERR_NO_MATCH if there is no entry to the peer
+ */
+AJ_Status AJ_GetPeerIndex(const char* name, uint32_t* peer);
+
+/**
  * Gets a group key for an entry from the GUID map
  *
  * @param name       The unique or well-known name for a remote peer or NULL to get the local group key.

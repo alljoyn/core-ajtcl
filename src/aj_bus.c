@@ -482,6 +482,11 @@ AJ_Status AJ_BusHandleBusMessage(AJ_Message* msg)
         status = AJ_PeerHandleKeyAuthentication(msg, &reply);
         break;
 
+    case AJ_METHOD_SEND_MANIFEST:
+        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_METHOD_SEND_MANIFEST\n"));
+        status = AJ_PeerHandleSendManifest(msg, &reply);
+        break;
+
     case AJ_REPLY_ID(AJ_METHOD_EXCHANGE_GUIDS):
         AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_REPLY_ID(AJ_METHOD_EXCHANGE_GUIDS)\n"));
         status = AJ_PeerHandleExchangeGUIDsReply(msg);
@@ -510,6 +515,11 @@ AJ_Status AJ_BusHandleBusMessage(AJ_Message* msg)
     case AJ_REPLY_ID(AJ_METHOD_KEY_AUTHENTICATION):
         AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_REPLY_ID(AJ_METHOD_KEY_AUTHENTICATION)\n"));
         status = AJ_PeerHandleKeyAuthenticationReply(msg);
+        break;
+
+    case AJ_REPLY_ID(AJ_METHOD_SEND_MANIFEST):
+        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_REPLY_ID(AJ_METHOD_SEND_MANIFEST)\n"));
+        status = AJ_PeerHandleSendManifestReply(msg);
         break;
 
     case AJ_REPLY_ID(AJ_METHOD_CANCEL_SESSIONLESS):

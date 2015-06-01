@@ -129,46 +129,6 @@ static uint32_t PasswordCallback(uint8_t* buffer, uint32_t bufLen)
     return sizeof(PWD) - 1;
 }
 
-// Copied from alljoyn/alljoyn_core/test/bbclient.cc
-static const char pem_prv[] = {
-    "-----BEGIN EC PRIVATE KEY-----"
-    "MHcCAQEEIAqN6AtyOAPxY5k7eFNXAwzkbsGMl4uqvPrYkIj0LNZBoAoGCCqGSM49"
-    "AwEHoUQDQgAEvnRd4fX9opwgXX4Em2UiCMsBbfaqhB1U5PJCDZacz9HumDEzYdrS"
-    "MymSxR34lL0GJVgEECvBTvpaHP2bpTIl6g=="
-    "-----END EC PRIVATE KEY-----"
-};
-
-/*
- * Order of certificates is important.
- */
-static const char pem_x509[] = {
-    "-----BEGIN CERTIFICATE-----"
-    "MIIBtDCCAVmgAwIBAgIJAMlyFqk69v+OMAoGCCqGSM49BAMCMFYxKTAnBgNVBAsM"
-    "IDdhNDhhYTI2YmM0MzQyZjZhNjYyMDBmNzdhODlkZDAyMSkwJwYDVQQDDCA3YTQ4"
-    "YWEyNmJjNDM0MmY2YTY2MjAwZjc3YTg5ZGQwMjAeFw0xNTAyMjYyMTUxMjVaFw0x"
-    "NjAyMjYyMTUxMjVaMFYxKTAnBgNVBAsMIDZkODVjMjkyMjYxM2IzNmUyZWVlZjUy"
-    "NzgwNDJjYzU2MSkwJwYDVQQDDCA2ZDg1YzI5MjI2MTNiMzZlMmVlZWY1Mjc4MDQy"
-    "Y2M1NjBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABL50XeH1/aKcIF1+BJtlIgjL"
-    "AW32qoQdVOTyQg2WnM/R7pgxM2Ha0jMpksUd+JS9BiVYBBArwU76Whz9m6UyJeqj"
-    "EDAOMAwGA1UdEwQFMAMBAf8wCgYIKoZIzj0EAwIDSQAwRgIhAKfmglMgl67L5ALF"
-    "Z63haubkItTMACY1k4ROC2q7cnVmAiEArvAmcVInOq/U5C1y2XrvJQnAdwSl/Ogr"
-    "IizUeK0oI5c="
-    "-----END CERTIFICATE-----"
-    ""
-    "-----BEGIN CERTIFICATE-----"
-    "MIIBszCCAVmgAwIBAgIJAILNujb37gH2MAoGCCqGSM49BAMCMFYxKTAnBgNVBAsM"
-    "IDdhNDhhYTI2YmM0MzQyZjZhNjYyMDBmNzdhODlkZDAyMSkwJwYDVQQDDCA3YTQ4"
-    "YWEyNmJjNDM0MmY2YTY2MjAwZjc3YTg5ZGQwMjAeFw0xNTAyMjYyMTUxMjNaFw0x"
-    "NjAyMjYyMTUxMjNaMFYxKTAnBgNVBAsMIDdhNDhhYTI2YmM0MzQyZjZhNjYyMDBm"
-    "NzdhODlkZDAyMSkwJwYDVQQDDCA3YTQ4YWEyNmJjNDM0MmY2YTY2MjAwZjc3YTg5"
-    "ZGQwMjBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABGEkAUATvOE4uYmt/10vkTcU"
-    "SA0C+YqHQ+fjzRASOHWIXBvpPiKgHcINtNFQsyX92L2tMT2Kn53zu+3S6UAwy6yj"
-    "EDAOMAwGA1UdEwQFMAMBAf8wCgYIKoZIzj0EAwIDSAAwRQIgKit5yeq1uxTvdFmW"
-    "LDeoxerqC1VqBrmyEvbp4oJfamsCIQDvMTmulW/Br/gY7GOP9H/4/BIEoR7UeAYS"
-    "4xLyu+7OEA=="
-    "-----END CERTIFICATE-----"
-};
-
 static const char psk_hint[] = "<anonymous>";
 /*
  * The tests were changed at some point to make the psk longer.
@@ -180,12 +140,9 @@ static const char psk_char[] = "faaa0af3dd3f1e0379da046a3ab6ca44";
 #else
 static const char psk_char[] = "123456";
 #endif
-static X509CertificateChain* chain = NULL;
-static AJ_ECCPrivateKey prv;
 static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, AJ_Credential*cred)
 {
     AJ_Status status = AJ_ERR_INVALID;
-    X509CertificateChain* node;
 
     AJ_AlwaysPrintf(("AuthListenerCallback authmechanism %d command %d\n", authmechanism, command));
 
@@ -209,50 +166,6 @@ static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, 
             cred->len = strlen(psk_char);
             cred->expiration = keyexpiration;
             status = AJ_OK;
-            break;
-        }
-        break;
-
-    case AUTH_SUITE_ECDHE_ECDSA:
-        switch (command) {
-        case AJ_CRED_PRV_KEY:
-            cred->len = sizeof (AJ_ECCPrivateKey);
-            status = AJ_DecodePrivateKeyPEM(&prv, pem_prv);
-            if (AJ_OK != status) {
-                return status;
-            }
-            cred->data = (uint8_t*) &prv;
-            cred->expiration = keyexpiration;
-            break;
-
-        case AJ_CRED_CERT_CHAIN:
-            switch (cred->direction) {
-            case AJ_CRED_REQUEST:
-                // Free previous certificate chain
-                while (chain) {
-                    node = chain;
-                    chain = chain->next;
-                    AJ_Free(node->certificate.der.data);
-                    AJ_Free(node);
-                }
-                chain = AJ_X509DecodeCertificateChainPEM(pem_x509);
-                if (NULL == chain) {
-                    return AJ_ERR_INVALID;
-                }
-                cred->data = (uint8_t*) chain;
-                cred->expiration = keyexpiration;
-                status = AJ_OK;
-                break;
-
-            case AJ_CRED_RESPONSE:
-                node = (X509CertificateChain*) cred->data;
-                while (node) {
-                    AJ_DumpBytes("CERTIFICATE", node->certificate.der.data, node->certificate.der.size);
-                    node = node->next;
-                }
-                status = AJ_OK;
-                break;
-            }
             break;
         }
         break;
@@ -319,7 +232,6 @@ int AJ_Main()
     size_t numsuites = 0;
     uint8_t clearkeys = FALSE;
     uint8_t enablepwd = FALSE;
-    X509CertificateChain* node;
 #endif
 
 #ifdef MAIN_ALLOWS_ARGS
@@ -458,17 +370,7 @@ int AJ_Main()
             connected = FALSE;
         }
     }
-    AJ_AlwaysPrintf(("clientlite EXIT %d\n", status));
-
-#ifdef SECURE_INTERFACE
-    // Clean up certificate chain
-    while (chain) {
-        node = chain;
-        chain = chain->next;
-        AJ_Free(node->certificate.der.data);
-        AJ_Free(node);
-    }
-#endif
+    AJ_AlwaysPrintf(("siglite EXIT %d\n", status));
 
     return status;
 }

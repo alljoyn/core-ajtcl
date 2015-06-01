@@ -98,6 +98,16 @@ extern "C" {
  * requests.
  */
 
+#define MEMBER_TYPE(c) (((c) >> 4) - 2)
+
+#define SIGNAL     MEMBER_TYPE('!')  /* ((0x21 >> 4) - 2) == 0 */
+#define METHOD     MEMBER_TYPE('?')  /* ((0x3F >> 4) - 2) == 1 */
+#define PROPERTY   MEMBER_TYPE('@')  /* ((0x40 >> 4) - 2) == 2 */
+
+#define SECURE_TRUE  '$' /* Security is required for an interface that start with a '$' character */
+#define SECURE_OFF   '#' /* Security is OFF, i.e. never required for an interface that starts with a '#' character */
+#define SESSIONLESS  '&' /* Only to be used with a signal member types, indicates that the signal will not require a session and is a sessionless signal */
+
 /**
  * Enmeration type for characterizing interface members
  */
