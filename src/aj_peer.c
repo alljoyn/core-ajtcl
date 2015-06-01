@@ -36,6 +36,7 @@
 #include "aj_config.h"
 #include "aj_authentication.h"
 #include "aj_cert.h"
+#include "aj_authorisation.h"
 
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
@@ -64,6 +65,7 @@ static AJ_Status ExchangeSuites(AJ_Message* msg);
 static AJ_Status KeyExchange(AJ_Message* msg);
 static AJ_Status KeyAuthentication(AJ_Message* msg);
 static AJ_Status GenSessionKey(AJ_Message* msg);
+static AJ_Status SendManifest(AJ_Message* msg);
 
 typedef enum {
     AJ_AUTH_NONE,
@@ -203,7 +205,7 @@ static AJ_Status HandshakeTimeout() {
      * If peer disappeared, AJ_GUID_DeleteNameMapping writes zeros
      */
     if (peerContext.peerGuid) {
-        if (!memcmp(peerContext.peerGuid, zero, sizeof (zero))) {
+        if (0 == memcmp(peerContext.peerGuid, zero, sizeof (zero))) {
             AJ_WarnPrintf(("AJ_HandshakeTimeout(): Peer disappeared\n"));
             peerContext.peerGuid = NULL;
             HandshakeComplete(AJ_ERR_TIMEOUT);
@@ -237,7 +239,7 @@ static AJ_Status HandshakeValid(const AJ_GUID* peerGuid)
     /*
      * Handshake call from different peer
      */
-    if (!peerGuid || (peerGuid != peerContext.peerGuid)) {
+    if ((NULL == peerGuid) || (peerGuid != peerContext.peerGuid)) {
         AJ_WarnPrintf(("AJ_HandshakeValid(peerGuid=%p): Invalid peer guid\n", peerGuid));
         return AJ_ERR_RESOURCES;
     }
@@ -285,11 +287,23 @@ AJ_Status AJ_PeerAuthenticate(AJ_BusAttachment* bus, const char* peerName, AJ_Pe
     /*
      * Kick off authentication with an ExchangeGUIDS method call
      */
-    AJ_MarshalMethodCall(bus, &msg, AJ_METHOD_EXCHANGE_GUIDS, peerName, 0, AJ_NO_FLAGS, AJ_CALL_TIMEOUT);
-    AJ_GetLocalGUID(&localGuid);
-    AJ_GUID_ToString(&localGuid, guidStr, sizeof(guidStr));
+    status = AJ_MarshalMethodCall(bus, &msg, AJ_METHOD_EXCHANGE_GUIDS, peerName, 0, AJ_NO_FLAGS, AJ_CALL_TIMEOUT);
+    if (AJ_OK != status) {
+        return status;
+    }
+    status = AJ_GetLocalGUID(&localGuid);
+    if (AJ_OK != status) {
+        return status;
+    }
+    status = AJ_GUID_ToString(&localGuid, guidStr, sizeof(guidStr));
+    if (AJ_OK != status) {
+        return status;
+    }
     authContext.version = REQUIRED_AUTH_VERSION;
-    AJ_MarshalArgs(&msg, "su", guidStr, authContext.version);
+    status = AJ_MarshalArgs(&msg, "su", guidStr, authContext.version);
+    if (AJ_OK != status) {
+        return status;
+    }
     return AJ_DeliverMsg(&msg);
 #else
     return AJ_OK;
@@ -350,6 +364,10 @@ AJ_Status AJ_PeerHandleExchangeGUIDs(AJ_Message* msg, AJ_Message* reply)
         return AJ_MarshalErrorMsg(msg, reply, AJ_ErrResources);
     }
     peerContext.peerGuid = AJ_GUID_Find(msg->sender);
+    /*
+     * Reset access control from previous peer
+     */
+    AJ_AccessControlReset(msg->sender);
 
     /*
      * If we have a mastersecret stored - use it
@@ -376,10 +394,28 @@ AJ_Status AJ_PeerHandleExchangeGUIDs(AJ_Message* msg, AJ_Message* reply)
     }
     AJ_InfoPrintf(("AJ_PeerHandleExchangeGuids(msg=%p, reply=%p): Version %x\n", msg, reply, authContext.version));
 
-    AJ_MarshalReplyMsg(msg, reply);
-    AJ_GetLocalGUID(&localGuid);
-    AJ_GUID_ToString(&localGuid, guidStr, sizeof(guidStr));
-    return AJ_MarshalArgs(reply, "su", guidStr, authContext.version);
+    status = AJ_MarshalReplyMsg(msg, reply);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+    status = AJ_GetLocalGUID(&localGuid);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+    status = AJ_GUID_ToString(&localGuid, guidStr, sizeof(guidStr));
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+    status = AJ_MarshalArgs(reply, "su", guidStr, authContext.version);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+
+    return status;
+
+Exit:
+    HandshakeComplete(AJ_ERR_SECURITY);
+    return AJ_MarshalErrorMsg(msg, reply, AJ_ErrSecurityViolation);
 }
 
 AJ_Status AJ_PeerHandleExchangeGUIDsReply(AJ_Message* msg)
@@ -441,6 +477,10 @@ AJ_Status AJ_PeerHandleExchangeGUIDsReply(AJ_Message* msg)
      * Remember which peer is being authenticated
      */
     peerContext.peerGuid = AJ_GUID_Find(msg->sender);
+    /*
+     * Reset access control from previous peer
+     */
+    AJ_AccessControlReset(msg->sender);
 
     /*
      * If we have a mastersecret stored - use it
@@ -500,18 +540,24 @@ static AJ_Status ExchangeSuites(AJ_Message* msg)
     }
     if (!num) {
         AJ_WarnPrintf(("ExchangeSuites(msg=%p): No suites available\n", msg));
-        HandshakeComplete(AJ_ERR_SECURITY);
-        return AJ_ERR_SECURITY;
+        goto Exit;
     }
-    AJ_MarshalMethodCall(msg->bus, &call, AJ_METHOD_EXCHANGE_SUITES, msg->sender, 0, AJ_NO_FLAGS, AJ_AUTH_CALL_TIMEOUT);
+    status = AJ_MarshalMethodCall(msg->bus, &call, AJ_METHOD_EXCHANGE_SUITES, msg->sender, 0, AJ_NO_FLAGS, AJ_AUTH_CALL_TIMEOUT);
+    if (AJ_OK != status) {
+        AJ_WarnPrintf(("ExchangeSuites(msg=%p): Marshal error\n", msg));
+        goto Exit;
+    }
     status = AJ_MarshalArgs(&call, "au", suites, num * sizeof (uint32_t));
     if (AJ_OK != status) {
         AJ_WarnPrintf(("ExchangeSuites(msg=%p): Marshal error\n", msg));
-        HandshakeComplete(AJ_ERR_SECURITY);
-        return AJ_ERR_SECURITY;
+        goto Exit;
     }
 
     return AJ_DeliverMsg(&call);
+
+Exit:
+    HandshakeComplete(AJ_ERR_SECURITY);
+    return AJ_ERR_SECURITY;
 }
 
 AJ_Status AJ_PeerHandleExchangeSuites(AJ_Message* msg, AJ_Message* reply)
@@ -546,14 +592,23 @@ AJ_Status AJ_PeerHandleExchangeSuites(AJ_Message* msg, AJ_Message* reply)
     /*
      * Calculate common suites
      */
-    AJ_MarshalReplyMsg(msg, reply);
+    status = AJ_MarshalReplyMsg(msg, reply);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
     status = AJ_MarshalContainer(reply, &array, AJ_ARG_ARRAY);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
     /* Iterate through the available suites.
      * If it's enabled, marshal the suite to send to the other peer.
      */
     for (i = 0; i < numsuites; i++) {
         if (AJ_IsSuiteEnabled(suites[i], authContext.version >> 16)) {
             status = AJ_MarshalArgs(reply, "u", suites[i]);
+            if (AJ_OK != status) {
+                goto Exit;
+            }
         }
     }
     status = AJ_MarshalCloseContainer(reply, &array);
@@ -644,7 +699,11 @@ static AJ_Status KeyExchange(AJ_Message* msg)
     /*
      * Send suite and key material
      */
-    AJ_MarshalMethodCall(msg->bus, &call, AJ_METHOD_KEY_EXCHANGE, msg->sender, 0, AJ_NO_FLAGS, AJ_AUTH_CALL_TIMEOUT);
+    status = AJ_MarshalMethodCall(msg->bus, &call, AJ_METHOD_KEY_EXCHANGE, msg->sender, 0, AJ_NO_FLAGS, AJ_AUTH_CALL_TIMEOUT);
+    if (AJ_OK != status) {
+        AJ_WarnPrintf(("KeyExchange(msg=%p): Marshal error\n", msg));
+        goto Exit;
+    }
     status = AJ_MarshalArgs(&call, "u", authContext.suite);
     if (AJ_OK != status) {
         AJ_WarnPrintf(("KeyExchange(msg=%p): Marshal error\n", msg));
@@ -682,7 +741,10 @@ AJ_Status AJ_PeerHandleKeyExchange(AJ_Message* msg, AJ_Message* reply)
     /*
      * Receive suite
      */
-    AJ_UnmarshalArgs(msg, "u", &authContext.suite);
+    status = AJ_UnmarshalArgs(msg, "u", &authContext.suite);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
     if (!AJ_IsSuiteEnabled(authContext.suite, authContext.version >> 16)) {
         goto Exit;
     }
@@ -701,7 +763,10 @@ AJ_Status AJ_PeerHandleKeyExchange(AJ_Message* msg, AJ_Message* reply)
     /*
      * Send key material
      */
-    AJ_MarshalReplyMsg(msg, reply);
+    status = AJ_MarshalReplyMsg(msg, reply);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
     status = AJ_MarshalArgs(reply, "u", authContext.suite);
     if (AJ_OK != status) {
         goto Exit;
@@ -798,7 +863,11 @@ static AJ_Status KeyAuthentication(AJ_Message* msg)
     /*
      * Send authentication material
      */
-    AJ_MarshalMethodCall(msg->bus, &call, AJ_METHOD_KEY_AUTHENTICATION, msg->sender, 0, AJ_NO_FLAGS, AJ_AUTH_CALL_TIMEOUT);
+    status = AJ_MarshalMethodCall(msg->bus, &call, AJ_METHOD_KEY_AUTHENTICATION, msg->sender, 0, AJ_NO_FLAGS, AJ_AUTH_CALL_TIMEOUT);
+    if (AJ_OK != status) {
+        AJ_WarnPrintf(("AJ_KeyAuthentication(msg=%p): Key authentication marshal error\n", msg));
+        goto Exit;
+    }
     status = AJ_KeyAuthenticationMarshal(&authContext, &call);
     if (AJ_OK != status) {
         AJ_WarnPrintf(("AJ_KeyAuthentication(msg=%p): Key authentication marshal error\n", msg));
@@ -841,7 +910,10 @@ AJ_Status AJ_PeerHandleKeyAuthentication(AJ_Message* msg, AJ_Message* reply)
     /*
      * Send authentication material
      */
-    AJ_MarshalReplyMsg(msg, reply);
+    status = AJ_MarshalReplyMsg(msg, reply);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
     status = AJ_KeyAuthenticationMarshal(&authContext, reply);
     if (AJ_OK != status) {
         AJ_WarnPrintf(("AJ_PeerHandleKeyAuthentication(msg=%p, reply=%p): Key authentication marshal error\n", msg, reply));
@@ -857,7 +929,6 @@ AJ_Status AJ_PeerHandleKeyAuthentication(AJ_Message* msg, AJ_Message* reply)
             AJ_WarnPrintf(("AJ_PeerHandleKeyAuthentication(msg=%p, reply=%p): Save master secret error\n", msg, reply));
         }
     }
-    //AJ_AuthRecordApply(&peer, msg->sender);
 
     return status;
 
@@ -915,7 +986,6 @@ AJ_Status AJ_PeerHandleKeyAuthenticationReply(AJ_Message* msg)
             AJ_WarnPrintf(("AJ_PeerHandleKeyAuthenticationReply(msg=%p): Save master secret error\n", msg));
         }
     }
-    //AJ_AuthRecordApply(&peer, msg->sender);
 
     status = GenSessionKey(msg);
     if (AJ_OK != status) {
@@ -931,22 +1001,44 @@ Exit:
 
 static AJ_Status GenSessionKey(AJ_Message* msg)
 {
+    AJ_Status status;
     AJ_Message call;
     char guidStr[33];
     AJ_GUID localGuid;
 
     AJ_InfoPrintf(("GenSessionKey(msg=%p)\n", msg));
 
-    AJ_MarshalMethodCall(msg->bus, &call, AJ_METHOD_GEN_SESSION_KEY, msg->sender, 0, AJ_NO_FLAGS, AJ_CALL_TIMEOUT);
+    status = AJ_MarshalMethodCall(msg->bus, &call, AJ_METHOD_GEN_SESSION_KEY, msg->sender, 0, AJ_NO_FLAGS, AJ_CALL_TIMEOUT);
+    if (AJ_OK != status) {
+        return status;
+    }
     /*
      * Marshal local peer GUID, remote peer GUID, and local peer's GUID
      */
-    AJ_GetLocalGUID(&localGuid);
-    AJ_GUID_ToString(&localGuid, guidStr, sizeof(guidStr));
-    AJ_MarshalArgs(&call, "s", guidStr);
-    AJ_GUID_ToString(peerContext.peerGuid, guidStr, sizeof(guidStr));
-    AJ_RandHex(peerContext.nonce, sizeof(peerContext.nonce), AJ_NONCE_LEN);
-    AJ_MarshalArgs(&call, "ss", guidStr, peerContext.nonce);
+    status = AJ_GetLocalGUID(&localGuid);
+    if (AJ_OK != status) {
+        return status;
+    }
+    status = AJ_GUID_ToString(&localGuid, guidStr, sizeof(guidStr));
+    if (AJ_OK != status) {
+        return status;
+    }
+    status = AJ_MarshalArgs(&call, "s", guidStr);
+    if (AJ_OK != status) {
+        return status;
+    }
+    status = AJ_GUID_ToString(peerContext.peerGuid, guidStr, sizeof(guidStr));
+    if (AJ_OK != status) {
+        return status;
+    }
+    status = AJ_RandHex(peerContext.nonce, sizeof(peerContext.nonce), AJ_NONCE_LEN);
+    if (AJ_OK != status) {
+        return status;
+    }
+    status = AJ_MarshalArgs(&call, "ss", guidStr, peerContext.nonce);
+    if (AJ_OK != status) {
+        return status;
+    }
 
     return AJ_DeliverMsg(&call);
 }
@@ -987,28 +1079,46 @@ AJ_Status AJ_PeerHandleGenSessionKey(AJ_Message* msg, AJ_Message* reply)
     /*
      * Remote peer GUID, Local peer GUID and Remote peer's nonce
      */
-    AJ_UnmarshalArgs(msg, "sss", &remGuid, &locGuid, &nonce);
+    status = AJ_UnmarshalArgs(msg, "sss", &remGuid, &locGuid, &nonce);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
     /*
      * We expect arg[1] to be the local GUID
      */
     status = AJ_GUID_FromString(&guid, locGuid);
-    if (AJ_OK == status) {
-        status = AJ_GetLocalGUID(&localGuid);
+    if (AJ_OK != status) {
+        goto Exit;
     }
-    if ((status != AJ_OK) || (memcmp(&guid, &localGuid, sizeof(AJ_GUID)) != 0)) {
-        HandshakeComplete(AJ_ERR_SECURITY);
-        return AJ_MarshalErrorMsg(msg, reply, AJ_ErrSecurityViolation);
+    status = AJ_GetLocalGUID(&localGuid);
+    if (AJ_OK != status) {
+        goto Exit;
     }
-    AJ_RandHex(peerContext.nonce, sizeof(peerContext.nonce), AJ_NONCE_LEN);
+    if (0 != memcmp(&guid, &localGuid, sizeof(AJ_GUID))) {
+        goto Exit;
+    }
+    status = AJ_RandHex(peerContext.nonce, sizeof(peerContext.nonce), AJ_NONCE_LEN);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
     status = KeyGen(msg->sender, AJ_ROLE_KEY_RESPONDER, nonce, peerContext.nonce, (uint8_t*)verifier, sizeof(verifier));
-    if (status == AJ_OK) {
-        AJ_MarshalReplyMsg(msg, reply);
-        status = AJ_MarshalArgs(reply, "ss", peerContext.nonce, verifier);
-    } else {
-        HandshakeComplete(AJ_ERR_SECURITY);
-        status = AJ_MarshalErrorMsg(msg, reply, AJ_ErrSecurityViolation);
+    if (AJ_OK != status) {
+        goto Exit;
     }
+    status = AJ_MarshalReplyMsg(msg, reply);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+    status = AJ_MarshalArgs(reply, "ss", peerContext.nonce, verifier);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+
     return status;
+
+Exit:
+    HandshakeComplete(AJ_ERR_SECURITY);
+    return AJ_MarshalErrorMsg(msg, reply, AJ_ErrSecurityViolation);
 }
 
 AJ_Status AJ_PeerHandleGenSessionKeyReply(AJ_Message* msg)
@@ -1025,6 +1135,9 @@ AJ_Status AJ_PeerHandleGenSessionKeyReply(AJ_Message* msg)
     char* nonce;
     char* remVerifier;
     const AJ_GUID* peerGuid = AJ_GUID_Find(msg->sender);
+    AJ_Arg key;
+    AJ_Message call;
+    uint8_t groupKey[AJ_SESSION_KEY_LEN];
 
     AJ_InfoPrintf(("AJ_PeerHandleGetSessionKeyReply(msg=%p)\n", msg));
 
@@ -1046,33 +1159,45 @@ AJ_Status AJ_PeerHandleGenSessionKeyReply(AJ_Message* msg)
         return status;
     }
 
-    AJ_UnmarshalArgs(msg, "ss", &nonce, &remVerifier);
+    status = AJ_UnmarshalArgs(msg, "ss", &nonce, &remVerifier);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
     status = KeyGen(msg->sender, AJ_ROLE_KEY_INITIATOR, peerContext.nonce, nonce, (uint8_t*)verifier, sizeof(verifier));
-    if (status == AJ_OK) {
-        /*
-         * Check verifier strings match as expected
-         */
-        if (strcmp(remVerifier, verifier) != 0) {
-            AJ_WarnPrintf(("AJ_PeerHandleGetSessionKeyReply(): AJ_ERR_SECURITY\n"));
-            status = AJ_ERR_SECURITY;
-        }
+    if (AJ_OK != status) {
+        goto Exit;
     }
-    if (status == AJ_OK) {
-        AJ_Arg key;
-        AJ_Message call;
-        uint8_t groupKey[AJ_SESSION_KEY_LEN];
-        /*
-         * Group keys are exchanged via an encrypted message
-         */
-        AJ_MarshalMethodCall(msg->bus, &call, AJ_METHOD_EXCHANGE_GROUP_KEYS, msg->sender, 0, AJ_FLAG_ENCRYPTED, AJ_CALL_TIMEOUT);
-        AJ_GetGroupKey(NULL, groupKey);
-        AJ_MarshalArg(&call, AJ_InitArg(&key, AJ_ARG_BYTE, AJ_ARRAY_FLAG, groupKey, sizeof(groupKey)));
-        status = AJ_DeliverMsg(&call);
+    /*
+     * Check verifier strings match as expected
+     */
+    if (0 != strncmp(remVerifier, verifier, sizeof (verifier))) {
+        AJ_WarnPrintf(("AJ_PeerHandleGetSessionKeyReply(): AJ_ERR_SECURITY\n"));
+        status = AJ_ERR_SECURITY;
+        goto Exit;
     }
-    if (status != AJ_OK) {
-        HandshakeComplete(status);
+
+    /*
+     * Group keys are exchanged via an encrypted message
+     */
+    status = AJ_MarshalMethodCall(msg->bus, &call, AJ_METHOD_EXCHANGE_GROUP_KEYS, msg->sender, 0, AJ_FLAG_ENCRYPTED, AJ_CALL_TIMEOUT);
+    if (AJ_OK != status) {
+        goto Exit;
     }
+    status = AJ_GetGroupKey(NULL, groupKey);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+    status = AJ_MarshalArg(&call, AJ_InitArg(&key, AJ_ARG_BYTE, AJ_ARRAY_FLAG, groupKey, sizeof(groupKey)));
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+    status = AJ_DeliverMsg(&call);
+
     return status;
+
+Exit:
+    HandshakeComplete(AJ_ERR_SECURITY);
+    return AJ_ERR_SECURITY;
 }
 
 AJ_Status AJ_PeerHandleExchangeGroupKeys(AJ_Message* msg, AJ_Message* reply)
@@ -1080,34 +1205,63 @@ AJ_Status AJ_PeerHandleExchangeGroupKeys(AJ_Message* msg, AJ_Message* reply)
     AJ_Status status;
     AJ_Arg key;
     const AJ_GUID* peerGuid = AJ_GUID_Find(msg->sender);
+    uint8_t groupKey[AJ_SESSION_KEY_LEN];
 
     AJ_InfoPrintf(("AJ_PeerHandleExchangeGroupKeys(msg=%p, reply=%p)\n", msg, reply));
+
+    if (msg->hdr->msgType == AJ_MSG_ERROR) {
+        AJ_WarnPrintf(("AJ_PeerHandleKeyAuthenticationReply(msg=%p): error=%s.\n", msg, msg->error));
+        if (0 == strncmp(msg->error, AJ_ErrResources, sizeof(AJ_ErrResources))) {
+            status = AJ_ERR_RESOURCES;
+        } else {
+            status = AJ_ERR_SECURITY;
+            HandshakeComplete(status);
+        }
+        return status;
+    }
 
     status = HandshakeValid(peerGuid);
     if (AJ_OK != status) {
         return status;
     }
 
-    AJ_UnmarshalArg(msg, &key);
+    status = AJ_UnmarshalArg(msg, &key);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
     /*
      * We expect the key to be 16 bytes
      */
     if (key.len != AJ_SESSION_KEY_LEN) {
         AJ_WarnPrintf(("AJ_PeerHandleExchangeGroupKeys(): AJ_ERR_INVALID\n"));
-        status = AJ_ERR_INVALID;
-    } else {
-        status = AJ_SetGroupKey(msg->sender, key.val.v_byte);
+        goto Exit;
     }
-    if (status == AJ_OK) {
-        uint8_t groupKey[AJ_SESSION_KEY_LEN];
-        AJ_MarshalReplyMsg(msg, reply);
-        AJ_GetGroupKey(NULL, groupKey);
-        status = AJ_MarshalArg(reply, AJ_InitArg(&key, AJ_ARG_BYTE, AJ_ARRAY_FLAG, groupKey, sizeof(groupKey)));
-    } else {
-        status = AJ_MarshalErrorMsg(msg, reply, AJ_ErrSecurityViolation);
+    status = AJ_SetGroupKey(msg->sender, key.val.v_byte);
+    if (AJ_OK != status) {
+        goto Exit;
     }
-    HandshakeComplete(status);
+    status = AJ_MarshalReplyMsg(msg, reply);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+    status = AJ_GetGroupKey(NULL, groupKey);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+    status = AJ_MarshalArg(reply, AJ_InitArg(&key, AJ_ARG_BYTE, AJ_ARRAY_FLAG, groupKey, sizeof(groupKey)));
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+    if (AUTH_SUITE_ECDHE_ECDSA != authContext.suite) {
+        status = AJ_PolicyApply(&authContext, msg->sender);
+        HandshakeComplete(status);
+    }
+
     return status;
+
+Exit:
+    HandshakeComplete(AJ_ERR_SECURITY);
+    return AJ_MarshalErrorMsg(msg, reply, AJ_ErrSecurityViolation);
 }
 
 AJ_Status AJ_PeerHandleExchangeGroupKeysReply(AJ_Message* msg)
@@ -1123,16 +1277,196 @@ AJ_Status AJ_PeerHandleExchangeGroupKeysReply(AJ_Message* msg)
         return status;
     }
 
-    AJ_UnmarshalArg(msg, &arg);
+    status = AJ_UnmarshalArg(msg, &arg);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
     /*
      * We expect the key to be 16 bytes
      */
     if (arg.len != AJ_SESSION_KEY_LEN) {
         AJ_WarnPrintf(("AJ_PeerHandleExchangeGroupKeysReply(msg=%p): AJ_ERR_INVALID\n", msg));
-        status = AJ_ERR_INVALID;
-    } else {
-        status = AJ_SetGroupKey(msg->sender, arg.val.v_byte);
+        goto Exit;
     }
+    status = AJ_SetGroupKey(msg->sender, arg.val.v_byte);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+
+    if (AUTH_SUITE_ECDHE_ECDSA == authContext.suite) {
+        status = SendManifest(msg);
+    } else {
+        status = AJ_PolicyApply(&authContext, msg->sender);
+        HandshakeComplete(status);
+    }
+
+    return status;
+
+Exit:
+    HandshakeComplete(AJ_ERR_SECURITY);
+    return AJ_ERR_SECURITY;
+}
+
+static AJ_Status SendManifest(AJ_Message* msg)
+{
+    AJ_Status status;
+    AJ_Message call;
+    AJ_CredField field;
+
+    AJ_InfoPrintf(("SendManifest(msg=%p)\n", msg));
+
+    field.data = NULL;
+    field.size = 0;
+
+    status = AJ_MarshalMethodCall(msg->bus, &call, AJ_METHOD_SEND_MANIFEST, msg->sender, 0, AJ_FLAG_ENCRYPTED, AJ_AUTH_CALL_TIMEOUT);
+    if (AJ_OK != status) {
+        AJ_InfoPrintf(("SendManifest(msg=%p): Marshal error\n", msg));
+        goto Exit;
+    }
+    status = AJ_CredentialGet(AJ_CRED_TYPE_MANIFEST, NULL, NULL, &field);
+    if (AJ_OK != status) {
+        AJ_InfoPrintf(("SendManifest(msg=%p): No stored manifest\n", msg));
+        goto Exit;
+    }
+    status = AJ_SetMsgBody(&call, 'a', field.data, field.size);
+    if (AJ_OK != status) {
+        AJ_InfoPrintf(("SendManifest(msg=%p): Manifest marshal failed\n", msg));
+        goto Exit;
+    }
+
+    AJ_CredFieldFree(&field);
+    return AJ_DeliverMsg(&call);
+
+Exit:
+    AJ_CredFieldFree(&field);
+    HandshakeComplete(AJ_ERR_SECURITY);
+    return AJ_ERR_SECURITY;
+}
+
+AJ_Status AJ_PeerHandleSendManifest(AJ_Message* msg, AJ_Message* reply)
+{
+    AJ_Status status;
+    AJ_CredField field;
+    const AJ_GUID* peerGuid = AJ_GUID_Find(msg->sender);
+    AJ_Manifest* manifest;
+    uint8_t digest[SHA256_DIGEST_LENGTH];
+
+    AJ_InfoPrintf(("AJ_PeerHandleSendManifest(msg=%p, reply=%p)\n", msg, reply));
+
+    status = HandshakeValid(peerGuid);
+    if (AJ_OK != status) {
+        return AJ_MarshalErrorMsg(msg, reply, AJ_ErrResources);
+    }
+
+    field.data = NULL;
+    field.size = 0;
+
+    field.data = msg->bus->sock.rx.readPtr;
+    status = AJ_ManifestUnmarshal(&manifest, msg);
+    if (AJ_OK != status) {
+        AJ_InfoPrintf(("AJ_PeerHandleSendManifest(msg=%p, reply=%p): Manifest unmarshal failed\n", msg, reply));
+        field.data = NULL;
+        goto Exit;
+    }
+    field.size = msg->bus->sock.rx.readPtr - field.data;
+    AJ_ManifestDigest(&field, digest);
+    field.data = NULL;
+    field.size = 0;
+    /* Compare with digest from certificate */
+    if (0 != memcmp(digest, authContext.kactx.ecdsa.manifest, SHA256_DIGEST_LENGTH)) {
+        AJ_InfoPrintf(("AJ_PeerHandleSendManifest(msg=%p, reply=%p): Manifest digest mismatch\n", msg, reply));
+        goto Exit;
+    }
+
+    /* Important: apply policy before manifest */
+    status = AJ_PolicyApply(&authContext, msg->sender);
+    if (AJ_OK != status) {
+        AJ_InfoPrintf(("AJ_PeerHandleSendManifest(msg=%p, reply=%p): Policy apply failed\n", msg, reply));
+        goto Exit;
+    }
+    status = AJ_ManifestApply(manifest, msg->sender);
+    if (AJ_OK != status) {
+        AJ_InfoPrintf(("AJ_PeerHandleSendManifest(msg=%p, reply=%p): Manifest apply failed\n", msg, reply));
+        goto Exit;
+    }
+
+    status = AJ_MarshalReplyMsg(msg, reply);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+    status = AJ_CredentialGet(AJ_CRED_TYPE_MANIFEST, NULL, NULL, &field);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+    status = AJ_SetMsgBody(reply, 'a', field.data, field.size);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+
+    AJ_ManifestFree(manifest);
+    AJ_CredFieldFree(&field);
     HandshakeComplete(status);
     return status;
+
+Exit:
+    AJ_ManifestFree(manifest);
+    AJ_CredFieldFree(&field);
+    HandshakeComplete(AJ_ERR_SECURITY);
+    return AJ_MarshalErrorMsg(msg, reply, AJ_ErrSecurityViolation);
+}
+
+AJ_Status AJ_PeerHandleSendManifestReply(AJ_Message* msg)
+{
+    AJ_Status status;
+    const AJ_GUID* peerGuid = AJ_GUID_Find(msg->sender);
+    AJ_Manifest* manifest = NULL;
+    AJ_CredField field;
+    uint8_t digest[SHA256_DIGEST_LENGTH];
+
+    AJ_InfoPrintf(("AJ_PeerHandleSendManifestReply(msg=%p)\n", msg));
+
+    if (msg->hdr->msgType == AJ_MSG_ERROR) {
+        AJ_WarnPrintf(("AJ_PeerHandleSendManifestReply(msg=%p): error=%s.\n", msg, msg->error));
+        goto Exit;
+    }
+
+    status = HandshakeValid(peerGuid);
+    if (AJ_OK != status) {
+        return status;
+    }
+
+    field.data = msg->bus->sock.rx.readPtr;
+    status = AJ_ManifestUnmarshal(&manifest, msg);
+    if (AJ_OK != status) {
+        AJ_InfoPrintf(("AJ_PeerHandleSendManifestReply(msg=%p): Manifest unmarshal failed\n", msg));
+        goto Exit;
+    }
+    field.size = msg->bus->sock.rx.readPtr - field.data;
+    AJ_ManifestDigest(&field, digest);
+    /* Compare with digest from certificate */
+    if (0 != memcmp(digest, authContext.kactx.ecdsa.manifest, SHA256_DIGEST_LENGTH)) {
+        AJ_InfoPrintf(("AJ_PeerHandleSendManifestReply(msg=%p): Manifest digest mismatch\n", msg));
+        goto Exit;
+    }
+
+    /* Important: apply policy before manifest */
+    status = AJ_PolicyApply(&authContext, msg->sender);
+    if (AJ_OK != status) {
+        AJ_InfoPrintf(("AJ_PeerHandleSendManifestReply(msg=%p): Policy apply failed\n", msg));
+        goto Exit;
+    }
+    status = AJ_ManifestApply(manifest, msg->sender);
+    if (AJ_OK != status) {
+        AJ_InfoPrintf(("AJ_PeerHandleSendManifestReply(msg=%p): Manifest apply failed\n", msg));
+        goto Exit;
+    }
+
+    AJ_ManifestFree(manifest);
+    HandshakeComplete(status);
+    return status;
+
+Exit:
+    AJ_ManifestFree(manifest);
+    HandshakeComplete(AJ_ERR_SECURITY);
+    return AJ_ERR_SECURITY;
 }

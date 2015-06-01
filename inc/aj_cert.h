@@ -92,12 +92,12 @@ AJ_Status AJ_ASN1DecodeElements(DER_Element* der, const uint8_t* tags, size_t le
 /**
  * OIDs used in X.509 certificates.
  */
-extern const uint8_t OID_SIG_ECDSA_SHA256[];
-extern const uint8_t OID_KEY_ECC[];
-extern const uint8_t OID_CRV_PRIME256V1[];
-extern const uint8_t OID_DN_OU[];
-extern const uint8_t OID_DN_CN[];
-extern const uint8_t OID_BASIC_CONSTRAINTS[];
+extern const uint8_t OID_SIG_ECDSA_SHA256[8];
+extern const uint8_t OID_CRV_PRIME256V1[8];
+extern const uint8_t OID_SKI[3];
+extern const uint8_t OID_AKI[3];
+extern const uint8_t OID_HASH_SHA256[9];
+extern const uint8_t OID_CUSTOM_DIGEST[10];
 
 typedef struct _X509Validity {
     uint64_t from;

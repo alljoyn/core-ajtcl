@@ -37,6 +37,7 @@
 #include "aj_config.h"
 #include "aj_creds.h"
 #include "aj_peer.h"
+#include "aj_authorisation.h"
 
 #ifdef AJ_ARDP
 #include "aj_ardp.h"
@@ -681,6 +682,11 @@ void AJ_Disconnect(AJ_BusAttachment* bus)
      * Clear auth context
      */
     AJ_ClearAuthContext();
+
+    /*
+     * Close authorisation module
+     */
+    AJ_AuthorisationClose();
 
     /*
      * Set the routing nodes proto version to zero (not connected)

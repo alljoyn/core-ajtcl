@@ -574,11 +574,10 @@ AJ_Status AJ_ClearCredentials(uint16_t type)
                 AJ_NVRAM_Close(handle);
                 continue;
             }
+            AJ_NVRAM_Close(handle);
             if (test != type) {
-                AJ_NVRAM_Close(handle);
                 continue;
             }
-            AJ_NVRAM_Close(handle);
         }
         AJ_NVRAM_Delete(slot);
     }

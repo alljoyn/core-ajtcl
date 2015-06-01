@@ -33,6 +33,7 @@
 #include "aj_util.h"
 #include "aj_debug.h"
 #include "aj_config.h"
+#include "aj_authorisation.h"
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
  * (usually in debugger).
@@ -94,18 +95,7 @@ static AJ_DescriptionLookupFunc descriptionLookups[AJ_MAX_OBJECT_LISTS] = { NULL
 
 #define IS_DIRECTION(c) (((c) >= IN_ARG) && ((c) <= OUT_ARG))
 
-#define MEMBER_TYPE(c) (((c) >> 4) - 2)
-
-#define SIGNAL     MEMBER_TYPE('!')  /* ((0x21 >> 4) - 2) == 0 */
-#define METHOD     MEMBER_TYPE('?')  /* ((0x3F >> 4) - 2) == 1 */
-#define PROPERTY   MEMBER_TYPE('@')  /* ((0x40 >> 4) - 2) == 2 */
-
-#define SESSIONLESS  '&' /* Only to be uesd with a signal member types, indicates that the signal will not require a session and is a sessionless signal */
 #define IS_SESSIONLESS(c) ((c) == SESSIONLESS)
-
-#define SECURE_TRUE  '$' /* Security is required for an interface that start with a '$' character */
-#define SECURE_OFF   '#' /* Security is OFF, i.e. never required for an interface that starts with a '#' character */
-
 
 static const char* const MemberOpen[] = {
     "  <signal",
@@ -1043,6 +1033,13 @@ AJ_Status AJ_MarshalPropertyArgs(AJ_Message* msg, uint32_t propId)
     }
     if (secure) {
         msg->hdr->flags |= AJ_FLAG_ENCRYPTED;
+        /*
+         * Check outgoing access policy
+         */
+        status = AJ_AccessControlCheck(propId, msg->destination, AJ_ACCESS_OUTGOING);
+        if (AJ_OK != status) {
+            return status;
+        }
     }
     /*
      * Marshal interface name
@@ -1081,7 +1078,7 @@ AJ_Status AJ_InitMessageFromMsgId(AJ_Message* msg, uint32_t msgId, uint8_t msgTy
      * allows up to 255 characters in a signature but that would represent an outgrageously complex
      * message argument list.
      */
-    static char msgSignature[32];
+    static char msgSignature[64];
     AJ_Status status = AJ_OK;
 
 #ifndef NDEBUG
@@ -1260,9 +1257,15 @@ AJ_Status AJ_UnmarshalPropertyArgs(AJ_Message* msg, uint32_t* propId, const char
         /*
          * If the interface is secure check the message must be encrypted
          */
-        if ((status == AJ_OK) && secure && !(msg->hdr->flags & AJ_FLAG_ENCRYPTED)) {
-            status = AJ_ERR_SECURITY;
-            AJ_WarnPrintf(("Security violation accessing property\n"));
+        if ((status == AJ_OK) && secure) {
+            if (!(msg->hdr->flags & AJ_FLAG_ENCRYPTED)) {
+                AJ_WarnPrintf(("Security violation accessing property\n"));
+                return AJ_ERR_SECURITY;
+            }
+            /*
+             * Check incoming access policy
+             */
+            status = AJ_AccessControlCheck(*propId, msg->sender, AJ_ACCESS_INCOMING);
         }
     }
     return status;
@@ -1320,6 +1323,14 @@ AJ_Status AJ_MarshalAllPropertiesArgs(AJ_Message* replyMsg, const char* iface, A
             pos = AJ_StringFindFirstOf(prop, "<=>");
             if ((pos > 1) && (prop[pos - 1] == WRITE_ONLY)) {
                 continue;
+            }
+
+            /*
+             * Check outgoing access policy
+             */
+            status = AJ_AccessControlCheck(propId, replyMsg->destination, AJ_ACCESS_OUTGOING);
+            if (AJ_OK != status) {
+                goto Exit;
             }
 
             status = AJ_MarshalContainer(replyMsg, &dict, AJ_ARG_DICT_ENTRY);

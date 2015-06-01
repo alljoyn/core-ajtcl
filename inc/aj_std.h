@@ -90,7 +90,8 @@
 #define AJ_METHOD_EXCHANGE_SUITES      AJ_BUS_MESSAGE_ID(2, 1, 4)    /**< method for exchange suites */
 #define AJ_METHOD_KEY_EXCHANGE         AJ_BUS_MESSAGE_ID(2, 1, 5)    /**< method for key exchange */
 #define AJ_METHOD_KEY_AUTHENTICATION   AJ_BUS_MESSAGE_ID(2, 1, 6)    /**< method for authenticating key exchange */
-#define AJ_METHOD_SEND_MEMBERSHIPS     AJ_BUS_MESSAGE_ID(2, 1, 7)    /**< method for exchanging membership authorisations */
+#define AJ_METHOD_SEND_MANIFEST        AJ_BUS_MESSAGE_ID(2, 1, 7)    /**< method for exchanging manifests */
+#define AJ_METHOD_SEND_MEMBERSHIPS     AJ_BUS_MESSAGE_ID(2, 1, 8)    /**< method for exchanging membership authorisations */
 
 /*
  * Members of interface org.freedesktop.DBus.Introspectable
@@ -177,7 +178,7 @@
 #define AJ_PROPERTY_MANAGED_DEFAULT_POLICY         AJ_BUS_MESSAGE_ID(8, 3,  6)
 #define AJ_PROPERTY_MANAGED_MEMBERSHIP_SUMMARY     AJ_BUS_MESSAGE_ID(8, 3,  7)
 #define AJ_METHOD_MANAGED_RESET                    AJ_BUS_MESSAGE_ID(8, 3,  8)
-#define AJ_METHOD_MANAGED_UPDATE_IDENTITY          AJ_BUS_MESSAGE_ID(8, 3,  7)
+#define AJ_METHOD_MANAGED_UPDATE_IDENTITY          AJ_BUS_MESSAGE_ID(8, 3,  9)
 #define AJ_METHOD_MANAGED_UPDATE_POLICY            AJ_BUS_MESSAGE_ID(8, 3, 10)
 #define AJ_METHOD_MANAGED_RESET_POLICY             AJ_BUS_MESSAGE_ID(8, 3, 11)
 #define AJ_METHOD_MANAGED_INSTALL_MEMBERSHIP       AJ_BUS_MESSAGE_ID(8, 3, 12)

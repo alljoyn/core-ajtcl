@@ -60,8 +60,15 @@ typedef struct _PSKContext {
     size_t size;                                   /**< Size of PSK hint */
 } PSKContext;
 
+typedef struct _ECDSAContext {
+    AJ_ECCPublicKey issuer;                        /**< Certificate issuer */
+    AJ_ECCPublicKey subject;                       /**< Certificate subject */
+    uint8_t manifest[SHA256_DIGEST_LENGTH];        /**< Manifest digest */
+} ECDSAContext;
+
 typedef struct _KeyAuthenticationContext {
     PSKContext psk;                                /**< Context for PSK authentication */
+    ECDSAContext ecdsa;                            /**< Context for ECDSA authentication */
 } KeyAuthenticationContext;
 
 /**

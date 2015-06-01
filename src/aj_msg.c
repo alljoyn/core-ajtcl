@@ -40,6 +40,7 @@
 #include "aj_bus.h"
 #include "aj_debug.h"
 #include "aj_config.h"
+#include "aj_authorisation.h"
 
 #ifdef AJ_ARDP
 #include "aj_ardp.h"
@@ -1285,6 +1286,19 @@ AJ_Status AJ_UnmarshalMsg(AJ_BusAttachment* bus, AJ_Message* msg, uint32_t timeo
         if (status == AJ_OK) {
             status = AJ_IdentifyMessage(msg);
         }
+        /*
+         * Check incoming policy
+         */
+        if ((AJ_OK == status) && (msg->hdr) && (msg->hdr->flags & AJ_FLAG_ENCRYPTED)) {
+            if ((msg->hdr->msgType == AJ_MSG_METHOD_CALL) || (msg->hdr->msgType == AJ_MSG_SIGNAL)) {
+                status = AJ_AccessControlCheck(msg->msgId, msg->sender, AJ_ACCESS_INCOMING);
+                if (AJ_OK != status) {
+                    AJ_Message reply;
+                    AJ_MarshalStatusMsg(msg, &reply, status);
+                    AJ_DeliverMsg(&reply);
+                }
+            }
+        }
     } else {
         /*
          * Consume entire header
@@ -1863,7 +1877,17 @@ static AJ_Status MarshalMsg(AJ_Message* msg, uint8_t msgType, uint32_t msgId, ui
     msg->hdr->flags = flags;
     if (secure) {
         msg->hdr->flags |= AJ_FLAG_ENCRYPTED;
+        /*
+         * Check outgoing policy
+         */
+        if ((msgType == AJ_MSG_METHOD_CALL) || (msgType == AJ_MSG_SIGNAL)) {
+            status = AJ_AccessControlCheck(msg->msgId, msg->destination, AJ_ACCESS_OUTGOING);
+            if (AJ_OK != status) {
+                return status;
+            }
+        }
     }
+
 
     /*
      * The wire-protocol calls this flag NO_AUTO_START we toggle the meaning in the API
@@ -2394,6 +2418,17 @@ AJ_Status AJ_MarshalStatusMsg(const AJ_Message* methodCall, AJ_Message* reply, A
         }
         break;
 
+    case  AJ_ERR_ACCESS:
+        status = AJ_MarshalErrorMsg(methodCall, reply, AJ_ErrPermissionDenied);
+        /*
+         * We get a security violation error so if we encrypt the error message the receiver
+         * won't be able to decrypt it. We can fix this by clearing the header flags.
+         */
+        if (status == AJ_OK) {
+            reply->hdr->flags = 0;
+        }
+        break;
+
     default:
         status = AJ_MarshalErrorMsgWithInfo(methodCall, reply, AJ_ErrRejected, AJ_StatusText(status));
         break;
@@ -2406,6 +2441,8 @@ AJ_Status AJ_SetMsgBody(AJ_Message* msg, char sig, uint8_t* data, uint16_t size)
     AJ_IOBuffer* buf = &msg->bus->sock.tx;
     uint8_t* start = buf->writePtr;
     uint8_t pad;
+
+    AJ_InfoPrintf(("AJ_SetMsgBody(msg=%p, sig=%c, data=%p, size=%d)\n", msg, sig, data, size));
 
     /* Determine padding from signature */
     pad = PadForType(sig, buf);
@@ -2421,27 +2458,74 @@ AJ_Status AJ_GetMsgBody(AJ_Message* msg, char sig, uint8_t** data, uint16_t* siz
     AJ_IOBuffer* buf = &msg->bus->sock.rx;
     uint8_t pad;
 
+    AJ_InfoPrintf(("AJ_GetMsgBody(msg=%p, sig=%c, data=%p, size=%p)\n", msg, sig, data, size));
+
     /* Determine padding from signature */
     pad = PadForType(sig, buf);
     /* Skip over padding */
     if (AJ_IO_BUF_AVAIL(buf) < pad) {
-        AJ_WarnPrintf(("GetMsgBody(msg=%p, data=%p, size=%p): insufficient buffer available\n", msg, data, size));
+        AJ_WarnPrintf(("AJ_GetMsgBody(msg=%p, sig=%c, data=%p, size=%p): insufficient buffer available\n", msg, sig, data, size));
         return AJ_ERR_RESOURCES;
     }
     buf->readPtr += pad;
+    msg->bodyBytes -= pad;
     /* Message body starts here */
     *data = buf->readPtr;
     /* Size is at the start of body */
+    if (AJ_IO_BUF_AVAIL(buf) < sizeof (uint32_t)) {
+        AJ_WarnPrintf(("AJ_GetMsgBody(msg=%p, sig=%c, data=%p, size=%p): insufficient buffer available\n", msg, sig, data, size));
+        return AJ_ERR_RESOURCES;
+    }
     EndianSwap(msg, AJ_ARG_UINT32, buf->readPtr, 1);
     *size = *((uint32_t*)buf->readPtr);
     /* To account for padding? */
     *size += 8;
     if (AJ_IO_BUF_AVAIL(buf) < *size) {
-        AJ_WarnPrintf(("GetMsgBody(msg=%p, data=%p, size=%p): insufficient buffer available\n", msg, data, size));
+        AJ_WarnPrintf(("AJ_GetMsgBody(msg=%p, sig=%c, data=%p, size=%p): insufficient buffer available\n", msg, sig, data, size));
         return AJ_ERR_RESOURCES;
     }
-    /* Move the read pointer on */
+    /* Move the read pointer on and decrease body bytes */
+    if (msg->bodyBytes < *size) {
+        AJ_WarnPrintf(("AJ_GetMsgBody(msg=%p, sig=%c, data=%p, size=%p): insufficient body available\n", msg, sig, data, size));
+        return AJ_ERR_RESOURCES;
+    }
     buf->readPtr += *size;
+    msg->bodyBytes -= *size;
 
     return AJ_OK;
+}
+
+AJ_Status rx_noop(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)
+{
+    buf->writePtr += len;
+    return AJ_OK;
+}
+
+AJ_Status tx_noop(AJ_IOBuffer* buf)
+{
+    return AJ_OK;
+}
+
+/* This is the minimum requirements to unmarshal a message locally */
+void AJ_LocalMsg(AJ_BusAttachment* bus, AJ_MsgHeader* hdr, AJ_Message* msg, const char* sig, uint8_t* data, size_t size)
+{
+    memset(msg, 0, sizeof (AJ_Message));
+    memset(hdr, 0, sizeof (AJ_MsgHeader));
+    hdr->endianess = AJ_NATIVE_ENDIAN;
+    msg->hdr = hdr;
+    msg->bus = bus;
+    msg->signature = sig;
+    msg->bodyBytes = size;
+    bus->sock.rx.direction = AJ_IO_BUF_RX;
+    bus->sock.rx.recv = rx_noop;
+    bus->sock.rx.bufSize = size;
+    bus->sock.rx.bufStart = data;
+    bus->sock.rx.readPtr = bus->sock.rx.bufStart;
+    bus->sock.rx.writePtr = bus->sock.rx.bufStart;
+    bus->sock.tx.direction = AJ_IO_BUF_TX;
+    bus->sock.tx.send = tx_noop;
+    bus->sock.tx.bufSize = size;
+    bus->sock.tx.bufStart = data;
+    bus->sock.tx.readPtr = bus->sock.tx.bufStart;
+    bus->sock.tx.writePtr = bus->sock.tx.bufStart;
 }

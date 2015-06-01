@@ -197,6 +197,31 @@ AJ_Status AJ_PeerHandleKeyAuthentication(AJ_Message* msg, AJ_Message* reply);
 AJ_Status AJ_PeerHandleKeyAuthenticationReply(AJ_Message* msg);
 
 /**
+ * Handle a send manifest message, an array of guild memberships
+ *
+ * @param msg    The send manifest message
+ * @param reply  The send manifest reply message
+ *
+ * @return   Return AJ_Status
+ *         - AJ_OK if successful
+ *         - AJ_ERR_RESOURCES if resource error or authentication in progress
+ *         - AJ_ERR_SECURITY if generic security violation
+ */
+AJ_Status AJ_PeerHandleSendManifest(AJ_Message* msg, AJ_Message* reply);
+
+/**
+ * Handle a send manifest reply
+ *
+ * @param msg    The send manifest reply message
+ *
+ * @return   Return AJ_Status
+ *         - AJ_OK if successful
+ *         - AJ_ERR_RESOURCES if resource error or authentication in progress
+ *         - AJ_ERR_SECURITY if generic security violation
+ */
+AJ_Status AJ_PeerHandleSendManifestReply(AJ_Message* msg);
+
+/**
  * Handle a send memberships message, an array of guild memberships
  *
  * @param msg    The send membserships message

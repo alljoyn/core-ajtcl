@@ -36,6 +36,8 @@
 #include <aj_peer.h>
 #include <aj_auth_listener.h>
 #include <aj_authentication.h>
+#include <aj_authorisation.h>
+#include <aj_security.h>
 
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
@@ -97,9 +99,17 @@ static const AJ_InterfaceDescription testInterfaces[] = {
 };
 
 static AJ_Object AppObjects[] = {
+#ifdef SECURE_INTERFACE
+    { "/org/alljoyn/alljoyn_test", testInterfaces, AJ_OBJ_FLAG_ANNOUNCED | AJ_OBJ_FLAG_SECURE },
+#else
     { "/org/alljoyn/alljoyn_test", testInterfaces, AJ_OBJ_FLAG_ANNOUNCED },
+#endif
     { NULL }
 };
+
+static AJ_PermissionMember members[] = { { "*", AJ_MEMBER_TYPE_ANY, AJ_ACTION_PROVIDE, NULL } };
+static AJ_PermissionRule rules[] = { { "/org/alljoyn/alljoyn_test", "org.alljoyn.alljoyn_test", members, NULL } };
+static AJ_Manifest manifest = { rules };
 
 /*
  * Message identifiers for the method calls this application implements
@@ -110,7 +120,6 @@ static AJ_Object AppObjects[] = {
 #define APP_DELAYED_PING    AJ_APP_MESSAGE_ID(0, 1, 1)
 #define APP_TIME_PING       AJ_APP_MESSAGE_ID(0, 1, 2)
 #define APP_MY_SIGNAL       AJ_APP_MESSAGE_ID(0, 1, 3)
-
 
 /*
  * Property identifiers for the properies this application implements
@@ -139,27 +148,6 @@ static uint32_t PasswordCallback(uint8_t* buffer, uint32_t bufLen)
     return sizeof(PWD) - 1;
 }
 
-// Copied from alljoyn/alljoyn_core/test/bbservice.cc
-static const char pem_prv[] = {
-    "-----BEGIN EC PRIVATE KEY-----"
-    "MDECAQEEIICSqj3zTadctmGnwyC/SXLioO39pB1MlCbNEX04hjeioAoGCCqGSM49"
-    "AwEH"
-    "-----END EC PRIVATE KEY-----"
-};
-
-static const char pem_x509[] = {
-    "-----BEGIN CERTIFICATE-----"
-    "MIIBWjCCAQGgAwIBAgIHMTAxMDEwMTAKBggqhkjOPQQDAjArMSkwJwYDVQQDDCAw"
-    "ZTE5YWZhNzlhMjliMjMwNDcyMGJkNGY2ZDVlMWIxOTAeFw0xNTAyMjYyMTU1MjVa"
-    "Fw0xNjAyMjYyMTU1MjVaMCsxKTAnBgNVBAMMIDZhYWM5MjQwNDNjYjc5NmQ2ZGIy"
-    "NmRlYmRkMGM5OWJkMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEP/HbYga30Afm"
-    "0fB6g7KaB5Vr5CDyEkgmlif/PTsgwM2KKCMiAfcfto0+L1N0kvyAUgff6sLtTHU3"
-    "IdHzyBmKP6MQMA4wDAYDVR0TBAUwAwEB/zAKBggqhkjOPQQDAgNHADBEAiAZmNVA"
-    "m/H5EtJl/O9x0P4zt/UdrqiPg+gA+wm0yRY6KgIgetWANAE2otcrsj3ARZTY/aTI"
-    "0GOQizWlQm8mpKaQ3uE="
-    "-----END CERTIFICATE-----"
-};
-
 static const char psk_hint[] = "<anonymous>";
 /*
  * The tests were changed at some point to make the psk longer.
@@ -171,12 +159,9 @@ static const char psk_char[] = "faaa0af3dd3f1e0379da046a3ab6ca44";
 #else
 static const char psk_char[] = "123456";
 #endif
-static X509CertificateChain* chain = NULL;
-static AJ_ECCPrivateKey prv;
-static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, AJ_Credential*cred)
+static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, AJ_Credential* cred)
 {
     AJ_Status status = AJ_ERR_INVALID;
-    X509CertificateChain* node;
 
     AJ_AlwaysPrintf(("AuthListenerCallback authmechanism %d command %d\n", authmechanism, command));
 
@@ -200,50 +185,6 @@ static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, 
             cred->len = strlen(psk_char);
             cred->expiration = keyexpiration;
             status = AJ_OK;
-            break;
-        }
-        break;
-
-    case AUTH_SUITE_ECDHE_ECDSA:
-        switch (command) {
-        case AJ_CRED_PRV_KEY:
-            cred->len = sizeof (AJ_ECCPrivateKey);
-            status = AJ_DecodePrivateKeyPEM(&prv, pem_prv);
-            if (AJ_OK != status) {
-                return status;
-            }
-            cred->data = (uint8_t*) &prv;
-            cred->expiration = keyexpiration;
-            break;
-
-        case AJ_CRED_CERT_CHAIN:
-            switch (cred->direction) {
-            case AJ_CRED_REQUEST:
-                // Free previous certificate chain
-                while (chain) {
-                    node = chain;
-                    chain = chain->next;
-                    AJ_Free(node->certificate.der.data);
-                    AJ_Free(node);
-                }
-                chain = AJ_X509DecodeCertificateChainPEM(pem_x509);
-                if (NULL == chain) {
-                    return AJ_ERR_INVALID;
-                }
-                cred->data = (uint8_t*) chain;
-                cred->expiration = keyexpiration;
-                status = AJ_OK;
-                break;
-
-            case AJ_CRED_RESPONSE:
-                node = (X509CertificateChain*) cred->data;
-                while (node) {
-                    AJ_DumpBytes("CERTIFICATE", node->certificate.der.data, node->certificate.der.size);
-                    node = node->next;
-                }
-                status = AJ_OK;
-                break;
-            }
             break;
         }
         break;
@@ -410,13 +351,17 @@ static const uint32_t suites[] = { AUTH_SUITE_ECDHE_ECDSA, AUTH_SUITE_ECDHE_PSK,
 #define CONNECT_TIMEOUT    (1000 * 1000)
 #define UNMARSHAL_TIMEOUT  (1000 * 5)
 
+#ifdef MAIN_ALLOWS_ARGS
+int AJ_Main(int ac, char** av)
+#else
 int AJ_Main()
+#endif
 {
     AJ_Status status = AJ_OK;
     AJ_BusAttachment bus;
     uint8_t connected = FALSE;
     uint32_t sessionId = 0;
-    X509CertificateChain* node;
+    uint8_t claim = FALSE;
 
     /*
      * One time initialization before calling any other AllJoyn APIs
@@ -426,6 +371,18 @@ int AJ_Main()
     AJ_PrintXML(AppObjects);
     AJ_RegisterObjects(AppObjects, NULL);
     AJ_AboutRegisterPropStoreGetter(AboutPropGetter);
+
+#ifdef MAIN_ALLOWS_ARGS
+    ac--;
+    av++;
+    if (ac) {
+#if defined(SECURE_INTERFACE) || defined(SECURE_OBJECT)
+        if (0 == strncmp(*av, "-claim", 6)) {
+            claim = TRUE;
+        }
+#endif
+    }
+#endif
 
     while (TRUE) {
         AJ_Message msg;
@@ -455,6 +412,10 @@ int AJ_Main()
             AJ_BusSetPasswordCallback(&bus, PasswordCallback);
             AJ_BusEnableSecurity(&bus, suites, ArraySize(suites));
             AJ_BusSetAuthListenerCallback(&bus, AuthListenerCallback);
+            AJ_ManifestTemplateSet(&manifest);
+            if (claim) {
+                AJ_SecuritySetClaimConfig(APP_STATE_CLAIMABLE, CLAIM_CAPABILITY_ECDHE_NULL, 0);
+            }
 #endif
 
             /* Configure timeout for the link to the daemon bus */
@@ -489,7 +450,7 @@ int AJ_Main()
                     uint16_t port;
                     char* joiner;
                     AJ_UnmarshalArgs(&msg, "qus", &port, &sessionId, &joiner);
-                    if (port == ServicePort) {
+                    if ((port == ServicePort) || (port == AJ_SECURE_MGMT_PORT)) {
                         status = AJ_BusReplyAcceptSession(&msg, TRUE);
                         AJ_InfoPrintf(("Accepted session session_id=%u joiner=%s\n", sessionId, joiner));
                     } else {
@@ -596,23 +557,20 @@ int AJ_Main()
     }
     AJ_WarnPrintf(("svclite EXIT %d\n", status));
 
-#if defined(SECURE_INTERFACE) || defined(SECURE_OBJECT)
-    // Clean up certificate chain
-    while (chain) {
-        node = chain;
-        chain = chain->next;
-        AJ_Free(node->certificate.der.data);
-        AJ_Free(node);
-    }
-#endif
-
     return status;
 }
 
 
 #ifdef AJ_MAIN
+#ifdef MAIN_ALLOWS_ARGS
+int main(int ac, char** av)
+{
+    return AJ_Main(ac, av);
+}
+#else
 int main()
 {
     return AJ_Main();
 }
+#endif
 #endif

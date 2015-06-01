@@ -54,8 +54,6 @@ extern "C" {
 #define AJ_CERTIFICATE_OEM_X509     0x0000 /**< Manufacturer certificate */
 #define AJ_CERTIFICATE_IDN_X509     0x0100 /**< Identity certificate */
 #define AJ_CERTIFICATE_MBR_X509     0x0200 /**< Membership certificate */
-#define AJ_POLICY_DEFAULT           0x0000 /**< Default policy */
-#define AJ_POLICY_INSTALLED         0x0100 /**< Installed policy */
 #define AJ_CONFIG_CLAIMSTATE        0x0000 /**< Claim state */
 #define AJ_CONFIG_ADMIN_GROUP       0x0100 /**< Admin group identifier */
 

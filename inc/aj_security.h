@@ -21,7 +21,10 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
-#include "aj_debug.h"
+#include "aj_creds.h"
+#include "aj_crypto_ecc.h"
+#include "aj_crypto_sha2.h"
+#include "aj_guid.h"
 #include "aj_msg.h"
 #include "aj_target.h"
 
@@ -53,19 +56,7 @@ extern "C" {
 void AJ_SecuritySetClaimConfig(uint16_t state, uint16_t capabilities, uint16_t info);
 
 /**
- * Initialistion for client security module
- * Generates key pair if not found
- *
- * @param bus        The bus attachment
- *
- * @return
- *          - AJ_OK on success
- *          - AJ_ERR_RESOURCES on failure
- */
-AJ_Status AJ_SecurityClientInit(AJ_BusAttachment* bus);
-
-/**
- * Initialistion for server security module
+ * Initialistion for security module
  * Generates key pair if not found
  * Binds to the permission management port
  *
@@ -75,7 +66,7 @@ AJ_Status AJ_SecurityClientInit(AJ_BusAttachment* bus);
  *          - AJ_OK on success
  *          - AJ_ERR_RESOURCES on failure
  */
-AJ_Status AJ_SecurityServerInit(AJ_BusAttachment* bus);
+AJ_Status AJ_SecurityInit(AJ_BusAttachment* bus);
 
 /**
  * Get application property
@@ -190,6 +181,18 @@ AJ_Status AJ_SecurityInstallMembershipMethod(AJ_Message* msg, AJ_Message* reply)
  *          - AJ_ERR_SECURITY on all failures
  */
 AJ_Status AJ_SecurityRemoveMembershipMethod(AJ_Message* msg, AJ_Message* reply);
+
+/**
+ * Unmarshal an ECCPublicKey object
+ *
+ * @param msg          The message
+ * @param pub          The ECCPublicKey object
+ *
+ * @return  Return AJ_Status
+ *          - AJ_OK on success
+ *          - AJ_ERR_INVALID on all failures
+ */
+AJ_Status AJ_UnmarshalECCPublicKey(AJ_Message* msg, AJ_ECCPublicKey* pub);
 
 #ifdef __cplusplus
 }
