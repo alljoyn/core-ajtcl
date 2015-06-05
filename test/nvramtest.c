@@ -24,6 +24,7 @@
 #include <aj_crypto.h>
 #include <aj_crypto_ecc.h>
 #include <aj_config.h>
+#include <aj_util.h>
 
 uint8_t dbgNVT = 0;
 
@@ -714,6 +715,78 @@ AJ_Status TestNVRAMPeek()
     return status;
 }
 
+AJ_Status TestNVRAMBigWrite()
+{
+    AJ_Status status = AJ_OK;
+    AJ_NV_DATASET* handle = NULL;
+    uint8_t* write_bytes;
+    uint8_t* read_bytes;
+    size_t bytes;
+    int i;
+    uint16_t size = 40000;
+
+    if (size > AJ_NVRAM_REQUESTED) {
+        AJ_AlwaysPrintf(("Testing big write not possible, NVRAM not big enough\n"));
+        return AJ_OK;
+    }
+
+    write_bytes = AJ_Malloc(size);
+    read_bytes = AJ_Malloc(size);
+    if (!write_bytes || !read_bytes) {
+        AJ_ErrPrintf(("malloc failed\n"));
+        return AJ_ERR_FAILURE;
+    }
+    memset(write_bytes, 0x54, size);
+    memset(read_bytes, 0x45, size);
+
+    handle = AJ_NVRAM_Open(1234, "w", size);
+    if (!handle) {
+        AJ_ErrPrintf(("Unable to open big write ID\n"));
+        return AJ_ERR_FAILURE;
+    }
+
+    bytes = AJ_NVRAM_Write(write_bytes, size, handle);
+    if (bytes != (size_t) size) {
+        AJ_ErrPrintf(("Unable to write big bytes\n"));
+        return AJ_ERR_FAILURE;
+    }
+
+    status = AJ_NVRAM_Close(handle);
+    if (status != AJ_OK) {
+        AJ_ErrPrintf(("Unable to close big write ID\n"));
+        return AJ_ERR_FAILURE;
+    }
+
+    handle = AJ_NVRAM_Open(1234, "r", 0);
+    if (!handle) {
+        AJ_ErrPrintf(("Unable to open big read ID\n"));
+        return AJ_ERR_FAILURE;
+    }
+
+    bytes = AJ_NVRAM_Read(read_bytes, size, handle);
+    if (bytes != (size_t) size) {
+        AJ_ErrPrintf(("Unable to read big bytes\n"));
+        return AJ_ERR_FAILURE;
+    }
+
+    for (i = 0; i < size; i++) {
+        if (write_bytes[i] != read_bytes[i]) {
+            AJ_ErrPrintf(("big bytes mismatch at offset %d\n", i));
+            return AJ_ERR_FAILURE;
+        }
+    }
+
+    status = AJ_NVRAM_Close(handle);
+    if (status != AJ_OK) {
+        AJ_ErrPrintf(("Unable to close big read ID\n"));
+        return AJ_ERR_FAILURE;
+    }
+
+    AJ_AlwaysPrintf(("Testing Big Write done\n"));
+    return AJ_OK;
+
+}
+
 AJ_Status TestNVRAM()
 {
     uint16_t id = 16;
@@ -891,6 +964,11 @@ int AJ_Main()
         status = TestNVRAMPeek();
         AJ_InfoPrintf(("\nNVRAM Peek STATUS %u\n", status));
         AJ_ASSERT(status == AJ_OK);
+
+        status = TestNVRAMBigWrite();
+        AJ_InfoPrintf(("\nNVRAM Big Write STATUS %u\n", status));
+        AJ_ASSERT(status == AJ_OK);
+
     }
     return 0;
 }
