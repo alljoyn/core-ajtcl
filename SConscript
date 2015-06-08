@@ -249,7 +249,8 @@ elif env['TARG'] == 'bsp':
                         '-Wuninitialized', '-Wfloat-equal', '-Wundef', '-Wshadow', '-Wbad-function-cast',
                         '-Wwrite-strings', '-Wsign-compare', '-Waggregate-return', '-Wmissing-declarations',
                         '-Wformat', '-Wmissing-format-attribute', '-Wno-deprecated-declarations',
-                        '-Wpacked', '-Wlong-long', '-Wunreachable-code', '-Wcast-align', '-MD', '-MP']
+                        '-Wpacked', '-Wlong-long', '-Wunreachable-code', '-Wcast-align', '-MD', '-MP',
+                        '-Wformat-security', '-Werror=format-security']
 
         # Add platform independent source files
         rtos_src = [Glob('RTOS/*.c') + Glob('RTOS/FreeRTOS/*.c') + Glob(env['FREE_RTOS_DIR'] + '/Source/*.c') +
@@ -293,7 +294,7 @@ elif env['TARG'] == 'bsp':
                             '-Wl,--end-group', '-L"' + env['ATMEL_DIR'] + '/thirdparty/CMSIS/Lib/GCC"', '-Wl,--gc-sections', '-Wl,-Map,${TARGET.base}.map',
                             '-mcpu=cortex-m3', '-Wl,--entry=Reset_Handler', '-T' + env['ATMEL_DIR'] + '/sam/utils/linker_scripts/sam3x/sam3x8/gcc/flash.ld']
         # Add platform dependent defines
-        env.Append(CPPDEFINES = ['__SAM3X8E__', 'ARM_MATH_CM3=true', 'BOARD=ARDUINO_DUE_X', 'printf=iprintf', 'AJ_HEAP4'])
+        env.Append(CPPDEFINES = ['__SAM3X8E__', 'ARM_MATH_CM3=true', 'BOARD=ARDUINO_DUE_X', 'printf=iprintf', 'AJ_HEAP4', '_FORTIFY_SOURCE=1'])
 
         # Add platform dependent include paths
         env['CPPPATH'] = [os.getcwd() + '/bsp', os.getcwd() + '/bsp/due', os.getcwd() + '/bsp/due/config',           env['FREE_RTOS_DIR'] + '/Source/include', os.getcwd() + '/RTOS/FreeRTOS',
@@ -350,7 +351,7 @@ elif env['TARG'] == 'bsp':
 
         # Add platform dependent defines
         env.Append(CPPDEFINES = ['STM32F407xx', 'USE_STDPERIPH_DRIVER','HAL_UART_MODULE_ENABLED', 'HAL_RCC_MODULE_ENABLED',
-                                 'HAL_GPIO_MODULE_ENABLED', 'HAL_USART_MODULE_ENABLED', 'HAL_FLASH_MODULE_ENABLED'])
+                                 'HAL_GPIO_MODULE_ENABLED', 'HAL_USART_MODULE_ENABLED', 'HAL_FLASH_MODULE_ENABLED', '_FORTIFY_SOURCE=1'])
 
         # Add platform dependent include paths
         env['CPPPATH'] = [os.getcwd() + '/bsp', os.getcwd() + '/bsp/stm32', env['FREE_RTOS_DIR'] + '/Source/include', os.getcwd() + '/RTOS/FreeRTOS',
@@ -463,7 +464,9 @@ elif env['TARG'] == 'bsp':
                           '-Wall',
                           '-fno-exceptions',
                           '-ffunction-sections',
-                          '-fdata-sections']
+                          '-fdata-sections',
+                          '-Wformat-security', 
+                          '-Werror=format-security']
         env['CXXFLAGS'] = ['-fno-rtti']
         env['PRELINKFLAGS'] = ['-mcpu=cortex-m4', '-mthumb', '-Wl,--gc-sections', '--specs=nano.specs', '-u', '_printf_float', '-u', '_scanf_float']
         env['LINKSCRIPT'] = ['-T' + env['MBED_DIR'] + '/mbed/TARGET_K64F/TOOLCHAIN_GCC_ARM/K64FN1M0xxx12.ld']
@@ -477,11 +480,8 @@ elif env['TARG'] == 'bsp':
         env.Append(CPPDEFINES = ['TARGET_K64F', 'TARGET_M4', 'TARGET_Freescale', 'TARGET_KPSDK_MCUS', 'TARGET_KPSDK_CODE',
                                  'TARGET_MCU_K64F', 'TARGET_FRDM', 'TOOLCHAIN_GCC_ARM', 'TOOLCHAIN_GCC', '__CORTEX_M4',
                                  'ARM_MATH_CM4', '__FPU_PRESENT=1', 'MBED_BUILD_TIMESTAMP=1411582835.22', '__MBED__=1',
-                                 'CPU_MK64FN1M0VMD12', 'FSL_RTOS_MBED', 'TARGET_FF_ARDUINO', '__CORTEX_M4', 'FSL_RTOS_MBED'
-                                 'AJ_CONFIGURE_WIFI_UPON_START',
-                                 'WIFI_SSID=\\"SEAQUIC-AP3\\"',
-                                 'WIFI_PASSPHRASE=\\"123456789\\"'
-                                 ])
+                                 'CPU_MK64FN1M0VMD12', 'FSL_RTOS_MBED', 'TARGET_FF_ARDUINO', '__CORTEX_M4', 'FSL_RTOS_MBED',
+                                 '_FORTIFY_SOURCE=1'])
 
 elif env['TARG'] in [ 'darwin' ]:
     if os.environ.has_key('CROSS_PREFIX'):
