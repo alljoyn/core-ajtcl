@@ -79,8 +79,12 @@ struct AJ_Queue* AJ_QueueCreate(const char* name) {
 
 void AJ_QueueDelete(struct AJ_Queue* q)
 {
-    delete q->q;
-    AJ_Free(q);
+    if (q) {
+        if (q->q) {
+            delete q->q
+        }
+        AJ_Free(q);
+    }
 }
 /*
  * Place holder for the top of the queue so peek can be implemented
