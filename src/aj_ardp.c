@@ -737,6 +737,21 @@ static void UpdateSndSegments(uint32_t ack)
     }
 }
 
+static void FlushExpiredRcvMessages(uint32_t seq, uint32_t ackNXT)
+{
+    uint32_t index =  conn->rcv.CUR % UDP_SEGMAX;
+    ArdpRBuf* rBuf = &conn->rcv.buf[index];
+
+    AJ_InfoPrintf(("FlushExpiredRcvMessages: seq = %u, expected %u got %u\n",
+                   seq, conn->rcv.CUR + 1, ackNXT));
+    while (SEQ32_LT(conn->rcv.CUR, ackNXT)) {
+        rBuf->fcnt = 0;
+        rBuf->dataLen = 0;
+        rBuf = rBuf->next;
+        conn->rcv.CUR++;
+    }
+}
+
 static void AddRcvBuffer(struct ArdpSeg* seg, uint8_t* rxBuf, uint16_t dataOffset)
 {
     uint32_t index = seg->SEQ % UDP_SEGMAX;
@@ -756,6 +771,7 @@ static void AddRcvBuffer(struct ArdpSeg* seg, uint8_t* rxBuf, uint16_t dataOffse
         UDP_Recv_State.rxContext = (void*) &conn->rcv.buf[index];
     }
 }
+
 static AJ_Status ArdpMachine(struct ArdpSeg* seg, uint8_t* rxBuf, uint16_t len)
 {
     AJ_Status status = AJ_OK;
@@ -824,7 +840,7 @@ static AJ_Status ArdpMachine(struct ArdpSeg* seg, uint8_t* rxBuf, uint16_t len)
             }
 
             if (seg->FLG & ARDP_FLAG_ACK) {
-                AJ_InfoPrintf(("ArdpMachine(): OPEN: Got ACK %u LCS %u\n", seg->ACK, seg->LCS));
+                AJ_InfoPrintf(("ArdpMachine(): OPEN: Got ACK %u LCS %u ACKNXT %u\n", seg->ACK, seg->LCS, seg->ACKNXT));
 
                 if (IN_RANGE(uint32_t, conn->snd.UNA, ((conn->snd.NXT - conn->snd.UNA) + 1), seg->ACK) == TRUE) {
                     conn->snd.UNA = seg->ACK + 1;
@@ -843,9 +859,12 @@ static AJ_Status ArdpMachine(struct ArdpSeg* seg, uint8_t* rxBuf, uint16_t len)
                 conn->confirm = TRUE;
             }
 
+            AJ_InfoPrintf(("ArdpMachine(): OPEN: seq = %u, we are waiting for %u, they wait for %u\n",
+                           seg->SEQ, conn->rcv.CUR + 1, seg->ACKNXT));
             if (SEQ32_LT(conn->rcv.CUR + 1, seg->ACKNXT)) {
-                AJ_InfoPrintf(("ArdpMachine(): OPEN: FlushExpiredRcvMessages: seq = %u, expected %u got %u\n",
+                AJ_InfoPrintf(("ArdpMachine(): OPEN: seq = %u, expected %u got %u\n",
                                seg->SEQ, conn->rcv.CUR + 1, seg->ACKNXT));
+                FlushExpiredRcvMessages(seg->SEQ, seg->ACKNXT);
                 status = AJ_ERR_ARDP_RECV_EXPIRED;
             }
 
@@ -906,14 +925,7 @@ static void RecvReady(void* rxContext)
 {
     ArdpRBuf* rBuf = (ArdpRBuf*) rxContext;
 
-    AJ_InfoPrintf(("RecvReady: buf=%p, seq=%u\n", rBuf, rBuf->seq));
-
-    if (rBuf->fcnt != 0) {
-        AJ_ASSERT((conn->rcv.LCS + 1) == rBuf->seq);
-    } else {
-        /* This is the very first call into this function. Connection is being established */
-        AJ_ASSERT(conn->rcv.LCS == rBuf->seq);
-    }
+    AJ_InfoPrintf(("RecvReady: buf=%p, seq=%u, lcs=%u\n", rBuf, rBuf->seq, conn->rcv.LCS));
 
     rBuf->fcnt = 0;
     rBuf->dataLen = 0;
@@ -1299,17 +1311,18 @@ AJ_Status AJ_ARDP_Recv(AJ_IOBuffer* rxBuf, uint32_t len, uint32_t timeout)
 
 UPDATE_READ:
 
+    if ((len != 0) && (UDP_Recv_State.rxContext != NULL)) {
+        UpdateReadBuffer(rxBuf, len);
+    }
+
     if (status == AJ_ERR_ARDP_RECV_EXPIRED) {
         /*
          * Currently we do not do anything with special expired messages.
          * Just deliver the accumulated data and inform the upper layer
          * (via status) that the the previous message may be incomplete.
          */
-        AJ_WarnPrintf(("AJ_ARDP_Recv: Expired message\n"));
-    }
-
-    if ((len != 0) && (UDP_Recv_State.rxContext != NULL)) {
-        UpdateReadBuffer(rxBuf, len);
+        AJ_WarnPrintf(("AJ_ARDP_Recv: Expired message, LCS %u\n", conn->rcv.LCS));
+        conn->rcv.LCS = conn->rcv.CUR;
     }
 
     localStatus = CheckTimers();
