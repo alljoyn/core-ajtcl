@@ -300,12 +300,12 @@ AJ_Status TestObsWrite()
 
     AJ_NVRAM_Layout_Print();
 
-    //if( AJ_NVRAM_Exist(AJ_NVRAM_ID_CREDS_MAX + 100)){ //NEGATIVE TEST, ID DOESN'T EXIST
-    //if( AJ_NVRAM_Exist(AJ_NVRAM_ID_CREDS_MAX + 1)){ //PROPERTY STORE DEVICE ID
-    if (AJ_NVRAM_Exist(AJ_NVRAM_ID_FOR_APPS)) {
+    //if( AJ_NVRAM_Exist(AJ_NVRAM_ID_SERVICES_BEGIN + 99)){ //NEGATIVE TEST, ID DOESN'T EXIST
+    //if( AJ_NVRAM_Exist(AJ_NVRAM_ID_SERVICES_BEGIN + 1)){ //PROPERTY STORE DEVICE ID
+    if (AJ_NVRAM_Exist(AJ_NVRAM_ID_APPS_BEGIN)) {
         //nvramHandle = AJ_NVRAM_Open(100, "r", 0); //NEGATIVE TEST, OPEN INVALID ID
-        //nvramHandle = AJ_NVRAM_Open(AJ_NVRAM_ID_CREDS_MAX + 1, "r", 0); //PROPERTY STORE DEVICE ID
-        nvramHandle = AJ_NVRAM_Open(AJ_NVRAM_ID_FOR_APPS, "r", 0);
+        //nvramHandle = AJ_NVRAM_Open(AJ_NVRAM_ID_SERVICES_BEGIN, "r", 0); //PROPERTY STORE DEVICE ID
+        nvramHandle = AJ_NVRAM_Open(AJ_NVRAM_ID_APPS_BEGIN, "r", 0);
         if (nvramHandle != NULL) {
             int sizeRead = AJ_NVRAM_Read(&info, size, nvramHandle);
             status = AJ_NVRAM_Close(nvramHandle);
@@ -335,11 +335,11 @@ AJ_Status TestObsWrite()
         AJ_AlwaysPrintf(("Going to write Info values: state=%d, ssid=%s authType=%d pc=%s\n", info.state, info.ssid, info.authType, info.pc));
 #endif
 
-        //nvramHandle = AJ_NVRAM_Open(AJ_NVRAM_ID_CREDS_MAX + 1, "w", 0); //NEGATIVE TEST, OPEN 0 SIZE
-        //nvramHandle = AJ_NVRAM_Open(AJ_NVRAM_ID_CREDS_MAX + 1, "t", size); //NEGATIVE TEST, INVALID MODE
+        //nvramHandle = AJ_NVRAM_Open(AJ_NVRAM_ID_SERVICES_BEGIN, "w", 0); //NEGATIVE TEST, OPEN 0 SIZE
+        //nvramHandle = AJ_NVRAM_Open(AJ_NVRAM_ID_SERVICES_BEGIN, "t", size); //NEGATIVE TEST, INVALID MODE
         //nvramHandle = AJ_NVRAM_Open(0, "w", size); //NEGATIVE TEST, OPEN 0 ID
-        //nvramHandle = AJ_NVRAM_Open(AJ_NVRAM_ID_CREDS_MAX + 1, "w", size); //PROPERTY STORE DEVICE ID
-        nvramHandle = AJ_NVRAM_Open(AJ_NVRAM_ID_FOR_APPS, "w", size);
+        //nvramHandle = AJ_NVRAM_Open(AJ_NVRAM_ID_SERVICES_BEGIN, "w", size); //PROPERTY STORE DEVICE ID
+        nvramHandle = AJ_NVRAM_Open(AJ_NVRAM_ID_APPS_BEGIN, "w", size);
         if (nvramHandle != NULL) {
             int sizeWritten = AJ_NVRAM_Write(&info, size, nvramHandle);
             status = AJ_NVRAM_Close(nvramHandle);
@@ -347,8 +347,8 @@ AJ_Status TestObsWrite()
                 status = AJ_ERR_WRITE;
             }
         }
-        //nvramHandle = AJ_NVRAM_Open(AJ_NVRAM_ID_CREDS_MAX + 1, "r", 0); //PROPERTY STORE DEVICE ID
-        nvramHandle = AJ_NVRAM_Open(AJ_NVRAM_ID_FOR_APPS, "r", 0);
+        //nvramHandle = AJ_NVRAM_Open(AJ_NVRAM_ID_SERVICES_BEGIN, "r", 0); //PROPERTY STORE DEVICE ID
+        nvramHandle = AJ_NVRAM_Open(AJ_NVRAM_ID_APPS_BEGIN, "r", 0);
         if (nvramHandle != NULL) {
             int sizeRead = AJ_NVRAM_Read(&info, size, nvramHandle);
             status = AJ_NVRAM_Close(nvramHandle);
@@ -614,14 +614,14 @@ AJ_Status TestNvramDelete()
         AJ_NVRAM_Layout_Print();
 #endif
 
-        if (AJ_NVRAM_Exist(AJ_NVRAM_ID_FOR_APPS)) {
+        if (AJ_NVRAM_Exist(AJ_NVRAM_ID_APPS_BEGIN)) {
             AJOBS_Info_Test emptyInfo;
             size_t size = sizeof(AJOBS_Info_Test);
 
             memset(&emptyInfo, 0, sizeof(emptyInfo));
             AJ_AlwaysPrintf(("Going to write Info values: state=%d, ssid=%s authType=%d pc=%s\n", emptyInfo.state, emptyInfo.ssid, emptyInfo.authType, emptyInfo.pc));
-            //AJ_NV_DATASET* nvramHandle = AJ_NVRAM_Open(AJ_NVRAM_ID_CREDS_MAX + 1, "w", size); //PROPERTY STORE DEVICE ID
-            nvramHandle = AJ_NVRAM_Open(AJ_NVRAM_ID_FOR_APPS, "w", size);
+            //AJ_NV_DATASET* nvramHandle = AJ_NVRAM_Open(AJ_NVRAM_ID_SERVICES_BEGIN, "w", size); //PROPERTY STORE DEVICE ID
+            nvramHandle = AJ_NVRAM_Open(AJ_NVRAM_ID_APPS_BEGIN, "w", size);
             if (nvramHandle != NULL) {
                 int sizeWritten = AJ_NVRAM_Write(&emptyInfo, size, nvramHandle);
                 status = AJ_NVRAM_Close(nvramHandle);
@@ -630,8 +630,8 @@ AJ_Status TestNvramDelete()
                     goto _TEST_NVRAM_DELETE_EXIT;
                 }
             }
-            //nvramHandle = AJ_NVRAM_Open(AJ_NVRAM_ID_CREDS_MAX + 1, "r", 0); //PROPERTY STORE DEVICE ID
-            nvramHandle = AJ_NVRAM_Open(AJ_NVRAM_ID_FOR_APPS, "r", 0);
+            //nvramHandle = AJ_NVRAM_Open(AJ_NVRAM_ID_SERVICES_BEGIN, "r", 0); //PROPERTY STORE DEVICE ID
+            nvramHandle = AJ_NVRAM_Open(AJ_NVRAM_ID_APPS_BEGIN, "r", 0);
             if (nvramHandle != NULL) {
                 int sizeRead = AJ_NVRAM_Read(&emptyInfo, size, nvramHandle);
                 status = AJ_NVRAM_Close(nvramHandle);
