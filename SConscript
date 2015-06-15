@@ -48,7 +48,7 @@ if default_msvc_version:
 
 if ARGUMENTS.get('TARG', default_target) in ['linux', 'win32']:
     vars.Add(EnumVariable('TCP', 'Enable support for TCP?', 'on', allowed_values=('on', 'off')))
-    vars.Add(EnumVariable('ARDP', 'Enable support for ARDP?', 'off', allowed_values=('on', 'off')))
+    vars.Add(EnumVariable('ARDP', 'Enable support for ARDP?', 'on', allowed_values=('on', 'off')))
 
 if ARGUMENTS.get('TARG', default_target) == 'win32':
     msvc_version = ARGUMENTS.get('MSVC_VERSION')
