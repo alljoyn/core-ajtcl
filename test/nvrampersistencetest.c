@@ -150,13 +150,13 @@ AJ_Status CreateTrailOfBreadcrumbs(void)
      * would be to divide the available space into equal slices and generate
      * one id from each slice.
      *
-     * The starting id is AJ_NVRAM_ID_FOR_APPS and the ending id is 0xFFFF.
+     * The starting id is AJ_NVRAM_ID_APPS_BEGIN and the ending id is 0xFFFF.
      *
      * There are a total of (lengthOfBreadcrumbTrail + 1) items to
      * go through, including the starting point smId.
      */
 
-    sizeOfEachSlice = (0xFFFF - AJ_NVRAM_ID_FOR_APPS) / lengthOfBreadcrumbTrail;
+    sizeOfEachSlice = (0xFFFF - AJ_NVRAM_ID_APPS_BEGIN) / lengthOfBreadcrumbTrail;
 
     /* The starting point has to be the constant marker, smId */
     someNvramId = smId;
@@ -168,7 +168,7 @@ AJ_Status CreateTrailOfBreadcrumbs(void)
         void* pointerToData;
 
         AJ_RandBytes(&randByte, sizeof(randByte));
-        startId = AJ_NVRAM_ID_FOR_APPS + sizeOfEachSlice * i;
+        startId = AJ_NVRAM_ID_APPS_BEGIN + sizeOfEachSlice * i;
 
         nextId = startId + randByte % sizeOfEachSlice;
 
