@@ -652,6 +652,7 @@ int AJ_Main()
     }
     AJ_AlwaysPrintf(("clientlite EXIT %d\n", status));
 
+#if defined(SECURE_INTERFACE) || defined(SECURE_OBJECT)
     // Clean up certificate chain
     while (chain) {
         node = chain;
@@ -659,6 +660,7 @@ int AJ_Main()
         AJ_Free(node->certificate.der.data);
         AJ_Free(node);
     }
+#endif
 
     return status;
 }
