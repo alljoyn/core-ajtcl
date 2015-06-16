@@ -23,7 +23,7 @@
  */
 #define AJ_MODULE SVCLITE
 
-#ifndef NO_SECURITY
+#ifndef TEST_DISABLE_SECURITY
 #define SECURE_INTERFACE
 #endif
 

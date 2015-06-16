@@ -34,7 +34,7 @@ vars.Add(EnumVariable('VARIANT', 'Build variant', 'debug', allowed_values=('debu
 vars.Add(PathVariable('GTEST_DIR', 'The path to googletest sources', os.environ.get('GTEST_DIR'), PathVariable.PathIsDir))
 vars.Add(EnumVariable('WS', 'Whitespace Policy Checker', 'check', allowed_values=('check', 'detail', 'fix', 'off')))
 vars.Add(EnumVariable('FORCE32', 'Force building 32 bit on 64 bit architecture', 'false', allowed_values=('false', 'true')))
-vars.Add(EnumVariable('NO_AUTH', 'Compile in authentication mechanism\'s to the code base', 'no', allowed_values=('no', 'yes')))
+vars.Add(EnumVariable('NO_AUTH', 'Compile test programs with authentication disabled', 'no', allowed_values=('no', 'yes')))
 vars.Add(EnumVariable('AJWSL', 'Compile driver for the QCA4004 for a specific platform', 'off', allowed_values=('due', 'stm32', 'frdm', 'off')))
 vars.Add(PathVariable('ATMEL_DIR', 'Directory for ATMEL source code', os.environ.get('ATMEL_DIR'), PathVariable.PathIsDir))
 vars.Add(PathVariable('FREE_RTOS_DIR','Directory to FreeRTOS source code', os.environ.get('FREE_RTOS_DIR'), PathVariable.PathIsDir))
@@ -71,7 +71,7 @@ env.Append(CPPDEFINES=cppdefines)
 if env['NO_AUTH'] == 'no':
     auth = ''
 else:
-    auth = 'NO_SECURITY'
+    auth = 'TEST_DISABLE_SECURITY'
 
 # Set AJ_DEBUG_RESTRICT level
 restrict = ARGUMENTS.get('DEBUG_RESTRICT', '')
