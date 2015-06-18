@@ -28,9 +28,19 @@
 extern "C" {
 #endif
 
-#define AJ_NVRAM_ID_CREDS_MAX        0x0FFF   /**< Last NVRAM ID reserved for AllJoyn credentials management */
-#define AJ_NVRAM_ID_RESERVED_MAX     0x7FFF   /**< Last NVRAM ID reserved for AllJoyn framework and services use */
-#define AJ_NVRAM_ID_FOR_APPS         0x8000   /**< First NVRAM ID available for application used */
+#define AJ_NVRAM_ID_CREDS_BEGIN      0x0001     /**< First NVRAM ID reserved for AllJoyn credentials management */
+#define AJ_NVRAM_ID_CREDS_MAX        0x0FFF     /**< Last NVRAM ID reserved for AllJoyn credentials management */
+#define AJ_NVRAM_ID_SERVICES_BEGIN   0x1000     /**< First NVRAM ID reserved for AllJoyn services */
+#define AJ_NVRAM_ID_SERVICES_MAX     0x1FFF     /**< Last NVRAM ID reserved for AllJoyn services */
+#define AJ_NVRAM_ID_FRAMEWORK_BEGIN  0x2000     /**< First NVRAM ID reserved for AllJoyn framework */
+#define AJ_NVRAM_ID_FRAMEWORK_MAX    0x2FFF     /**< Last NVRAM ID reserved for AllJoyn framework */
+#define AJ_NVRAM_ID_ALLJOYNJS_BEGIN  0x3000     /**< First NVRAM ID reserved for AllJoyn AllJoyn.js */
+#define AJ_NVRAM_ID_ALLJOYNJS_MAX    0x3FFF     /**< Last NVRAM ID reserved for AllJoyn AllJoyn.js */
+#define AJ_NVRAM_ID_RESERVED_BEGIN   0x4000     /**< First NVRAM ID reserved for AllJoyn future use*/
+#define AJ_NVRAM_ID_RESERVED_MAX     0x7FFF     /**< Last NVRAM ID reserved for AllJoyn future use*/
+#define AJ_NVRAM_ID_APPS_BEGIN       0x8000     /**< First NVRAM ID available for application use */
+#define AJ_NVRAM_ID_APPS_MAX         0xFFFE     /**< Last NVRAM ID available for application use */
+
 
 #define AJ_NV_DATASET_MODE_READ      'r'      /**< Data set is in read mode */
 #define AJ_NV_DATASET_MODE_WRITE     'w'      /**< Data set is in write mode */

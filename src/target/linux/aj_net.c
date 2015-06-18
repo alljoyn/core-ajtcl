@@ -723,10 +723,10 @@ Finished:
  * mode.  NS expects MTU of 1500 subtracts UDP, IP and ethertype overhead.
  * 1500 - 8 -20 - 18 = 1454.  txData buffer size needs to be big enough to hold
  * max(NS WHO-HAS for one name (4 + 2 + 256 = 262),
- *     mDNS query for one name (190 + 5 + 5 + 15 + 256 = 471)) = 471
+ *     mDNS query for one name (194 + 5 + 5 + 15 + 256 = 475)) = 475
  */
 static uint8_t rxDataMCast[1454];
-static uint8_t txDataMCast[471];
+static uint8_t txDataMCast[475];
 
 static int MCastUp4(const char group[], uint16_t port)
 {

@@ -44,7 +44,11 @@ https://jira.allseenalliance.org/issues/?jql=project%20%3D%20ASACORE%20AND%20fix
 
 Known Issues in Version 15.04a
 ------------------------------
-No significant issues to call out. For a complete list of open issues:
+ASACORE-2045 Unable to write more than 32764 bytes to an NVRAM item.
+ASACORE-2051 TC: Possible to write beyond the capacity using AJ_NVRAM_Write
+ASACORE-2053 AJ_NVRAM_Read can read beyond the item's capacity
+
+For a complete list of open issues:
 https://jira.allseenalliance.org/issues/?jql=project%3D%22Core%20SW%22%20and%20%20resolution%20%3D%20Unresolved%20and%20type%20not%20in%20%28task%2C%20%22New%20Feature%22%29%20and%20component%20%3D%20%22Thin%20Core%20Library%22%20order%20by%20priority%20DESC%2C%20id%20ASC
 
 

@@ -417,7 +417,9 @@ int AJ_Main()
     AJ_BusAttachment bus;
     uint8_t connected = FALSE;
     uint32_t sessionId = 0;
+#if defined(SECURE_INTERFACE) || defined(SECURE_OBJECT)
     X509CertificateChain* node;
+#endif
 
     /*
      * One time initialization before calling any other AllJoyn APIs

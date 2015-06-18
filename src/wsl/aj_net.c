@@ -497,10 +497,10 @@ AJ_Status AJ_Net_RecvFrom(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)
  * mode.  NS expects MTU of 1500 subtracts UDP, IP and ethertype overhead.
  * 1500 - 8 -20 - 18 = 1454.  txData buffer size needs to be big enough to hold
  * max(NS WHO-HAS for one name (4 + 2 + 256 = 262),
- *     mDNS query for one name (190 + 5 + 5 + 15 + 256 = 471)) = 471
+ *     mDNS query for one name (194 + 5 + 5 + 15 + 256 = 475)) = 475
  */
 const uint16_t rxDataMCastSize = 1454;
-const uint16_t txDataMCastSize = 471;
+const uint16_t txDataMCastSize = 475;
 
 #ifndef SO_REUSEPORT
 #define SO_REUSEPORT SO_REUSEADDR

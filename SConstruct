@@ -120,7 +120,7 @@ env['connectivity_options'] = [ 'tcp' ]
 env.SConscript('SConscript.target.$TARG')
 
 vars = Variables()
-vars.Add('CONNECTIVITY', 'Connectivity mechanism to connect to a routing node (any of ' + ', '.join(env['connectivity_options']) + ')', os.environ.get('AJ_CONNECTIVITY', 'tcp'))
+vars.Add('CONNECTIVITY', 'Connectivity mechanism to connect to a routing node (any of ' + ', '.join(env['connectivity_options']) + ')', os.environ.get('AJ_CONNECTIVITY', ' '.join(env['connectivity_options'])))
 vars.Update(env)
 Help(vars.GenerateHelpText(env))
 env['connectivity'] = [ opt.upper() for opt in env['connectivity_options'] if opt in env['CONNECTIVITY'].lower() ]

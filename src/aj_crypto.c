@@ -260,7 +260,7 @@ AJ_Status AJ_Decrypt_CCM(const uint8_t* key,
      * Balance the enable call above
      */
     AJ_AES_Disable();
-    if (memcmp(context->T.data, msg + msgLen, tagLen) != 0) {
+    if (Crypto_Compare(context->T.data, msg + msgLen, tagLen) != 0) {
         /*
          * Authentication failed Clear the decrypted data
          */
@@ -498,4 +498,20 @@ AJ_Status AES_CTR_DRBG_Generate(CTR_DRBG_CTX* ctx, uint8_t* rand, size_t size)
     ctx->c++;
 
     return AJ_OK;
+}
+
+int Crypto_Compare(const void* buf1, const void* buf2, size_t count)
+{
+    size_t i = 0;
+    uint8_t different = 0;
+
+    AJ_ASSERT(buf1 != NULL);
+    AJ_ASSERT(buf2 != NULL);
+
+    /* This loop uses the same number of cycles for any two buffers of size count. */
+    for (i = 0; i < count; i++) {
+        different |= ((uint8_t*)buf1)[i] ^ ((uint8_t*)buf2)[i];
+    }
+
+    return (int)different;
 }

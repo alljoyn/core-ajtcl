@@ -49,9 +49,10 @@ extern "C" {
 #define AJ_ADHOC_LEN                16          //AD-HOC maximal passcode length        (aj_auth.h)
 #define AJ_NAME_MAP_GUID_SIZE       4           //aj_guid.c
 #define AJ_MAX_CREDS                40          //Max number of credentials that can store credentials (aj_creds.h)
-#define AJ_LOCAL_GUID_NV_ID         1
-#define AJ_CREDS_NV_ID_BEGIN (AJ_LOCAL_GUID_NV_ID + 1)
-#define AJ_CREDS_NV_ID_END   (AJ_CREDS_NV_ID_BEGIN + AJ_MAX_CREDS)
+#define AJ_LOCAL_GUID_NV_ID         AJ_NVRAM_ID_CREDS_BEGIN
+#define AJ_CREDS_NV_ID_BEGIN        (AJ_LOCAL_GUID_NV_ID + 1)
+#define AJ_CREDS_NV_ID_END          (AJ_CREDS_NV_ID_BEGIN + AJ_MAX_CREDS)
+
 
 /* Timeouts */
 #define AJ_UNMARSHAL_TIMEOUT     (100 * 1000)      //unmarshal timeout                                (aj_helper.c + aj_msg.c)
