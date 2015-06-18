@@ -352,34 +352,6 @@ int AJ_Main(void)
 
     AJ_AlwaysPrintf(("AES CCM unit test PASSED\n"));
 
-    {
-        static const char expect[] = "F19787716404918CA20F174CFF2E165F21B17A70C472480AE91891B5BB8DD261CBD4273612D41BC6";
-        const char secret[] = "1234ABCDE";
-        const char seed[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234";
-        uint8_t key[40];
-        const char* inputs[3];
-        uint8_t length[3];
-
-        inputs[0] = secret;
-        length[0] = (uint8_t)strlen(secret);
-        inputs[1] = seed;
-        length[1] = (uint8_t)strlen(seed);
-        inputs[2] = "prf test";
-        length[2] = 8;
-
-        status = AJ_Crypto_PRF((const uint8_t**)inputs, length, ArraySize(inputs), key, sizeof(key));
-        if (status != AJ_OK) {
-            AJ_AlwaysPrintf(("AJ_Crypto_PRF %d\n", status));
-            goto ErrorExit;
-        }
-        AJ_RawToHex(key, sizeof(key), out, sizeof(out), FALSE);
-        if (strcmp(out, expect) != 0) {
-            AJ_AlwaysPrintf(("AJ_Crypto_PRF failed: %d\n", status));
-            goto ErrorExit;
-        }
-        AJ_AlwaysPrintf(("AJ_Crypto_PRF test PASSED: %d\n", status));
-    }
-
     return 0;
 
 ErrorExit:
