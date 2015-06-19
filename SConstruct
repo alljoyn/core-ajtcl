@@ -167,7 +167,7 @@ env.Install('#dist/include/ajtcl', env.Glob('src/target/$TARG/aj_target.h'))
 # Build the various parts
 #######################################################
 if env['build']:
-    env.SConscript('src/SConscript',       variant_dir='#build/$VARIANT',           duplicate = 0)
+    env.SConscript('src/SConscript',       variant_dir='#build/$VARIANT/src',       duplicate = 0)
     env.SConscript('samples/SConscript',   variant_dir='#build/$VARIANT/samples',   duplicate = 0)
     env.SConscript('test/SConscript',      variant_dir='#build/$VARIANT/test',      duplicate = 0)
     env.SConscript('unit_test/SConscript', variant_dir='#build/$VARIANT/unit_test', duplicate = 0)
