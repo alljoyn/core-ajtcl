@@ -247,7 +247,6 @@ static AJ_Status HandshakeValid(const AJ_GUID* peerGuid)
 
 AJ_Status AJ_PeerAuthenticate(AJ_BusAttachment* bus, const char* peerName, AJ_PeerAuthenticateCallback callback, void* cbContext)
 {
-#ifndef NO_SECURITY
     AJ_Status status;
     AJ_Message msg;
     char guidStr[2 * AJ_GUID_LEN + 1];
@@ -291,9 +290,6 @@ AJ_Status AJ_PeerAuthenticate(AJ_BusAttachment* bus, const char* peerName, AJ_Pe
     authContext.version = REQUIRED_AUTH_VERSION;
     AJ_MarshalArgs(&msg, "su", guidStr, authContext.version);
     return AJ_DeliverMsg(&msg);
-#else
-    return AJ_OK;
-#endif
 }
 
 AJ_Status AJ_PeerHandleExchangeGUIDs(AJ_Message* msg, AJ_Message* reply)

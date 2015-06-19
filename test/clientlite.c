@@ -20,7 +20,7 @@
 
 #define AJ_MODULE CLIENTLITE
 
-#ifndef NO_SECURITY
+#ifndef TEST_DISABLE_SECURITY
 #define SECURE_INTERFACE
 #endif
 
@@ -654,6 +654,7 @@ int AJ_Main()
     }
     AJ_AlwaysPrintf(("clientlite EXIT %d\n", status));
 
+#ifdef SECURE_INTERFACE
     // Clean up certificate chain
     while (chain) {
         node = chain;
@@ -661,6 +662,7 @@ int AJ_Main()
         AJ_Free(node->certificate.der.data);
         AJ_Free(node);
     }
+#endif
 
     return status;
 }

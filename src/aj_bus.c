@@ -617,10 +617,8 @@ AJ_Status AJ_BusHandleBusMessage(AJ_Message* msg)
 
 void AJ_BusSetPasswordCallback(AJ_BusAttachment* bus, AJ_AuthPwdFunc pwdCallback)
 {
-#ifndef NO_SECURITY
     AJ_InfoPrintf(("AJ_BusSetPasswordCallback(bus=0x%p, pwdCallback=0x%p)\n", bus, pwdCallback));
     bus->pwdCallback = pwdCallback;
-#endif
 }
 
 /**
