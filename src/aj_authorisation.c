@@ -46,8 +46,8 @@ uint8_t dbgAUTHORISATION = 0;
 #define POLICY_SPECIFICATION_VERSION   1
 
 /*
- * Policy helper struct
- * Containes a buffer of the raw marshalled data,
+ * Policy helper struct.
+ * Contains a buffer of the raw marshalled data,
  * and an AJ_Policy struct referencing inside the buffer.
  */
 typedef struct _Policy {
@@ -57,10 +57,10 @@ typedef struct _Policy {
 
 #define ACCESS_POLICY                  0
 #define ACCESS_MANIFEST                1
-#define ACCESS_INCOMING_DENY        0x01
-#define ACCESS_OUTGOING_DENY        0x02
-#define ACCESS_INCOMING_ALLOW       0x04
-#define ACCESS_OUTGOING_ALLOW       0x08
+#define ACCESS_DENY                 0x01
+#define ACCESS_INCOMING_ALLOW       0x02
+#define ACCESS_OUTGOING_ALLOW       0x04
+#define ACCESS_ALLOW (ACCESS_INCOMING_ALLOW | ACCESS_OUTGOING_ALLOW)
 /*
  * The main access control structure.
  * Maps message ids to peer's access.
@@ -209,13 +209,13 @@ AJ_Status AJ_AccessControlCheck(uint32_t id, const char* name, uint8_t direction
     access = mbr->access[peer];
     switch (direction) {
     case AJ_ACCESS_INCOMING:
-        if ((ACCESS_INCOMING_ALLOW & access) && !(ACCESS_INCOMING_DENY & access)) {
+        if (!(ACCESS_DENY & access) && (ACCESS_INCOMING_ALLOW & access)) {
             status = AJ_OK;
         }
         break;
 
     case AJ_ACCESS_OUTGOING:
-        if ((ACCESS_OUTGOING_ALLOW & access) && !(ACCESS_OUTGOING_DENY & access)) {
+        if (!(ACCESS_DENY & access) && (ACCESS_OUTGOING_ALLOW & access)) {
             status = AJ_OK;
         }
         break;
@@ -945,29 +945,25 @@ static uint8_t CommonPath(const char* name, const char* desc)
 
 /* 3 message types: SIGNAL, METHOD, PROPERTY */
 static uint8_t access_incoming[3] = { AJ_ACTION_PROVIDE, AJ_ACTION_MODIFY, AJ_ACTION_OBSERVE | AJ_ACTION_MODIFY };
-static uint8_t access_outgoing[3] = { AJ_ACTION_OBSERVE, AJ_ACTION_PROVIDE, AJ_ACTION_PROVIDE                    };
-static void PermissionMemberApply(AccessControlMember* mbr, uint8_t type, uint8_t action, uint32_t peer, uint8_t apply)
+static uint8_t access_outgoing[3] = { AJ_ACTION_OBSERVE, AJ_ACTION_PROVIDE, AJ_ACTION_PROVIDE };
+static uint8_t PermissionMemberAccess(uint8_t type, uint8_t action)
 {
+    uint8_t access = 0;
+
     if (0 == action) {
-        // Explicit deny both directions
-        mbr->access[peer] |= ACCESS_INCOMING_DENY | ACCESS_OUTGOING_DENY;
-    } else {
-        AJ_ASSERT(type < 3);
-        if (access_incoming[type] & action) {
-            if (ACCESS_POLICY == apply) {
-                mbr->access[peer] |= ACCESS_INCOMING_ALLOW;
-            } else {
-                mbr->access[peer] &= ACCESS_INCOMING_ALLOW;
-            }
-        }
-        if (access_outgoing[type] & action) {
-            if (ACCESS_POLICY == apply) {
-                mbr->access[peer] |= ACCESS_OUTGOING_ALLOW;
-            } else {
-                mbr->access[peer] &= ACCESS_OUTGOING_ALLOW;
-            }
-        }
+        /* Explicit deny both directions */
+        access = ACCESS_DENY;
     }
+
+    AJ_ASSERT(type < 3);
+    if (access_incoming[type] & action) {
+        access |= ACCESS_INCOMING_ALLOW;
+    }
+    if (access_outgoing[type] & action) {
+        access |= ACCESS_OUTGOING_ALLOW;
+    }
+
+    return access;
 }
 
 static uint8_t MemberType(uint8_t a, uint8_t b)
@@ -988,90 +984,116 @@ static uint8_t MemberType(uint8_t a, uint8_t b)
     return 0;
 }
 
-static void PermissionRuleApply(AJ_PermissionRule* rules, uint32_t peer, uint8_t apply)
+static uint8_t PermissionRuleAccess(AJ_PermissionRule* rule, AccessControlMember* acm)
 {
-    AccessControlMember* acm;
-    AJ_PermissionRule* rule;
     AJ_PermissionMember* member;
     uint8_t type;
     const char* obj;
     const char* ifn;
     const char* mbr;
+    uint8_t access = 0;
 
-    AJ_InfoPrintf(("PermissionRuleApply(rules=%p, peer=%d, apply=%x)\n", rules, peer, apply));
-
-    acm = g_access;
-    while (acm) {
-        rule = rules;
-        while (rule) {
-            obj = acm->obj;
-            ifn = acm->ifn;
-            if (SECURE_TRUE == *ifn) {
-                ifn++;
-            }
-            if (CommonPath(rule->obj, obj) && CommonPath(rule->ifn, ifn)) {
-                member = rule->members;
-                while (member) {
-                    mbr = acm->mbr;
-                    type = MEMBER_TYPE(*mbr);
-                    mbr++;
-                    if (SESSIONLESS == *mbr) {
-                        mbr++;
-                    }
-                    if (CommonPath(member->mbr, mbr) && MemberType(member->type, type)) {
-                        PermissionMemberApply(acm, type, member->action, peer, apply);
-                    }
-                    member = member->next;
-                }
-            }
-            rule = rule->next;
-        }
-        acm = acm->next;
+    obj = acm->obj;
+    ifn = acm->ifn;
+    /* Skip over secure annotation */
+    if (SECURE_TRUE == *ifn) {
+        ifn++;
     }
+    mbr = acm->mbr;
+    type = MEMBER_TYPE(*mbr);
+    mbr++;
+    /* Skip over sessionless annotation */
+    if (SESSIONLESS == *mbr) {
+        mbr++;
+    }
+
+    while (rule) {
+        if (CommonPath(rule->obj, obj) && CommonPath(rule->ifn, ifn)) {
+            member = rule->members;
+            while (member) {
+                if (CommonPath(member->mbr, mbr) && MemberType(member->type, type)) {
+                    /* Access is the union of all rules */
+                    access |= PermissionMemberAccess(type, member->action);
+                }
+                member = member->next;
+            }
+        }
+        rule = rule->next;
+    }
+
+    return access;
 }
 
 AJ_Status AJ_ManifestApply(AJ_Manifest* manifest, const char* name)
 {
     AJ_Status status;
     uint32_t peer;
+    uint8_t access;
+    AccessControlMember* acm;
 
     AJ_InfoPrintf(("AJ_ManifestApply(manifest=%p, name=%s)\n", manifest, name));
 
     status = AJ_GetPeerIndex(name, &peer);
     if (AJ_OK != status) {
         AJ_WarnPrintf(("AJ_ManifestApply(manifest=%p, name=%s): Peer not in table\n", manifest, name));
-        return AJ_ERR_SECURITY;
+        return AJ_ERR_ACCESS;
     }
 
-    PermissionRuleApply(manifest->rules, peer, ACCESS_MANIFEST);
+    acm = g_access;
+    while (acm) {
+        /* Don't undo any deny rules, only undo previous allow rules */
+        if (!(ACCESS_DENY & acm->access[peer]) && (ACCESS_ALLOW & acm->access[peer])) {
+            access = PermissionRuleAccess(manifest->rules, acm);
+            /* Intersection of policy and manifest access */
+            acm->access[peer] &= access;
+        }
+#ifndef NDEBUG
+        if (ACCESS_INCOMING_ALLOW & acm->access[peer]) {
+            AJ_InfoPrintf(("INCOMING: %s %s %s\n", acm->obj, acm->ifn, acm->mbr));
+        }
+        if (ACCESS_OUTGOING_ALLOW & acm->access[peer]) {
+            AJ_InfoPrintf(("OUTGOING: %s %s %s\n", acm->obj, acm->ifn, acm->mbr));
+        }
+#endif
+        acm = acm->next;
+    }
 
     return AJ_OK;
 }
 
-static uint8_t PermissionPeerFind(AJ_PermissionPeer* peer, AJ_AuthenticationContext* ctx)
+static AJ_Status PermissionPeerFind(AJ_PermissionPeer* peer, AJ_AuthenticationContext* ctx, uint8_t* type)
 {
+    AJ_Status status = AJ_ERR_UNKNOWN;
+
     while (peer) {
         switch (peer->type) {
         case AJ_PEER_TYPE_ALL:
-            return 1;
+            status = AJ_OK;
+            break;
 
         case AJ_PEER_TYPE_ANY_TRUSTED:
             if (AUTH_SUITE_ECDHE_NULL != ctx->suite) {
-                return 1;
+                status = AJ_OK;
             }
             break;
 
         case AJ_PEER_TYPE_FROM_CA:
-            AJ_ASSERT(peer->pub);
-            if (0 == memcmp((uint8_t*) peer->pub, (uint8_t*) &ctx->kactx.ecdsa.issuer, sizeof (AJ_ECCPublicKey))) {
-                return 1;
+            if (AUTH_SUITE_ECDHE_ECDSA == ctx->suite) {
+                AJ_ASSERT(peer->pub);
+                if (0 == memcmp((uint8_t*) peer->pub, (uint8_t*) &ctx->kactx.ecdsa.issuer, sizeof (AJ_ECCPublicKey))) {
+                    status = AJ_OK;
+                }
             }
             break;
 
         case AJ_PEER_TYPE_WITH_PUBLIC_KEY:
-            AJ_ASSERT(peer->pub);
-            if (0 == memcmp((uint8_t*) peer->pub, (uint8_t*) &ctx->kactx.ecdsa.subject, sizeof (AJ_ECCPublicKey))) {
-                return 1;
+            if (AUTH_SUITE_ECDHE_ECDSA == ctx->suite) {
+                AJ_ASSERT(peer->pub);
+                if (0 == memcmp((uint8_t*) peer->pub, (uint8_t*) &ctx->kactx.ecdsa.subject, sizeof (AJ_ECCPublicKey))) {
+                    status = AJ_OK;
+                    /* Only set output type if its with public key */
+                    *type = AJ_PEER_TYPE_WITH_PUBLIC_KEY;
+                }
             }
             break;
 
@@ -1082,17 +1104,7 @@ static uint8_t PermissionPeerFind(AJ_PermissionPeer* peer, AJ_AuthenticationCont
         peer = peer->next;
     }
 
-    return 0;
-}
-
-static void PermissionACLApply(AJ_PermissionACL* acl, AJ_AuthenticationContext* ctx, uint32_t peer)
-{
-    while (acl) {
-        if (PermissionPeerFind(acl->peers, ctx)) {
-            PermissionRuleApply(acl->rules, peer, ACCESS_POLICY);
-        }
-        acl = acl->next;
-    }
+    return status;
 }
 
 AJ_Status AJ_PolicyApply(AJ_AuthenticationContext* ctx, const char* name)
@@ -1100,34 +1112,64 @@ AJ_Status AJ_PolicyApply(AJ_AuthenticationContext* ctx, const char* name)
     AJ_Status status;
     Policy policy;
     uint32_t peer;
-    AccessControlMember* mbr;
+    uint8_t access;
+    AccessControlMember* acm;
+    AJ_PermissionACL* acl;
+    uint8_t type;
 
     AJ_InfoPrintf(("AJ_PolicyApply(ctx=%p, name=%s)\n", ctx, name));
 
     status = AJ_GetPeerIndex(name, &peer);
     if (AJ_OK != status) {
         AJ_WarnPrintf(("AJ_PolicyApply(ctx=%p, name=%s): Peer not in table\n", ctx, name));
-        return AJ_ERR_SECURITY;
+        return AJ_ERR_ACCESS;
     }
 
     status = PolicyLoad(&policy);
     if (AJ_OK == status) {
-        PermissionACLApply(policy.policy->acls, ctx, peer);
+        acm = g_access;
+        while (acm) {
+            acm->access[peer] = 0;
+            acl = policy.policy->acls;
+            while (acl) {
+                type = 0;
+                /* Look for a match in the peer list */
+                status = PermissionPeerFind(acl->peers, ctx, &type);
+                if (AJ_OK == status) {
+                    access = PermissionRuleAccess(acl->rules, acm);
+                    if (AJ_PEER_TYPE_WITH_PUBLIC_KEY != type) {
+                        /* Only allow explicit deny with public key type */
+                        access &= ~ACCESS_DENY;
+                    }
+                    acm->access[peer] |= access;
+#ifndef NDEBUG
+                    if ((ACCESS_INCOMING_ALLOW & acm->access[peer]) && !(ACCESS_DENY & acm->access[peer])) {
+                        AJ_InfoPrintf(("INCOMING: %s %s %s\n", acm->obj, acm->ifn, acm->mbr));
+                    }
+                    if ((ACCESS_OUTGOING_ALLOW & acm->access[peer]) && !(ACCESS_DENY & acm->access[peer])) {
+                        AJ_InfoPrintf(("OUTGOING: %s %s %s\n", acm->obj, acm->ifn, acm->mbr));
+                    }
+#endif
+                }
+                acl = acl->next;
+            }
+            acm = acm->next;
+        }
         PolicyUnload(&policy);
     } else {
         AJ_InfoPrintf(("AJ_PolicyApply(ctx=%p, name=%p): No stored policy\n", ctx, name));
-        /* Initial restricted access rights */
-        mbr = g_access;
-        while (mbr) {
-            switch (mbr->id) {
+        /* Initial restricted access rights to allow claim only */
+        acm = g_access;
+        while (acm) {
+            switch (acm->id) {
             case AJ_METHOD_SECURITY_GET_PROP:
             case AJ_PROPERTY_SEC_ECC_PUBLICKEY:
             case AJ_PROPERTY_SEC_MANIFEST_TEMPLATE:
             case AJ_METHOD_CLAIMABLE_CLAIM:
-                mbr->access[peer] |= ACCESS_INCOMING_ALLOW | ACCESS_OUTGOING_ALLOW;
+                acm->access[peer] = ACCESS_INCOMING_ALLOW;
                 break;
             }
-            mbr = mbr->next;
+            acm = acm->next;
         }
     }
 

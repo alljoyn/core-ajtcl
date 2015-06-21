@@ -107,7 +107,7 @@ static AJ_Object AppObjects[] = {
     { NULL }
 };
 
-static AJ_PermissionMember members[] = { { "*", AJ_MEMBER_TYPE_ANY, AJ_ACTION_PROVIDE, NULL } };
+static AJ_PermissionMember members[] = { { "*", AJ_MEMBER_TYPE_ANY, AJ_ACTION_PROVIDE | AJ_ACTION_OBSERVE, NULL } };
 static AJ_PermissionRule rules[] = { { "/org/alljoyn/alljoyn_test", "org.alljoyn.alljoyn_test", members, NULL } };
 static AJ_Manifest manifest = { rules };
 
@@ -167,7 +167,7 @@ static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, 
 
     switch (authmechanism) {
     case AUTH_SUITE_ECDHE_NULL:
-        cred->expiration = keyexpiration;
+        cred->expiration = 0;
         status = AJ_OK;
         break;
 

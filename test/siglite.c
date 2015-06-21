@@ -148,7 +148,7 @@ static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, 
 
     switch (authmechanism) {
     case AUTH_SUITE_ECDHE_NULL:
-        cred->expiration = keyexpiration;
+        cred->expiration = 0;
         status = AJ_OK;
         break;
 
