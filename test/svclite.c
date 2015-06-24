@@ -414,7 +414,7 @@ int AJ_Main()
             AJ_BusSetAuthListenerCallback(&bus, AuthListenerCallback);
             AJ_ManifestTemplateSet(&manifest);
             if (claim) {
-                AJ_SecuritySetClaimConfig(APP_STATE_CLAIMABLE, CLAIM_CAPABILITY_ECDHE_NULL, 0);
+                AJ_SecuritySetClaimConfig(APP_STATE_CLAIMABLE, CLAIM_CAPABILITY_ECDHE_PSK, 0);
             }
 #endif
 

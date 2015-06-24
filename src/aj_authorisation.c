@@ -1116,6 +1116,9 @@ AJ_Status AJ_PolicyApply(AJ_AuthenticationContext* ctx, const char* name)
     AccessControlMember* acm;
     AJ_PermissionACL* acl;
     uint8_t type;
+    uint16_t state;
+    uint16_t capabilities;
+    uint16_t info;
 
     AJ_InfoPrintf(("AJ_PolicyApply(ctx=%p, name=%s)\n", ctx, name));
 
@@ -1158,15 +1161,28 @@ AJ_Status AJ_PolicyApply(AJ_AuthenticationContext* ctx, const char* name)
         PolicyUnload(&policy);
     } else {
         AJ_InfoPrintf(("AJ_PolicyApply(ctx=%p, name=%p): No stored policy\n", ctx, name));
-        /* Initial restricted access rights to allow claim only */
+        /* Initial restricted access rights */
         acm = g_access;
         while (acm) {
             switch (acm->id) {
             case AJ_METHOD_SECURITY_GET_PROP:
             case AJ_PROPERTY_SEC_ECC_PUBLICKEY:
             case AJ_PROPERTY_SEC_MANIFEST_TEMPLATE:
-            case AJ_METHOD_CLAIMABLE_CLAIM:
                 acm->access[peer] = ACCESS_INCOMING_ALLOW;
+                break;
+
+            case AJ_METHOD_CLAIMABLE_CLAIM:
+                /* Only allow claim if correct claim capabilities set */
+                AJ_SecurityGetClaimConfig(&state, &capabilities, &info);
+                if (APP_STATE_CLAIMABLE == state) {
+                    if ((CLAIM_CAPABILITY_ECDHE_NULL & capabilities) && (AUTH_SUITE_ECDHE_NULL == ctx->suite)) {
+                        acm->access[peer] = ACCESS_INCOMING_ALLOW;
+                    } else if ((CLAIM_CAPABILITY_ECDHE_PSK & capabilities) && (AUTH_SUITE_ECDHE_PSK == ctx->suite)) {
+                        acm->access[peer] = ACCESS_INCOMING_ALLOW;
+                    } else if ((CLAIM_CAPABILITY_ECDHE_ECDSA & capabilities) && (AUTH_SUITE_ECDHE_ECDSA == ctx->suite)) {
+                        acm->access[peer] = ACCESS_INCOMING_ALLOW;
+                    }
+                }
                 break;
             }
             acm = acm->next;

@@ -92,6 +92,13 @@ void AJ_SecuritySetClaimConfig(uint16_t state, uint16_t capabilities, uint16_t i
     claimInfo = info;
 }
 
+void AJ_SecurityGetClaimConfig(uint16_t* state, uint16_t* capabilities, uint16_t* info)
+{
+    *state = claimState;
+    *capabilities = claimCapabilities;
+    *info = claimInfo;
+}
+
 AJ_Status AJ_SecurityInit(AJ_BusAttachment* bus)
 {
     AJ_Status status;

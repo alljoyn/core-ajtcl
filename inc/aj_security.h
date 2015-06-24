@@ -56,6 +56,16 @@ extern "C" {
 void AJ_SecuritySetClaimConfig(uint16_t state, uint16_t capabilities, uint16_t info);
 
 /**
+ * Get the application claim configuration
+ *
+ * @param state        Claim state
+ * @param capabilities Claim capabilities
+ * @param info         Claim capabilities info
+ *
+ */
+void AJ_SecurityGetClaimConfig(uint16_t* state, uint16_t* capabilities, uint16_t* info);
+
+/**
  * Initialistion for security module
  * Generates key pair if not found
  * Binds to the permission management port
