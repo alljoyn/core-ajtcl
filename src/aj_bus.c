@@ -415,6 +415,9 @@ AJ_Status AJ_BusHandleBusMessage(AJ_Message* msg)
     AJ_BusAttachment* bus = msg->bus;
     char* languageTag;
     AJ_Message reply;
+    uint16_t port;
+    uint32_t session;
+    char* joiner;
 
     AJ_InfoPrintf(("AJ_BusHandleBusMessage(msg=0x%p)\n", msg));
     memset(&reply, 0, sizeof(AJ_Message));
@@ -526,6 +529,26 @@ AJ_Status AJ_BusHandleBusMessage(AJ_Message* msg)
         AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_REPLY_ID(AJ_METHOD_CANCEL_SESSIONLESS)\n"));
         // handle return code here
         status = AJ_OK;
+        break;
+
+    case AJ_METHOD_ACCEPT_SESSION:
+        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_METHOD_ACCEPT_SESSION\n"));
+        status = AJ_UnmarshalArgs(msg, "qus", &port, &session, &joiner);
+        if (AJ_OK != status) {
+            break;
+        }
+        status = AJ_MarshalReplyMsg(msg, &reply);
+        if (AJ_OK != status) {
+            break;
+        }
+        /* We only accept sessions to the Security Management port */
+        if (AJ_SECURE_MGMT_PORT == port) {
+            status = AJ_MarshalArgs(&reply, "b", TRUE);
+            AJ_InfoPrintf(("Accepted session session_id=%u joiner=%s\n", session, joiner));
+        } else {
+            status = AJ_MarshalArgs(&reply, "b", FALSE);
+            AJ_InfoPrintf(("Rejected session session_id=%u joiner=%s\n", session, joiner));
+        }
         break;
 
     case AJ_SIGNAL_SESSION_JOINED:

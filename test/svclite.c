@@ -450,12 +450,15 @@ int AJ_Main()
                     uint16_t port;
                     char* joiner;
                     AJ_UnmarshalArgs(&msg, "qus", &port, &sessionId, &joiner);
-                    if ((port == ServicePort) || (port == AJ_SECURE_MGMT_PORT)) {
+                    if (port == ServicePort) {
                         status = AJ_BusReplyAcceptSession(&msg, TRUE);
                         AJ_InfoPrintf(("Accepted session session_id=%u joiner=%s\n", sessionId, joiner));
                     } else {
-                        status = AJ_BusReplyAcceptSession(&msg, FALSE);
-                        AJ_InfoPrintf(("Accepted rejected session_id=%u joiner=%s\n", sessionId, joiner));
+                        status = AJ_ResetArgs(&msg);
+                        if (AJ_OK != status) {
+                            break;
+                        }
+                        status = AJ_BusHandleBusMessage(&msg);
                     }
                 }
                 break;
