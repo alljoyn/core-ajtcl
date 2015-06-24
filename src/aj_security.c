@@ -594,6 +594,13 @@ AJ_Status AJ_SecurityClaimMethod(AJ_Message* msg, AJ_Message* reply)
         goto Exit;
     }
 
+    /* Clear master secrets */
+    status = AJ_ClearCredentials(AJ_CRED_TYPE_GENERIC);
+    if (AJ_OK != status) {
+        return status;
+    }
+    /* Cannot clear session keys because we are currently in one */
+
     /* Set claim state and save to nvram */
     claimState = APP_STATE_CLAIMED;
     status = SetClaimState(APP_STATE_CLAIMED);
