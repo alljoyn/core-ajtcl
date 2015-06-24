@@ -228,13 +228,13 @@ static const char* const SecurityManagedApplicationIface[] = {
     "@PolicyVersion >u",
     "@Policy >(qua(a(ya(yyayay)ay)a(ssa(syy))))",
     "@DefaultPolicy >(qua(a(ya(yyayay)ay)a(ssa(syy))))",
-    "@MembershipSummaries >a(ayyyayay)",
+    "@MembershipSummaries >a(ayayyyayay)",
     "?Reset",
     "?UpdateIdentity <a(yay) <a(ssa(syy))",
     "?UpdatePolicy <(qua(a(ya(yyayay)ay)a(ssa(syy))))",
     "?ResetPolicy",
     "?InstallMembership <a(yay)",
-    "?RemoveMembership <(ayyyayay)",
+    "?RemoveMembership <(ayayyyayay)",
     NULL
 };
 

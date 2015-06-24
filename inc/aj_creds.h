@@ -104,9 +104,24 @@ AJ_Status AJ_CredentialSet(uint16_t type, const AJ_CredField* id, uint32_t expir
  *
  * @return
  *      - AJ_OK if the credential is found
- *      - AJ_ERR_FAILURE otherwise
+ *      - AJ_ERR_UNKNOWN otherwise
  */
 AJ_Status AJ_CredentialGet(uint16_t type, const AJ_CredField* id, uint32_t* expiration, AJ_CredField* data);
+
+/**
+ * Get the credential for a (type, id) pair starting from a given slot
+ *
+ * @param type         Credential type
+ * @param id           Credential id
+ * @param expiration   Credential expiration
+ * @param data         Credential data
+ * @param slot         NVRAM slot to start searching from
+ *
+ * @return
+ *      - AJ_OK if the credential is found
+ *      - AJ_ERR_UNKNOWN otherwise
+ */
+AJ_Status AJ_CredentialGetNext(uint16_t type, const AJ_CredField* id, uint32_t* expiration, AJ_CredField* data, uint16_t* slot);
 
 /**
  * Get the GUID for this peer

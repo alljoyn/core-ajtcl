@@ -148,11 +148,10 @@ static uint16_t FindCredsEmptySlot()
     return 0;
 }
 
-static uint16_t CredentialFind(uint16_t type, const AJ_CredField* id, uint32_t* expiration, AJ_CredField* data)
+static uint16_t CredentialFind(uint16_t type, const AJ_CredField* id, uint32_t* expiration, AJ_CredField* data, uint16_t slot)
 {
     AJ_Status status;
     AJ_NV_DATASET* handle;
-    uint16_t slot = AJ_CREDS_NV_ID_BEGIN;
     uint32_t exp;
     uint16_t value;
     AJ_CredField field;
@@ -172,6 +171,16 @@ static uint16_t CredentialFind(uint16_t type, const AJ_CredField* id, uint32_t* 
             AJ_NVRAM_Close(handle);
             return 0;
         }
+        /* Compare type */
+        if (value != type) {
+            AJ_NVRAM_Close(handle);
+            continue;
+        }
+        if ((NULL == id) && (NULL == expiration) && (NULL == data)) {
+            /* No more fields requested */
+            AJ_NVRAM_Close(handle);
+            return slot;
+        }
         /* Read id */
         field.data = NULL;
         status = CredFieldRead(&field, handle);
@@ -179,13 +188,9 @@ static uint16_t CredentialFind(uint16_t type, const AJ_CredField* id, uint32_t* 
             AJ_NVRAM_Close(handle);
             return 0;
         }
-        found = 1;
-        /* Compare type */
-        if (found && value != type) {
-            found = 0;
-        }
         /* Compare id */
-        if (found && id) {
+        found = 1;
+        if (id) {
             if ((field.size != id->size) || (0 != memcmp(field.data, id->data, field.size))) {
                 found = 0;
             }
@@ -363,7 +368,7 @@ AJ_Status AJ_CredentialSet(uint16_t type, const AJ_CredField* id, uint32_t expir
 
     AJ_InfoPrintf(("AJ_CredentialSet(type=%04x, id=%p, expiration=%08x, data=%p)\n", type, id, expiration, data));
 
-    slot = CredentialFind(type, id, NULL, NULL);
+    slot = CredentialFind(type, id, NULL, NULL, AJ_CREDS_NV_ID_BEGIN);
     if (!slot) {
         /*
          * Check there is sufficient space left.
@@ -389,7 +394,14 @@ AJ_Status AJ_CredentialSet(uint16_t type, const AJ_CredField* id, uint32_t expir
 AJ_Status AJ_CredentialGet(uint16_t type, const AJ_CredField* id, uint32_t* expiration, AJ_CredField* data)
 {
     AJ_InfoPrintf(("AJ_CredentialGet(type=%04x, id=%p, expiration=%p, data=%p)\n", type, id, expiration, data));
-    return CredentialFind(type, id, expiration, data) ? AJ_OK : AJ_ERR_UNKNOWN;
+    return CredentialFind(type, id, expiration, data, AJ_CREDS_NV_ID_BEGIN) ? AJ_OK : AJ_ERR_UNKNOWN;
+}
+
+AJ_Status AJ_CredentialGetNext(uint16_t type, const AJ_CredField* id, uint32_t* expiration, AJ_CredField* data, uint16_t* slot)
+{
+    AJ_InfoPrintf(("AJ_CredentialGet(type=%04x, id=%p, expiration=%p, data=%p)\n", type, id, expiration, data));
+    *slot = CredentialFind(type, id, expiration, data, *slot);
+    return *slot ? AJ_OK : AJ_ERR_UNKNOWN;
 }
 
 static AJ_Status CredentialSetLocal(uint16_t slot, const uint8_t* data, uint16_t size)
@@ -528,7 +540,7 @@ AJ_Status AJ_CredentialGetECCPrivateKey(uint16_t type, const AJ_CredField* id, u
 AJ_Status AJ_CredentialDelete(uint16_t type, const AJ_CredField* id)
 {
     AJ_Status status = AJ_ERR_FAILURE;
-    uint16_t slot = CredentialFind(type, id, NULL, NULL);
+    uint16_t slot = CredentialFind(type, id, NULL, NULL, AJ_CREDS_NV_ID_BEGIN);
 
     AJ_InfoPrintf(("AJ_CredentialDelete(type=%04x, id=%p)\n", type, id));
 
