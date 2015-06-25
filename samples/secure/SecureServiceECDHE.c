@@ -242,7 +242,7 @@ static const size_t numsuites = 3;
 #define UNMARSHAL_TIMEOUT   (1000 * 5)
 #define SLEEP_TIME          (1000 * 2)
 
-int AJ_Main(int argc, char** argv)
+int AJ_Main(void)
 {
     AJ_Status status = AJ_OK;
     AJ_BusAttachment bus;
@@ -347,8 +347,8 @@ int AJ_Main(int argc, char** argv)
 }
 
 #ifdef AJ_MAIN
-int main(int argc, char** argv)
+int main(void)
 {
-    return AJ_Main(argc, argv);
+    return AJ_Main();
 }
 #endif

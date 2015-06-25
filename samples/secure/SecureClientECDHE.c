@@ -272,7 +272,11 @@ void AuthCallback(const void* context, AJ_Status status)
     *((AJ_Status*)context) = status;
 }
 
+#ifdef MAIN_ALLOWS_ARGS
 int AJ_Main(int ac, char** av)
+#else
+int AJ_Main(void)
+#endif MAIN_ALLOWS_ARGS
 {
     int done = FALSE;
     AJ_Status status = AJ_OK;
@@ -280,12 +284,13 @@ int AJ_Main(int ac, char** av)
     uint8_t connected = FALSE;
     uint32_t sessionId = 0;
     AJ_Status authStatus = AJ_ERR_NULL;
+    X509CertificateChain* node;
 
     uint32_t suites[16];
     size_t numsuites = 0;
     uint8_t clearkeys = FALSE;
-    X509CertificateChain* node;
 
+#ifdef MAIN_ALLOWS_ARGS
     ac--;
     av++;
     /*
@@ -325,6 +330,15 @@ int AJ_Main(int ac, char** av)
             av++;
         }
     }
+#else
+    /*
+     * Allow all authentication mechanisms
+     */
+    clearkeys = FALSE;
+    suites[numsuites++] = AUTH_SUITE_ECDHE_ECDSA;
+    suites[numsuites++] = AUTH_SUITE_ECDHE_PSK;
+    suites[numsuites++] = AUTH_SUITE_ECDHE_NULL;
+#endif
 
     /*
      * One time initialization before calling any other AllJoyn APIs
@@ -455,9 +469,15 @@ int AJ_Main(int ac, char** av)
 }
 
 #ifdef AJ_MAIN
-int main(int argc, char** argv)
+#ifdef MAIN_ALLOWS_ARGS
+int main(int ac, char** av)
 {
-    return AJ_Main(argc, argv);
+    return AJ_Main(ac, av);
 }
-
+#else
+int main(void)
+{
+    return AJ_Main();
+}
+#endif
 #endif
