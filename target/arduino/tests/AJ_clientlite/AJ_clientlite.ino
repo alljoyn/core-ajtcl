@@ -33,8 +33,6 @@
 #ifdef WIFI_UDP_WORKING
 static char ssid[] = "YOUR-WIFI";
 static char pass[] = "71DF437B55"; // hex password for the SSID
-int wifiStatus = WL_IDLE_STATUS;
-#else
 #endif
 
 void setup() {
@@ -49,28 +47,31 @@ void setup() {
 
 #ifdef WIFI_UDP_WORKING
     // check for the presence of the shield:
-    if (WiFi.status() == WL_NO_SHIELD) {
-        AJ_Printf("WiFi shield not present\n");
-        // don't continue:
-        while (true) ;
+    unsigned int retries = 10;
+    while (WiFi.status() == WL_NO_SHIELD) {
+        if (retries == 0) {
+            Serial.println("WiFi shield not present");
+            // don't continue:
+            while (true);
+        }
+        retries--;
+        delay(500);
     }
 
     // attempt to connect to Wifi network:
-    while (wifiStatus != WL_CONNECTED) {
-        AJ_Printf("Attempting to connect to WPA SSID: %s\n", ssid);
-
+    while (true) {
+        Serial.print("Attempting to connect to open SSID: ");
+        Serial.println(ssid);
         // Connect to WEP private network
-        //    wifiStatus = WiFi.begin(ssid);
-        wifiStatus = WiFi.begin(ssid, 0, pass);
-
-        // wait 10 seconds for connection:
+        WiFi.begin(ssid, 0, pass);
+        if (WiFi.status() == WL_CONNECTED) {
+            break;
+        }
         delay(10000);
-
-        // print your WiFi shield's IP address:
-        IPAddress ip = WiFi.localIP();
-        Serial.print("IP Address ");
-        Serial.println(ip);
     }
+    IPAddress ip = WiFi.localIP();
+    Serial.print("Connected: ");
+    Serial.println(ip);
 #else
     byte mac[] = { 0x00, 0xAA, 0xBB, 0xCC, 0xDE, 0x02 };
     // start the Ethernet connection:

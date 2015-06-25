@@ -351,7 +351,7 @@ static void AES_CTR_DRBG_DF(uint8_t* seed, size_t size, uint8_t data[SEEDLEN])
 
     n += (OUTLEN - (n % OUTLEN));
     AJ_ASSERT(0 == (n % OUTLEN));
-    S = AJ_Malloc(n);
+    S = (uint8_t*) AJ_Malloc(n);
     if (NULL == S) {
         // Errors are not propagated up
         return;
