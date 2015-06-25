@@ -40,39 +40,33 @@ void setup() {
 
 #ifdef WIFI_UDP_WORKING
     char ssid[] = "yourNetwork";     // the name of your network
-    int status = WL_IDLE_STATUS;     // the Wifi radio's status
 
     // check for the presence of the shield:
-    if (WiFi.status() == WL_NO_SHIELD) {
-        AJ_Printf("WiFi shield not present\n");
-        // don't continue:
-        while (true) ;
+    unsigned int retries = 10;
+    while (WiFi.status() == WL_NO_SHIELD) {
+        if (retries == 0) {
+            Serial.println("WiFi shield not present");
+            // don't continue:
+            while (true);
+        }
+        retries--;
+        delay(500);
     }
 
     // attempt to connect to Wifi network:
-    while (wifiStatus != WL_CONNECTED) {
+    while (true) {
         Serial.print("Attempting to connect to open SSID: ");
         Serial.println(ssid);
-        status = WiFi.begin(ssid);
-
-        // wait 10 seconds for connection:
+        WiFi.begin(ssid);
+        if (WiFi.status() == WL_CONNECTED) {
+            break;
+        }
         delay(10000);
-
-        IPAddress ip = WiFi.localIP();
-        Serial.print("Connected: ");
-        Serial.println(ip);
     }
+    IPAddress ip = WiFi.localIP();
+    Serial.print("Connected: ");
+    Serial.println(ip);
 #else
-    byte mac[] = { 0x00, 0xAA, 0xBB, 0xCC, 0xDE, 0x02 };
-    // start the Ethernet connection:
-    AJ_Printf("Connecting ethernet...\n");
-    if (Ethernet.begin(mac) == 0) {
-        AJ_Printf("Failed to configure Ethernet using DHCP\n");
-        // no point in carrying on, so do nothing forevermore:
-        for (;;)
-            ;
-    }
-#endif
 }
 
 // the loop routine runs over and over again forever:
