@@ -61,7 +61,7 @@ void setup() {
     pinMode(led, OUTPUT);
 
     Serial.begin(115200);
-    while (!Serial) ;
+    while (!Serial);
 
     digitalWrite(led, LOW);
 
@@ -71,11 +71,11 @@ void setup() {
     if (WiFi.status() == WL_NO_SHIELD) {
         AJ_AlwaysPrintf(("WiFi shield not present\n"));
         // don't continue:
-        while (true) ;
+        while (true);
     }
 
     // attempt to connect to Wifi network:
-    while (wifiStatus != WL_CONNECTED) {
+    while (status != WL_CONNECTED) {
         Serial.print("Attempting to connect to open SSID: ");
         Serial.println(ssid);
         status = WiFi.begin(ssid);

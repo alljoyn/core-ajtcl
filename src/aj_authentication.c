@@ -30,6 +30,7 @@
 #include "aj_peer.h"
 #include "aj_creds.h"
 #include "aj_auth_listener.h"
+#include "aj_crypto.h"
 
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
@@ -178,7 +179,7 @@ static AJ_Status ECDHEUnmarshalV1(AJ_AuthenticationContext* ctx, AJ_Message* msg
 
     // Encode the shared secret
     size = sizeof (ecc_secret);
-    data = AJ_Malloc(size);
+    data = (uint8_t*) AJ_Malloc(size);
     if (NULL == data) {
         return AJ_ERR_RESOURCES;
     }
@@ -232,7 +233,7 @@ static AJ_Status ECDHEUnmarshalV2(AJ_AuthenticationContext* ctx, AJ_Message* msg
 
     // Encode the shared secret
     size = KEY_ECC_PRV_SZ;
-    data = AJ_Malloc(size);
+    data = (uint8_t*) AJ_Malloc(size);
     if (NULL == data) {
         return AJ_ERR_RESOURCES;
     }

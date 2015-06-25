@@ -18,6 +18,8 @@
  ******************************************************************************/
 
 #include "Arduino.h"
+#include <time.h>
+#include <stdint.h>
 #include "aj_target.h"
 #include "aj_util.h"
 #include "aj_debug.h"
@@ -55,6 +57,38 @@ void AJ_InitTimer(AJ_Time* timer)
     timer->milliseconds = (uint16_t)(now.milliseconds % 1000);
 }
 
+uint64_t AJ_DecodeTime(char* der, char* fmt)
+{
+    time_t ret;
+    char* tz;
+
+    struct tm tm;
+    if (!strptime(der, fmt, &tm)) {
+        return 0;
+    }
+
+    /*
+     * mktime() assumes that tm is in local time but it is in UTC.
+     * So we set the time zone to UTC first, and reset it after the
+     * call to mktime().
+     */
+    tz = getenv("TZ");
+    setenv("TZ", "", 1);
+    tzset();
+    ret = mktime(&tm);
+    if (tz) {
+        setenv("TZ", tz, 1);
+    } else {
+        unsetenv("TZ");
+    }
+    tzset();
+
+    if (ret == -1) {
+        return 0;
+    }
+    return (uint64_t) ret;
+}
+
 void* AJ_Malloc(size_t sz)
 {
     return malloc(sz);
@@ -70,6 +104,13 @@ void AJ_Free(void* mem)
     if (mem) {
         free(mem);
     }
+}
+
+void AJ_MemZeroSecure(void* s, size_t n)
+{
+    volatile unsigned char* p = (unsigned char*) s;
+    while (n--) *p++ = '\0';
+    return;
 }
 
 void ram_diag()
@@ -88,6 +129,41 @@ uint8_t AJ_StartReadFromStdIn()
 uint8_t AJ_StopReadFromStdIn()
 {
     return FALSE;
+}
+
+uint16_t AJ_ByteSwap16(uint16_t x)
+{
+#ifdef __GNU_C__
+    return __builtin_bswap16(x);
+#else
+    return ((x & 0x00FF) << 8) | ((x & 0xFF00) >> 8);
+#endif
+}
+
+uint32_t AJ_ByteSwap32(uint32_t x)
+{
+#ifdef __GNU_C__
+    return __builtin_bswap32(x);
+#else
+    return ((x & 0x000000FF) << 24) | ((x & 0x0000FF00) << 8)
+           | ((x & 0x00FF0000) >> 8) | ((x & 0xFF000000) >> 24);
+#endif
+}
+
+uint64_t AJ_ByteSwap64(uint64_t x)
+{
+#ifdef __GNU_C__
+    return __builtin_bswap64(x);
+#else
+    return ((x & UINT64_C(0x00000000000000FF)) << 56)
+           | ((x & UINT64_C(0x000000000000FF00)) << 40)
+           | ((x & UINT64_C(0x0000000000FF0000)) << 24)
+           | ((x & UINT64_C(0x00000000FF000000)) <<  8)
+           | ((x & UINT64_C(0x000000FF00000000)) >>  8)
+           | ((x & UINT64_C(0x0000FF0000000000)) >> 24)
+           | ((x & UINT64_C(0x00FF000000000000)) >> 40)
+           | ((x & UINT64_C(0xFF00000000000000)) >> 56);
+#endif
 }
 
 char* AJ_GetCmdLine(char* buf, size_t num)

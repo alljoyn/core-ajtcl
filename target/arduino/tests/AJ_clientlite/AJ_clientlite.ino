@@ -52,7 +52,7 @@ void setup() {
     if (WiFi.status() == WL_NO_SHIELD) {
         AJ_Printf("WiFi shield not present\n");
         // don't continue:
-        while (true) ;
+        while (true);
     }
 
     // attempt to connect to Wifi network:
