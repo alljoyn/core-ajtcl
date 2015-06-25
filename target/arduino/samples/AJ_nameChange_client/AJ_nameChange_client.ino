@@ -43,10 +43,15 @@ void setup() {
     int status = WL_IDLE_STATUS;     // the Wifi radio's status
 
     // check for the presence of the shield:
-    if (WiFi.status() == WL_NO_SHIELD) {
-        AJ_Printf("WiFi shield not present\n");
-        // don't continue:
-        while (true) ;
+    unsigned int retries = 10;
+    while (WiFi.status() == WL_NO_SHIELD) {
+        if (retries == 0) {
+            Serial.println("WiFi shield not present"); 
+            // don't continue:
+            while(true);
+        }
+        retries--;
+        delay(500);
     }
 
     // attempt to connect to Wifi network:
