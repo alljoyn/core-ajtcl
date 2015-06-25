@@ -23,6 +23,7 @@
 #include "aj_bufio.h"
 #include "aj_net.h"
 #include "aj_util.h"
+#include "aj_disco.h"
 #include "aj_debug.h"
 
 #ifdef WIFI_UDP_WORKING
@@ -304,11 +305,11 @@ uint16_t AJ_EphemeralPort(void)
     return 49152 + random(65535 - 49152);
 }
 
-AJ_Status AJ_Net_MCastUp(AJ_NetSocket* netSock)
+AJ_Status AJ_Net_MCastUp(AJ_MCastSocket* mcastSock)
 {
     uint8_t ret = 0;
 
-    AJ_InfoPrintf(("AJ_Net_MCastUp(nexSock=0x%p)\n", netSock));
+    AJ_InfoPrintf(("AJ_Net_MCastUp(mcastSock=0x%p)\n", mcastSock));
 
     //
     // Arduino does not choose an ephemeral port if we enter 0 -- it happily
@@ -322,19 +323,19 @@ AJ_Status AJ_Net_MCastUp(AJ_NetSocket* netSock)
         AJ_ErrPrintf(("AJ_Net_MCastUp(): begin() fails. status=AJ_ERR_READ\n"));
         return AJ_ERR_READ;
     } else {
-        AJ_IOBufInit(&netSock->rx, rxData, sizeof(rxData), AJ_IO_BUF_RX, (void*)&g_clientUDP);
-        netSock->rx.recv = AJ_Net_RecvFrom;
-        AJ_IOBufInit(&netSock->tx, txData, sizeof(txData), AJ_IO_BUF_TX, (void*)&g_clientUDP);
-        netSock->tx.send = AJ_Net_SendTo;
+        AJ_IOBufInit(&mcastSock->rx, rxData, sizeof(rxData), AJ_IO_BUF_RX, (void*)&g_clientUDP);
+        mcastSock->rx.recv = AJ_Net_RecvFrom;
+        AJ_IOBufInit(&mcastSock->tx, txData, sizeof(txData), AJ_IO_BUF_TX, (void*)&g_clientUDP);
+        mcastSock->tx.send = AJ_Net_SendTo;
     }
 
     AJ_InfoPrintf(("AJ_Net_MCastUp(): status=AJ_OK\n"));
     return AJ_OK;
 }
 
-void AJ_Net_MCastDown(AJ_NetSocket* netSock)
+void AJ_Net_MCastDown(AJ_MCastSocket* mcastSock)
 {
-    AJ_InfoPrintf(("AJ_Net_MCastDown(nexSock=0x%p)\n", netSock));
+    AJ_InfoPrintf(("AJ_Net_MCastDown(mcastSock=0x%p)\n", mcastSock));
     g_clientUDP.flush();
     g_clientUDP.stop();
 }
