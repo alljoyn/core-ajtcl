@@ -832,7 +832,7 @@ static AJ_Status ArdpMachine(struct ArdpSeg* seg, uint8_t* rxBuf, uint16_t len)
     case CLOSE_WAIT:
     case OPEN:
         {
-            AJ_InfoPrintf(("ArdpMachine(): conn->state = OPEN\n"));
+            AJ_InfoPrintf(("ArdpMachine(): conn->state = %s\n", (conn->state == CLOSE_WAIT) ? "CLOSE_WAIT" : "OPEN"));
 
             if (seg->FLG & ARDP_FLAG_SYN) {
                 /* Ignore */
@@ -840,7 +840,7 @@ static AJ_Status ArdpMachine(struct ArdpSeg* seg, uint8_t* rxBuf, uint16_t len)
             }
 
             if (seg->FLG & ARDP_FLAG_ACK) {
-                AJ_InfoPrintf(("ArdpMachine(): OPEN: Got ACK %u LCS %u ACKNXT %u\n", seg->ACK, seg->LCS, seg->ACKNXT));
+                AJ_InfoPrintf(("ArdpMachine(): Got ACK %u LCS %u ACKNXT %u\n", seg->ACK, seg->LCS, seg->ACKNXT));
 
                 if (IN_RANGE(uint32_t, conn->snd.UNA, ((conn->snd.NXT - conn->snd.UNA) + 1), seg->ACK) == TRUE) {
                     conn->snd.UNA = seg->ACK + 1;
@@ -1288,7 +1288,7 @@ AJ_Status AJ_ARDP_Recv(AJ_IOBuffer* rxBuf, uint32_t len, uint32_t timeout)
             } else if (status == AJ_ERR_ARDP_DISCONNECTING) {
                 /* We are waiting for either TX queue to drain or timeout */
                 break;
-            } else if (status != AJ_ERR_ARDP_REMOTE_CONNECTION_RESET) {
+            } else if ((status != AJ_ERR_ARDP_REMOTE_CONNECTION_RESET) && (conn->state != CLOSE_WAIT)) {
                 AJ_WarnPrintf(("AJ_ARDP_Recv: received bad data, disconnecting\n"));
                 AJ_ARDP_Disconnect(TRUE);
             }
