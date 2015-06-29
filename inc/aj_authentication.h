@@ -25,6 +25,7 @@
 #include <ajtcl/aj_bus.h>
 #include <ajtcl/aj_config.h>
 #include <ajtcl/aj_target.h>
+#include <ajtcl/aj_crypto.h>
 #include <ajtcl/aj_crypto_ecc.h>
 #include <ajtcl/aj_crypto_sha2.h>
 
@@ -44,6 +45,19 @@ extern "C" {
 
 #define AUTH_CLIENT            0
 #define AUTH_SERVER            1
+
+/*
+ * We now define two versions of conversation hash: one that only hashes
+ * things inside KeyExchanger, used in authentication versions 3 and below, and
+ * the entire authentication conversation, used starting with version 4. These
+ * constants are used internally for calls to UpdateHash to indicate which
+ * version of the conversation hash a particular call pertains to.
+ *
+ * To stay consistent with the authentication version numbers, these are called
+ * V1 and V4.
+ */
+#define CONVERSATION_V1 ((uint32_t)0x0000)
+#define CONVERSATION_V4 ((uint32_t)0x0004)
 
 typedef struct _KeyExchangeContext {
     ecc_publickey pub;
@@ -143,6 +157,71 @@ uint8_t AJ_IsSuiteEnabled(uint32_t suite, uint32_t version);
  * @param suite        The authentication suite to enable
  */
 void AJ_EnableSuite(uint32_t suite);
+
+
+/**
+ * Initialize/reset a conversation hash
+ *
+ * @param ctx          The authentication context
+ *
+ */
+void AJ_ConversationHash_Initialize(AJ_AuthenticationContext* ctx);
+
+/**
+ * Update the conversation hash with a uint8_t
+ *
+ * @param ctx                   The authentication context
+ * @param conversationVersion   The minimum authentication version which applies to this update
+ * @param byte                  The byte to hash
+ *
+ */
+void AJ_ConversationHash_Update_UInt8(AJ_AuthenticationContext* ctx, uint32_t conversationVersion, uint8_t byte);
+
+/**
+ * Update the conversation hash with a byte array
+ *
+ * @param ctx                   The authentication context
+ * @param conversationVersion   The minimum authentication version which applies to this update
+ * @param buf                   The input array to hash
+ * @param bufSize               The size of buf
+ *
+ */
+void AJ_ConversationHash_Update_UInt8Array(AJ_AuthenticationContext* ctx, uint32_t conversationVersion, const uint8_t* buf, size_t bufSize);
+
+/**
+ * Update the conversation hash with a string. This function does not assume a null-terminated
+ * string; it will hash exactly the number of characters indicated by strSize.
+ *
+ * @param ctx                   The authentication context
+ * @param conversationVersion   The minimum authentication version which applies to this update
+ * @param str                   The string content to hash
+ * @param strSize               The length of the string
+ *
+ */
+void AJ_ConversationHash_Update_String(AJ_AuthenticationContext* ctx, uint32_t conversationVersion, const char* str, size_t strSize);
+
+/**
+ * Update the conversation hash with a message. If the message has been created locally with calls to AJ_Marshal*
+ * functions, this function must be called BEFORE AJ_DeliverMsg or AJ_DeliverMsgPartial is called on it.
+ *
+ * @param ctx                   The authentication context
+ * @param conversationVersion   The minimum authentication version which applies to this update
+ * @param msg                   The pointer to a message that was unmarshaled by an earlier call to AJ_UnmarshalMsg
+ *                              or created by calls to AJ_Marshal*
+ * @param isMarshaledMessage    1 if msg was created locally through AJ_Marshal* calls, or 0 if received
+ *                              through a call to AJ_UnmarshalMsg
+ *
+ */
+void AJ_ConversationHash_Update_Message(AJ_AuthenticationContext* ctx, uint32_t conversationVersion, AJ_Message* msg, uint8_t isMarshaledMessage);
+
+/**
+ * Get the conversation hash
+ *
+ * @param ctx           The authentication context
+ * @param digest        The buffer to receive the digest. Must be of SHA256_DIGEST_LENGTH
+ * @param keepAlive     Whether or not to keep the digest alive for continuing digest
+ */
+void AJ_ConversationHash_GetDigest(AJ_AuthenticationContext* ctx, uint8_t* digest, const uint8_t keepAlive);
 
 #ifdef __cplusplus
 }

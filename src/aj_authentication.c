@@ -31,6 +31,7 @@
 #include <ajtcl/aj_creds.h>
 #include <ajtcl/aj_auth_listener.h>
 #include <ajtcl/aj_crypto.h>
+#include <ajtcl/aj_msg_priv.h>
 
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
@@ -69,7 +70,7 @@ static AJ_Status ComputeVerifier(AJ_AuthenticationContext* ctx, const char* labe
     uint8_t lens[3];
     uint8_t digest[AJ_SHA256_DIGEST_LENGTH];
 
-    AJ_SHA256_GetDigest(&ctx->hash, digest, 1);
+    AJ_ConversationHash_GetDigest(ctx, digest, 1);
 
     data[0] = ctx->mastersecret;
     lens[0] = AJ_MASTER_SECRET_LEN;
@@ -93,7 +94,7 @@ static AJ_Status ECDHEMarshalV1(AJ_AuthenticationContext* ctx, AJ_Message* msg)
     AJ_BigEndianEncodePublicKey(&ctx->kectx.pub, &buf[1]);
     // Marshal the encoded key
     status = AJ_MarshalArgs(msg, "v", "ay", buf, sizeof (buf));
-    AJ_SHA256_Update(&ctx->hash, buf, sizeof (buf));
+    AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, buf, sizeof (buf));
 
     return status;
 }
@@ -111,8 +112,8 @@ static AJ_Status ECDHEMarshalV2(AJ_AuthenticationContext* ctx, AJ_Message* msg)
     AJ_BigvalEncode(&ctx->kectx.pub.y, buf + KEY_ECC_SZ, KEY_ECC_SZ);
     // Marshal the encoded key
     status = AJ_MarshalArgs(msg, "v", "(yay)", fmt, buf, sizeof (buf));
-    AJ_SHA256_Update(&ctx->hash, &fmt, sizeof (fmt));
-    AJ_SHA256_Update(&ctx->hash, buf, sizeof (buf));
+    AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, &fmt, sizeof (fmt));
+    AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, buf, sizeof (buf));
 
     return status;
 }
@@ -168,7 +169,7 @@ static AJ_Status ECDHEUnmarshalV1(AJ_AuthenticationContext* ctx, AJ_Message* msg
     // Decode the public key
     AJ_BigEndianDecodePublicKey(&pub, &data[1]);
 
-    AJ_SHA256_Update(&ctx->hash, data, size);
+    AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, data, size);
 
     // Generate shared secret
     status = AJ_GenerateShareSecret(&pub, &ctx->kectx.prv, &secret);
@@ -220,9 +221,9 @@ static AJ_Status ECDHEUnmarshalV2(AJ_AuthenticationContext* ctx, AJ_Message* msg
     memset(&pub, 0, sizeof (ecc_publickey));
     AJ_BigvalDecode(data, &pub.x, KEY_ECC_SZ);
     AJ_BigvalDecode(data + KEY_ECC_SZ, &pub.y, KEY_ECC_SZ);
-    AJ_SHA256_Update(&ctx->hash, &fmt, sizeof (fmt));
+    AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, &fmt, sizeof (fmt));
+    AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, data, size);
 
-    AJ_SHA256_Update(&ctx->hash, data, size);
 
     // Generate shared secret
     status = AJ_GenerateShareSecret(&pub, &ctx->kectx.prv, &secret);
@@ -320,7 +321,10 @@ static AJ_Status NULLMarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
         return AJ_ERR_SECURITY;
     }
     status = AJ_MarshalArgs(msg, "v", "ay", verifier, sizeof (verifier));
-    AJ_SHA256_Update(&ctx->hash, verifier, sizeof (verifier));
+
+    if (AJ_OK == status) {
+        AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, verifier, sizeof(verifier));
+    }
 
     return status;
 }
@@ -355,7 +359,7 @@ static AJ_Status NULLUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
         AJ_InfoPrintf(("NULLUnmarshal(ctx=%p, msg=%p): Invalid verifier\n", ctx, msg));
         return AJ_ERR_SECURITY;
     }
-    AJ_SHA256_Update(&ctx->hash, local, sizeof (local));
+    AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, local, sizeof (local));
 
     return status;
 }
@@ -374,8 +378,11 @@ static AJ_Status PSKCallbackV1(AJ_AuthenticationContext* ctx, AJ_Message* msg)
         return AJ_ERR_RESOURCES;
     }
     ctx->expiration = 0xFFFFFFFF;
-    AJ_SHA256_Update(&ctx->hash, ctx->kactx.psk.hint, ctx->kactx.psk.size);
-    AJ_SHA256_Update(&ctx->hash, data, size);
+    AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, ctx->kactx.psk.hint, ctx->kactx.psk.size);
+    AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, data, size);
+
+    AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V4, ctx->kactx.psk.hint, ctx->kactx.psk.size);
+    AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V4, data, size);
 
     return AJ_OK;
 }
@@ -409,8 +416,11 @@ static AJ_Status PSKCallbackV2(AJ_AuthenticationContext* ctx, AJ_Message* msg)
     }
     ctx->expiration = cred.expiration;
     // Hash in psk hint, then psk
-    AJ_SHA256_Update(&ctx->hash, ctx->kactx.psk.hint, ctx->kactx.psk.size);
-    AJ_SHA256_Update(&ctx->hash, cred.data, cred.len);
+    AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, ctx->kactx.psk.hint, ctx->kactx.psk.size);
+    AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, cred.data, cred.len);
+
+    AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V4, ctx->kactx.psk.hint, ctx->kactx.psk.size);
+    AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V4, cred.data, cred.len);
 
     return status;
 }
@@ -450,7 +460,8 @@ static AJ_Status PSKMarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
             return AJ_ERR_SECURITY;
         }
         status = ComputeVerifier(ctx, "client finished", verifier, sizeof (verifier));
-        AJ_SHA256_Update(&ctx->hash, verifier, sizeof (verifier));
+        AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, verifier, sizeof (verifier));
+
         break;
 
     case AUTH_SERVER:
@@ -494,7 +505,10 @@ static AJ_Status PSKUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
             return AJ_ERR_SECURITY;
         }
         status = ComputeVerifier(ctx, "client finished", verifier, sizeof (verifier));
-        AJ_SHA256_Update(&ctx->hash, verifier, sizeof (verifier));
+
+        if (AJ_OK == status) {
+            AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, verifier, sizeof(verifier));
+        }
         break;
 
     default:
@@ -567,7 +581,6 @@ static AJ_Status ECDSAMarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
     }
     memcpy((uint8_t*) &sig->prv, cred.data, cred.len);
     ctx->expiration = cred.expiration;
-
     // Sign verifier
     status = AJ_DSASignDigest(verifier, &sig->prv, &sig->sig);
     if (AJ_OK != status) {
@@ -576,8 +589,8 @@ static AJ_Status ECDSAMarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
     }
     AJ_BigvalEncode(&sig->sig.r, sig->sig_r, KEY_ECC_SZ);
     AJ_BigvalEncode(&sig->sig.s, sig->sig_s, KEY_ECC_SZ);
-    AJ_SHA256_Update(&ctx->hash, sig->sig_r, KEY_ECC_SZ);
-    AJ_SHA256_Update(&ctx->hash, sig->sig_s, KEY_ECC_SZ);
+    AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, sig->sig_r, KEY_ECC_SZ);
+    AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, sig->sig_s, KEY_ECC_SZ);
 
     // Marshal signature
     status = AJ_MarshalVariant(msg, "(vyv)");
@@ -597,7 +610,7 @@ static AJ_Status ECDSAMarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
 
     // Marshal certificate chain
     fmt = CERT_FMT_X509_DER;
-    AJ_SHA256_Update(&ctx->hash, &fmt, 1);
+    AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, &fmt, sizeof(fmt));
     status = AJ_MarshalArgs(msg, "y", fmt);
     if (AJ_OK != status) {
         goto Exit;
@@ -626,7 +639,7 @@ static AJ_Status ECDSAMarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
             AJ_WarnPrintf(("AJ_ECDSA_Marshal(msg=%p): Marshal certificate error\n", msg));
             goto Exit;
         }
-        AJ_SHA256_Update(&ctx->hash, chain->certificate.der.data, chain->certificate.der.size);
+        AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, chain->certificate.der.data, chain->certificate.der.size);
         chain = chain->next;
     }
     status = AJ_MarshalCloseContainer(msg, &container2);
@@ -701,8 +714,8 @@ static AJ_Status ECDSAUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
     }
     AJ_BigvalDecode(sig_r, &sig.r, KEY_ECC_SZ);
     AJ_BigvalDecode(sig_s, &sig.s, KEY_ECC_SZ);
-    AJ_SHA256_Update(&ctx->hash, sig_r, KEY_ECC_SZ);
-    AJ_SHA256_Update(&ctx->hash, sig_s, KEY_ECC_SZ);
+    AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, sig_r, KEY_ECC_SZ);
+    AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, sig_s, KEY_ECC_SZ);
 
     // Unmarshal certificate chain
     status = AJ_UnmarshalArgs(msg, "y", &fmt);
@@ -713,7 +726,7 @@ static AJ_Status ECDSAUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
         AJ_InfoPrintf(("AJ_ECDSA_Unmarshal(msg=%p): DER encoding expected\n", msg));
         goto Exit;
     }
-    AJ_SHA256_Update(&ctx->hash, &fmt, 1);
+    AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, &fmt, sizeof(fmt));
     status = AJ_UnmarshalVariant(msg, &variant);
     if (AJ_OK != status) {
         goto Exit;
@@ -731,7 +744,7 @@ static AJ_Status ECDSAUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
             // No more in array
             break;
         }
-        AJ_SHA256_Update(&ctx->hash, der.data, der.size);
+        AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, der.data, der.size);
 
         node = (X509CertificateChain*) AJ_Malloc(sizeof (X509CertificateChain));
         if (NULL == node) {
@@ -879,3 +892,90 @@ void AJ_EnableSuite(uint32_t suite)
     }
 }
 
+void AJ_ConversationHash_Initialize(AJ_AuthenticationContext* ctx)
+{
+    AJ_SHA256_Init(&ctx->hash);
+}
+
+static inline int ConversationVersionDoesNotApply(uint32_t conversationVersion, uint32_t currentAuthVersion)
+{
+    AJ_ASSERT((CONVERSATION_V1 == conversationVersion) || (CONVERSATION_V4 == conversationVersion));
+
+    /* The conversation version itself is computed by taking (currentAuthVersion >> 16). We return true
+     * if the current conversation version does NOT apply to the conversation version for the message being hashed.
+     */
+    if (CONVERSATION_V4 == conversationVersion) {
+        return ((currentAuthVersion >> 16) != CONVERSATION_V4);
+    } else {
+        return ((currentAuthVersion >> 16) >= CONVERSATION_V4);
+    }
+}
+
+void AJ_ConversationHash_Update_UInt8(AJ_AuthenticationContext* ctx, uint32_t conversationVersion, uint8_t byte)
+{
+    if (ConversationVersionDoesNotApply(conversationVersion, ctx->version)) {
+        return;
+    }
+    AJ_SHA256_Update(&ctx->hash, &byte, sizeof(byte));
+}
+
+void AJ_ConversationHash_Update_UInt8Array(AJ_AuthenticationContext* ctx, uint32_t conversationVersion, const uint8_t* buf, size_t bufSize)
+{
+    if (ConversationVersionDoesNotApply(conversationVersion, ctx->version)) {
+        return;
+    }
+    if (conversationVersion >= CONVERSATION_V4) {
+        uint8_t v_uintLE[sizeof(uint32_t)];
+        AJ_ASSERT(bufSize <= 0xFFFFFFFF);
+        uint32_t bufSizeU32 = (uint32_t)bufSize;
+        HostU32ToLittleEndianU8(&bufSizeU32, sizeof(bufSizeU32), v_uintLE);
+        AJ_SHA256_Update(&ctx->hash, v_uintLE, sizeof(v_uintLE));
+    }
+    AJ_SHA256_Update(&ctx->hash, buf, bufSize);
+}
+
+void AJ_ConversationHash_Update_String(AJ_AuthenticationContext* ctx, uint32_t conversationVersion, const char* str, size_t strSize)
+{
+    AJ_ConversationHash_Update_UInt8Array(ctx, conversationVersion, (const uint8_t*)str, strSize);
+}
+
+void AJ_ConversationHash_Update_Message(AJ_AuthenticationContext* ctx, uint32_t conversationVersion, AJ_Message* msg, uint8_t isMarshaledMessage)
+{
+    if (ConversationVersionDoesNotApply(conversationVersion, ctx->version)) {
+        return;
+    }
+
+    AJ_ASSERT((0 == isMarshaledMessage) || (1 == isMarshaledMessage));
+
+    AJ_ASSERT(!(msg->hdr->flags & AJ_FLAG_ENCRYPTED));
+
+    if (1 == isMarshaledMessage) {
+        /* msg->hdr->bodyLen gets set by AJ_DeliverMsg when the message is sent out. We set it here as well
+         * so that the buffer we hash equals what will actually go out on the wire.
+         */
+        AJ_ASSERT(0 == msg->hdr->bodyLen);
+        msg->hdr->bodyLen = msg->bodyBytes;
+        AJ_ConversationHash_Update_UInt8Array(ctx,
+                                              conversationVersion,
+                                              msg->bus->sock.tx.bufStart,
+                                              sizeof(AJ_MsgHeader) + msg->hdr->headerLen + HEADERPAD(msg->hdr->headerLen) + msg->hdr->bodyLen);
+    } else {
+        /* When a message is received, the AJ_FLAG_AUTO_START bit is flipped during unmarshaling.
+         * In thin client, because the AJ_Message data structures are overlaid on the raw buffer, this
+         * changes the buffer's content as well. Undo this flip so we hash the actual on-wire contents,
+         * hash, and then put it back. See AJ_UnmarshalMsg.
+         */
+        msg->hdr->flags ^= AJ_FLAG_AUTO_START;
+        AJ_ConversationHash_Update_UInt8Array(ctx,
+                                              conversationVersion,
+                                              msg->bus->sock.rx.bufStart,
+                                              sizeof(AJ_MsgHeader) + msg->hdr->headerLen + HEADERPAD(msg->hdr->headerLen) + msg->hdr->bodyLen);
+        msg->hdr->flags ^= AJ_FLAG_AUTO_START;
+    }
+
+}
+
+void AJ_ConversationHash_GetDigest(AJ_AuthenticationContext* ctx, uint8_t* digest, const uint8_t keepAlive)
+{
+    AJ_SHA256_GetDigest(&ctx->hash, digest, keepAlive);
+}
