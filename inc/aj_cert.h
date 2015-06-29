@@ -224,6 +224,26 @@ AJ_Status AJ_X509Verify(const X509Certificate* certificate, const ecc_publickey*
 AJ_Status AJ_X509VerifyChain(const X509CertificateChain* chain, const ecc_publickey* key);
 
 /**
+ * Convert unsigned 16-bit int array to network order (big endian) bytes.
+ *
+ * @param u16  Unsigned 16-bit array
+ * @param len  Length of 16-bit array
+ * @param u8   Unsigned 8-bit array
+ *
+ */
+void HostU16ToBigEndianU8(uint16_t* u16, size_t len, uint8_t* u8);
+
+/**
+ * Convert unsigned 16-bit int array to little endian bytes.
+ *
+ * @param u16  Unsigned 16-bit array
+ * @param len  Length of 16-bit array
+ * @param u8   Unsigned 8-bit array
+ *
+ */
+void HostU16ToLittleEndianU8(uint16_t* u16, size_t len, uint8_t* u8);
+
+/**
  * Convert unsigned 32-bit int array to network order (big endian) bytes.
  *
  * @param u32  Unsigned 32-bit array
@@ -232,6 +252,37 @@ AJ_Status AJ_X509VerifyChain(const X509CertificateChain* chain, const ecc_public
  *
  */
 void HostU32ToBigEndianU8(uint32_t* u32, size_t len, uint8_t* u8);
+
+/**
+ * Convert unsigned 32-bit int array to little endian bytes.
+ *
+ * @param u32  Unsigned 32-bit array
+ * @param len  Length of 32-bit array
+ * @param u8   Unsigned 8-bit array
+ *
+ */
+void HostU32ToLittleEndianU8(uint32_t* u32, size_t len, uint8_t* u8);
+
+/**
+ * Convert unsigned 64-bit int array to network order (big endian) bytes.
+ *
+ * @param u64  Unsigned 64-bit array
+ * @param len  Length of 64-bit array
+ * @param u8   Unsigned 8-bit array
+ *
+ */
+void HostU64ToBigEndianU8(uint64_t* u64, size_t len, uint8_t* u8);
+
+/**
+ * Convert unsigned 64-bit int array to little endian bytes.
+ *
+ * @param u64  Unsigned 64-bit array
+ * @param len  Length of 64-bit array
+ * @param u8   Unsigned 8-bit array
+ *
+ */
+void HostU64ToLittleEndianU8(uint64_t* u64, size_t len, uint8_t* u8);
+
 
 /**
  * Old encoding of native public key.

@@ -28,6 +28,44 @@
 extern "C" {
 #endif
 
+#define AJ_STRUCT_CLOSE          ')'
+#define AJ_SCALAR    0x10
+#define AJ_CONTAINER 0x20
+#define AJ_STRING    0x40
+#define AJ_VARIANT   0x80
+
+
+extern const uint8_t TypeFlags[];
+
+/**
+ * This macro makes sure that the signature contains valid characters
+ * in the TypeFlags array. If the index passed is below ascii 'a'
+ * or above ascii '}' and not ascii '(' or ')' then the signature is invalid.
+ * Below is the macro broken into smaller chunks:
+ *
+ * ((t) == '(' || (t) == ')') ? (t) - '('       --> If the value is ) or (, get the value in TypeFlags
+ * :
+ * (((t) < 'a' || (t) > '}') ? '}' + 2 - 'a'    --> The value is too high or too low, return TypeFlags[30] (0)
+ * :
+ * (t) + 2 - 'a'                                --> The value is valid, get the value in TypeFlags
+ */
+#define TYPE_FLAG(t) TypeFlags[((t) == '(' || (t) == ')') ? (t) - '(' : (((t) < 'a' || (t) > '}') ? '}' + 2 - 'a' : (t) + 2 - 'a') ]
+
+/*
+ * Get the amount of header padding needed for a given header length.
+ */
+#define HEADERPAD(headerLength) ((8 - (headerLength))& 7)
+
+/*
+ * For scalar types returns the size of the type
+ */
+#define SizeOfType(typeId) (TYPE_FLAG(typeId)& 0xF)
+
+/*
+ *  Returns true if the specified type is represented as a number
+ */
+#define IsScalarType(typeId) (TYPE_FLAG(typeId)& AJ_SCALAR)
+
 /**
  * Returns the signature of the next arg to be unmarshalled.
  *
