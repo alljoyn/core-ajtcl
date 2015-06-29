@@ -180,6 +180,10 @@ AJ_Status AJ_SecurityInit(AJ_BusAttachment* bus)
 
     AJ_AuthorisationInit();
 
+    /* Security 2.0 requires a minimal of ECDHE_NULL and ECDHE_ECDSA */
+    AJ_EnableSuite(AUTH_SUITE_ECDHE_NULL);
+    AJ_EnableSuite(AUTH_SUITE_ECDHE_ECDSA);
+
     return status;
 }
 

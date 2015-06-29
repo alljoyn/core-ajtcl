@@ -62,7 +62,7 @@ uint8_t dbgPEER = 0;
 
 static AJ_Status SaveMasterSecret(const AJ_GUID* peerGuid, uint32_t expiration);
 static AJ_Status ExchangeSuites(AJ_Message* msg);
-static AJ_Status KeyExchange(AJ_Message* msg);
+static AJ_Status KeyExchange(AJ_BusAttachment* bus);
 static AJ_Status KeyAuthentication(AJ_Message* msg);
 static AJ_Status GenSessionKey(AJ_Message* msg);
 static AJ_Status SendManifest(AJ_Message* msg);
@@ -166,11 +166,16 @@ static void HandshakeComplete(AJ_Status status)
 
     AJ_InfoPrintf(("HandshakeComplete(status=%d.)\n", status));
 
-    if (peerContext.callback) {
-        peerContext.callback(peerContext.cbContext, status);
+    /* If ECDSA/PSK failed, try NULL */
+    if ((AJ_OK != status) && (AUTH_SUITE_ECDHE_NULL != authContext.suite) && (AUTH_CLIENT == authContext.role)) {
+        authContext.suite = AUTH_SUITE_ECDHE_NULL;
+        KeyExchange(authContext.bus);
+    } else {
+        if (peerContext.callback) {
+            peerContext.callback(peerContext.cbContext, status);
+        }
+        AJ_ClearAuthContext();
     }
-
-    AJ_ClearAuthContext();
 }
 
 static AJ_Status SaveMasterSecret(const AJ_GUID* peerGuid, uint32_t expiration)
@@ -278,7 +283,6 @@ AJ_Status AJ_PeerAuthenticate(AJ_BusAttachment* bus, const char* peerName, AJ_Pe
     AJ_InitTimer(&peerContext.timer);
     authContext.bus = bus;
     authContext.role = AUTH_CLIENT;
-    AJ_SHA256_Init(&authContext.hash);
     if (bus->pwdCallback) {
         AJ_EnableSuite(AUTH_SUITE_ECDHE_PSK);
     }
@@ -336,7 +340,6 @@ AJ_Status AJ_PeerHandleExchangeGUIDs(AJ_Message* msg, AJ_Message* reply)
     AJ_InitTimer(&peerContext.timer);
     authContext.bus = msg->bus;
     authContext.role = AUTH_SERVER;
-    AJ_SHA256_Init(&authContext.hash);
     if (msg->bus->pwdCallback) {
         AJ_EnableSuite(AUTH_SUITE_ECDHE_PSK);
     }
@@ -489,7 +492,7 @@ AJ_Status AJ_PeerHandleExchangeGUIDsReply(AJ_Message* msg)
         if (AJ_ERR_KEY_EXPIRED != status) {
             /* secret not expired or time unknown */
             peerContext.state = AJ_AUTH_SUCCESS;
-            status = GenSessionKey(msg);
+            GenSessionKey(msg);
             return status;
         } else {
             AJ_CredentialDeletePeer(peerContext.peerGuid);
@@ -499,10 +502,7 @@ AJ_Status AJ_PeerHandleExchangeGUIDsReply(AJ_Message* msg)
     /*
      * Start the ALLJOYN conversation
      */
-    status = ExchangeSuites(msg);
-    if (AJ_OK != status) {
-        goto Exit;
-    }
+    ExchangeSuites(msg);
     return status;
 
 Exit:
@@ -520,7 +520,6 @@ static AJ_Status ExchangeSuites(AJ_Message* msg)
     AJ_InfoPrintf(("ExchangeSuites(msg=%p)\n", msg));
 
     authContext.role = AUTH_CLIENT;
-    AJ_SHA256_Init(&authContext.hash);
 
     /*
      * Send suites in this priority order
@@ -670,10 +669,7 @@ AJ_Status AJ_PeerHandleExchangeSuitesReply(AJ_Message* msg)
      * Exchange suites complete.
      */
     AJ_InfoPrintf(("Exchange Suites Complete\n"));
-    status = KeyExchange(msg);
-    if (AJ_OK != status) {
-        goto Exit;
-    }
+    KeyExchange(msg->bus);
     return status;
 
 Exit:
@@ -682,27 +678,29 @@ Exit:
     return AJ_ERR_SECURITY;
 }
 
-static AJ_Status KeyExchange(AJ_Message* msg)
+static AJ_Status KeyExchange(AJ_BusAttachment* bus)
 {
     AJ_Status status;
     uint8_t suiteb8[sizeof (uint32_t)];
     AJ_Message call;
 
-    AJ_InfoPrintf(("KeyExchange(msg=%p)\n", msg));
+    AJ_InfoPrintf(("KeyExchange(bus=%p)\n", bus));
 
     AJ_InfoPrintf(("Authenticating using suite %x\n", authContext.suite));
+
+    AJ_SHA256_Init(&authContext.hash);
 
     /*
      * Send suite and key material
      */
-    status = AJ_MarshalMethodCall(msg->bus, &call, AJ_METHOD_KEY_EXCHANGE, msg->sender, 0, AJ_NO_FLAGS, AJ_AUTH_CALL_TIMEOUT);
+    status = AJ_MarshalMethodCall(bus, &call, AJ_METHOD_KEY_EXCHANGE, peerContext.peerName, 0, AJ_NO_FLAGS, AJ_AUTH_CALL_TIMEOUT);
     if (AJ_OK != status) {
-        AJ_WarnPrintf(("KeyExchange(msg=%p): Marshal error\n", msg));
+        AJ_WarnPrintf(("KeyExchange(bus=%p): Marshal error\n", bus));
         goto Exit;
     }
     status = AJ_MarshalArgs(&call, "u", authContext.suite);
     if (AJ_OK != status) {
-        AJ_WarnPrintf(("KeyExchange(msg=%p): Marshal error\n", msg));
+        AJ_WarnPrintf(("KeyExchange(bus=%p): Marshal error\n", bus));
         goto Exit;
     }
 
@@ -710,7 +708,7 @@ static AJ_Status KeyExchange(AJ_Message* msg)
     AJ_SHA256_Update(&authContext.hash, suiteb8, sizeof (suiteb8));
     status = AJ_KeyExchangeMarshal(&authContext, &call);
     if (AJ_OK != status) {
-        AJ_WarnPrintf(("KeyExchange(msg=%p): Key exchange marshal error\n", msg));
+        AJ_WarnPrintf(("KeyExchange(bus=%p): Key exchange marshal error\n", bus));
         goto Exit;
     }
 
@@ -733,6 +731,7 @@ AJ_Status AJ_PeerHandleKeyExchange(AJ_Message* msg, AJ_Message* reply)
     if (AJ_OK != status) {
         return AJ_MarshalErrorMsg(msg, reply, AJ_ErrResources);
     }
+    AJ_SHA256_Init(&authContext.hash);
 
     /*
      * Receive suite
@@ -832,10 +831,7 @@ AJ_Status AJ_PeerHandleKeyExchangeReply(AJ_Message* msg)
      */
     peerContext.state = AJ_AUTH_EXCHANGED;
     AJ_InfoPrintf(("Key Exchange Complete\n"));
-    status = KeyAuthentication(msg);
-    if (AJ_OK != status) {
-        goto Exit;
-    }
+    KeyAuthentication(msg);
     return status;
 
 Exit:
@@ -983,10 +979,7 @@ AJ_Status AJ_PeerHandleKeyAuthenticationReply(AJ_Message* msg)
         }
     }
 
-    status = GenSessionKey(msg);
-    if (AJ_OK != status) {
-        goto Exit;
-    }
+    GenSessionKey(msg);
 
     return status;
 
@@ -1290,9 +1283,9 @@ AJ_Status AJ_PeerHandleExchangeGroupKeysReply(AJ_Message* msg)
     }
 
     if (AUTH_SUITE_ECDHE_ECDSA == authContext.suite) {
-        status = SendManifest(msg);
+        SendManifest(msg);
     } else {
-        status = AJ_PolicyApply(&authContext, msg->sender);
+        AJ_PolicyApply(&authContext, msg->sender);
         HandshakeComplete(status);
     }
 
