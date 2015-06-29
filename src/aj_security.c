@@ -96,6 +96,7 @@ void AJ_SecuritySetClaimConfig(uint16_t state, uint16_t capabilities, uint16_t i
     claimState = state;
     claimCapabilities = capabilities;
     claimInfo = info;
+    SetClaimState(state);
 }
 
 void AJ_SecurityGetClaimConfig(uint16_t* state, uint16_t* capabilities, uint16_t* info)
@@ -174,13 +175,11 @@ AJ_Status AJ_SecurityInit(AJ_BusAttachment* bus)
     /* Get the initial claim state */
     GetClaimState(&claimState);
 
-    if (AJ_OK == status) {
-        emit = TRUE;
-    }
-
     AJ_AuthorisationInit();
 
-    return status;
+    emit = TRUE;
+
+    return AJ_ApplicationStateSignal(bus);
 }
 
 AJ_Status AJ_UnmarshalECCPublicKey(AJ_Message* msg, AJ_ECCPublicKey* pub)
