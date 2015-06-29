@@ -42,6 +42,7 @@
 #include "aj_util.h"
 #include "aj_connect.h"
 #include "aj_debug.h"
+#include "aj_config.h"
 
 #ifdef AJ_ARDP
 #include "aj_ardp.h"
@@ -139,6 +140,7 @@ void AJ_Net_Interrupt()
     }
 }
 
+#ifdef AJ_TCP
 static AJ_Status AJ_Net_Send(AJ_IOBuffer* buf)
 {
     DWORD ret;
@@ -172,10 +174,12 @@ static AJ_Status AJ_Net_Send(AJ_IOBuffer* buf)
     AJ_InfoPrintf(("AJ_Net_Send(): status=AJ_OK\n"));
     return AJ_OK;
 }
+#endif
 
 static WSAOVERLAPPED wsaOverlapped;
 static WSABUF wsbuf;
 
+#ifdef AJ_TCP
 static AJ_Status AJ_Net_Recv(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)
 {
     AJ_Status status = AJ_ERR_READ;
@@ -241,6 +245,7 @@ static AJ_Status AJ_Net_Recv(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)
     }
     return status;
 }
+#endif
 
 /*
  * Statically sized buffers for I/O
@@ -248,23 +253,15 @@ static AJ_Status AJ_Net_Recv(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)
 static uint8_t rxData[2048];
 static uint8_t txData[2048];
 
-AJ_Status AJ_Net_Connect(AJ_BusAttachment* bus, const AJ_Service* service)
+#ifdef AJ_TCP
+static AJ_Status AJ_TCP_Connect(AJ_BusAttachment* bus, const AJ_Service* service)
 {
     DWORD ret;
     SOCKADDR_STORAGE addrBuf;
     socklen_t addrSize;
     SOCKET sock;
 
-    /* Initialize Winsock, if not done already */
-    WinsockCheck();
-
-#ifdef AJ_ARDP
-    if (service->addrTypes & (AJ_ADDR_UDP4 | AJ_ADDR_UDP6)) {
-        return AJ_Net_ARDP_Connect(bus, service);
-    }
-#endif
-
-    AJ_InfoPrintf(("AJ_Net_Connect(bus=0x%p, addrType=%d.)\n", bus, service->addrTypes));
+    AJ_InfoPrintf(("AJ_TCP_Connect(bus=0x%p, addrType=%d.)\n", bus, service->addrTypes));
 
     memset(&addrBuf, 0, sizeof(addrBuf));
 
@@ -273,7 +270,7 @@ AJ_Status AJ_Net_Connect(AJ_BusAttachment* bus, const AJ_Service* service)
 
         sock = WSASocket(AF_INET, SOCK_STREAM, IPPROTO_TCP, NULL, 0, WSA_FLAG_OVERLAPPED);
         if (sock == INVALID_SOCKET) {
-            AJ_ErrPrintf(("AJ_Net_Connect(): invalid socket.  status=AJ_ERR_CONNECT\n"));
+            AJ_ErrPrintf(("AJ_TCP_Connect(): invalid socket.  status=AJ_ERR_CONNECT\n"));
             return AJ_ERR_CONNECT;
         }
 
@@ -281,13 +278,13 @@ AJ_Status AJ_Net_Connect(AJ_BusAttachment* bus, const AJ_Service* service)
         sa->sin_port = htons(service->ipv4port);
         sa->sin_addr.s_addr = service->ipv4;
         addrSize = sizeof(*sa);
-        AJ_InfoPrintf(("AJ_Net_Connect(): Connect to \"%s:%u\"\n", inet_ntoa(sa->sin_addr), service->ipv4port));;
+        AJ_InfoPrintf(("AJ_TCP_Connect(): Connect to \"%s:%u\"\n", inet_ntoa(sa->sin_addr), service->ipv4port));;
     } else if (service->addrTypes & AJ_ADDR_TCP6) {
         struct sockaddr_in6* sa = (struct sockaddr_in6*)&addrBuf;
 
         sock = WSASocket(AF_INET6, SOCK_STREAM, IPPROTO_TCP, NULL, 0, WSA_FLAG_OVERLAPPED);
         if (sock == INVALID_SOCKET) {
-            AJ_ErrPrintf(("AJ_Net_Connect(): invalid socket.  status=AJ_ERR_CONNECT\n"));
+            AJ_ErrPrintf(("AJ_TCP_Connect(): invalid socket.  status=AJ_ERR_CONNECT\n"));
             return AJ_ERR_CONNECT;
         }
 
@@ -296,13 +293,13 @@ AJ_Status AJ_Net_Connect(AJ_BusAttachment* bus, const AJ_Service* service)
         memcpy(sa->sin6_addr.s6_addr, service->ipv6, sizeof(sa->sin6_addr.s6_addr));
         addrSize = sizeof(*sa);
     } else {
-        AJ_ErrPrintf(("AJ_Net_Connect: only TCPv6 and TCPv4 are supported\n"));
+        AJ_ErrPrintf(("AJ_TCP_Connect: only TCPv6 and TCPv4 are supported\n"));
         return AJ_ERR_CONNECT;
     }
 
     ret = connect(sock, (struct sockaddr*)&addrBuf, addrSize);
     if (ret == SOCKET_ERROR) {
-        AJ_ErrPrintf(("AJ_Net_Connect(): connect() failed. WSAGetLastError()=0x%x, status=AJ_ERR_CONNECT\n", WSAGetLastError()));
+        AJ_ErrPrintf(("AJ_TCP_Connect(): connect() failed. WSAGetLastError()=0x%x, status=AJ_ERR_CONNECT\n", WSAGetLastError()));
         closesocket(sock);
         return AJ_ERR_CONNECT;
     } else {
@@ -321,21 +318,50 @@ AJ_Status AJ_Net_Connect(AJ_BusAttachment* bus, const AJ_Service* service)
     }
 }
 
+#endif
+
+AJ_Status AJ_Net_Connect(AJ_BusAttachment* bus, const AJ_Service* service)
+{
+    AJ_Status status = AJ_ERR_CONNECT;
+    /* Initialize Winsock, if not done already */
+    WinsockCheck();
+
+#ifdef AJ_ARDP
+    if (service->addrTypes & (AJ_ADDR_UDP4 | AJ_ADDR_UDP6)) {
+        status = AJ_Net_ARDP_Connect(bus, service);
+        if (status == AJ_OK) {
+            return status;
+        }
+    }
+#endif
+
+#ifdef AJ_TCP
+    if (service->addrTypes & (AJ_ADDR_TCP4 | AJ_ADDR_TCP6)) {
+        status = AJ_TCP_Connect(bus, service);
+    }
+#endif
+
+    return status;
+}
+
+
 void AJ_Net_Disconnect(AJ_NetSocket* netSock)
 {
     AJ_InfoPrintf(("AJ_Net_Disconnect(nexSock=0x%p)\n", netSock));
 
     if (netContext.tcpSock != INVALID_SOCKET) {
+#ifdef AJ_TCP
         shutdown(netContext.tcpSock, 0);
         closesocket(netContext.tcpSock);
         netContext.tcpSock = INVALID_SOCKET;
+#endif
     } else if (netContext.udpSock != INVALID_SOCKET) {
 #ifdef AJ_ARDP
         AJ_ARDP_Disconnect(FALSE);
-#endif
         shutdown(netContext.udpSock, 0);
         closesocket(netContext.udpSock);
         netContext.udpSock = INVALID_SOCKET;
+#endif
     }
 
     memset(netSock, 0, sizeof(AJ_NetSocket));
@@ -662,10 +688,10 @@ static AJ_Status AJ_Net_RecvFrom(AJ_IOBuffer* buf, uint32_t len, uint32_t timeou
  * mode.  NS expects MTU of 1500 subtracts UDP, IP and ethertype overhead.
  * 1500 - 8 -20 - 18 = 1454.  txData buffer size needs to be big enough to hold
  * max(NS WHO-HAS for one name (4 + 2 + 256 = 262),
- *     mDNS query for one name (190 + 5 + 5 + 15 + 256 = 471)) = 471
+ *     mDNS query for one name (194 + 5 + 5 + 15 + 256 = 475)) = 475
  */
 static uint8_t rxDataMCast[1454];
-static uint8_t txDataMCast[471];
+static uint8_t txDataMCast[475];
 
 static void Mcast6Up(const char* group, uint16_t port, uint8_t mdns, uint16_t recv_port)
 {
@@ -1004,7 +1030,7 @@ void AJ_Net_MCastDown(AJ_MCastSocket* mcastSock)
 
 #ifdef AJ_ARDP
 
-static AJ_Status AJ_ARDP_UDP_Send(void* context, uint8_t* buf, size_t len, size_t* sent)
+static AJ_Status AJ_ARDP_UDP_Send(void* context, uint8_t* buf, size_t len, size_t* sent, uint8_t confirm)
 {
     AJ_Status status = AJ_OK;
     DWORD ret;

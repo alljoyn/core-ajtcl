@@ -32,7 +32,7 @@ vars = Variables()
 vars.Add(EnumVariable('TARG', 'Target platform variant', default_target, allowed_values=('win32', 'linux', 'arduino', 'bsp', 'darwin')))
 vars.Add(EnumVariable('VARIANT', 'Build variant', 'debug', allowed_values=('debug', 'release')))
 vars.Add(PathVariable('GTEST_DIR', 'The path to googletest sources', os.environ.get('GTEST_DIR'), PathVariable.PathIsDir))
-vars.Add(EnumVariable('WS', 'Whitespace Policy Checker', 'check', allowed_values=('check', 'detail', 'fix', 'off')))
+vars.Add(EnumVariable('WS', 'Whitespace Policy Checker', 'off', allowed_values=('check', 'detail', 'fix', 'off')))
 vars.Add(EnumVariable('FORCE32', 'Force building 32 bit on 64 bit architecture', 'false', allowed_values=('false', 'true')))
 vars.Add(EnumVariable('NO_AUTH', 'Compile test programs with authentication disabled', 'no', allowed_values=('no', 'yes')))
 vars.Add(EnumVariable('AJWSL', 'Compile driver for the QCA4004 for a specific platform', 'off', allowed_values=('due', 'stm32', 'frdm', 'off')))
@@ -47,7 +47,8 @@ if default_msvc_version:
     vars.Add(EnumVariable('MSVC_VERSION', 'MSVC compiler version - Windows', default_msvc_version, allowed_values=('8.0', '9.0', '10.0', '11.0', '11.0Exp', '12.0', '12.0Exp')))
 
 if ARGUMENTS.get('TARG', default_target) in ['linux', 'win32']:
-    vars.Add(EnumVariable('ARDP', 'Enable support for ARDP?', 'off', allowed_values=('on', 'off')))
+    vars.Add(EnumVariable('TCP', 'Enable support for TCP?', 'on', allowed_values=('on', 'off')))
+    vars.Add(EnumVariable('ARDP', 'Enable support for ARDP?', 'on', allowed_values=('on', 'off')))
 
 if ARGUMENTS.get('TARG', default_target) == 'win32':
     msvc_version = ARGUMENTS.get('MSVC_VERSION')
@@ -82,6 +83,10 @@ if restrict != '':
         print 'Invalid value for DEBUG_RESTRICT'
         Exit(0)
 
+if ARGUMENTS.get('TARG', default_target) in ['linux', 'win32']:
+    if env['TCP'] == 'off' and env['ARDP'] == 'off':
+        print 'Must enable at least one of TCP and ARDP'
+        Exit(0)
 
 # Define compile/link options only for win32/linux.
 # In case of target platforms, the compilation/linking does not take place
@@ -91,7 +96,9 @@ if env['TARG'] == 'win32':
     env.Append(CFLAGS=['/J', '/W3'])
     env.Append(CPPDEFINES=['_CRT_SECURE_NO_WARNINGS'])
     env.Append(LINKFLAGS=['/NODEFAULTLIB:libcmt.lib'])
-    
+
+    if env['TCP'] == 'off':
+        env.Append(CPPDEFINES=['AJ_NO_TCP'])
     if env['ARDP'] == 'on':
         env.Append(CPPDEFINES=['AJ_ARDP'])
     
@@ -118,6 +125,8 @@ if env['TARG'] == 'win32':
 elif env['TARG'] in [ 'linux' ]:
     if env['ARDP'] == 'on':
         env.Append(CPPDEFINES=['AJ_ARDP'])
+    if env['TCP'] == 'off':
+        env.Append(CPPDEFINES=['AJ_NO_TCP'])
 
     if os.environ.has_key('CROSS_PREFIX'):
         env.Replace(CC = os.environ['CROSS_PREFIX'] + 'gcc')
@@ -240,7 +249,8 @@ elif env['TARG'] == 'bsp':
                         '-Wuninitialized', '-Wfloat-equal', '-Wundef', '-Wshadow', '-Wbad-function-cast',
                         '-Wwrite-strings', '-Wsign-compare', '-Waggregate-return', '-Wmissing-declarations',
                         '-Wformat', '-Wmissing-format-attribute', '-Wno-deprecated-declarations',
-                        '-Wpacked', '-Wlong-long', '-Wunreachable-code', '-Wcast-align', '-MD', '-MP']
+                        '-Wpacked', '-Wlong-long', '-Wunreachable-code', '-Wcast-align', '-MD', '-MP',
+                        '-Wformat-security', '-Werror=format-security']
 
         # Add platform independent source files
         rtos_src = [Glob('RTOS/*.c') + Glob('RTOS/FreeRTOS/*.c') + Glob(env['FREE_RTOS_DIR'] + '/Source/*.c') +
@@ -284,7 +294,7 @@ elif env['TARG'] == 'bsp':
                             '-Wl,--end-group', '-L"' + env['ATMEL_DIR'] + '/thirdparty/CMSIS/Lib/GCC"', '-Wl,--gc-sections', '-Wl,-Map,${TARGET.base}.map',
                             '-mcpu=cortex-m3', '-Wl,--entry=Reset_Handler', '-T' + env['ATMEL_DIR'] + '/sam/utils/linker_scripts/sam3x/sam3x8/gcc/flash.ld']
         # Add platform dependent defines
-        env.Append(CPPDEFINES = ['__SAM3X8E__', 'ARM_MATH_CM3=true', 'BOARD=ARDUINO_DUE_X', 'printf=iprintf', 'AJ_HEAP4'])
+        env.Append(CPPDEFINES = ['__SAM3X8E__', 'ARM_MATH_CM3=true', 'BOARD=ARDUINO_DUE_X', 'printf=iprintf', 'AJ_HEAP4', '_FORTIFY_SOURCE=1'])
 
         # Add platform dependent include paths
         env['CPPPATH'] = [os.getcwd() + '/bsp', os.getcwd() + '/bsp/due', os.getcwd() + '/bsp/due/config',           env['FREE_RTOS_DIR'] + '/Source/include', os.getcwd() + '/RTOS/FreeRTOS',
@@ -341,7 +351,7 @@ elif env['TARG'] == 'bsp':
 
         # Add platform dependent defines
         env.Append(CPPDEFINES = ['STM32F407xx', 'USE_STDPERIPH_DRIVER','HAL_UART_MODULE_ENABLED', 'HAL_RCC_MODULE_ENABLED',
-                                 'HAL_GPIO_MODULE_ENABLED', 'HAL_USART_MODULE_ENABLED', 'HAL_FLASH_MODULE_ENABLED'])
+                                 'HAL_GPIO_MODULE_ENABLED', 'HAL_USART_MODULE_ENABLED', 'HAL_FLASH_MODULE_ENABLED', '_FORTIFY_SOURCE=1'])
 
         # Add platform dependent include paths
         env['CPPPATH'] = [os.getcwd() + '/bsp', os.getcwd() + '/bsp/stm32', env['FREE_RTOS_DIR'] + '/Source/include', os.getcwd() + '/RTOS/FreeRTOS',
@@ -454,7 +464,9 @@ elif env['TARG'] == 'bsp':
                           '-Wall',
                           '-fno-exceptions',
                           '-ffunction-sections',
-                          '-fdata-sections']
+                          '-fdata-sections',
+                          '-Wformat-security', 
+                          '-Werror=format-security']
         env['CXXFLAGS'] = ['-fno-rtti']
         env['PRELINKFLAGS'] = ['-mcpu=cortex-m4', '-mthumb', '-Wl,--gc-sections', '--specs=nano.specs', '-u', '_printf_float', '-u', '_scanf_float']
         env['LINKSCRIPT'] = ['-T' + env['MBED_DIR'] + '/mbed/TARGET_K64F/TOOLCHAIN_GCC_ARM/K64FN1M0xxx12.ld']
@@ -468,11 +480,8 @@ elif env['TARG'] == 'bsp':
         env.Append(CPPDEFINES = ['TARGET_K64F', 'TARGET_M4', 'TARGET_Freescale', 'TARGET_KPSDK_MCUS', 'TARGET_KPSDK_CODE',
                                  'TARGET_MCU_K64F', 'TARGET_FRDM', 'TOOLCHAIN_GCC_ARM', 'TOOLCHAIN_GCC', '__CORTEX_M4',
                                  'ARM_MATH_CM4', '__FPU_PRESENT=1', 'MBED_BUILD_TIMESTAMP=1411582835.22', '__MBED__=1',
-                                 'CPU_MK64FN1M0VMD12', 'FSL_RTOS_MBED', 'TARGET_FF_ARDUINO', '__CORTEX_M4', 'FSL_RTOS_MBED'
-                                 'AJ_CONFIGURE_WIFI_UPON_START',
-                                 'WIFI_SSID=\\"SEAQUIC-AP3\\"',
-                                 'WIFI_PASSPHRASE=\\"123456789\\"'
-                                 ])
+                                 'CPU_MK64FN1M0VMD12', 'FSL_RTOS_MBED', 'TARGET_FF_ARDUINO', '__CORTEX_M4', 'FSL_RTOS_MBED',
+                                 '_FORTIFY_SOURCE=1'])
 
 elif env['TARG'] in [ 'darwin' ]:
     if os.environ.has_key('CROSS_PREFIX'):

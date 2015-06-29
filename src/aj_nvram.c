@@ -244,7 +244,7 @@ OPEN_ERR_EXIT:
 
 size_t AJ_NVRAM_Write(const void* ptr, uint16_t size, AJ_NV_DATASET* handle)
 {
-    int16_t bytesWrite = 0;
+    uint16_t bytesWrite = 0;
     uint8_t patchBytes = 0;
     uint8_t* buf = (uint8_t*)ptr;
     NV_EntryHeader* header;

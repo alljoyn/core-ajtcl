@@ -60,7 +60,7 @@
  * (usually in debugger).
  */
 #ifndef NDEBUG
-uint8_t dbgNET = 1;
+uint8_t dbgNET = 0;
 #endif
 
 #define INVALID_SOCKET (-1)
@@ -125,6 +125,7 @@ static void AJ_Net_ARDP_Disconnect(AJ_NetSocket* netSock);
 
 #endif // AJ_ARDP
 
+#ifdef AJ_TCP
 static AJ_Status CloseNetSock(AJ_NetSocket* netSock)
 {
     NetContext* context = (NetContext*)netSock->rx.context;
@@ -142,6 +143,7 @@ static AJ_Status CloseNetSock(AJ_NetSocket* netSock)
     }
     return AJ_OK;
 }
+#endif
 
 static AJ_Status CloseMCastSock(AJ_MCastSocket* mcastSock)
 {
@@ -168,6 +170,7 @@ static AJ_Status CloseMCastSock(AJ_MCastSocket* mcastSock)
     return AJ_OK;
 }
 
+#ifdef AJ_TCP
 AJ_Status AJ_Net_Send(AJ_IOBuffer* buf)
 {
     NetContext* context = (NetContext*) buf->context;
@@ -193,6 +196,7 @@ AJ_Status AJ_Net_Send(AJ_IOBuffer* buf)
     AJ_InfoPrintf(("AJ_Net_Send(): status=AJ_OK\n"));
     return AJ_OK;
 }
+#endif
 
 /*
  * An eventfd handle used for interrupting a network read blocked on select
@@ -217,6 +221,7 @@ void AJ_Net_Interrupt()
     }
 }
 
+#ifdef AJ_TCP
 AJ_Status AJ_Net_Recv(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)
 {
     NetContext* context = (NetContext*) buf->context;
@@ -263,26 +268,22 @@ AJ_Status AJ_Net_Recv(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)
     }
     return status;
 }
+#endif
 
 static uint8_t rxData[1500];
 static uint8_t txData[1500];
 
-AJ_Status AJ_Net_Connect(AJ_BusAttachment* bus, const AJ_Service* service)
+#ifdef AJ_TCP
+static AJ_Status AJ_TCP_Connect(AJ_BusAttachment* bus, const AJ_Service* service)
 {
     int ret;
     struct sockaddr_storage addrBuf;
     socklen_t addrSize;
     int tcpSock = INVALID_SOCKET;
 
-#ifdef AJ_ARDP
-    if (service->addrTypes & (AJ_ADDR_UDP4 | AJ_ADDR_UDP6)) {
-        return AJ_Net_ARDP_Connect(bus, service);
-    }
-#endif
-
     interruptFd = eventfd(0, O_NONBLOCK);  // Use O_NONBLOCK instead of EFD_NONBLOCK due to bug in OpenWrt's uCLibc
     if (interruptFd < 0) {
-        AJ_ErrPrintf(("AJ_Net_Connect(): failed to created interrupt event\n"));
+        AJ_ErrPrintf(("AJ_TCP_Connect(): failed to created interrupt event\n"));
         goto ConnectError;
     }
 
@@ -290,7 +291,7 @@ AJ_Status AJ_Net_Connect(AJ_BusAttachment* bus, const AJ_Service* service)
 
     tcpSock = socket(AF_INET, SOCK_STREAM, 0);
     if (tcpSock == INVALID_SOCKET) {
-        AJ_ErrPrintf(("AJ_Net_Connect(): socket() failed.  status=AJ_ERR_CONNECT\n"));
+        AJ_ErrPrintf(("AJ_TCP_Connect(): socket() failed.  status=AJ_ERR_CONNECT\n"));
         goto ConnectError;
     }
     if (service->addrTypes & AJ_ADDR_TCP4) {
@@ -299,7 +300,7 @@ AJ_Status AJ_Net_Connect(AJ_BusAttachment* bus, const AJ_Service* service)
         sa->sin_port = htons(service->ipv4port);
         sa->sin_addr.s_addr = service->ipv4;
         addrSize = sizeof(struct sockaddr_in);
-        AJ_InfoPrintf(("AJ_Net_Connect(): Connect to \"%s:%u\"\n", inet_ntoa(sa->sin_addr), service->ipv4port));;
+        AJ_InfoPrintf(("AJ_TCP_Connect(): Connect to \"%s:%u\"\n", inet_ntoa(sa->sin_addr), service->ipv4port));;
     } else if (service->addrTypes & AJ_ADDR_TCP6) {
         struct sockaddr_in6* sa = (struct sockaddr_in6*)&addrBuf;
         sa->sin6_family = AF_INET6;
@@ -307,14 +308,14 @@ AJ_Status AJ_Net_Connect(AJ_BusAttachment* bus, const AJ_Service* service)
         memcpy(sa->sin6_addr.s6_addr, service->ipv6, sizeof(sa->sin6_addr.s6_addr));
         addrSize = sizeof(struct sockaddr_in6);
     } else {
-        AJ_ErrPrintf(("AJ_Net_Connect(): Invalid addrTypes %u, status=AJ_ERR_CONNECT\n", service->addrTypes));
+        AJ_ErrPrintf(("AJ_TCP_Connect(): Invalid addrTypes %u, status=AJ_ERR_CONNECT\n", service->addrTypes));
         goto ConnectError;
     }
 
 
     ret = connect(tcpSock, (struct sockaddr*)&addrBuf, addrSize);
     if (ret < 0) {
-        AJ_ErrPrintf(("AJ_Net_Connect(): connect() failed. errno=\"%s\", status=AJ_ERR_CONNECT\n", strerror(errno)));
+        AJ_ErrPrintf(("AJ_TCP_Connect(): connect() failed. errno=\"%s\", status=AJ_ERR_CONNECT\n", strerror(errno)));
         goto ConnectError;
     } else {
         netContext.tcpSock = tcpSock;
@@ -322,7 +323,7 @@ AJ_Status AJ_Net_Connect(AJ_BusAttachment* bus, const AJ_Service* service)
         bus->sock.rx.recv = AJ_Net_Recv;
         AJ_IOBufInit(&bus->sock.tx, txData, sizeof(txData), AJ_IO_BUF_TX, &netContext);
         bus->sock.tx.send = AJ_Net_Send;
-        AJ_InfoPrintf(("AJ_Net_Connect(): status=AJ_OK\n"));
+        AJ_InfoPrintf(("AJ_TCP_Connect(): status=AJ_OK\n"));
     }
 
     return AJ_OK;
@@ -339,6 +340,32 @@ ConnectError:
 
     return AJ_ERR_CONNECT;
 }
+#endif
+
+
+AJ_Status AJ_Net_Connect(AJ_BusAttachment* bus, const AJ_Service* service)
+{
+    AJ_Status status = AJ_ERR_CONNECT;
+
+    AJ_InfoPrintf(("AJ_Net_Connect(bus=0x%p, addrType=%d.)\n", bus, service->addrTypes));
+
+#ifdef AJ_ARDP
+    if (service->addrTypes & (AJ_ADDR_UDP4 | AJ_ADDR_UDP6)) {
+        status = AJ_Net_ARDP_Connect(bus, service);
+        if (status == AJ_OK) {
+            return status;
+        }
+    }
+#endif
+
+#ifdef AJ_TCP
+    if (service->addrTypes & (AJ_ADDR_TCP4 | AJ_ADDR_TCP6)) {
+        status = AJ_TCP_Connect(bus, service);
+    }
+#endif
+
+    return status;
+}
 
 void AJ_Net_Disconnect(AJ_NetSocket* netSock)
 {
@@ -347,17 +374,17 @@ void AJ_Net_Disconnect(AJ_NetSocket* netSock)
         interruptFd = INVALID_SOCKET;
     }
 
-#ifdef AJ_ARDP
     if (netContext.udpSock != INVALID_SOCKET) {
+#ifdef AJ_ARDP
         // we are using UDP!
         AJ_Net_ARDP_Disconnect(netSock);
         memset(netSock, 0, sizeof(AJ_NetSocket));
-    } else {
-        CloseNetSock(netSock);
-    }
-#else
-    CloseNetSock(netSock);
 #endif
+    } else if (netContext.tcpSock != INVALID_SOCKET) {
+#ifdef AJ_TCP
+        CloseNetSock(netSock);
+#endif
+    }
 }
 
 static uint8_t sendToBroadcast(int sock, uint16_t port, void* ptr, size_t tx)
@@ -698,10 +725,10 @@ Finished:
  * mode.  NS expects MTU of 1500 subtracts UDP, IP and ethertype overhead.
  * 1500 - 8 -20 - 18 = 1454.  txData buffer size needs to be big enough to hold
  * max(NS WHO-HAS for one name (4 + 2 + 256 = 262),
- *     mDNS query for one name (190 + 5 + 5 + 15 + 256 = 471)) = 471
+ *     mDNS query for one name (194 + 5 + 5 + 15 + 256 = 475)) = 475
  */
 static uint8_t rxDataMCast[1454];
-static uint8_t txDataMCast[471];
+static uint8_t txDataMCast[475];
 
 static int MCastUp4(const char group[], uint16_t port)
 {
@@ -960,7 +987,7 @@ void AJ_Net_MCastDown(AJ_MCastSocket* mcastSock)
 
 #ifdef AJ_ARDP
 
-static AJ_Status AJ_ARDP_UDP_Send(void* context, uint8_t* buf, size_t len, size_t* sent)
+static AJ_Status AJ_ARDP_UDP_Send(void* context, uint8_t* buf, size_t len, size_t* sent, uint8_t confirm)
 {
     AJ_Status status = AJ_OK;
     ssize_t ret;
@@ -969,7 +996,7 @@ static AJ_Status AJ_ARDP_UDP_Send(void* context, uint8_t* buf, size_t len, size_
     AJ_InfoPrintf(("AJ_ARDP_UDP_Send(buf=0x%p, len=%lu)\n", buf, len));
 
     // we can send( rather than sendto( because we did a UDP connect()
-    ret = send(ctx->udpSock, buf, len, 0);
+    ret = send(ctx->udpSock, buf, len, (confirm == TRUE) ? MSG_CONFIRM : 0);
     if (ret == -1) {
         status = AJ_ERR_WRITE;
     } else {

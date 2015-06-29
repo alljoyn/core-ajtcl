@@ -31,9 +31,10 @@ typedef struct {
     uint8_t authLen;     /* Length of the authentication field */
 } TEST_CASE;
 
+/* Test vectors from RFC 3610 "Counter with CBC-MAC (CCM)", https://tools.ietf.org/html/rfc3610 */
 static TEST_CASE const testVector[] = {
     {
-        /* =============== RFC 6130 Packet Vector #1 ================== */
+        /* =============== RFC 3610 Packet Vector #1 ================== */
         "C0C1C2C3C4C5C6C7C8C9CACBCCCDCECF",
         "00000003020100A0A1A2A3A4A5",
         8,
@@ -42,7 +43,7 @@ static TEST_CASE const testVector[] = {
         8
     },
     {
-        /* =============== RFC 6130 Packet Vector #2 ================== */
+        /* =============== RFC 3610 Packet Vector #2 ================== */
         "C0C1C2C3C4C5C6C7C8C9CACBCCCDCECF",
         "00000004030201A0A1A2A3A4A5",
         8,
@@ -52,7 +53,7 @@ static TEST_CASE const testVector[] = {
 
     },
     {
-        /*===============RFC6130PacketVector#3==================*/
+        /*===============RFC3610PacketVector#3==================*/
         "C0C1C2C3C4C5C6C7C8C9CACBCCCDCECF",
         "00000005040302A0A1A2A3A4A5",
         8,
@@ -61,7 +62,7 @@ static TEST_CASE const testVector[] = {
         8
     },
     {
-        /*===============RFC6130PacketVector#4==================*/
+        /*===============RFC3610PacketVector#4==================*/
         "C0C1C2C3C4C5C6C7C8C9CACBCCCDCECF",
         "00000006050403A0A1A2A3A4A5",
         12,
@@ -70,7 +71,7 @@ static TEST_CASE const testVector[] = {
         8
     },
     {
-        /*===============RFC6130PacketVector#5==================*/
+        /*===============RFC3610PacketVector#5==================*/
         "C0C1C2C3C4C5C6C7C8C9CACBCCCDCECF",
         "00000007060504A0A1A2A3A4A5",
         12,
@@ -79,7 +80,7 @@ static TEST_CASE const testVector[] = {
         8
     },
     {
-        /*===============RFC6130PacketVector#6==================*/
+        /*===============RFC3610PacketVector#6==================*/
         "C0C1C2C3C4C5C6C7C8C9CACBCCCDCECF",
         "00000008070605A0A1A2A3A4A5",
         12,
@@ -88,7 +89,7 @@ static TEST_CASE const testVector[] = {
         8
     },
     {
-        /*===============RFC6130PacketVector#7==================*/
+        /*===============RFC3610PacketVector#7==================*/
         "C0C1C2C3C4C5C6C7C8C9CACBCCCDCECF",
         "00000009080706A0A1A2A3A4A5",
         8,
@@ -97,7 +98,7 @@ static TEST_CASE const testVector[] = {
         10
     },
     {
-        /*===============RFC6130PacketVector#8==================*/
+        /*===============RFC3610PacketVector#8==================*/
         "C0C1C2C3C4C5C6C7C8C9CACBCCCDCECF",
         "0000000A090807A0A1A2A3A4A5",
         8,
@@ -106,7 +107,7 @@ static TEST_CASE const testVector[] = {
         10
     },
     {
-        /*===============RFC6130PacketVector#9==================*/
+        /*===============RFC3610PacketVector#9==================*/
         "C0C1C2C3C4C5C6C7C8C9CACBCCCDCECF",
         "0000000B0A0908A0A1A2A3A4A5",
         8,
@@ -115,7 +116,7 @@ static TEST_CASE const testVector[] = {
         10
     },
     {
-        /*===============RFC6130PacketVector#10==================*/
+        /*===============RFC3610PacketVector#10==================*/
         "C0C1C2C3C4C5C6C7C8C9CACBCCCDCECF",
         "0000000C0B0A09A0A1A2A3A4A5",
         12,
@@ -124,7 +125,7 @@ static TEST_CASE const testVector[] = {
         10
     },
     {
-        /*===============RFC6130PacketVector#11==================*/
+        /*===============RFC3610PacketVector#11==================*/
         "C0C1C2C3C4C5C6C7C8C9CACBCCCDCECF",
         "0000000D0C0B0AA0A1A2A3A4A5",
         12,
@@ -133,7 +134,7 @@ static TEST_CASE const testVector[] = {
         10
     },
     {
-        /*===============RFC6130PacketVector#12==================*/
+        /*===============RFC3610PacketVector#12==================*/
         "C0C1C2C3C4C5C6C7C8C9CACBCCCDCECF",
         "0000000E0D0C0BA0A1A2A3A4A5",
         12,
@@ -142,7 +143,7 @@ static TEST_CASE const testVector[] = {
         10
     },
     {
-        /*===============RFC6130PacketVector#13==================*/
+        /*===============RFC3610PacketVector#13==================*/
         "D7828D13B2B0BDC325A76236DF93CC6B",
         "00412B4EA9CDBE3C9696766CFA",
         8,
@@ -151,7 +152,7 @@ static TEST_CASE const testVector[] = {
         8
     },
     {
-        /*===============RFC6130PacketVector#14==================*/
+        /*===============RFC3610PacketVector#14==================*/
         "D7828D13B2B0BDC325A76236DF93CC6B",
         "0033568EF7B2633C9696766CFA",
         8,
@@ -160,7 +161,7 @@ static TEST_CASE const testVector[] = {
         8
     },
     {
-        /*===============RFC6130PacketVector#15==================*/
+        /*===============RFC3610PacketVector#15==================*/
         "D7828D13B2B0BDC325A76236DF93CC6B",
         "00103FE41336713C9696766CFA",
         8,
@@ -169,7 +170,7 @@ static TEST_CASE const testVector[] = {
         8
     },
     {
-        /*===============RFC6130PacketVector#16==================*/
+        /*===============RFC3610PacketVector#16==================*/
         "D7828D13B2B0BDC325A76236DF93CC6B",
         "00764C63B8058E3C9696766CFA",
         12,
@@ -178,7 +179,7 @@ static TEST_CASE const testVector[] = {
         8
     },
     {
-        /*===============RFC6130PacketVector#17==================*/
+        /*===============RFC3610PacketVector#17==================*/
         "D7828D13B2B0BDC325A76236DF93CC6B",
         "00F8B678094E3B3C9696766CFA",
         12,
@@ -187,7 +188,7 @@ static TEST_CASE const testVector[] = {
         8
     },
     {
-        /*===============RFC6130PacketVector#18==================*/
+        /*===============RFC3610PacketVector#18==================*/
         "D7828D13B2B0BDC325A76236DF93CC6B",
         "00D560912D3F703C9696766CFA",
         12,
@@ -196,7 +197,7 @@ static TEST_CASE const testVector[] = {
         8
     },
     {
-        /*===============RFC6130PacketVector#19==================*/
+        /*===============RFC3610PacketVector#19==================*/
         "D7828D13B2B0BDC325A76236DF93CC6B",
         "0042FFF8F1951C3C9696766CFA",
         8,
@@ -205,7 +206,7 @@ static TEST_CASE const testVector[] = {
         10
     },
     {
-        /*===============RFC6130PacketVector#20==================*/
+        /*===============RFC3610PacketVector#20==================*/
         "D7828D13B2B0BDC325A76236DF93CC6B",
         "00920F40E56CDC3C9696766CFA",
         8,
@@ -214,7 +215,7 @@ static TEST_CASE const testVector[] = {
         10
     },
     {
-        /*===============RFC6130PacketVector#21==================*/
+        /*===============RFC3610PacketVector#21==================*/
         "D7828D13B2B0BDC325A76236DF93CC6B",
         "0027CA0C7120BC3C9696766CFA",
         8,
@@ -223,7 +224,7 @@ static TEST_CASE const testVector[] = {
         10
     },
     {
-        /*===============RFC6130PacketVector#22==================*/
+        /*===============RFC3610PacketVector#22==================*/
         "D7828D13B2B0BDC325A76236DF93CC6B",
         "005B8CCBCD9AF83C9696766CFA",
         12,
@@ -232,7 +233,7 @@ static TEST_CASE const testVector[] = {
         10
     },
     {
-        /*===============RFC6130PacketVector#23==================*/
+        /*===============RFC3610PacketVector#23==================*/
         "D7828D13B2B0BDC325A76236DF93CC6B",
         "003EBE94044B9A3C9696766CFA",
         12,
@@ -241,7 +242,7 @@ static TEST_CASE const testVector[] = {
         10
     },
     {
-        /*===============RFC6130PacketVector#24==================*/
+        /*===============RFC3610PacketVector#24==================*/
         "D7828D13B2B0BDC325A76236DF93CC6B",
         "008D493B30AE8B3C9696766CFA",
         12,
@@ -350,34 +351,6 @@ int AJ_Main(void)
     }
 
     AJ_AlwaysPrintf(("AES CCM unit test PASSED\n"));
-
-    {
-        static const char expect[] = "F19787716404918CA20F174CFF2E165F21B17A70C472480AE91891B5BB8DD261CBD4273612D41BC6";
-        const char secret[] = "1234ABCDE";
-        const char seed[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234";
-        uint8_t key[40];
-        const char* inputs[3];
-        uint8_t length[3];
-
-        inputs[0] = secret;
-        length[0] = (uint8_t)strlen(secret);
-        inputs[1] = seed;
-        length[1] = (uint8_t)strlen(seed);
-        inputs[2] = "prf test";
-        length[2] = 8;
-
-        status = AJ_Crypto_PRF((const uint8_t**)inputs, length, ArraySize(inputs), key, sizeof(key));
-        if (status != AJ_OK) {
-            AJ_AlwaysPrintf(("AJ_Crypto_PRF %d\n", status));
-            goto ErrorExit;
-        }
-        AJ_RawToHex(key, sizeof(key), out, sizeof(out), FALSE);
-        if (strcmp(out, expect) != 0) {
-            AJ_AlwaysPrintf(("AJ_Crypto_PRF failed: %d\n", status));
-            goto ErrorExit;
-        }
-        AJ_AlwaysPrintf(("AJ_Crypto_PRF test PASSED: %d\n", status));
-    }
 
     return 0;
 

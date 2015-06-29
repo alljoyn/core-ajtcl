@@ -1852,6 +1852,10 @@ static AJ_Status MarshalMsg(AJ_Message* msg, uint8_t msgType, uint32_t msgId, ui
     uint8_t fieldId;
     uint8_t secure = FALSE;
 
+    if (!ioBuf->bufStart) {
+        AJ_ErrPrintf(("MarshalMsg(): ioBuf has not been initialized\n"));
+        return AJ_ERR_IO_BUFFER;
+    }
 #ifdef AJ_ARDP
     status = AJ_ARDP_StartMsgSend(msg->ttl);
 #endif
@@ -2097,6 +2101,7 @@ static AJ_Status VMarshalArgs(AJ_Message* msg, const char** sig, va_list* argpp)
         uint16_t u16;
         uint32_t u32;
         uint64_t u64;
+        double d;
         uint8_t typeId = (uint8_t)*((*sig)++);
         void* val;
 
@@ -2146,8 +2151,13 @@ static AJ_Status VMarshalArgs(AJ_Message* msg, const char** sig, va_list* argpp)
         }
         if (IsScalarType(typeId)) {
             if (SizeOfType(typeId) == 8) {
-                u64 = va_arg(argp, uint64_t);
-                val = &u64;
+                if (typeId == 'd') {
+                    d = va_arg(argp, double);
+                    val = &d;
+                } else {
+                    u64 = va_arg(argp, uint64_t);
+                    val = &u64;
+                }
             } else if (SizeOfType(typeId) == 4) {
                 u32 = va_arg(argp, uint32_t);
                 val = &u32;

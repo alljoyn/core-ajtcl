@@ -83,10 +83,18 @@ void AJ_Main(void)
     uint32_t current_ip_address = 0;
     uint32_t current_subnet_mask = 0;
     uint32_t current_default_gateway = 0;
+    AJ_Time dhcpTimer;
+    uint32_t timeTakenForDhcp = 0;
 
     AJ_Initialize();
 
     AJ_Printf("\nAllJoyn Release: %s\n\n", AJ_GetVersion());
+
+    AJ_Printf("INFO: The parameter RUN_NEGATIVE_TESTS is %s\n", (RUN_NEGATIVE_TESTS ? "true" : "false"));
+    AJ_Printf("INFO: The parameter DELAY_BETWEEN_SCANS is %u ms\n", DELAY_BETWEEN_SCANS);
+    AJ_Printf("INFO: The parameter DELAY_BETWEEN_ASSOCIATIONS is %u ms\n", DELAY_BETWEEN_ASSOCIATIONS);
+    AJ_Printf("INFO: The parameter DHCP_TIMEOUT is %u ms\n", DHCP_TIMEOUT);
+    AJ_Printf("INFO: The parameter DISCOVER_TIMEOUT is %u ms\n", DISCOVER_TIMEOUT);
 
     /* reset the wifi to start with a clean slate */
     status = AJ_ResetWiFi();
@@ -206,11 +214,27 @@ void AJ_Main(void)
 
                 AJ_Printf("Successfully associated. Attempting to get IP Address via DHCP...\n");
 
+                AJ_InitTimer(&dhcpTimer);
+
                 status = AJ_AcquireIPAddress(&current_ip_address, &current_subnet_mask, &current_default_gateway, DHCP_TIMEOUT);
+
+                timeTakenForDhcp = AJ_GetElapsedTime(&dhcpTimer, FALSE);
+
                 if (AJ_OK != status) {
                     if (AJ_ERR_TIMEOUT == status) {
                         dhcpStats.numTimedout++;
-                        AJ_Printf("Timedout (%u ms) while trying to get IP Address via DHCP\n", DHCP_TIMEOUT);
+                        AJ_Printf("Timedout (%u ms) while trying to get IP Address via DHCP\n", timeTakenForDhcp);
+                        /*
+                         * Discovery timed out.
+                         * Check whether the API returned in a timely manner.
+                         * See whether the actual duration is off by +/- 500ms.
+                         * Delay beyond that is unusual.
+                         */
+                        if (500 < abs(DHCP_TIMEOUT - timeTakenForDhcp)) {
+                            AJ_Printf("WARN: AJ_AcquireIPAddress API did not return in a timely manner. Timeout parameter: %u Actual time elapsed: %u\n",
+                                      DHCP_TIMEOUT,
+                                      timeTakenForDhcp);
+                        }
                     } else {
                         dhcpStats.numFailed++;
                         AJ_Printf("Failed to get IP Address via DHCP : %s (code: %u)\n", AJ_StatusText(status), status);

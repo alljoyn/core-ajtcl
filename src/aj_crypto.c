@@ -260,7 +260,7 @@ AJ_Status AJ_Decrypt_CCM(const uint8_t* key,
      * Balance the enable call above
      */
     AJ_AES_Disable();
-    if (memcmp(context->T.data, msg + msgLen, tagLen) != 0) {
+    if (Crypto_Compare(context->T.data, msg + msgLen, tagLen) != 0) {
         /*
          * Authentication failed Clear the decrypted data
          */
@@ -272,71 +272,6 @@ AJ_Status AJ_Decrypt_CCM(const uint8_t* key,
      * Done with the context
      */
     AJ_Free(context);
-    return status;
-}
-
-AJ_Status AJ_Crypto_PRF(const uint8_t** inputs,
-                        const uint8_t* lengths,
-                        uint32_t count,
-                        uint8_t* out,
-                        uint32_t outLen)
-{
-    AJ_Status status = AJ_OK;
-    uint8_t nonce[4];
-    uint32_t inLen = 0;
-    uint8_t* inBuf;
-    uint8_t* key;
-    uint8_t* p;
-    uint32_t i;
-
-    for (i = 0; i < count; ++i) {
-        inLen += lengths[i];
-    }
-    if (inLen <= 32) {
-        AJ_ErrPrintf(("AJ_Crypto_PRF(): AJ_ERR_INVALID\n"));
-        return AJ_ERR_INVALID;
-    }
-    /*
-     * Need 16 bytes at the end for the CCM-MAC
-     */
-    inBuf = (uint8_t*)AJ_Malloc(inLen + 16);
-    if (!inBuf) {
-        AJ_ErrPrintf(("AJ_Crypto_PRF(): AJ_ERR_RESOURCES\n"));
-        return AJ_ERR_RESOURCES;
-    }
-    /*
-     * Concatenate the inputs
-     */
-    for (i = 0, p = inBuf; i < count; ++i) {
-        memcpy(p, inputs[i], lengths[i]);
-        p += lengths[i];
-    }
-    /*
-     * Clear the nonce (it's declared as an array of bytes because of endianess)
-     */
-    *((uint32_t*)nonce) = 0;
-    /*
-     * The key first 16 bytes of the input is used as the AES key.
-     */
-    key = inBuf;
-    inLen -= 16;
-    inBuf += 16;
-    while (outLen) {
-        uint32_t len =  min(16, outLen);
-        status = AJ_Encrypt_CCM(key, inBuf, inLen, inLen, 16, nonce, sizeof(nonce));
-        if (status != AJ_OK) {
-            break;
-        }
-        /*
-         * Append CCM-MAC to the output buffer
-         */
-        memcpy(out, inBuf + inLen, len);
-        outLen -= len;
-        out += len;
-        ++nonce[0];
-    }
-    inBuf -= 16;
-    AJ_Free(inBuf);
     return status;
 }
 
@@ -498,4 +433,20 @@ AJ_Status AES_CTR_DRBG_Generate(CTR_DRBG_CTX* ctx, uint8_t* rand, size_t size)
     ctx->c++;
 
     return AJ_OK;
+}
+
+int Crypto_Compare(const void* buf1, const void* buf2, size_t count)
+{
+    size_t i = 0;
+    uint8_t different = 0;
+
+    AJ_ASSERT(buf1 != NULL);
+    AJ_ASSERT(buf2 != NULL);
+
+    /* This loop uses the same number of cycles for any two buffers of size count. */
+    for (i = 0; i < count; i++) {
+        different |= ((uint8_t*)buf1)[i] ^ ((uint8_t*)buf2)[i];
+    }
+
+    return (int)different;
 }

@@ -190,9 +190,7 @@ AJ_Status AJ_Net_Connect(AJ_BusAttachment* bus, const AJ_Service* service)
     }
 
 
-    AJ_InfoPrintf(("AJ_Net_Connect(netSock=0x%p, addrType=%d.)\n", netSock, addrType));
-
-    AJ_InfoPrintf(("AJ_Net_Connect(): Connect to 0x%x:%u.\n", addr, port));;
+    AJ_InfoPrintf(("AJ_Net_Connect(bus=0x%p, addrType=%d.)\n", bus, service->addrTypes));
 
     ret = g_client.connect(ip, service->ipv4port);
 

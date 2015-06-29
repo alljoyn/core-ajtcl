@@ -949,24 +949,34 @@ static AJ_Status ParseMDNSResp(AJ_IOBuffer* rxBuf, const char* prefix, AJ_Servic
     // compatibility with other record types that may be in use in the future.
     if ((alljoyn_ptr_record_tcp || alljoyn_ptr_record_udp) && (service_port_tcp || service_port_udp)
         && bus_transport && bus_protocol && bus_a_record) {
+        // ignore this record if it's TCP-only but we want ARDP-only, or vice-versa
+        AJ_Status status = AJ_ERR_NO_MATCH;
 
+        // Check for a TCP response, but only if we're looking for TCP responses
+#ifdef AJ_TCP
         if (alljoyn_ptr_record_tcp && service_port_tcp) {
             service->ipv4port = service_port_tcp;
             memcpy(&service->ipv4, bus_addr, sizeof(service->ipv4));
             service->addrTypes |= AJ_ADDR_TCP4;
             service->pv = protocol_version;
             service->priority = service_priority;
+            status = AJ_OK;
         }
+#endif
 
+        // similarly, check ARDP only if we care about it.
+#ifdef AJ_ARDP
         if (alljoyn_ptr_record_udp && service_port_udp) {
             service->ipv4portUdp = service_port_udp;
             memcpy(&service->ipv4Udp, bus_addr, sizeof(service->ipv4Udp));
             service->addrTypes |= AJ_ADDR_UDP4;
             service->pv = protocol_version;
             service->priority = service_priority;
+            status = AJ_OK;
         }
+#endif
 
-        return AJ_OK;
+        return status;
     } else {
         return AJ_ERR_NO_MATCH;
     }
@@ -1082,12 +1092,15 @@ AJ_Status AJ_Discover(const char* prefix, AJ_Service* service, uint32_t timeout,
         }
 
         /*
-         * Do not listen longer than the overall discover timeout
+         * If selection period has not passed do not listen longer than the selection timeout
          */
-        if (listen > selection) {
+        if ((selection > 0) && (listen > selection)) {
             listen = selection;
         }
 
+        /*
+         * Do not listen longer than the overall discover timeout
+         */
         if (listen > discover) {
             listen = discover;
         }
@@ -1137,10 +1150,6 @@ AJ_Status AJ_Discover(const char* prefix, AJ_Service* service, uint32_t timeout,
                 }
             }
             listen -= AJ_GetElapsedTime(&listenTimer, FALSE);
-            selection -= AJ_GetElapsedTime(&selectionTimer, FALSE);
-            if (selection < 0 && AJ_GetRoutingNodeResponseListSize() > 0) {
-                break;
-            }
         }
         selection -= AJ_GetElapsedTime(&selectionTimer, FALSE);
         if (selection < 0 && AJ_GetRoutingNodeResponseListSize() > 0) {

@@ -24,6 +24,7 @@
 #include <aj_crypto.h>
 #include <aj_crypto_ecc.h>
 #include <aj_config.h>
+#include <aj_util.h>
 
 uint8_t dbgNVT = 0;
 
@@ -257,12 +258,12 @@ AJ_Status TestObsWrite()
 
     AJ_NVRAM_Layout_Print();
 
-    //if( AJ_NVRAM_Exist(AJ_NVRAM_ID_CREDS_MAX + 100)){ //NEGATIVE TEST, ID DOESN'T EXIST
-    //if( AJ_NVRAM_Exist(AJ_NVRAM_ID_CREDS_MAX + 1)){ //PROPERTY STORE DEVICE ID
-    if (AJ_NVRAM_Exist(AJ_NVRAM_ID_FOR_APPS)) {
+    //if( AJ_NVRAM_Exist(AJ_NVRAM_ID_SERVICES_BEGIN + 99)){ //NEGATIVE TEST, ID DOESN'T EXIST
+    //if( AJ_NVRAM_Exist(AJ_NVRAM_ID_SERVICES_BEGIN + 1)){ //PROPERTY STORE DEVICE ID
+    if (AJ_NVRAM_Exist(AJ_NVRAM_ID_APPS_BEGIN)) {
         //nvramHandle = AJ_NVRAM_Open(100, "r", 0); //NEGATIVE TEST, OPEN INVALID ID
-        //nvramHandle = AJ_NVRAM_Open(AJ_NVRAM_ID_CREDS_MAX + 1, "r", 0); //PROPERTY STORE DEVICE ID
-        nvramHandle = AJ_NVRAM_Open(AJ_NVRAM_ID_FOR_APPS, "r", 0);
+        //nvramHandle = AJ_NVRAM_Open(AJ_NVRAM_ID_SERVICES_BEGIN, "r", 0); //PROPERTY STORE DEVICE ID
+        nvramHandle = AJ_NVRAM_Open(AJ_NVRAM_ID_APPS_BEGIN, "r", 0);
         if (nvramHandle != NULL) {
             int sizeRead = AJ_NVRAM_Read(&info, size, nvramHandle);
             status = AJ_NVRAM_Close(nvramHandle);
@@ -292,11 +293,11 @@ AJ_Status TestObsWrite()
         AJ_AlwaysPrintf(("Going to write Info values: state=%d, ssid=%s authType=%d pc=%s\n", info.state, info.ssid, info.authType, info.pc));
 #endif
 
-        //nvramHandle = AJ_NVRAM_Open(AJ_NVRAM_ID_CREDS_MAX + 1, "w", 0); //NEGATIVE TEST, OPEN 0 SIZE
-        //nvramHandle = AJ_NVRAM_Open(AJ_NVRAM_ID_CREDS_MAX + 1, "t", size); //NEGATIVE TEST, INVALID MODE
+        //nvramHandle = AJ_NVRAM_Open(AJ_NVRAM_ID_SERVICES_BEGIN, "w", 0); //NEGATIVE TEST, OPEN 0 SIZE
+        //nvramHandle = AJ_NVRAM_Open(AJ_NVRAM_ID_SERVICES_BEGIN, "t", size); //NEGATIVE TEST, INVALID MODE
         //nvramHandle = AJ_NVRAM_Open(0, "w", size); //NEGATIVE TEST, OPEN 0 ID
-        //nvramHandle = AJ_NVRAM_Open(AJ_NVRAM_ID_CREDS_MAX + 1, "w", size); //PROPERTY STORE DEVICE ID
-        nvramHandle = AJ_NVRAM_Open(AJ_NVRAM_ID_FOR_APPS, "w", size);
+        //nvramHandle = AJ_NVRAM_Open(AJ_NVRAM_ID_SERVICES_BEGIN, "w", size); //PROPERTY STORE DEVICE ID
+        nvramHandle = AJ_NVRAM_Open(AJ_NVRAM_ID_APPS_BEGIN, "w", size);
         if (nvramHandle != NULL) {
             int sizeWritten = AJ_NVRAM_Write(&info, size, nvramHandle);
             status = AJ_NVRAM_Close(nvramHandle);
@@ -304,8 +305,8 @@ AJ_Status TestObsWrite()
                 status = AJ_ERR_WRITE;
             }
         }
-        //nvramHandle = AJ_NVRAM_Open(AJ_NVRAM_ID_CREDS_MAX + 1, "r", 0); //PROPERTY STORE DEVICE ID
-        nvramHandle = AJ_NVRAM_Open(AJ_NVRAM_ID_FOR_APPS, "r", 0);
+        //nvramHandle = AJ_NVRAM_Open(AJ_NVRAM_ID_SERVICES_BEGIN, "r", 0); //PROPERTY STORE DEVICE ID
+        nvramHandle = AJ_NVRAM_Open(AJ_NVRAM_ID_APPS_BEGIN, "r", 0);
         if (nvramHandle != NULL) {
             int sizeRead = AJ_NVRAM_Read(&info, size, nvramHandle);
             status = AJ_NVRAM_Close(nvramHandle);
@@ -571,14 +572,14 @@ AJ_Status TestNvramDelete()
         AJ_NVRAM_Layout_Print();
 #endif
 
-        if (AJ_NVRAM_Exist(AJ_NVRAM_ID_FOR_APPS)) {
+        if (AJ_NVRAM_Exist(AJ_NVRAM_ID_APPS_BEGIN)) {
             AJOBS_Info_Test emptyInfo;
             size_t size = sizeof(AJOBS_Info_Test);
 
             memset(&emptyInfo, 0, sizeof(emptyInfo));
             AJ_AlwaysPrintf(("Going to write Info values: state=%d, ssid=%s authType=%d pc=%s\n", emptyInfo.state, emptyInfo.ssid, emptyInfo.authType, emptyInfo.pc));
-            //AJ_NV_DATASET* nvramHandle = AJ_NVRAM_Open(AJ_NVRAM_ID_CREDS_MAX + 1, "w", size); //PROPERTY STORE DEVICE ID
-            nvramHandle = AJ_NVRAM_Open(AJ_NVRAM_ID_FOR_APPS, "w", size);
+            //AJ_NV_DATASET* nvramHandle = AJ_NVRAM_Open(AJ_NVRAM_ID_SERVICES_BEGIN, "w", size); //PROPERTY STORE DEVICE ID
+            nvramHandle = AJ_NVRAM_Open(AJ_NVRAM_ID_APPS_BEGIN, "w", size);
             if (nvramHandle != NULL) {
                 int sizeWritten = AJ_NVRAM_Write(&emptyInfo, size, nvramHandle);
                 status = AJ_NVRAM_Close(nvramHandle);
@@ -587,8 +588,8 @@ AJ_Status TestNvramDelete()
                     goto _TEST_NVRAM_DELETE_EXIT;
                 }
             }
-            //nvramHandle = AJ_NVRAM_Open(AJ_NVRAM_ID_CREDS_MAX + 1, "r", 0); //PROPERTY STORE DEVICE ID
-            nvramHandle = AJ_NVRAM_Open(AJ_NVRAM_ID_FOR_APPS, "r", 0);
+            //nvramHandle = AJ_NVRAM_Open(AJ_NVRAM_ID_SERVICES_BEGIN, "r", 0); //PROPERTY STORE DEVICE ID
+            nvramHandle = AJ_NVRAM_Open(AJ_NVRAM_ID_APPS_BEGIN, "r", 0);
             if (nvramHandle != NULL) {
                 int sizeRead = AJ_NVRAM_Read(&emptyInfo, size, nvramHandle);
                 status = AJ_NVRAM_Close(nvramHandle);
@@ -670,6 +671,78 @@ AJ_Status TestNVRAMPeek()
     AJ_NVRAM_Layout_Print();
     AJ_AlwaysPrintf(("Testing AJ_NVRAM_Peek() done\n"));
     return status;
+}
+
+AJ_Status TestNVRAMBigWrite()
+{
+    AJ_Status status = AJ_OK;
+    AJ_NV_DATASET* handle = NULL;
+    uint8_t* write_bytes;
+    uint8_t* read_bytes;
+    size_t bytes;
+    int i;
+    uint16_t size = 40000;
+
+    if (size > AJ_NVRAM_REQUESTED) {
+        AJ_AlwaysPrintf(("Testing big write not possible, NVRAM not big enough\n"));
+        return AJ_OK;
+    }
+
+    write_bytes = AJ_Malloc(size);
+    read_bytes = AJ_Malloc(size);
+    if (!write_bytes || !read_bytes) {
+        AJ_ErrPrintf(("malloc failed\n"));
+        return AJ_ERR_FAILURE;
+    }
+    memset(write_bytes, 0x54, size);
+    memset(read_bytes, 0x45, size);
+
+    handle = AJ_NVRAM_Open(1234, "w", size);
+    if (!handle) {
+        AJ_ErrPrintf(("Unable to open big write ID\n"));
+        return AJ_ERR_FAILURE;
+    }
+
+    bytes = AJ_NVRAM_Write(write_bytes, size, handle);
+    if (bytes != (size_t) size) {
+        AJ_ErrPrintf(("Unable to write big bytes\n"));
+        return AJ_ERR_FAILURE;
+    }
+
+    status = AJ_NVRAM_Close(handle);
+    if (status != AJ_OK) {
+        AJ_ErrPrintf(("Unable to close big write ID\n"));
+        return AJ_ERR_FAILURE;
+    }
+
+    handle = AJ_NVRAM_Open(1234, "r", 0);
+    if (!handle) {
+        AJ_ErrPrintf(("Unable to open big read ID\n"));
+        return AJ_ERR_FAILURE;
+    }
+
+    bytes = AJ_NVRAM_Read(read_bytes, size, handle);
+    if (bytes != (size_t) size) {
+        AJ_ErrPrintf(("Unable to read big bytes\n"));
+        return AJ_ERR_FAILURE;
+    }
+
+    for (i = 0; i < size; i++) {
+        if (write_bytes[i] != read_bytes[i]) {
+            AJ_ErrPrintf(("big bytes mismatch at offset %d\n", i));
+            return AJ_ERR_FAILURE;
+        }
+    }
+
+    status = AJ_NVRAM_Close(handle);
+    if (status != AJ_OK) {
+        AJ_ErrPrintf(("Unable to close big read ID\n"));
+        return AJ_ERR_FAILURE;
+    }
+
+    AJ_AlwaysPrintf(("Testing Big Write done\n"));
+    return AJ_OK;
+
 }
 
 AJ_Status TestNVRAM()
@@ -845,6 +918,11 @@ int AJ_Main()
         status = TestNVRAMPeek();
         AJ_InfoPrintf(("\nNVRAM Peek STATUS %u\n", status));
         AJ_ASSERT(status == AJ_OK);
+
+        status = TestNVRAMBigWrite();
+        AJ_InfoPrintf(("\nNVRAM Big Write STATUS %u\n", status));
+        AJ_ASSERT(status == AJ_OK);
+
     }
     return 0;
 }
