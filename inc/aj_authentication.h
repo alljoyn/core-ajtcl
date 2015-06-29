@@ -25,6 +25,7 @@
 #include "aj_bus.h"
 #include "aj_config.h"
 #include "aj_target.h"
+#include "aj_crypto.h"
 #include "aj_crypto_ecc.h"
 #include "aj_crypto_sha2.h"
 
@@ -44,6 +45,36 @@ extern "C" {
 
 #define AUTH_CLIENT            0
 #define AUTH_SERVER            1
+
+/*
+ * We now define two versions of conversation hash: one that only hashes
+ * things inside KeyExchanger, used in authentication versions 3 and below, and
+ * the entire authentication conversation, used starting with version 4. These
+ * constants are used internally for calls to UpdateHash to indicate which
+ * version of the conversation hash a particular call pertains to.
+ *
+ * To stay consistent with the authentication version numbers, these are called
+ * V1 and V4.
+ */
+#define CONVERSATION_V1 ((uint32_t)0x0000)
+#define CONVERSATION_V4 ((uint32_t)0x0004)
+
+/*
+ * Message type headers. All underlying values must fit into a uint8_t.
+ */
+typedef enum {
+    EXCHANGEGUIDSREQUEST,
+    EXCHANGEGUIDSREPLY,
+    GENSESSIONKEYREQUEST,
+    GENSESSIONKEYREPLY,
+    EXCHANGESUITESREQUEST,
+    EXCHANGESUITESREPLY,
+    KEYEXCHANGEREQUEST,
+    KEYEXCHANGEREPLY,
+    VERIFIER,
+    PSK,
+    ECDSA
+} HashHeader;
 
 typedef struct _KeyExchangeContext {
     AJ_ECCPublicKey pub;
@@ -150,6 +181,108 @@ uint8_t AJ_IsSuiteEnabled(uint32_t suite, uint32_t version);
  * @param suite        The authentication suite to enable
  */
 void AJ_EnableSuite(uint32_t suite);
+
+
+/**
+ * Initialize/reset a conversation hash
+ *
+ * @param ctx          The authentication context
+ *
+ */
+void AJ_ConversationHash_Initialize(AJ_AuthenticationContext* ctx);
+
+/**
+ * Update the conversation hash with a header
+ *
+ * @param ctx                   The authentication context
+ * @param conversationVersion   The minimum authentication version which applies to this update
+ * @param hashHeader            The header to hash
+ *
+ */
+void AJ_ConversationHash_Update_HashHeader(AJ_AuthenticationContext* ctx, uint32_t conversationVersion, HashHeader hashHeader);
+
+/**
+ * Update the conversation hash with a uint8_t
+ *
+ * @param ctx                   The authentication context
+ * @param conversationVersion   The minimum authentication version which applies to this update
+ * @param byte                  The byte to hash
+ *
+ */
+void AJ_ConversationHash_Update_UInt8(AJ_AuthenticationContext* ctx, uint32_t conversationVersion, uint8_t byte);
+
+/**
+ * Update the conversation hash with a byte array
+ *
+ * @param ctx                   The authentication context
+ * @param conversationVersion   The minimum authentication version which applies to this update
+ * @param buf                   The input array to hash
+ * @param bufSize               The size of buf
+ *
+ */
+void AJ_ConversationHash_Update_UInt8Array(AJ_AuthenticationContext* ctx, uint32_t conversationVersion, const uint8_t* buf, size_t bufSize);
+
+/**
+ * Update the conversation hash with a string. This function does not assume a null-terminated
+ * string; it will hash exactly the number of characters indicated by strSize.
+ *
+ * @param ctx                   The authentication context
+ * @param conversationVersion   The minimum authentication version which applies to this update
+ * @param str                   The string content to hash
+ * @param strSize               The length of the string
+ *
+ */
+void AJ_ConversationHash_Update_String(AJ_AuthenticationContext* ctx, uint32_t conversationVersion, const char* str, size_t strSize);
+
+/**
+ * Update the conversation hash with a message argument (AJ_Arg). This will hash first
+ * the typeId byte of the argument and then the argument content.
+ *
+ * @param ctx                   The authentication context
+ * @param conversationVersion   The minimum authentication version which applies to this update
+ * @param msg                   The AJ_Message from which the arg came
+ * @param arg                   The AJ_Arg to hash
+ *
+ */
+void AJ_ConversationHash_Update_Arg(AJ_AuthenticationContext* ctx, uint32_t conversationVersion, AJ_Message* msg, AJ_Arg* arg);
+
+/**
+ * Update the conversation hash with a message. This extracts the array of arguments
+ * for the message and hashes them. No other content from the message is included.
+ *
+ * The provided message will have AJ_ResetArgs called on it, so after this call, any unmarshal calls
+ * to the msg object will start with the first argument.
+ *
+ * @param ctx                   The authentication context
+ * @param conversationVersion   The minimum authentication version which applies to this update
+ * @param msg                   The pointer to a message that was unmarshaled by an earlier call to AJ_UnmarshalMsg
+ *
+ */
+void AJ_ConversationHash_Update_UnmarshaledMessage(AJ_AuthenticationContext* ctx, uint32_t conversationVersion, AJ_Message* msg);
+
+/**
+ * Update the conversation hash with a message. This extracts the array of arguments
+ * for the message and hashes them. No other content from the message is included.
+ *
+ * The provided message will not be altered by this call.
+ *
+ * @param ctx                    The authentication context
+ * @param conversationVersion    The minimum authentication version which applies to this update
+ * @param msg                    The pointer to a message that was put together with one or more AJ_Marshal* calls
+ *
+ */
+void AJ_ConversationHash_Update_MarshaledMessage(AJ_AuthenticationContext* ctx, uint32_t conversationVersion, AJ_Message* msg);
+
+
+/**
+ * Get the conversation hash
+ *
+ * @param ctx           The authentication context
+ * @param digest        The buffer to receive the digest. Must be of SHA256_DIGEST_LENGTH
+ * @param keepAlive     Whether or not to keep the digest alive for continuing digest
+ */
+void AJ_ConversationHash_GetDigest(AJ_AuthenticationContext* ctx, uint8_t* digest, const uint8_t keepAlive);
+
 
 #ifdef __cplusplus
 }
