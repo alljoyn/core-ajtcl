@@ -22,11 +22,11 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
-#include "aj_bus.h"
-#include "aj_config.h"
-#include "aj_target.h"
-#include "aj_crypto_ecc.h"
-#include "aj_crypto_sha2.h"
+#include <ajtcl/aj_bus.h>
+#include <ajtcl/aj_config.h>
+#include <ajtcl/aj_target.h>
+#include <ajtcl/aj_crypto_ecc.h>
+#include <ajtcl/aj_crypto_sha2.h>
 
 #ifdef __cplusplus
 extern "C" {

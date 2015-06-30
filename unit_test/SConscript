@@ -46,7 +46,7 @@ if env.has_key('GTEST_DIR') and os.path.exists(os.path.join(env['GTEST_DIR'], 'i
         gtest_env.Append(CPPPATH = [ gtest_env.Dir('$GTEST_DIR/include') ])
 
     gtest_obj = gtest_env.StaticObject(target = 'gtest-all', source = [ '%s/src/gtest-all.cc' % gtest_src_base ])
-    gtest_env.StaticLibrary(target = 'gtest', source = gtest_obj)
+    gtest_lib = gtest_env.StaticLibrary(target = 'gtest', source = gtest_obj)
 
     test_src = env.Glob('*.cc')
 
@@ -63,8 +63,8 @@ if env.has_key('GTEST_DIR') and os.path.exists(os.path.join(env['GTEST_DIR'], 'i
                                        'GTEST_HAS_PTHREAD': '0' })
 
     #gtest library file is placed in the same directory
-    unittest_env.Append(LIBPATH = [Dir('.')])
-    unittest_env.Prepend(LIBS = ['gtest'])
+    unittest_env.Append(LIBPATH = [ Dir('.') ])
+    unittest_env.Prepend(LIBS = [ gtest_lib ])
 
     objs = [ unittest_env.Object(test_src) ]
 

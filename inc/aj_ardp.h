@@ -28,10 +28,10 @@
 extern "C" {
 #endif
 
-#include "aj_bufio.h"
-#include "aj_net.h"
-#include "aj_status.h"
-#include "aj_target.h"
+#include <ajtcl/aj_bufio.h>
+#include <ajtcl/aj_net.h>
+#include <ajtcl/aj_status.h>
+#include <ajtcl/aj_target.h>
 
 /**
  * @brief Per-protocol-instance (global) configuration variables.
