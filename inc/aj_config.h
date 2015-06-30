@@ -22,6 +22,7 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 #include "aj_debug.h"
+#include "aj_nvram.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -50,9 +51,10 @@ extern "C" {
 #define AJ_ADHOC_LEN                16          //AD-HOC maximal passcode length        (aj_auth.h)
 #define AJ_NAME_MAP_GUID_SIZE       4           //aj_guid.c
 #define AJ_MAX_CREDS                40          //Max number of credentials that can store credentials (aj_creds.h)
-#define AJ_LOCAL_GUID_NV_ID         1
-#define AJ_CREDS_NV_ID_BEGIN (AJ_LOCAL_GUID_NV_ID + 1)
-#define AJ_CREDS_NV_ID_END   (AJ_CREDS_NV_ID_BEGIN + AJ_MAX_CREDS)
+#define AJ_LOCAL_GUID_NV_ID         AJ_NVRAM_ID_CREDS_BEGIN
+#define AJ_CREDS_NV_ID_BEGIN        (AJ_LOCAL_GUID_NV_ID + 1)
+#define AJ_CREDS_NV_ID_END          (AJ_CREDS_NV_ID_BEGIN + AJ_MAX_CREDS)
+
 
 /* Timeouts */
 #define AJ_UNMARSHAL_TIMEOUT     (100 * 1000)      //unmarshal timeout                                (aj_helper.c + aj_msg.c)
@@ -100,6 +102,10 @@ extern "C" {
 #define HOST_ENDIANESS AJ_LITTLE_ENDIAN
 #elif HOST_IS_BIG_ENDIAN
 #define HOST_ENDIANESS AJ_BIG_ENDIAN
+#endif
+
+#ifndef AJ_NO_TCP
+#define AJ_TCP
 #endif
 
 #ifdef __cplusplus

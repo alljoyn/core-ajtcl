@@ -227,6 +227,7 @@ struct ArdpConnection {
     uint32_t backoff;       /* Backoff factor accounting for retransmits on connection, resets to 1 when receive "good ack" */
     uint32_t rttMeanUnit;   /* Smoothed RTT value per UDP MTU */
     uint8_t rttInit;        /* Flag indicating that the first RTT was measured and SRTT calculation applies */
+    uint8_t confirm;        /* Flag to indicate that progress happened, do not send ARP re-probe */
 };
 
 static struct ArdpConnection* conn = NULL;
@@ -328,6 +329,7 @@ static AJ_Status SendHeader(uint8_t flags)
 {
     uint32_t buf32[ARDP_HEADER_SIZE >> 2];
     size_t sent;
+    AJ_Status status;
 
     AJ_InfoPrintf(("SendHeader(flags=0x%02x, seq=%u, ack=%u)\n", flags, conn->snd.NXT, conn->rcv.CUR));
 
@@ -338,7 +340,11 @@ static AJ_Status SendHeader(uint8_t flags)
     conn->ackTimer.retry = 0;
     conn->rcv.pending = 0;
 
-    return (*sendFunction)(conn->context, (uint8_t*) &buf32, ARDP_HEADER_SIZE, &sent);
+    status = (*sendFunction)(conn->context, (uint8_t*) &buf32, ARDP_HEADER_SIZE, &sent, conn->confirm);
+    if (status == AJ_OK) {
+        conn->confirm = FALSE;
+    }
+    return status;
 }
 
 static AJ_Status SendSyn(uint16_t dataLen)
@@ -360,7 +366,15 @@ static AJ_Status SendSyn(uint16_t dataLen)
     *((uint16_t*) (txbuf + OPTIONS_OFFSET)) = htons(ARDP_FLAG_SIMPLE_MODE | ARDP_FLAG_SDM);
     *((uint16_t*) (txbuf + SYN_RSRV_OFFSET)) = 0;
 
-    return (*sendFunction)(conn->context, (uint8_t*) &conn->snd.buf[0].data[0], ARDP_SYN_HEADER_SIZE + dataLen, &sent);
+    return (*sendFunction)(conn->context, (uint8_t*) &conn->snd.buf[0].data[0], ARDP_SYN_HEADER_SIZE + dataLen, &sent, FALSE);
+}
+
+static uint8_t IsDataRetransmitScheduled()
+{
+    if (((conn->snd.UNA + 1) != conn->snd.NXT) && (conn->snd.UNA != conn->snd.NXT)) {
+        return TRUE;
+    }
+    return FALSE;
 }
 
 static void InitTimer(struct ArdpTimer* timer, uint32_t delta, uint8_t retry)
@@ -380,7 +394,7 @@ static AJ_Status ConnectTimerHandler()
         size_t sent;
         uint16_t len = conn->snd.buf[0].dataLen + ARDP_SYN_HEADER_SIZE;
         AJ_InfoPrintf(("ConnectTimerHandler: send %d bytes\n", len));
-        status = (*sendFunction)(conn->context, (uint8_t*) conn->snd.buf[0].data, len, &sent);
+        status = (*sendFunction)(conn->context, (uint8_t*) conn->snd.buf[0].data, len, &sent, FALSE);
         if (status == AJ_ERR_WOULD_BLOCK) {
             status = AJ_OK;
         }
@@ -427,14 +441,16 @@ static AJ_Status DataTimerHandler(ArdpSBuf* sBuf)
     struct ArdpTimer* timer = &sBuf->timer;
     uint32_t msElapsed = AJ_GetElapsedTime(&sBuf->tStart, FALSE);
     uint32_t timeout = GetDataTimeout();
-
-#ifndef NDEBUG
-    uint32_t seq = ntohl(*(uint32_t*)((uint8_t*)sBuf->data + SEQ_OFFSET));
-#endif
+    ArdpSBuf* startBuf = sBuf;
 
     sBuf->retransmits++;
 
     do {
+
+#ifndef NDEBUG
+        uint32_t seq = ntohl(*(uint32_t*)((uint8_t*)sBuf->data + SEQ_OFFSET));
+#endif
+
         if ((msElapsed >= timeout) && (timer->retry > UDP_MIN_DATA_RETRIES)) {
             AJ_ErrPrintf(("DataTimerHandler(): hit timeout for %u\n", seq));
             status = AJ_ERR_TIMEOUT;
@@ -450,7 +466,7 @@ static AJ_Status DataTimerHandler(ArdpSBuf* sBuf)
             *((uint32_t*) (txbuf + ACKNXT_OFFSET)) = htonl(conn->snd.UNA);
 
             AJ_InfoPrintf(("DataTimerHandler: send %d bytes (seq %u, ack %u)\n", len, seq, conn->rcv.CUR));
-            status =  (*sendFunction)(conn->context, (uint8_t*) sBuf->data, len, &sent);
+            status =  (*sendFunction)(conn->context, (uint8_t*) sBuf->data, len, &sent, conn->confirm);
             AJ_InitTimer(&sBuf->timer.tStart);
 
             if (status == AJ_OK) {
@@ -458,18 +474,21 @@ static AJ_Status DataTimerHandler(ArdpSBuf* sBuf)
                 if (conn->rttInit) {
                     timer->delta = GetRTO();
                 } else {
-                    timer->delta = UDP_INITIAL_DATA_TIMEOUT;
+                    timer->delta = MIN(UDP_INITIAL_DATA_TIMEOUT << conn->backoff, (uint32_t)ARDP_MAX_RTO);
                 }
+                AJ_InfoPrintf(("DataTimerHandler: backoff %u, delta %u\n", conn->backoff, timer->delta));
+
                 timer->retry++;
                 AJ_InfoPrintf(("DataTimerHandler: cancel ackTimer\n"));
                 conn->ackTimer.retry = 0;
                 conn->rcv.pending = 0;
+                conn->confirm = FALSE;
             } else {
                 AJ_ErrPrintf(("DataTimerHandler():Write to Socket went bad"));
             }
         }
         sBuf = sBuf->next;
-    } while (status == AJ_OK && (sBuf->timer.retry != 0)); /* Here "retry" check equates checking for "in flight" */
+    } while (status == AJ_OK && (sBuf->timer.retry != 0) && (sBuf != startBuf)); /* Here "retry" check equates checking for "in flight" */
 
     return status;
 }
@@ -516,6 +535,9 @@ static AJ_Status CheckTimers()
         status = SendHeader(ARDP_FLAG_ACK | ARDP_FLAG_VER | ARDP_FLAG_NUL);
         AJ_InitTimer(&conn->probeTimer.tStart);
         conn->probeTimer.retry--;
+        if (IsDataRetransmitScheduled() == FALSE) {
+            conn->rttInit = FALSE;
+        }
     }
 
     status = CheckDataTimers();
@@ -697,10 +719,10 @@ static void UpdateSndSegments(uint32_t ack)
     for (i = 0; i < UDP_SEGMAX; i++) {
         uint32_t seq = ntohl(*(uint32_t*)((uint8_t*)(sBuf->data) + SEQ_OFFSET));
 
-        /* If the remote acknowledged the segment, stop retransmit attempts. */
-        AJ_InfoPrintf(("UpdateSndSegments(): cancel retransmit for %u\n", seq));
-
         if (SEQ32_LET(seq, ack) && (sBuf->inFlight != 0)) {
+            /* If the remote acknowledged the segment, stop retransmit attempts. */
+            AJ_InfoPrintf(("UpdateSndSegments(): cancel retransmit for %u\n", seq));
+
             sBuf->timer.retry = 0;
             sBuf->dataLen = 0;
             sBuf->inFlight = 0;
@@ -712,6 +734,21 @@ static void UpdateSndSegments(uint32_t ack)
             break;
         }
         sBuf = sBuf->next;
+    }
+}
+
+static void FlushExpiredRcvMessages(uint32_t seq, uint32_t ackNXT)
+{
+    uint32_t index =  conn->rcv.CUR % UDP_SEGMAX;
+    ArdpRBuf* rBuf = &conn->rcv.buf[index];
+
+    AJ_InfoPrintf(("FlushExpiredRcvMessages: seq = %u, expected %u got %u\n",
+                   seq, conn->rcv.CUR + 1, ackNXT));
+    while (SEQ32_LT(conn->rcv.CUR, ackNXT)) {
+        rBuf->fcnt = 0;
+        rBuf->dataLen = 0;
+        rBuf = rBuf->next;
+        conn->rcv.CUR++;
     }
 }
 
@@ -734,6 +771,7 @@ static void AddRcvBuffer(struct ArdpSeg* seg, uint8_t* rxBuf, uint16_t dataOffse
         UDP_Recv_State.rxContext = (void*) &conn->rcv.buf[index];
     }
 }
+
 static AJ_Status ArdpMachine(struct ArdpSeg* seg, uint8_t* rxBuf, uint16_t len)
 {
     AJ_Status status = AJ_OK;
@@ -770,6 +808,8 @@ static AJ_Status ArdpMachine(struct ArdpSeg* seg, uint8_t* rxBuf, uint16_t len)
                         /* Initialize and kick off link timeout timer */
                         InitTimer(&conn->probeTimer, UDP_LINK_TIMEOUT / UDP_KEEPALIVE_RETRIES, UDP_KEEPALIVE_RETRIES);
 
+                        conn->confirm = TRUE;
+
                         /*
                          * <SEQ=snd.NXT><ACK=RCV.CUR><ACK>
                          */
@@ -792,7 +832,7 @@ static AJ_Status ArdpMachine(struct ArdpSeg* seg, uint8_t* rxBuf, uint16_t len)
     case CLOSE_WAIT:
     case OPEN:
         {
-            AJ_InfoPrintf(("ArdpMachine(): conn->state = OPEN\n"));
+            AJ_InfoPrintf(("ArdpMachine(): conn->state = %s\n", (conn->state == CLOSE_WAIT) ? "CLOSE_WAIT" : "OPEN"));
 
             if (seg->FLG & ARDP_FLAG_SYN) {
                 /* Ignore */
@@ -800,7 +840,7 @@ static AJ_Status ArdpMachine(struct ArdpSeg* seg, uint8_t* rxBuf, uint16_t len)
             }
 
             if (seg->FLG & ARDP_FLAG_ACK) {
-                AJ_InfoPrintf(("ArdpMachine(): OPEN: Got ACK %u LCS %u\n", seg->ACK, seg->LCS));
+                AJ_InfoPrintf(("ArdpMachine(): Got ACK %u LCS %u ACKNXT %u\n", seg->ACK, seg->LCS, seg->ACKNXT));
 
                 if (IN_RANGE(uint32_t, conn->snd.UNA, ((conn->snd.NXT - conn->snd.UNA) + 1), seg->ACK) == TRUE) {
                     conn->snd.UNA = seg->ACK + 1;
@@ -816,11 +856,15 @@ static AJ_Status ArdpMachine(struct ArdpSeg* seg, uint8_t* rxBuf, uint16_t len)
                         return AJ_ERR_ARDP_DISCONNECTED;
                     }
                 }
+                conn->confirm = TRUE;
             }
 
+            AJ_InfoPrintf(("ArdpMachine(): OPEN: seq = %u, we are waiting for %u, they wait for %u\n",
+                           seg->SEQ, conn->rcv.CUR + 1, seg->ACKNXT));
             if (SEQ32_LT(conn->rcv.CUR + 1, seg->ACKNXT)) {
-                AJ_InfoPrintf(("ArdpMachine(): OPEN: FlushExpiredRcvMessages: seq = %u, expected %u got %u\n",
+                AJ_InfoPrintf(("ArdpMachine(): OPEN: seq = %u, expected %u got %u\n",
                                seg->SEQ, conn->rcv.CUR + 1, seg->ACKNXT));
+                FlushExpiredRcvMessages(seg->SEQ, seg->ACKNXT);
                 status = AJ_ERR_ARDP_RECV_EXPIRED;
             }
 
@@ -881,14 +925,7 @@ static void RecvReady(void* rxContext)
 {
     ArdpRBuf* rBuf = (ArdpRBuf*) rxContext;
 
-    AJ_InfoPrintf(("RecvReady: buf=%p, seq=%u\n", rBuf, rBuf->seq));
-
-    if (rBuf->fcnt != 0) {
-        AJ_ASSERT((conn->rcv.LCS + 1) == rBuf->seq);
-    } else {
-        /* This is the very first call into this function. Connection is being established */
-        AJ_ASSERT(conn->rcv.LCS == rBuf->seq);
-    }
+    AJ_InfoPrintf(("RecvReady: buf=%p, seq=%u, lcs=%u\n", rBuf, rBuf->seq, conn->rcv.LCS));
 
     rBuf->fcnt = 0;
     rBuf->dataLen = 0;
@@ -1023,7 +1060,7 @@ static AJ_Status ARDP_Send(uint8_t* txBuf, uint16_t len)
         MarshalHeader(sBuf->data, ARDP_FLAG_ACK | ARDP_FLAG_VER, dataLen, ttl, conn->snd.msgSOM, fcnt);
 
         AJ_InfoPrintf(("ARDP_Send(): send %d bytes (seq %u, ack %u)\n", ARDP_HEADER_SIZE + dataLen, conn->snd.NXT, conn->rcv.CUR));
-        status = (*sendFunction)(conn->context, (uint8_t*) sBuf->data, ARDP_HEADER_SIZE + dataLen, &sent);
+        status = (*sendFunction)(conn->context, (uint8_t*) sBuf->data, ARDP_HEADER_SIZE + dataLen, &sent, conn->confirm);
 
         if (status != AJ_OK) {
             AJ_ErrPrintf(("ARDP_Send(): %s\n", AJ_StatusText(status)));
@@ -1033,6 +1070,7 @@ static AJ_Status ARDP_Send(uint8_t* txBuf, uint16_t len)
         AJ_InfoPrintf(("ArdpSend(): cancel ackTimer\n"));
         conn->ackTimer.retry = 0;
         conn->rcv.pending = 0;
+        conn->confirm = FALSE;
 
         len -= (dataLen - offset);
 
@@ -1250,7 +1288,7 @@ AJ_Status AJ_ARDP_Recv(AJ_IOBuffer* rxBuf, uint32_t len, uint32_t timeout)
             } else if (status == AJ_ERR_ARDP_DISCONNECTING) {
                 /* We are waiting for either TX queue to drain or timeout */
                 break;
-            } else if (status != AJ_ERR_ARDP_REMOTE_CONNECTION_RESET) {
+            } else if ((status != AJ_ERR_ARDP_REMOTE_CONNECTION_RESET) && (conn->state != CLOSE_WAIT)) {
                 AJ_WarnPrintf(("AJ_ARDP_Recv: received bad data, disconnecting\n"));
                 AJ_ARDP_Disconnect(TRUE);
             }
@@ -1273,17 +1311,18 @@ AJ_Status AJ_ARDP_Recv(AJ_IOBuffer* rxBuf, uint32_t len, uint32_t timeout)
 
 UPDATE_READ:
 
+    if ((len != 0) && (UDP_Recv_State.rxContext != NULL)) {
+        UpdateReadBuffer(rxBuf, len);
+    }
+
     if (status == AJ_ERR_ARDP_RECV_EXPIRED) {
         /*
          * Currently we do not do anything with special expired messages.
          * Just deliver the accumulated data and inform the upper layer
          * (via status) that the the previous message may be incomplete.
          */
-        AJ_WarnPrintf(("AJ_ARDP_Recv: Expired message\n"));
-    }
-
-    if ((len != 0) && (UDP_Recv_State.rxContext != NULL)) {
-        UpdateReadBuffer(rxBuf, len);
+        AJ_WarnPrintf(("AJ_ARDP_Recv: Expired message, LCS %u\n", conn->rcv.LCS));
+        conn->rcv.LCS = conn->rcv.CUR;
     }
 
     localStatus = CheckTimers();

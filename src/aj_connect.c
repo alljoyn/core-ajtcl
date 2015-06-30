@@ -100,6 +100,7 @@ void SetBusAuthPwdCallback(BusAuthPwdFunc callback)
      */
 }
 
+#ifdef AJ_TCP
 static AJ_Status SendHello(AJ_BusAttachment* bus)
 {
     AJ_Status status;
@@ -138,10 +139,7 @@ static AJ_Status WriteLine(AJ_IOBuffer* txBuf, char* line) {
     txBuf->writePtr += strlen(line);
     return txBuf->send(txBuf);
 }
-uint8_t AJ_GetRoutingProtoVersion(void)
-{
-    return routingProtoVersion;
-}
+
 /**
  * Since the routing node expects any of its clients to use SASL with Anonymous
  * or PINX in order to connect, this method will send the necessary SASL
@@ -200,6 +198,13 @@ static AJ_Status AnonymousAuthAdvance(AJ_IOBuffer* rxBuf, AJ_IOBuffer* txBuf) {
     return status;
 }
 
+#endif
+
+uint8_t AJ_GetRoutingProtoVersion(void)
+{
+    return routingProtoVersion;
+}
+
 static AJ_Status SetSignalRules(AJ_BusAttachment* bus)
 {
     AJ_Status status = AJ_OK;
@@ -255,6 +260,7 @@ AJ_Status AJ_Authenticate(AJ_BusAttachment* bus)
         return AJ_OK;
     }
 
+#ifdef AJ_TCP
     /*
      * Send initial NUL byte
      */
@@ -303,6 +309,7 @@ ExitConnect:
     } else {
         bus->isAuthenticated = TRUE;
     }
+#endif
     return status;
 }
 
@@ -430,7 +437,7 @@ ExitConnect:
     return status;
 }
 
-static void AddRoutingNodeToBlacklist(AJ_Service* service);
+static void AddRoutingNodeToBlacklist(const AJ_Service* service, uint8_t addrTypes);
 
 AJ_Status AJ_FindBusAndConnect(AJ_BusAttachment* bus, const char* serviceName, uint32_t timeout)
 {
@@ -533,7 +540,8 @@ AJ_Status AJ_FindBusAndConnect(AJ_BusAttachment* bus, const char* serviceName, u
 
 #if !AJ_CONNECT_LOCALHOST && !defined(ARDUINO) && !defined(AJ_SERIAL_CONNECTION)
             AJ_InfoPrintf(("AJ_FindBusAndConnect(): Blacklisting routing node"));
-            AddRoutingNodeToBlacklist(&service);
+            // only TCP can fail to authenticate here
+            AddRoutingNodeToBlacklist(&service, AJ_ADDR_TCP4);
             // try again
             finished = FALSE;
             connectionTime -= AJ_GetElapsedTime(&connectionTimer, FALSE);
@@ -638,7 +646,8 @@ AJ_Status AJ_ARDP_UDP_Connect(AJ_BusAttachment* bus, void* context, const AJ_Ser
             if (routingProtoVersion < AJ_GetMinProtoVersion()) {
                 AJ_InfoPrintf(("AJ_ARDP_Connect(): Blacklisting routing node, found %u but require >= %u\n",
                                routingProtoVersion, AJ_GetMinProtoVersion()));
-                AddRoutingNodeToBlacklist(service);
+                // add to blacklist because of invalid version
+                AddRoutingNodeToBlacklist(service, AJ_ADDR_UDP4);
                 status = AJ_ERR_CONNECT;
             }
         }
@@ -923,15 +932,19 @@ uint8_t AJ_GetRoutingNodeResponseListSize()
     return RoutingNodeResponselist_idx;
 }
 
-static void AddRoutingNodeToBlacklist(AJ_Service* service)
+static void AddRoutingNodeToBlacklist(const AJ_Service* service, uint8_t addrTypes)
 {
-    RoutingNodeIPBlacklist[RoutingNodeBlacklist_idx] = service->ipv4;
-    RoutingNodePortBlacklist[RoutingNodeBlacklist_idx] = service->ipv4port;
-    RoutingNodeBlacklist_idx = (RoutingNodeBlacklist_idx + 1) % AJ_ROUTING_NODE_BLACKLIST_SIZE;
+    if ((addrTypes & AJ_ADDR_TCP4) && (service->addrTypes & AJ_ADDR_TCP4)) {
+        RoutingNodeIPBlacklist[RoutingNodeBlacklist_idx] = service->ipv4;
+        RoutingNodePortBlacklist[RoutingNodeBlacklist_idx] = service->ipv4port;
+        RoutingNodeBlacklist_idx = (RoutingNodeBlacklist_idx + 1) % AJ_ROUTING_NODE_BLACKLIST_SIZE;
+    }
 
-    RoutingNodeIPBlacklist[RoutingNodeBlacklist_idx] = service->ipv4Udp;
-    RoutingNodePortBlacklist[RoutingNodeBlacklist_idx] = service->ipv4portUdp;
-    RoutingNodeBlacklist_idx = (RoutingNodeBlacklist_idx + 1) % AJ_ROUTING_NODE_BLACKLIST_SIZE;
+    if ((addrTypes & AJ_ADDR_UDP4) && (service->addrTypes & AJ_ADDR_UDP4)) {
+        RoutingNodeIPBlacklist[RoutingNodeBlacklist_idx] = service->ipv4Udp;
+        RoutingNodePortBlacklist[RoutingNodeBlacklist_idx] = service->ipv4portUdp;
+        RoutingNodeBlacklist_idx = (RoutingNodeBlacklist_idx + 1) % AJ_ROUTING_NODE_BLACKLIST_SIZE;
+    }
 }
 
 void AJ_InitRoutingNodeResponselist()

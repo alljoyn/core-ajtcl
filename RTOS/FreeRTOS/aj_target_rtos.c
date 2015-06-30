@@ -86,8 +86,11 @@ struct AJ_Queue* AJ_QueueCreate(const char* name) {
 }
 void AJ_QueueDelete(struct AJ_Queue* q)
 {
-    vQueueUnregisterQueue(q->q);
-    vQueueDelete(q->q);
+    if (q && q->q) {
+        vQueueUnregisterQueue(q->q);
+        vQueueDelete(q->q);
+        AJ_Free(q);
+    }
 }
 AJ_Status AJ_QueuePeek(struct AJ_Queue* q, void* data)
 {

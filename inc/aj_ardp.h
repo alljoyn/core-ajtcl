@@ -149,12 +149,13 @@ typedef AJ_Status (*ReceiveFunction)(void* context, uint8_t** buf, uint32_t* rec
  *  @param buf     - (IN)  A pointer to the buffer to send
  *  @param recved  - (IN)  The number of bytes to send
  *  @param timeout - (OUT) The number of bytes actually sent
+ *  @param confirm - (IN)  The indicator whether MSG_CONFIRM flag should be set
  *
  *  @return error code
  *      AJ_OK               if data was sent
  *      AJ_ERR_READ         if an error has occured
  */
-typedef AJ_Status (*SendFunction)(void* context, uint8_t* buf, size_t len, size_t* sent);
+typedef AJ_Status (*SendFunction)(void* context, uint8_t* buf, size_t len, size_t* sent, uint8_t confirm);
 
 void AJ_ARDP_InitFunctions(ReceiveFunction recv, SendFunction send);
 
