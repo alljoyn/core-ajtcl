@@ -35,7 +35,6 @@ int led = 13;
 
 #ifdef WIFI_UDP_WORKING
 char ssid[] = "yourNetwork";     // the name of your network
-int status = WL_IDLE_STATUS;     // the Wifi radio's status
 #endif
 
 
@@ -61,32 +60,36 @@ void setup() {
     pinMode(led, OUTPUT);
 
     Serial.begin(115200);
-    while (!Serial) ;
+    while (!Serial);
 
     digitalWrite(led, LOW);
 
-
 #ifdef WIFI_UDP_WORKING
     // check for the presence of the shield:
-    if (WiFi.status() == WL_NO_SHIELD) {
-        AJ_AlwaysPrintf(("WiFi shield not present\n"));
-        // don't continue:
-        while (true) ;
+    unsigned int retries = 10;
+    while (WiFi.status() == WL_NO_SHIELD) {
+        if (retries == 0) {
+            Serial.println("WiFi shield not present");
+            // don't continue:
+            while (true);
+        }
+        retries--;
+        delay(500);
     }
 
     // attempt to connect to Wifi network:
-    while (wifiStatus != WL_CONNECTED) {
+    while (true) {
         Serial.print("Attempting to connect to open SSID: ");
         Serial.println(ssid);
-        status = WiFi.begin(ssid);
-
-        // wait 10 seconds for connection:
+        WiFi.begin(ssid);
+        if (WiFi.status() == WL_CONNECTED) {
+            break;
+        }
         delay(10000);
-
-        IPAddress ip = WiFi.localIP();
-        Serial.print("Connected: ");
-        Serial.println(ip);
     }
+    IPAddress ip = WiFi.localIP();
+    Serial.print("Connected: ");
+    Serial.println(ip);
 #else
     byte mac[] = { 0x00, 0xAA, 0xBB, 0xCC, 0xDE, 0x02 };
     // start the Ethernet connection:
