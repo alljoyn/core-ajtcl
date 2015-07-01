@@ -445,8 +445,6 @@ AJ_Status AJ_FindBusAndConnect(AJ_BusAttachment* bus, const char* serviceName, u
     AJ_Time connectionTimer;
     int32_t connectionTime;
     uint8_t finished = FALSE;
-    bus->isAuthenticated = FALSE;
-    bus->isProbeRequired = TRUE;
 
 #ifdef AJ_SERIAL_CONNECTION
     AJ_Time start, now;
@@ -459,6 +457,8 @@ AJ_Status AJ_FindBusAndConnect(AJ_BusAttachment* bus, const char* serviceName, u
      * Clear the bus struct
      */
     memset(bus, 0, sizeof(AJ_BusAttachment));
+    bus->isProbeRequired = TRUE;
+
     /*
      * Clear stale name->GUID mappings
      */
