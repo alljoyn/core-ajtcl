@@ -41,16 +41,13 @@ extern "C" {
 #define UDP_INITIAL_DATA_TIMEOUT 1000  /**< Initial value for how long do we wait before retrying sending data */
 #define UDP_TOTAL_DATA_RETRY_TIMEOUT 30000  /**< Initial total amount of time to try and send data before giving up */
 #define UDP_MIN_DATA_RETRIES 5  /**< Minimum number of times to try and send data before giving up */
-#define UDP_PERSIST_INTERVAL 1000  /**< How long do we wait before pinging the other side due to a zero window */
-#define UDP_TOTAL_APP_TIMEOUT 30000  /**< How long to we try to ping for window opening before deciding app is not pulling data */
 #define UDP_LINK_TIMEOUT 30000  /**< How long before we decide a link is down (with no reponses to keepalive probes */
 #define UDP_KEEPALIVE_RETRIES 5  /**< How many times do we try to probe on an idle link before terminating the connection */
 #define UDP_FAST_RETRANSMIT_ACK_COUNTER 1  /**< How many duplicate acknowledgements to we need to trigger a data retransmission */
 #define UDP_DELAYED_ACK_TIMEOUT 100 /**< How long do we wait until acknowledging received segments */
-#define UDP_TIMEWAIT 1000  /**< How long do we stay in TIMWAIT state before releasing the per-connection resources */
-#define UDP_MINIMUM_TIMEOUT 100 /**< The minimum amount of time between calls to ARDP_Recv */
 #define UDP_BACKPRESSURE_TIMEOUT 100 /**< How long can backpressure block the program before a disconnect is triggered? */
 #define UDP_DISCONNECT_TIMEOUT 1000  /**< How long can disconnect block the program waiting for TX queue to drain */
+#define UDP_MINIMUM_TIMEOUT 100 /**< The minimum amount of time between calls to ARDP_Recv, should not be greater than any of the timeout values above */
 
 #define UDP_SEGBMAX 1472  /**< Maximum size of an ARDP segment (quantum of reliable transmission) */
 #define UDP_SEGMAX 2  /**< Maximum number of ARDP segment in-flight (bandwidth-delay product sizing) */

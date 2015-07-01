@@ -407,7 +407,6 @@ static AJ_Status ConnectTimerHandler()
         conn->state = CLOSED;
         conn->connectTimer.retry = 0;
         AJ_ErrPrintf(("ConnectTimerHandler(): %s\n", AJ_StatusText(status)));
-        printf("ConnectTimerHandler(): %s\n", AJ_StatusText(status));
         AJ_Free(conn);
         conn = NULL;
         return AJ_ERR_CONNECT;
@@ -527,7 +526,7 @@ static AJ_Status CheckTimers()
     /* Check probe timer, it's always turned on */
     delta = AJ_GetElapsedTime(&conn->probeTimer.tStart, TRUE);
     if (delta >= conn->probeTimer.delta) {
-        if (conn->probeTimer.retry == 0) {
+        if (conn->probeTimer.retry == 1) {
             AJ_ErrPrintf(("CheckTimers: link timeout\n"));
             return AJ_ERR_ARDP_PROBE_TIMEOUT;
         }
@@ -1148,7 +1147,7 @@ void AJ_ARDP_Disconnect(uint8_t forced)
 AJ_Status AJ_ARDP_Send(AJ_IOBuffer* buf)
 {
     size_t tx = AJ_IO_BUF_AVAIL(buf);
-    AJ_Status status;
+    AJ_Status status = AJ_OK;
 
     AJ_InfoPrintf(("AJ_ARDP_Send(buf=0x%p)\n", buf));
 
@@ -1250,6 +1249,7 @@ AJ_Status AJ_ARDP_Recv(AJ_IOBuffer* rxBuf, uint32_t len, uint32_t timeout)
 {
     AJ_Status status = AJ_ERR_TIMEOUT;
     AJ_Status localStatus;
+    AJ_Status timerStatus = AJ_OK;
     uint32_t timeout2 = min(timeout, UDP_MINIMUM_TIMEOUT);
     AJ_Time now, end;
 
@@ -1272,10 +1272,20 @@ AJ_Status AJ_ARDP_Recv(AJ_IOBuffer* rxBuf, uint32_t len, uint32_t timeout)
 
         status = (*recvFunction)(rxBuf->context, &buf, &received, timeout2);
 
+        localStatus = CheckTimers();
+
+        if (localStatus == AJ_ERR_ARDP_PROBE_TIMEOUT) {
+            return AJ_ERR_READ;
+        }
+        if (localStatus != AJ_OK) {
+            timerStatus = localStatus;
+        }
+
         switch (status) {
         case AJ_ERR_TIMEOUT:
             if ((len != 0) && (UDP_Recv_State.rxContext != NULL)) {
                 status = AJ_OK;
+                AJ_InitTimer(&conn->probeTimer.tStart);
                 goto UPDATE_READ;
             }
             break;
@@ -1325,9 +1335,8 @@ UPDATE_READ:
         conn->rcv.LCS = conn->rcv.CUR;
     }
 
-    localStatus = CheckTimers();
-
-    if (localStatus != AJ_OK) {
+    if (timerStatus != AJ_OK) {
+        AJ_InfoPrintf(("AJ_ARDP_Recv CheckTimers status %s\n", AJ_StatusText(localStatus)));
         status = localStatus;
     }
 
