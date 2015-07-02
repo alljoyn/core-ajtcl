@@ -103,3 +103,60 @@ TEST_F(DiscoveryTest, ExhaustSelection)
     status = AJ_SelectRoutingNodeFromResponseList(&service);
     EXPECT_EQ(AJ_ERR_END_OF_DATA, status) << "Response list was not exhausted after all nodes were selected";
 }
+
+TEST_F(DiscoveryTest, SelectPriorityListFullEqual)
+{
+    // Select correct routing node after adding best priority to a list that is full of equal priorities
+    AJ_Service service;
+    AJ_Service serviceHigherScore =  { 0, 0, 0, 0, 0x0100007f, 1234, 0, { 0, 0, 0, 0 } };
+    AJ_Service serviceLowerScore1 = { 0, 0, 0, 0, 0x0200007f, 5678, 0, { 0, 0, 0, 0 } };
+    AJ_Service serviceLowerScore2 = { 0, 0, 0, 0, 0x0300007f, 5678, 0, { 0, 0, 0, 0 } };
+    AJ_Service serviceLowerScore3 =  { 0, 0, 0, 0, 0x0400007f, 5678, 0, { 0, 0, 0, 0 } };
+
+    AJ_InitRoutingNodeResponselist();
+    AJ_AddRoutingNodeToResponseList(&serviceLowerScore2);
+    AJ_AddRoutingNodeToResponseList(&serviceLowerScore3);
+    AJ_AddRoutingNodeToResponseList(&serviceLowerScore1);
+    AJ_AddRoutingNodeToResponseList(&serviceHigherScore);
+    AJ_Status status = AJ_SelectRoutingNodeFromResponseList(&service);
+    EXPECT_EQ(AJ_OK, status) << "Unable to select any routing node from the response list ";
+    EXPECT_EQ(serviceHigherScore.ipv4, service.ipv4) << "Wrong ipv4 address selected from the response list";
+}
+
+TEST_F(DiscoveryTest, SelectProtocolVersionListFullEqual)
+{
+    // Select correct routing node after adding better protocol version to a list that is full of equal protocol versi
+    AJ_Service service;
+    AJ_Service serviceHigherScore =  { 0, 0, 0, 0, 0x0100007f, 6789, 12, { 0, 0, 0, 0 } };
+    AJ_Service serviceLowerScore1 = { 0, 0, 0, 0, 0x0200007f, 5678, 11, { 0, 0, 0, 0 } };
+    AJ_Service serviceLowerScore2 = { 0, 0, 0, 0, 0x0300007f, 5678, 11, { 0, 0, 0, 0 } };
+    AJ_Service serviceLowerScore3 =  { 0, 0, 0, 0, 0x0400007f, 5678, 11, { 0, 0, 0, 0 } };
+
+    AJ_InitRoutingNodeResponselist();
+    AJ_AddRoutingNodeToResponseList(&serviceLowerScore2);
+    AJ_AddRoutingNodeToResponseList(&serviceLowerScore3);
+    AJ_AddRoutingNodeToResponseList(&serviceLowerScore1);
+    AJ_AddRoutingNodeToResponseList(&serviceHigherScore);
+    AJ_Status status = AJ_SelectRoutingNodeFromResponseList(&service);
+    EXPECT_EQ(AJ_OK, status) << "Unable to select any routing node from the response list ";
+    EXPECT_EQ(serviceHigherScore.ipv4, service.ipv4) << "Wrong ipv4 address selected from the response list";
+}
+
+TEST_F(DiscoveryTest, SelectProtocolVersionPriorityListFullEqual)
+{
+    // Select correct routing node after adding better protocol version and priority to a list that is full of equal protocol versi
+    AJ_Service service;
+    AJ_Service serviceHigherScore =  { 0, 0, 0, 0, 0x0100007f, 1234, 12, { 0, 0, 0, 0 } };
+    AJ_Service serviceLowerScore1 = { 0, 0, 0, 0, 0x0200007f, 5678, 11, { 0, 0, 0, 0 } };
+    AJ_Service serviceLowerScore2 = { 0, 0, 0, 0, 0x0300007f, 5678, 11, { 0, 0, 0, 0 } };
+    AJ_Service serviceLowerScore3 =  { 0, 0, 0, 0, 0x0400007f, 5678, 11, { 0, 0, 0, 0 } };
+
+    AJ_InitRoutingNodeResponselist();
+    AJ_AddRoutingNodeToResponseList(&serviceLowerScore2);
+    AJ_AddRoutingNodeToResponseList(&serviceLowerScore3);
+    AJ_AddRoutingNodeToResponseList(&serviceLowerScore1);
+    AJ_AddRoutingNodeToResponseList(&serviceHigherScore);
+    AJ_Status status = AJ_SelectRoutingNodeFromResponseList(&service);
+    EXPECT_EQ(AJ_OK, status) << "Unable to select any routing node from the response list ";
+    EXPECT_EQ(serviceHigherScore.ipv4, service.ipv4) << "Wrong ipv4 address selected from the response list";
+}
