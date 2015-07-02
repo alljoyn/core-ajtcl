@@ -36,8 +36,8 @@
 #include <ajtcl/aj_config.h>
 #include <ajtcl/aj_authentication.h>
 #include <ajtcl/aj_cert.h>
-#include "aj_authorisation.h"
-#include "aj_security.h"
+#include <ajtcl/aj_authorisation.h>
+#include <ajtcl/aj_security.h>
 
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
@@ -265,7 +265,7 @@ static AJ_Status SaveECDSAContext(const AJ_GUID* peerGuid, uint32_t expiration)
     }
 
     if (AJ_AUTH_SUCCESS == peerContext.state) {
-        status = AJ_CredentialSetPeer(AJ_GENERIC_ECDSA_MANIFEST, peerGuid, expiration, authContext.kactx.ecdsa.manifest, SHA256_DIGEST_LENGTH);
+        status = AJ_CredentialSetPeer(AJ_GENERIC_ECDSA_MANIFEST, peerGuid, expiration, authContext.kactx.ecdsa.manifest, AJ_SHA256_DIGEST_LENGTH);
         if (AJ_OK != status) {
             return status;
         }
@@ -286,7 +286,7 @@ static AJ_Status LoadECDSAContext(const AJ_GUID* peerGuid)
     AJ_InfoPrintf(("LoadECDSAContext(peerGuid=%p)\n", peerGuid));
 
     /* Check if we have a stored manifest */
-    data.size = SHA256_DIGEST_LENGTH;
+    data.size = AJ_SHA256_DIGEST_LENGTH;
     data.data = authContext.kactx.ecdsa.manifest;
     status = AJ_CredentialGetPeer(AJ_GENERIC_ECDSA_MANIFEST, peerGuid, NULL, &data);
     if (AJ_OK != status) {
@@ -1435,7 +1435,7 @@ AJ_Status AJ_PeerHandleSendManifest(AJ_Message* msg, AJ_Message* reply)
     AJ_CredField field = { 0, NULL };
     const AJ_GUID* peerGuid = AJ_GUID_Find(msg->sender);
     AJ_Manifest* manifest = NULL;
-    uint8_t digest[SHA256_DIGEST_LENGTH];
+    uint8_t digest[AJ_SHA256_DIGEST_LENGTH];
 
     AJ_InfoPrintf(("AJ_PeerHandleSendManifest(msg=%p, reply=%p)\n", msg, reply));
 
@@ -1456,7 +1456,7 @@ AJ_Status AJ_PeerHandleSendManifest(AJ_Message* msg, AJ_Message* reply)
     field.data = NULL;
     field.size = 0;
     /* Compare with digest from certificate */
-    if (0 != memcmp(digest, authContext.kactx.ecdsa.manifest, SHA256_DIGEST_LENGTH)) {
+    if (0 != memcmp(digest, authContext.kactx.ecdsa.manifest, AJ_SHA256_DIGEST_LENGTH)) {
         AJ_InfoPrintf(("AJ_PeerHandleSendManifest(msg=%p, reply=%p): Manifest digest mismatch\n", msg, reply));
         goto Exit;
     }
@@ -1525,7 +1525,7 @@ AJ_Status AJ_PeerHandleSendManifestReply(AJ_Message* msg)
     const AJ_GUID* peerGuid = AJ_GUID_Find(msg->sender);
     AJ_Manifest* manifest = NULL;
     AJ_CredField field = { 0, NULL };
-    uint8_t digest[SHA256_DIGEST_LENGTH];
+    uint8_t digest[AJ_SHA256_DIGEST_LENGTH];
 
     AJ_InfoPrintf(("AJ_PeerHandleSendManifestReply(msg=%p)\n", msg));
 
@@ -1550,7 +1550,7 @@ AJ_Status AJ_PeerHandleSendManifestReply(AJ_Message* msg)
     field.data = NULL;
     field.size = 0;
     /* Compare with digest from certificate */
-    if (0 != memcmp(digest, authContext.kactx.ecdsa.manifest, SHA256_DIGEST_LENGTH)) {
+    if (0 != memcmp(digest, authContext.kactx.ecdsa.manifest, AJ_SHA256_DIGEST_LENGTH)) {
         AJ_InfoPrintf(("AJ_PeerHandleSendManifestReply(msg=%p): Manifest digest mismatch\n", msg));
         status = AJ_ERR_SECURITY;
         goto Exit;

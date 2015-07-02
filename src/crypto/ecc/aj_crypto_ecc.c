@@ -23,7 +23,7 @@
 #include <ajtcl/aj_crypto.h>
 #include <ajtcl/aj_crypto_ecc.h>
 #include <ajtcl/aj_crypto_sha2.h>
-#include "aj_util.h"
+#include <ajtcl/aj_util.h>
 
 typedef enum {B_FALSE, B_TRUE} boolean_t;
 

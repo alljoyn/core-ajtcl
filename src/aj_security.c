@@ -23,17 +23,17 @@
  */
 #define AJ_MODULE SECURITY
 
-#include "aj_authorisation.h"
-#include "aj_target.h"
-#include "aj_security.h"
-#include "aj_std.h"
-#include "aj_debug.h"
-#include "aj_peer.h"
-#include "aj_crypto_ecc.h"
-#include "aj_guid.h"
-#include "aj_cert.h"
-#include "aj_config.h"
-#include "aj_crypto.h"
+#include <ajtcl/aj_authorisation.h>
+#include <ajtcl/aj_target.h>
+#include <ajtcl/aj_security.h>
+#include <ajtcl/aj_std.h>
+#include <ajtcl/aj_debug.h>
+#include <ajtcl/aj_peer.h>
+#include <ajtcl/aj_crypto_ecc.h>
+#include <ajtcl/aj_guid.h>
+#include <ajtcl/aj_cert.h>
+#include <ajtcl/aj_config.h>
+#include <ajtcl/aj_crypto.h>
 
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
@@ -399,7 +399,7 @@ static AJ_Status SecurityGetProperty(AJ_Message* reply, uint32_t id, void* conte
     AJ_Status status = AJ_ERR_UNEXPECTED;
     AJ_CredField field = { 0, NULL };
     AJ_ECCPublicKey pub;
-    uint8_t digest[SHA256_DIGEST_LENGTH];
+    uint8_t digest[AJ_SHA256_DIGEST_LENGTH];
     uint32_t version;
     DER_Element group;
     AJ_Manifest* manifest = NULL;
@@ -422,7 +422,7 @@ static AJ_Status SecurityGetProperty(AJ_Message* reply, uint32_t id, void* conte
             break;
         }
         AJ_ManifestDigest(&field, digest);
-        status = AJ_MarshalArgs(reply, "(yay)", DIGEST_ALG_SHA256, digest, SHA256_DIGEST_LENGTH);
+        status = AJ_MarshalArgs(reply, "(yay)", DIGEST_ALG_SHA256, digest, AJ_SHA256_DIGEST_LENGTH);
         break;
 
     case AJ_PROPERTY_SEC_ECC_PUBLICKEY:
@@ -589,7 +589,7 @@ AJ_Status AJ_SecurityClaimMethod(AJ_Message* msg, AJ_Message* reply)
     AJ_Manifest* manifest = NULL;
     AJ_CredField manifest_data = { 0, NULL };
     X509Certificate* certificate;
-    uint8_t digest[SHA256_DIGEST_LENGTH];
+    uint8_t digest[AJ_SHA256_DIGEST_LENGTH];
 
     AJ_InfoPrintf(("AJ_SecurityClaimMethod(msg=%p, reply=%p)\n", msg, reply));
 

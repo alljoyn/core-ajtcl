@@ -22,7 +22,7 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 #include <ajtcl/aj_debug.h>
-#include "aj_nvram.h"
+#include <ajtcl/aj_nvram.h>
 
 #ifdef __cplusplus
 extern "C" {

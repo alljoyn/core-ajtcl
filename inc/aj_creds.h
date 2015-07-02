@@ -26,7 +26,7 @@
 #include <ajtcl/aj_guid.h>
 #include <ajtcl/aj_status.h>
 #include <ajtcl/aj_config.h>
-#include "aj_crypto_ecc.h"
+#include <ajtcl/aj_crypto_ecc.h>
 
 #ifdef __cplusplus
 extern "C" {

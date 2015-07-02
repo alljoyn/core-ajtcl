@@ -37,8 +37,8 @@
 #include <ajtcl/aj_peer.h>
 #include <ajtcl/aj_auth_listener.h>
 #include <ajtcl/aj_authentication.h>
-#include <aj_authorisation.h>
-#include <aj_security.h>
+#include <ajtcl/aj_authorisation.h>
+#include <ajtcl/aj_security.h>
 
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value

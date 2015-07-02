@@ -21,14 +21,14 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
-#include "aj_authentication.h"
-#include "aj_cert.h"
-#include "aj_creds.h"
-#include "aj_crypto_ecc.h"
-#include "aj_crypto_sha2.h"
-#include "aj_guid.h"
-#include "aj_msg.h"
-#include "aj_target.h"
+#include <ajtcl/aj_authentication.h>
+#include <ajtcl/aj_cert.h>
+#include <ajtcl/aj_creds.h>
+#include <ajtcl/aj_crypto_ecc.h>
+#include <ajtcl/aj_crypto_sha2.h>
+#include <ajtcl/aj_guid.h>
+#include <ajtcl/aj_msg.h>
+#include <ajtcl/aj_target.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -124,7 +124,7 @@ AJ_Status AJ_ManifestTemplateMarshal(AJ_Message* msg);
  * @param manifest     The marshalled manifest message body
  * @param digest       The output digest
  */
-void AJ_ManifestDigest(AJ_CredField * manifest, uint8_t digest[SHA256_DIGEST_LENGTH]);
+void AJ_ManifestDigest(AJ_CredField * manifest, uint8_t digest[AJ_SHA256_DIGEST_LENGTH]);
 
 /**
  * Marshal a manifest record

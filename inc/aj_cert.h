@@ -26,8 +26,8 @@
 #include <ajtcl/aj_target.h>
 #include <ajtcl/aj_status.h>
 #include <ajtcl/aj_crypto_ecc.h>
-#include "aj_creds.h"
-#include "aj_msg.h"
+#include <ajtcl/aj_creds.h>
+#include <ajtcl/aj_msg.h>
 
 #ifdef __cplusplus
 extern "C" {

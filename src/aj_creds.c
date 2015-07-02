@@ -30,8 +30,8 @@
 #include <ajtcl/aj_nvram.h>
 #include <ajtcl/aj_debug.h>
 #include <ajtcl/aj_config.h>
-#include "aj_crypto_sha2.h"
-#include "aj_cert.h"
+#include <ajtcl/aj_crypto_sha2.h>
+#include <ajtcl/aj_cert.h>
 
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
