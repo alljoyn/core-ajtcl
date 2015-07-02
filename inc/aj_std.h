@@ -91,7 +91,7 @@
 #define AJ_METHOD_KEY_EXCHANGE         AJ_BUS_MESSAGE_ID(2, 1, 5)    /**< method for key exchange */
 #define AJ_METHOD_KEY_AUTHENTICATION   AJ_BUS_MESSAGE_ID(2, 1, 6)    /**< method for authenticating key exchange */
 #define AJ_METHOD_SEND_MANIFEST        AJ_BUS_MESSAGE_ID(2, 1, 7)    /**< method for exchanging manifests */
-#define AJ_METHOD_SEND_MEMBERSHIPS     AJ_BUS_MESSAGE_ID(2, 1, 8)    /**< method for exchanging membership authorisations */
+#define AJ_METHOD_SEND_MEMBERSHIPS     AJ_BUS_MESSAGE_ID(2, 1, 8)    /**< method for exchanging membership certificates */
 
 /*
  * Members of interface org.freedesktop.DBus.Introspectable

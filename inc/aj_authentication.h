@@ -25,6 +25,7 @@
 #include "aj_bus.h"
 #include "aj_config.h"
 #include "aj_target.h"
+#include "aj_cert.h"
 #include "aj_crypto_ecc.h"
 #include "aj_crypto_sha2.h"
 
@@ -61,7 +62,7 @@ typedef struct _PSKContext {
 } PSKContext;
 
 typedef struct _ECDSAContext {
-    AJ_ECCPublicKey issuer;                        /**< Certificate issuer */
+    AJ_ECCPublicKeys* issuers;                     /**< Certificate issuers */
     AJ_ECCPublicKey subject;                       /**< Certificate subject */
     uint8_t manifest[SHA256_DIGEST_LENGTH];        /**< Manifest digest */
 } ECDSAContext;
@@ -84,6 +85,8 @@ typedef struct _AJ_AuthenticationContext {
     KeyAuthenticationContext kactx;                /**< Context for key authentication step */
     uint8_t mastersecret[AJ_MASTER_SECRET_LEN];    /**< Master secret */
     uint32_t expiration;                           /**< Master secret expiration */
+    uint16_t slot;                                 /**< NVRAM slot of membership certificate */
+    uint8_t code;                                  /**< Send Membership code (NONE, MORE, LAST) */
 } AJ_AuthenticationContext;
 
 /**

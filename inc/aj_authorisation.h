@@ -22,6 +22,7 @@
  ******************************************************************************/
 
 #include "aj_authentication.h"
+#include "aj_cert.h"
 #include "aj_creds.h"
 #include "aj_crypto_ecc.h"
 #include "aj_crypto_sha2.h"
@@ -69,7 +70,7 @@ typedef struct _AJ_Manifest {
 typedef struct _AJ_PermissionPeer {
     uint8_t type;                      /**< Peer type */
     AJ_ECCPublicKey* pub;              /**< ECC public key (optional) */
-    AJ_GUID* group;                    /**< Group identifier (optional) */
+    DER_Element* group;                /**< Group identifier (optional) */
     struct _AJ_PermissionPeer* next;
 } AJ_PermissionPeer;
 
@@ -192,14 +193,13 @@ void AJ_PolicyFree(AJ_Policy* policy);
  *
  * @param msg          The outgoing message
  * @param pub          The security group CA public key
- * @param g            The security group
- * @param glen         The security group size
+ * @param group        The security group
  *
  * @return
  *          - AJ_OK on success
  *          - AJ_ERR_INVALID otherwise
  */
-AJ_Status AJ_MarshalDefaultPolicy(AJ_Message* msg, AJ_ECCPublicKey* pub, uint8_t* g, size_t glen);
+AJ_Status AJ_MarshalDefaultPolicy(AJ_Message* msg, AJ_ECCPublicKey* pub, DER_Element* group);
 
 /**
  * Apply the manifest access rules
@@ -224,6 +224,19 @@ AJ_Status AJ_ManifestApply(AJ_Manifest* manifest, const char* name);
  *          - AJ_ERR_INVALID otherwise
  */
 AJ_Status AJ_PolicyApply(AJ_AuthenticationContext* ctx, const char* name);
+
+/**
+ * Apply the policy access rules for a group membership
+ *
+ * @param issuer       The membership issuer
+ * @param group        The membership group
+ * @param name         The peer's name
+ *
+ * @return
+ *          - AJ_OK on success
+ *          - AJ_ERR_INVALID otherwise
+ */
+AJ_Status AJ_MembershipApply(AJ_ECCPublicKey* issuer, DER_Element* group, const char* name);
 
 /**
  * Get the policy version

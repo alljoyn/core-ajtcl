@@ -37,6 +37,7 @@
 #include "aj_authentication.h"
 #include "aj_cert.h"
 #include "aj_authorisation.h"
+#include "aj_security.h"
 
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
@@ -60,12 +61,18 @@ uint8_t dbgPEER = 0;
 
 #define REQUIRED_AUTH_VERSION  (((uint32_t)MAX_AUTH_VERSION << 16) | MIN_KEYGEN_VERSION)
 
+#define SEND_MEMBERSHIPS_NONE  0
+#define SEND_MEMBERSHIPS_MORE  1
+#define SEND_MEMBERSHIPS_LAST  2
+#define SEND_MEMBERSHIPS_STOP  3
+
 static AJ_Status SaveMasterSecret(const AJ_GUID* peerGuid, uint32_t expiration);
 static AJ_Status ExchangeSuites(AJ_Message* msg);
 static AJ_Status KeyExchange(AJ_BusAttachment* bus);
 static AJ_Status KeyAuthentication(AJ_Message* msg);
 static AJ_Status GenSessionKey(AJ_Message* msg);
 static AJ_Status SendManifest(AJ_Message* msg);
+static AJ_Status SendMemberships(AJ_Message* msg);
 
 typedef enum {
     AJ_AUTH_NONE,
@@ -157,6 +164,13 @@ static AJ_Status KeyGen(const char* peerName, uint8_t role, const char* nonce1, 
 
 void AJ_ClearAuthContext()
 {
+    AJ_ECCPublicKeys* node;
+    AJ_ECCPublicKeys* head = authContext.kactx.ecdsa.issuers;
+    while (head) {
+        node = head;
+        head = head->next;
+        AJ_Free(node);
+    }
     memset(&peerContext, 0, sizeof (PeerContext));
     memset(&authContext, 0, sizeof (AJ_AuthenticationContext));
 }
@@ -167,9 +181,11 @@ static void HandshakeComplete(AJ_Status status)
     AJ_InfoPrintf(("HandshakeComplete(status=%d.)\n", status));
 
     /* If ECDSA/PSK failed, try NULL */
-    if ((AJ_OK != status) && (AUTH_SUITE_ECDHE_NULL != authContext.suite) && (AUTH_CLIENT == authContext.role)) {
-        authContext.suite = AUTH_SUITE_ECDHE_NULL;
-        KeyExchange(authContext.bus);
+    if ((AJ_OK != status) && (AUTH_SUITE_ECDHE_NULL != authContext.suite)) {
+        if (AUTH_CLIENT == authContext.role) {
+            authContext.suite = AUTH_SUITE_ECDHE_NULL;
+            KeyExchange(authContext.bus);
+        }
     } else {
         if (peerContext.callback) {
             peerContext.callback(peerContext.cbContext, status);
@@ -502,7 +518,7 @@ AJ_Status AJ_PeerHandleExchangeGUIDsReply(AJ_Message* msg)
     /*
      * Start the ALLJOYN conversation
      */
-    ExchangeSuites(msg);
+    status = ExchangeSuites(msg);
     return status;
 
 Exit:
@@ -669,11 +685,10 @@ AJ_Status AJ_PeerHandleExchangeSuitesReply(AJ_Message* msg)
      * Exchange suites complete.
      */
     AJ_InfoPrintf(("Exchange Suites Complete\n"));
-    KeyExchange(msg->bus);
+    status = KeyExchange(msg->bus);
     return status;
 
 Exit:
-
     HandshakeComplete(AJ_ERR_SECURITY);
     return AJ_ERR_SECURITY;
 }
@@ -831,7 +846,7 @@ AJ_Status AJ_PeerHandleKeyExchangeReply(AJ_Message* msg)
      */
     peerContext.state = AJ_AUTH_EXCHANGED;
     AJ_InfoPrintf(("Key Exchange Complete\n"));
-    KeyAuthentication(msg);
+    status = KeyAuthentication(msg);
     return status;
 
 Exit:
@@ -979,7 +994,7 @@ AJ_Status AJ_PeerHandleKeyAuthenticationReply(AJ_Message* msg)
         }
     }
 
-    GenSessionKey(msg);
+    status = GenSessionKey(msg);
 
     return status;
 
@@ -1283,7 +1298,7 @@ AJ_Status AJ_PeerHandleExchangeGroupKeysReply(AJ_Message* msg)
     }
 
     if (AUTH_SUITE_ECDHE_ECDSA == authContext.suite) {
-        SendManifest(msg);
+        status = SendManifest(msg);
     } else {
         AJ_PolicyApply(&authContext, msg->sender);
         HandshakeComplete(status);
@@ -1381,21 +1396,33 @@ AJ_Status AJ_PeerHandleSendManifest(AJ_Message* msg, AJ_Message* reply)
 
     status = AJ_MarshalReplyMsg(msg, reply);
     if (AJ_OK != status) {
+        AJ_InfoPrintf(("AJ_PeerHandleSendManifest(msg=%p, reply=%p): Manifest marshal failed\n", msg, reply));
         goto Exit;
     }
     status = AJ_CredentialGet(AJ_CRED_TYPE_MANIFEST, NULL, NULL, &field);
     if (AJ_OK != status) {
+        AJ_InfoPrintf(("AJ_PeerHandleSendManifest(msg=%p, reply=%p): Manifest get failed\n", msg, reply));
         goto Exit;
     }
     status = AJ_SetMsgBody(reply, 'a', field.data, field.size);
     if (AJ_OK != status) {
+        AJ_InfoPrintf(("AJ_PeerHandleSendManifest(msg=%p, reply=%p): Manifest marshal failed\n", msg, reply));
         goto Exit;
     }
 
     AJ_ManifestFree(manifest);
     AJ_CredFieldFree(&field);
-    HandshakeComplete(status);
-    return status;
+
+    /* Search for membership certificates from the beginning */
+    authContext.slot = AJ_CREDS_NV_ID_BEGIN;
+    authContext.code = SEND_MEMBERSHIPS_NONE;
+    status = AJ_CredentialGetNext(AJ_CERTIFICATE_MBR_X509 | AJ_CRED_TYPE_CERTIFICATE, NULL, NULL, NULL, &authContext.slot);
+    if (AJ_OK == status) {
+        /* There is at least one cert to send, we don't know if the last yet */
+        authContext.code = SEND_MEMBERSHIPS_MORE;
+    }
+
+    return AJ_OK;
 
 Exit:
     AJ_ManifestFree(manifest);
@@ -1451,11 +1478,379 @@ AJ_Status AJ_PeerHandleSendManifestReply(AJ_Message* msg)
     }
 
     AJ_ManifestFree(manifest);
-    HandshakeComplete(status);
-    return status;
+
+    /* Search for membership certificates from the beginning */
+    authContext.slot = AJ_CREDS_NV_ID_BEGIN;
+    authContext.code = SEND_MEMBERSHIPS_NONE;
+    status = AJ_CredentialGetNext(AJ_CERTIFICATE_MBR_X509 | AJ_CRED_TYPE_CERTIFICATE, NULL, NULL, NULL, &authContext.slot);
+    AJ_InfoPrintf(("AJ_PeerHandleSendManifestReply(msg=%p): Membership slot %d\n", msg, authContext.slot));
+    if (AJ_OK == status) {
+        /* There is at least one cert to send, we don't know if the last yet */
+        authContext.code = SEND_MEMBERSHIPS_MORE;
+    }
+
+    return SendMemberships(msg);
 
 Exit:
     AJ_ManifestFree(manifest);
+    HandshakeComplete(AJ_ERR_SECURITY);
+    return AJ_ERR_SECURITY;
+}
+
+static AJ_Status MarshalCertificates(AJ_Message* msg, AJ_CredField* field)
+{
+    AJ_Status status;
+    AJ_BusAttachment bus;
+    AJ_MsgHeader hdr;
+    AJ_Message tmp;
+    AJ_Arg container1;
+    AJ_Arg container2;
+    uint8_t fmt;
+    uint8_t* data;
+    size_t size;
+
+    AJ_LocalMsg(&bus, &hdr, &tmp, "a(yay)", field->data, field->size);
+
+    status = AJ_UnmarshalContainer(&tmp, &container1, AJ_ARG_ARRAY);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+    status = AJ_MarshalContainer(msg, &container2, AJ_ARG_ARRAY);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+    while (AJ_OK == status) {
+        status = AJ_UnmarshalArgs(&tmp, "(yay)", &fmt, &data, &size);
+        if (AJ_OK != status) {
+            break;
+        }
+        status = AJ_MarshalArgs(msg, "(yay)", fmt, data, size);
+        if (AJ_OK != status) {
+            goto Exit;
+        }
+    }
+    if (AJ_ERR_NO_MORE != status) {
+        return status;
+    }
+    status = AJ_MarshalCloseContainer(msg, &container2);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+    status = AJ_UnmarshalCloseContainer(&tmp, &container1);
+
+Exit:
+    return status;
+}
+
+static AJ_Status CommonIssuer(AJ_CredField* data)
+{
+    AJ_Status status;
+    AJ_CertificateId id;
+    AJ_ECCPublicKeys* head = authContext.kactx.ecdsa.issuers;
+
+    status = AJ_GetCertificateId(&id, data, AJ_ECC_CA_ADMIN);
+    if (AJ_OK != status) {
+        AJ_InfoPrintf(("CommonIssuer(data=%p): Certificate Id failed\n", data));
+        return AJ_ERR_UNKNOWN;
+    }
+    while (head) {
+        if (0 == memcmp((uint8_t*) &id.pub, (uint8_t*) &head->pub, sizeof (AJ_ECCPublicKey))) {
+            return AJ_OK;
+        }
+        head = head->next;
+    }
+
+    return AJ_ERR_UNKNOWN;
+}
+
+static AJ_Status MarshalMembership(AJ_Message* msg)
+{
+    AJ_Status status = AJ_ERR_UNKNOWN;
+    AJ_Arg container;
+    AJ_CredField data;
+
+    AJ_ASSERT(SEND_MEMBERSHIPS_LAST != authContext.code);
+
+    data.size = 0;
+    data.data = NULL;
+    while ((AJ_ERR_UNKNOWN == status) && (SEND_MEMBERSHIPS_MORE == authContext.code)) {
+        /*
+         * Read membership certificate at current slot, there should be one.
+         * We then check if the root issuer is the same as any of the issuers
+         * of the identity certificate (ASACORE-2104)
+         */
+        status = AJ_CredentialGetNext(AJ_CERTIFICATE_MBR_X509 | AJ_CRED_TYPE_CERTIFICATE, NULL, NULL, &data, &authContext.slot);
+        authContext.slot++;
+        if (AJ_OK == status) {
+            status = CommonIssuer(&data);
+            AJ_InfoPrintf(("MarshalMembership(msg=%p): Common issuer %s\n", msg, AJ_StatusText(status)));
+            if (AJ_OK != status) {
+                AJ_CredFieldFree(&data);
+            }
+        } else {
+            authContext.code = SEND_MEMBERSHIPS_NONE;
+        }
+    }
+
+    if (SEND_MEMBERSHIPS_NONE == authContext.code) {
+        AJ_InfoPrintf(("MarshalMemberships(msg=%p): None certificate\n", msg));
+        status = AJ_MarshalArgs(msg, "y", authContext.code);
+        if (AJ_OK != status) {
+            AJ_InfoPrintf(("MarshalMemberships(msg=%p): Marshal error\n", msg));
+            goto Exit;
+        }
+        status = AJ_MarshalContainer(msg, &container, AJ_ARG_ARRAY);
+        if (AJ_OK != status) {
+            AJ_InfoPrintf(("MarshalMemberships(msg=%p): Marshal error\n", msg));
+            goto Exit;
+        }
+        status = AJ_MarshalCloseContainer(msg, &container);
+        if (AJ_OK != status) {
+            AJ_InfoPrintf(("MarshalMemberships(msg=%p): Marshal error\n", msg));
+            goto Exit;
+        }
+        return status;
+    }
+
+
+    AJ_ASSERT(SEND_MEMBERSHIPS_MORE == authContext.code);
+    /* Find slot of next membership certificate (if available) */
+    status = AJ_CredentialGetNext(AJ_CERTIFICATE_MBR_X509 | AJ_CRED_TYPE_CERTIFICATE, NULL, NULL, NULL, &authContext.slot);
+    if (AJ_OK != status) {
+        AJ_InfoPrintf(("MarshalMemberships(msg=%p): Last certificate\n", msg));
+        authContext.code = SEND_MEMBERSHIPS_LAST;
+    } else {
+        AJ_InfoPrintf(("MarshalMemberships(msg=%p): More certificate\n", msg));
+    }
+    /* Marshal code and certificate */
+    status = AJ_MarshalArgs(msg, "y", authContext.code);
+    if (AJ_OK != status) {
+        AJ_InfoPrintf(("MarshalMemberships(msg=%p): Marshal error\n", msg));
+        goto Exit;
+    }
+    status = MarshalCertificates(msg, &data);
+    if (AJ_OK != status) {
+        AJ_InfoPrintf(("MarshalMemberships(msg=%p): Marshal error\n", msg));
+        goto Exit;
+    }
+    /* Once we send the last code, set it to none so we don't send any more */
+    if (SEND_MEMBERSHIPS_LAST == authContext.code) {
+        authContext.code = SEND_MEMBERSHIPS_NONE;
+    }
+
+Exit:
+    AJ_CredFieldFree(&data);
+    return status;
+}
+
+static AJ_Status SendMemberships(AJ_Message* msg)
+{
+    AJ_Status status;
+    AJ_Message call;
+
+    AJ_InfoPrintf(("SendMemberships(msg=%p)\n", msg));
+
+    status = AJ_MarshalMethodCall(msg->bus, &call, AJ_METHOD_SEND_MEMBERSHIPS, msg->sender, 0, AJ_FLAG_ENCRYPTED, AJ_AUTH_CALL_TIMEOUT);
+    if (AJ_OK != status) {
+        AJ_InfoPrintf(("SendMemberships(msg=%p): Marshal error\n", msg));
+        goto Exit;
+    }
+
+    status = MarshalMembership(&call);
+    if (AJ_OK != status) {
+        AJ_InfoPrintf(("SendMemberships(msg=%p): Marshal error\n", msg));
+        goto Exit;
+    }
+
+    return AJ_DeliverMsg(&call);
+
+Exit:
+    HandshakeComplete(AJ_ERR_SECURITY);
+    return AJ_ERR_SECURITY;
+}
+
+static AJ_Status UnmarshalCertificates(AJ_Message* msg)
+{
+    AJ_Status status;
+    AJ_Arg container;
+    uint8_t alg;
+    DER_Element der;
+    X509CertificateChain* head = NULL;
+    X509CertificateChain* node = NULL;
+    AJ_CredField id;
+    AJ_ECCPublicKey pub;
+    DER_Element* group;
+
+    status = AJ_UnmarshalContainer(msg, &container, AJ_ARG_ARRAY);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+    while (AJ_OK == status) {
+        status = AJ_UnmarshalArgs(msg, "(yay)", &alg, &der.data, &der.size);
+        if (AJ_OK != status) {
+            break;
+        }
+        node = (X509CertificateChain*) AJ_Malloc(sizeof (X509CertificateChain));
+        if (NULL == node) {
+            AJ_WarnPrintf(("UnmarshalCertificates(msg=%p): Resource error\n", msg));
+            status = AJ_ERR_RESOURCES;
+            goto Exit;
+        }
+        node->next = head;
+        head = node;
+        /* Set the der before its consumed */
+        node->certificate.der.size = der.size;
+        node->certificate.der.data = der.data;
+        status = AJ_X509DecodeCertificateDER(&node->certificate, &der);
+        if (AJ_OK != status) {
+            AJ_WarnPrintf(("UnmarshalCertificates(msg=%p): Certificate decode failed\n", msg));
+            goto Exit;
+        }
+
+        /*
+         * If this is the first certificate, check the subject public key
+         * is the same as the authenticated one (from identity certificate)
+         * Also save the group for authorisation check
+         */
+        if (NULL == node->next) {
+            if (0 != memcmp((uint8_t*) &node->certificate.tbs.publickey, (uint8_t*) &authContext.kactx.ecdsa.subject, sizeof (AJ_ECCPublicKey))) {
+                AJ_InfoPrintf(("UnmarshalCertificates(msg=%p): Subject invalid\n", msg));
+                goto Exit;
+            }
+            group = &node->certificate.tbs.extensions.group;
+            AJ_DumpBytes("GROUP", group->data, group->size);
+        }
+    }
+    if (AJ_ERR_NO_MORE != status) {
+        AJ_InfoPrintf(("UnmarshalCertificates(msg=%p): Certificate chain error %s\n", msg, AJ_StatusText(status)));
+        goto Exit;
+    }
+    status = AJ_UnmarshalCloseContainer(msg, &container);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+
+    /* Lookup certificate authority public key */
+    id.size = head->certificate.tbs.extensions.aki.size;
+    id.data = head->certificate.tbs.extensions.aki.data;
+    status = AJ_CredentialGetECCPublicKey(AJ_ECC_CA, &id, NULL, &pub);
+    if (AJ_OK != status) {
+        AJ_InfoPrintf(("UnmarshalCertificates(msg=%p): Certificate authority unknown\n", msg));
+        goto Exit;
+    }
+    /* Verify the chain */
+    status = AJ_X509VerifyChain(head, &pub);
+    if (AJ_OK != status) {
+        AJ_InfoPrintf(("UnmarshalCertificates(msg=%p): Certificate chain invalid\n", msg));
+        goto Exit;
+    }
+
+    /* Chain is trusted, apply the membership authorisation */
+    status = AJ_MembershipApply(&pub, group, msg->sender);
+
+Exit:
+    /* Free the cert chain */
+    while (head) {
+        node = head;
+        head = head->next;
+        AJ_Free(node);
+    }
+    return status;
+}
+
+AJ_Status AJ_PeerHandleSendMemberships(AJ_Message* msg, AJ_Message* reply)
+{
+    AJ_Status status;
+    const AJ_GUID* peerGuid = AJ_GUID_Find(msg->sender);
+    uint8_t code;
+
+    AJ_InfoPrintf(("AJ_PeerHandleSendMemberships(msg=%p, reply=%p)\n", msg, reply));
+
+    status = HandshakeValid(peerGuid);
+    if (AJ_OK != status) {
+        return AJ_MarshalErrorMsg(msg, reply, AJ_ErrResources);
+    }
+
+    status = AJ_UnmarshalArgs(msg, "y", &code);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+
+    AJ_InfoPrintf(("AJ_PeerHandleSendMemberships(msg=%p, reply=%p): Received code %d\n", msg, reply, code));
+
+    if (SEND_MEMBERSHIPS_NONE != code) {
+        /* Check chain */
+        status = UnmarshalCertificates(msg);
+        if (AJ_OK != status) {
+            goto Exit;
+        }
+    }
+
+    status = AJ_MarshalReplyMsg(msg, reply);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+
+    status = MarshalMembership(reply);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+
+    if ((SEND_MEMBERSHIPS_NONE == authContext.code) && (SEND_MEMBERSHIPS_NONE == code)) {
+        /* Nothing more to send or receive */
+        HandshakeComplete(status);
+    }
+
+    return status;
+
+Exit:
+    HandshakeComplete(AJ_ERR_SECURITY);
+    return AJ_MarshalErrorMsg(msg, reply, AJ_ErrSecurityViolation);
+}
+
+AJ_Status AJ_PeerHandleSendMembershipsReply(AJ_Message* msg)
+{
+    AJ_Status status;
+    const AJ_GUID* peerGuid = AJ_GUID_Find(msg->sender);
+    uint8_t code;
+
+    AJ_InfoPrintf(("AJ_PeerHandleSendMembershipsReply(msg=%p)\n", msg));
+
+    if (msg->hdr->msgType == AJ_MSG_ERROR) {
+        AJ_WarnPrintf(("AJ_PeerHandleSendMembershipsReply(msg=%p): error=%s.\n", msg, msg->error));
+        goto Exit;
+    }
+
+    status = HandshakeValid(peerGuid);
+    if (AJ_OK != status) {
+        return status;
+    }
+
+    status = AJ_UnmarshalArgs(msg, "y", &code);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+
+    if (SEND_MEMBERSHIPS_NONE != code) {
+        /* Check chain */
+        status = UnmarshalCertificates(msg);
+        if (AJ_OK != status) {
+            goto Exit;
+        }
+        if (SEND_MEMBERSHIPS_LAST == code) {
+            code = SEND_MEMBERSHIPS_NONE;
+        }
+    }
+
+    if ((SEND_MEMBERSHIPS_NONE == authContext.code) && (SEND_MEMBERSHIPS_NONE == code)) {
+        /* Nothing more to send or receive */
+        HandshakeComplete(status);
+        return status;
+    } else {
+        return SendMemberships(msg);
+    }
+
+Exit:
     HandshakeComplete(AJ_ERR_SECURITY);
     return AJ_ERR_SECURITY;
 }

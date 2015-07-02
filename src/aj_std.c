@@ -167,7 +167,7 @@ static const char* const PeerAuthIface[] = {
     "?KeyExchange <u <v >u >v",
     "?KeyAuthentication <v >v",
     "?SendManifest <a(ssa(syy)) >a(ssa(syy))",
-    "?SendMemberships <a(yv)",
+    "?SendMemberships <ya(yay) >ya(yay)",
     "@Mechanisms >s",
     "@Version >u",
     NULL

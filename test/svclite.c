@@ -25,6 +25,7 @@
 
 #ifndef TEST_DISABLE_SECURITY
 #define SECURE_INTERFACE
+#define SECURE_OBJECT
 #endif
 
 #include <aj_target.h>
@@ -99,7 +100,7 @@ static const AJ_InterfaceDescription testInterfaces[] = {
 };
 
 static AJ_Object AppObjects[] = {
-#ifdef SECURE_INTERFACE
+#ifdef SECURE_OBJECT
     { "/org/alljoyn/alljoyn_test", testInterfaces, AJ_OBJ_FLAG_ANNOUNCED | AJ_OBJ_FLAG_SECURE },
 #else
     { "/org/alljoyn/alljoyn_test", testInterfaces, AJ_OBJ_FLAG_ANNOUNCED },
