@@ -24,7 +24,7 @@
 
 #include <ajtcl/aj_target.h>
 #include <ajtcl/aj_msg.h>
-#include "aj_crypto_sha2.h"
+#include <ajtcl/aj_crypto_sha2.h>
 
 #ifdef __cplusplus
 extern "C" {

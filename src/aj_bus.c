@@ -35,7 +35,7 @@
 #include <ajtcl/aj_peer.h>
 #include <ajtcl/aj_config.h>
 #include <ajtcl/aj_about.h>
-#include "aj_security.h"
+#include <ajtcl/aj_security.h>
 #include <ajtcl/aj_authentication.h>
 
 /**

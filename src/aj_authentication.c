@@ -219,7 +219,7 @@ static AJ_Status ECDHEUnmarshalV2(AJ_AuthenticationContext* ctx, AJ_Message* msg
     }
 
     // Encode the shared secret
-    size = SHA256_DIGEST_LENGTH;
+    size = AJ_SHA256_DIGEST_LENGTH;
     data = (uint8_t*) AJ_Malloc(size);
     if (NULL == data) {
         return AJ_ERR_RESOURCES;
@@ -551,7 +551,7 @@ static AJ_Status ECDSAMarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
     AJ_Arg container;
     AJ_ECCPrivateKey prv;
     AJ_ECCSignature sig;
-    uint8_t verifier[SHA256_DIGEST_LENGTH];
+    uint8_t verifier[AJ_SHA256_DIGEST_LENGTH];
     uint8_t fmt;
     AJ_CredField field;
 
@@ -751,12 +751,12 @@ static AJ_Status ECDSAUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
                 AJ_InfoPrintf(("AJ_ECDSA_Unmarshal(msg=%p): Signature invalid\n", msg));
                 goto Exit;
             }
-            if (SHA256_DIGEST_LENGTH != node->certificate.tbs.extensions.digest.size) {
+            if (AJ_SHA256_DIGEST_LENGTH != node->certificate.tbs.extensions.digest.size) {
                 AJ_InfoPrintf(("AJ_ECDSA_Unmarshal(msg=%p): Manifest digest invalid\n", msg));
                 goto Exit;
             }
             /* Copy the manifest digest */
-            memcpy((uint8_t*) &ctx->kactx.ecdsa.manifest, node->certificate.tbs.extensions.digest.data, SHA256_DIGEST_LENGTH);
+            memcpy((uint8_t*) &ctx->kactx.ecdsa.manifest, node->certificate.tbs.extensions.digest.data, AJ_SHA256_DIGEST_LENGTH);
         }
         /* Copy the public key */
         ctx->kactx.ecdsa.num++;

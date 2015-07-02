@@ -23,17 +23,17 @@
  */
 #define AJ_MODULE AUTHORISATION
 
-#include "aj_target.h"
-#include "aj_authorisation.h"
-#include "aj_std.h"
-#include "aj_debug.h"
-#include "aj_peer.h"
-#include "aj_crypto_ecc.h"
-#include "aj_guid.h"
-#include "aj_cert.h"
-#include "aj_config.h"
-#include "aj_crypto.h"
-#include "aj_security.h"
+#include <ajtcl/aj_target.h>
+#include <ajtcl/aj_authorisation.h>
+#include <ajtcl/aj_std.h>
+#include <ajtcl/aj_debug.h>
+#include <ajtcl/aj_peer.h>
+#include <ajtcl/aj_crypto_ecc.h>
+#include <ajtcl/aj_guid.h>
+#include <ajtcl/aj_cert.h>
+#include <ajtcl/aj_config.h>
+#include <ajtcl/aj_crypto.h>
+#include <ajtcl/aj_security.h>
 
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
@@ -873,7 +873,7 @@ Exit:
     return AJ_ERR_INVALID;
 }
 
-void AJ_ManifestDigest(AJ_CredField* manifest, uint8_t digest[SHA256_DIGEST_LENGTH])
+void AJ_ManifestDigest(AJ_CredField* manifest, uint8_t digest[AJ_SHA256_DIGEST_LENGTH])
 {
     AJ_SHA256_Context ctx;
 

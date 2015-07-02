@@ -37,7 +37,7 @@
 #include <ajtcl/aj_config.h>
 #include <ajtcl/aj_creds.h>
 #include <ajtcl/aj_peer.h>
-#include "aj_authorisation.h"
+#include <ajtcl/aj_authorisation.h>
 
 #ifdef AJ_ARDP
 #include <ajtcl/aj_ardp.h>

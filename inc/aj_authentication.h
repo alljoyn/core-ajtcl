@@ -25,7 +25,7 @@
 #include <ajtcl/aj_bus.h>
 #include <ajtcl/aj_config.h>
 #include <ajtcl/aj_target.h>
-#include "aj_cert.h"
+#include <ajtcl/aj_cert.h>
 #include <ajtcl/aj_crypto_sha2.h>
 
 #ifdef __cplusplus
@@ -63,7 +63,7 @@ typedef struct _PSKContext {
 typedef struct _ECDSAContext {
     AJ_ECCPublicKey* key;                          /**< Array of public keys (subject + issuers) */
     size_t num;                                    /**< Number of public keys */
-    uint8_t manifest[SHA256_DIGEST_LENGTH];        /**< Manifest digest */
+    uint8_t manifest[AJ_SHA256_DIGEST_LENGTH];     /**< Manifest digest */
 } ECDSAContext;
 
 typedef struct _KeyAuthenticationContext {

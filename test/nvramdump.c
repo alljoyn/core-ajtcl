@@ -23,6 +23,7 @@
 #include <ajtcl/aj_creds.h>
 #include <ajtcl/aj_nvram.h>
 #include <ajtcl/aj_crypto_ecc.h>
+#include <ajtcl/aj_creds.h>
 
 uint8_t dbgNVRAMDUMP = 1;
 extern void AJ_NVRAM_Layout_Print();

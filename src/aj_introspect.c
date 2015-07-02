@@ -33,7 +33,7 @@
 #include <ajtcl/aj_util.h>
 #include <ajtcl/aj_debug.h>
 #include <ajtcl/aj_config.h>
-#include "aj_authorisation.h"
+#include <ajtcl/aj_authorisation.h>
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
  * (usually in debugger).
