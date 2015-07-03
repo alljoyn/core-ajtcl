@@ -470,7 +470,7 @@ AJ_Status AJ_GetLocalGUID(AJ_GUID* guid)
     return status;
 }
 
-AJ_Status AJ_CredentialSetPeer(const AJ_GUID* guid, uint32_t expiration, const uint8_t* secret, uint16_t size)
+AJ_Status AJ_CredentialSetPeer(uint16_t type, const AJ_GUID* guid, uint32_t expiration, const uint8_t* secret, uint16_t size)
 {
     AJ_CredField id;
     AJ_CredField data;
@@ -482,19 +482,19 @@ AJ_Status AJ_CredentialSetPeer(const AJ_GUID* guid, uint32_t expiration, const u
     id.data = (uint8_t*) guid;
     data.size = size;
     data.data = (uint8_t*) secret;
-    status = AJ_CredentialSet(AJ_CRED_TYPE_GENERIC, &id, expiration, &data);
+    status = AJ_CredentialSet(type | AJ_CRED_TYPE_GENERIC, &id, expiration, &data);
 
     return status;
 }
 
-AJ_Status AJ_CredentialGetPeer(const AJ_GUID* guid, uint32_t* expiration, AJ_CredField* data)
+AJ_Status AJ_CredentialGetPeer(uint16_t type, const AJ_GUID* guid, uint32_t* expiration, AJ_CredField* data)
 {
     AJ_CredField id;
 
     id.size = sizeof (AJ_GUID);
     id.data = (uint8_t*) guid;
 
-    return AJ_CredentialGet(AJ_CRED_TYPE_GENERIC, &id, expiration, data);
+    return AJ_CredentialGet(type | AJ_CRED_TYPE_GENERIC, &id, expiration, data);
 }
 
 AJ_Status AJ_CredentialSetECCPublicKey(uint16_t type, const AJ_CredField* id, uint32_t expiration, const AJ_ECCPublicKey* pub)
@@ -551,14 +551,15 @@ AJ_Status AJ_CredentialDelete(uint16_t type, const AJ_CredField* id)
     return status;
 }
 
-AJ_Status AJ_CredentialDeletePeer(const AJ_GUID* guid)
+void AJ_CredentialDeletePeer(const AJ_GUID* guid)
 {
     AJ_CredField id;
 
     id.size = sizeof (AJ_GUID);
     id.data = (uint8_t*) guid;
-
-    return AJ_CredentialDelete(AJ_CRED_TYPE_GENERIC, &id);
+    AJ_CredentialDelete(AJ_GENERIC_MASTER_SECRET | AJ_CRED_TYPE_GENERIC, &id);
+    AJ_CredentialDelete(AJ_GENERIC_ECDSA_MANIFEST | AJ_CRED_TYPE_GENERIC, &id);
+    AJ_CredentialDelete(AJ_GENERIC_ECDSA_KEYS | AJ_CRED_TYPE_GENERIC, &id);
 }
 
 AJ_Status AJ_ClearCredentials(uint16_t type)

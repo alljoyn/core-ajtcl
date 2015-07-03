@@ -1138,10 +1138,14 @@ AJ_Status AJ_PolicyApply(AJ_AuthenticationContext* ctx, const char* name)
                     found |= PermissionPeerFind(acl->peers, AJ_PEER_TYPE_ANY_TRUSTED, NULL, NULL);
                 }
                 if (AUTH_SUITE_ECDHE_ECDSA == ctx->suite) {
-                    AJ_ASSERT(ctx->kactx.ecdsa.issuers);
-                    found |= PermissionPeerFind(acl->peers, AJ_PEER_TYPE_FROM_CA, &ctx->kactx.ecdsa.issuers->pub, NULL);
+                    AJ_ASSERT(ctx->kactx.ecdsa.key);
                     /* With public key applies deny rules, flip the 2nd bit to indicate this type */
-                    found |= (PermissionPeerFind(acl->peers, AJ_PEER_TYPE_WITH_PUBLIC_KEY, &ctx->kactx.ecdsa.subject, NULL) << 1);
+                    /* Subject public key is in array index 0 */
+                    found |= (PermissionPeerFind(acl->peers, AJ_PEER_TYPE_WITH_PUBLIC_KEY, &ctx->kactx.ecdsa.key[0], NULL) << 1);
+                    /* Issuer public keys are in array index > 0, only apply the root */
+                    if (ctx->kactx.ecdsa.num > 1) {
+                        found |= PermissionPeerFind(acl->peers, AJ_PEER_TYPE_FROM_CA, &ctx->kactx.ecdsa.key[ctx->kactx.ecdsa.num - 1], NULL);
+                    }
                 }
                 if (found) {
                     access = PermissionRuleAccess(acl->rules, acm);

@@ -48,6 +48,9 @@ extern "C" {
 /**
  * Type high byte is basic type (low byte) context specific
  */
+#define AJ_GENERIC_MASTER_SECRET    0x0000 /**< Peer master secret */
+#define AJ_GENERIC_ECDSA_MANIFEST   0x0100 /**< Manifest digest from ECDSA authentication */
+#define AJ_GENERIC_ECDSA_KEYS       0x0200 /**< Public keys from ECDSA authentication */
 #define AJ_ECC_SIG                  0x0000 /**< ECC key for communication */
 #define AJ_ECC_CA                   0x0100 /**< ECC key for certificate */
 #define AJ_ECC_CA_ADMIN             0x0200 /**< ECC key for admin certificate */
@@ -138,6 +141,7 @@ AJ_Status AJ_GetLocalGUID(AJ_GUID* guid);
 /**
  * Set the credential for a peer
  *
+ * @param type         The credential type
  * @param guid         The peer's GUID
  * @param expiration   The credential expiration
  * @param secret       The credential secret
@@ -147,11 +151,12 @@ AJ_Status AJ_GetLocalGUID(AJ_GUID* guid);
  *          - AJ_OK if the credentials were written
  *          - AJ_ERR_RESOURCES if there is no space to write the credentials
  */
-AJ_Status AJ_CredentialSetPeer(const AJ_GUID* guid, uint32_t expiration, const uint8_t* secret, uint16_t size);
+AJ_Status AJ_CredentialSetPeer(uint16_t type, const AJ_GUID* guid, uint32_t expiration, const uint8_t* secret, uint16_t size);
 
 /**
  * Get the credential for a peer
  *
+ * @param type         The credential type
  * @param guid         The input GUID for the remote peer
  * @param expiration   The credential expiration
  * @param data         The credential data
@@ -160,7 +165,7 @@ AJ_Status AJ_CredentialSetPeer(const AJ_GUID* guid, uint32_t expiration, const u
  *      - AJ_OK if the credentials for the specific remote peer exist and are copied into the buffer
  *      - AJ_ERR_FAILURE otherwise
  */
-AJ_Status AJ_CredentialGetPeer(const AJ_GUID* guid, uint32_t* expiration, AJ_CredField* data);
+AJ_Status AJ_CredentialGetPeer(uint16_t type, const AJ_GUID* guid, uint32_t* expiration, AJ_CredField* data);
 
 /**
  * Set the credential for an ECC public key
@@ -232,12 +237,9 @@ AJ_Status AJ_CredentialDelete(uint16_t type, const AJ_CredField* id);
 /**
  * Delete a peer credential from NVRAM
  *
- * @param guid         The guid for the peer that has credentials to delete
- *
- * @return
- *          - AJ_OK if the credentials were deleted
+ * @param type         The credential type
  */
-AJ_Status AJ_CredentialDeletePeer(const AJ_GUID* guid);
+void AJ_CredentialDeletePeer(const AJ_GUID* guid);
 
 /**
  * Clears credentials
