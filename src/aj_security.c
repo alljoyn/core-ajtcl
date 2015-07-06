@@ -112,6 +112,8 @@ AJ_Status AJ_SecurityInit(AJ_BusAttachment* bus)
     AJ_ECCPublicKey pub;
     AJ_ECCPrivateKey prv;
     uint8_t bound = FALSE;
+    uint32_t disposition;
+    uint16_t port;
 
     AJ_InfoPrintf(("AJ_SecurityInit(bus=%p)\n", bus));
 
@@ -154,11 +156,24 @@ AJ_Status AJ_SecurityInit(AJ_BusAttachment* bus)
         switch (msg.msgId) {
         case AJ_REPLY_ID(AJ_METHOD_BIND_SESSION_PORT):
             if (msg.hdr->msgType == AJ_MSG_ERROR) {
-                AJ_ErrPrintf(("AJ_SecurityInit(bus=%p): AJ_METHOD_BIND_SESSION_PORT: %s\n", bus, msg.error));
                 status = AJ_ERR_FAILURE;
-            } else {
-                AJ_InfoPrintf(("AJ_SecurityInit(bus=%p): AJ_METHOD_BIND_SESSION_PORT: OK\n", bus));
-                bound = TRUE;
+                AJ_ErrPrintf(("AJ_SecurityInit(bus=%p): AJ_METHOD_BIND_SESSION_PORT: %s\n", bus, msg.error));
+                break;
+            }
+            status = AJ_UnmarshalArgs(&msg, "uq", &disposition, &port);
+            if (AJ_OK != status) {
+                break;
+            }
+            if (AJ_SECURE_MGMT_PORT == port) {
+                if (AJ_BINDSESSIONPORT_REPLY_SUCCESS == disposition) {
+                    status = AJ_OK;
+                    AJ_InfoPrintf(("AJ_SecurityInit(bus=%p): AJ_METHOD_BIND_SESSION_PORT: %s\n", bus, AJ_StatusText(status)));
+                    bound = TRUE;
+                } else {
+                    status = AJ_ERR_FAILURE;
+                    AJ_InfoPrintf(("AJ_SecurityInit(bus=%p): AJ_METHOD_BIND_SESSION_PORT: disposition %d\n", bus, disposition));
+                    break;
+                }
             }
             break;
 

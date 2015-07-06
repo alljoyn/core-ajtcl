@@ -225,6 +225,15 @@ AJ_EXPORT
 AJ_Status AJ_BusBindSessionPort(AJ_BusAttachment* bus, uint16_t port, const AJ_SessionOpts* opts, uint8_t flags);
 
 /**
+ * Possible response codes for AJ_BusBindSessionPort
+ */
+#define AJ_BINDSESSIONPORT_REPLY_SUCCESS         1   /**< BindSessionPort reply: Success */
+#define AJ_BINDSESSIONPORT_REPLY_ALREADY_EXISTS  2   /**< BindSessionPort reply: SessionPort already exists */
+#define AJ_BINDSESSIONPORT_REPLY_FAILED          3   /**< BindSessionPort reply: Failed */
+#define AJ_BINDSESSIONPORT_REPLY_INVALID_OPTS    4   /**< BindSessionPort reply: Invalid SessionOpts */
+
+
+/**
  * Make a method call to unbind a session port.
  *
  * @param bus          The bus attachment

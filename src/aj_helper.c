@@ -269,6 +269,8 @@ AJ_Status AJ_StartService(AJ_BusAttachment* bus,
     AJ_Status status;
     AJ_Time timer;
     uint8_t serviceStarted = FALSE;
+    uint32_t disposition;
+    uint16_t retport;
 
     AJ_InfoPrintf(("AJ_StartService(bus=0x%p, daemonName=\"%s\", timeout=%d., connected=%d., port=%d., name=\"%s\", flags=0x%x, opts=0x%p)\n",
                    bus, daemonName, timeout, connected, port, name, flags, opts));
@@ -320,9 +322,21 @@ AJ_Status AJ_StartService(AJ_BusAttachment* bus,
             if (msg.hdr->msgType == AJ_MSG_ERROR) {
                 AJ_ErrPrintf(("AJ_StartService(): AJ_METHOD_BIND_SESSION_PORT: %s\n", msg.error));
                 status = AJ_ERR_FAILURE;
-            } else {
-                AJ_InfoPrintf(("AJ_StartService(): AJ_BusRequestName()\n"));
-                status = AJ_BusRequestName(bus, name, flags);
+                break;
+            }
+            status = AJ_UnmarshalArgs(&msg, "uq", &disposition, &retport);
+            if (AJ_OK != status) {
+                break;
+            }
+            if (retport == port) {
+                if (AJ_BINDSESSIONPORT_REPLY_SUCCESS == disposition) {
+                    AJ_InfoPrintf(("AJ_StartService(): AJ_BusRequestName()\n"));
+                    status = AJ_BusRequestName(bus, name, flags);
+                } else {
+                    status = AJ_ERR_FAILURE;
+                    AJ_InfoPrintf(("AJ_StartService(bus=%p): AJ_METHOD_BIND_SESSION_PORT: disposition %d\n", bus, disposition));
+                    break;
+                }
             }
             break;
 
