@@ -23,10 +23,12 @@
  */
 #define AJ_MODULE TARGET_CRYPTO
 
+#if !defined(USE_AJ_SW_CRYPTO)
+#include <openssl/aes.h>
+#endif
 #include <ajtcl/aj_target.h>
 #include <ajtcl/aj_crypto.h>
 #include <ajtcl/aj_debug.h>
-#include <openssl/aes.h>
 
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
@@ -40,6 +42,8 @@ uint8_t dbgTARGET_CRYPTO = 0;
  * Context for AES-128 CTR DRBG
  */
 static CTR_DRBG_CTX drbgctx;
+
+#if !defined(USE_AJ_SW_CRYPTO)
 
 static AES_KEY keyState;
 
@@ -82,6 +86,7 @@ void AJ_AES_ECB_128_ENCRYPT(const uint8_t* key, const uint8_t* in, uint8_t* out)
 {
     AES_encrypt(in, out, &keyState);
 }
+#endif
 
 uint32_t AJ_PlatformEntropy(uint8_t* data, uint32_t size)
 {
