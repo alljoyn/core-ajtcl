@@ -134,7 +134,7 @@ AJ_Status TestCreds()
     }
     AJ_GUID_ToString(&peerGuid, hex, 100);
     AJ_AlwaysPrintf(("AJ_CredentialSetPeer guid %s\n", hex));
-    status = AJ_CredentialSetPeer(&peerGuid, expiration, secret, secretLen);
+    status = AJ_CredentialSetPeer(AJ_GENERIC_MASTER_SECRET, &peerGuid, expiration, secret, secretLen);
     memcpy(&remoteGuid, &peerGuid, sizeof(AJ_GUID)); // backup the GUID
     if (AJ_OK != status) {
         AJ_AlwaysPrintf(("AJ_CredentialSetPeer failed = %d\n", status));
@@ -148,7 +148,7 @@ AJ_Status TestCreds()
     AJ_GUID_ToString(&remoteGuid, hex, 100);
     AJ_AlwaysPrintf(("AJ_CredentialGetPeer guid %s\n", hex));
     data.data = NULL;
-    status = AJ_CredentialGetPeer(&remoteGuid, &exp, &data);
+    status = AJ_CredentialGetPeer(AJ_GENERIC_MASTER_SECRET, &remoteGuid, &exp, &data);
     if (AJ_OK != status) {
         AJ_AlwaysPrintf(("AJ_CredentialGetPeer failed = %d\n", status));
         return status;
@@ -174,15 +174,9 @@ AJ_Status TestCreds()
         return AJ_ERR_FAILURE;
     }
 
-    status = AJ_CredentialDeletePeer(&remoteGuid);
-    if (AJ_OK != status) {
-        AJ_AlwaysPrintf(("AJ_DeleteCredential failed = %d\n", status));
-        AJ_CredFieldFree(&data);
-        return status;
-    }
-
+    AJ_CredentialDeletePeer(&remoteGuid);
     AJ_CredFieldFree(&data);
-    if (AJ_ERR_UNKNOWN == AJ_CredentialGetPeer(&remoteGuid, NULL, NULL)) {
+    if (AJ_ERR_UNKNOWN == AJ_CredentialGetPeer(AJ_GENERIC_MASTER_SECRET, &remoteGuid, NULL, NULL)) {
         status = AJ_OK;
     } else {
         return AJ_ERR_FAILURE;
@@ -191,7 +185,7 @@ AJ_Status TestCreds()
     AJ_NVRAM_Layout_Print();
 
     AJ_ClearCredentials(0);
-    if (AJ_ERR_UNKNOWN == AJ_CredentialGetPeer(&remoteGuid, NULL, NULL)) {
+    if (AJ_ERR_UNKNOWN == AJ_CredentialGetPeer(AJ_GENERIC_MASTER_SECRET, &remoteGuid, NULL, NULL)) {
         status = AJ_OK;
     } else {
         return AJ_ERR_FAILURE;

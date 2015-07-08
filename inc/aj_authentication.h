@@ -62,8 +62,8 @@ typedef struct _PSKContext {
 } PSKContext;
 
 typedef struct _ECDSAContext {
-    AJ_ECCPublicKeys* issuers;                     /**< Certificate issuers */
-    AJ_ECCPublicKey subject;                       /**< Certificate subject */
+    AJ_ECCPublicKey* key;                          /**< Array of public keys (subject + issuers) */
+    size_t num;                                    /**< Number of public keys */
     uint8_t manifest[SHA256_DIGEST_LENGTH];        /**< Manifest digest */
 } ECDSAContext;
 

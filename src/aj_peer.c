@@ -67,6 +67,7 @@ uint8_t dbgPEER = 0;
 #define SEND_MEMBERSHIPS_STOP  3
 
 static AJ_Status SaveMasterSecret(const AJ_GUID* peerGuid, uint32_t expiration);
+static AJ_Status SaveECDSAContext(const AJ_GUID* peerGuid, uint32_t expiration);
 static AJ_Status ExchangeSuites(AJ_Message* msg);
 static AJ_Status KeyExchange(AJ_BusAttachment* bus);
 static AJ_Status KeyAuthentication(AJ_Message* msg);
@@ -164,12 +165,9 @@ static AJ_Status KeyGen(const char* peerName, uint8_t role, const char* nonce1, 
 
 void AJ_ClearAuthContext()
 {
-    AJ_ECCPublicKeys* node;
-    AJ_ECCPublicKeys* head = authContext.kactx.ecdsa.issuers;
-    while (head) {
-        node = head;
-        head = head->next;
-        AJ_Free(node);
+    /* Free issuers */
+    if (authContext.kactx.ecdsa.key) {
+        AJ_Free(authContext.kactx.ecdsa.key);
     }
     memset(&peerContext, 0, sizeof (PeerContext));
     memset(&authContext, 0, sizeof (AJ_AuthenticationContext));
@@ -177,7 +175,6 @@ void AJ_ClearAuthContext()
 
 static void HandshakeComplete(AJ_Status status)
 {
-
     AJ_InfoPrintf(("HandshakeComplete(status=%d.)\n", status));
 
     /* If ECDSA/PSK failed, try NULL */
@@ -185,13 +182,30 @@ static void HandshakeComplete(AJ_Status status)
         if (AUTH_CLIENT == authContext.role) {
             authContext.suite = AUTH_SUITE_ECDHE_NULL;
             KeyExchange(authContext.bus);
+            return;
         }
-    } else {
-        if (peerContext.callback) {
-            peerContext.callback(peerContext.cbContext, status);
-        }
-        AJ_ClearAuthContext();
     }
+
+    if ((AJ_OK == status) && authContext.expiration) {
+        status = SaveMasterSecret(peerContext.peerGuid, authContext.expiration);
+        if (AJ_OK != status) {
+            AJ_WarnPrintf(("HandshakeComplete(status=%d): Save master secret error\n", status));
+            goto Exit;
+        }
+        if (AUTH_SUITE_ECDHE_ECDSA == authContext.suite) {
+            status = SaveECDSAContext(peerContext.peerGuid, authContext.expiration);
+            if (AJ_OK != status) {
+                AJ_WarnPrintf(("HandshakeComplete(status=%d): Save ecdsa context error\n", status));
+                goto Exit;
+            }
+        }
+    }
+
+Exit:
+    if (peerContext.callback) {
+        peerContext.callback(peerContext.cbContext, status);
+    }
+    AJ_ClearAuthContext();
 }
 
 static AJ_Status SaveMasterSecret(const AJ_GUID* peerGuid, uint32_t expiration)
@@ -200,20 +214,105 @@ static AJ_Status SaveMasterSecret(const AJ_GUID* peerGuid, uint32_t expiration)
 
     AJ_InfoPrintf(("SaveMasterSecret(peerGuid=%p, expiration=%d)\n", peerGuid, expiration));
 
-    if (peerGuid) {
-        /*
-         * If the authentication was succesful write the credentials for the authenticated peer to
-         * NVRAM otherwise delete any stale credentials that might be stored.
-         */
-        if (AJ_AUTH_SUCCESS == peerContext.state) {
-            status = AJ_CredentialSetPeer(peerGuid, expiration, authContext.mastersecret, AJ_MASTER_SECRET_LEN);
-        } else {
-            AJ_WarnPrintf(("SaveMasterSecret(peerGuid=%p, expiration=%d): Invalid state\n", peerGuid, expiration));
-            status = AJ_CredentialDeletePeer(peerGuid);
-        }
-    } else {
-        status = AJ_ERR_SECURITY;
+    if (NULL == peerGuid) {
+        return AJ_ERR_SECURITY;
     }
+    /*
+     * If the authentication was succesful write the credentials for the authenticated peer to
+     * NVRAM otherwise delete any stale credentials that might be stored.
+     */
+    if (AJ_AUTH_SUCCESS == peerContext.state) {
+        status = AJ_CredentialSetPeer(AJ_GENERIC_MASTER_SECRET, peerGuid, expiration, authContext.mastersecret, AJ_MASTER_SECRET_LEN);
+    } else {
+        AJ_WarnPrintf(("SaveMasterSecret(peerGuid=%p, expiration=%d): Invalid state\n", peerGuid, expiration));
+        AJ_CredentialDeletePeer(peerGuid);
+    }
+
+    return status;
+}
+
+static AJ_Status LoadMasterSecret(const AJ_GUID* peerGuid)
+{
+    AJ_Status status;
+    uint32_t expiration;
+    AJ_CredField data;
+
+    AJ_InfoPrintf(("LoadMasterSecret(peerGuid=%p)\n", peerGuid));
+
+    if (NULL == peerGuid) {
+        return AJ_ERR_SECURITY;
+    }
+    /* Write directly to mastersecret buffer */
+    data.size = AJ_MASTER_SECRET_LEN;
+    data.data = authContext.mastersecret;
+    status = AJ_CredentialGetPeer(AJ_GENERIC_MASTER_SECRET, peerGuid, &expiration, &data);
+    if (AJ_OK != status) {
+        return status;
+    }
+    status = AJ_CredentialExpired(expiration);
+
+    return status;
+}
+
+static AJ_Status SaveECDSAContext(const AJ_GUID* peerGuid, uint32_t expiration)
+{
+    AJ_Status status;
+
+    AJ_InfoPrintf(("SaveECDSAContext(peerGuid=%p, expiration=%d)\n", peerGuid, expiration));
+
+    if (NULL == peerGuid) {
+        return AJ_ERR_SECURITY;
+    }
+
+    if (AJ_AUTH_SUCCESS == peerContext.state) {
+        status = AJ_CredentialSetPeer(AJ_GENERIC_ECDSA_MANIFEST, peerGuid, expiration, authContext.kactx.ecdsa.manifest, SHA256_DIGEST_LENGTH);
+        if (AJ_OK != status) {
+            return status;
+        }
+        status = AJ_CredentialSetPeer(AJ_GENERIC_ECDSA_KEYS, peerGuid, expiration, (uint8_t*) authContext.kactx.ecdsa.key, authContext.kactx.ecdsa.num * sizeof (AJ_ECCPublicKey));
+        if (AJ_OK != status) {
+            return status;
+        }
+    }
+
+    return status;
+}
+
+static AJ_Status LoadECDSAContext(const AJ_GUID* peerGuid)
+{
+    AJ_Status status;
+    AJ_CredField data;
+
+    AJ_InfoPrintf(("LoadECDSAContext(peerGuid=%p)\n", peerGuid));
+
+    /* Check if we have a stored manifest */
+    data.size = SHA256_DIGEST_LENGTH;
+    data.data = authContext.kactx.ecdsa.manifest;
+    status = AJ_CredentialGetPeer(AJ_GENERIC_ECDSA_MANIFEST, peerGuid, NULL, &data);
+    if (AJ_OK != status) {
+        /* If its missing, we didn't use ECDSA */
+        peerContext.state = AJ_AUTH_SUCCESS;
+        return AJ_OK;
+    }
+
+    /* If we have a manifest, we require stored public keys */
+    data.size = 0;
+    /* Keys is NULL, AJ_CredentialGetPeer will allocate the memory */
+    data.data = (uint8_t*) authContext.kactx.ecdsa.key;
+    status = AJ_CredentialGetPeer(AJ_GENERIC_ECDSA_KEYS, peerGuid, NULL, &data);
+    if (AJ_OK != status) {
+        return status;
+    }
+    if (0 != (data.size % sizeof (AJ_ECCPublicKey))) {
+        /* Keys corrupted */
+        return AJ_ERR_INVALID;
+    }
+    authContext.kactx.ecdsa.key = (AJ_ECCPublicKey*) data.data;
+    authContext.kactx.ecdsa.num = data.size / (sizeof (AJ_ECCPublicKey));
+    authContext.suite = AUTH_SUITE_ECDHE_ECDSA;
+    /* Set expiration to zero so we don't resave the credential */
+    authContext.expiration = 0;
+    peerContext.state = AJ_AUTH_SUCCESS;
 
     return status;
 }
@@ -333,8 +432,6 @@ AJ_Status AJ_PeerHandleExchangeGUIDs(AJ_Message* msg, AJ_Message* reply)
     char* str;
     AJ_GUID remoteGuid;
     AJ_GUID localGuid;
-    uint32_t expiration;
-    AJ_CredField data;
 
     AJ_InfoPrintf(("AJ_PeerHandleExchangeGuids(msg=%p, reply=%p)\n", msg, reply));
 
@@ -387,17 +484,15 @@ AJ_Status AJ_PeerHandleExchangeGUIDs(AJ_Message* msg, AJ_Message* reply)
     /*
      * If we have a mastersecret stored - use it
      */
-    data.size = AJ_MASTER_SECRET_LEN;
-    data.data = authContext.mastersecret;
-    status = AJ_CredentialGetPeer(peerContext.peerGuid, &expiration, &data);
+    status = LoadMasterSecret(peerContext.peerGuid);
     if (AJ_OK == status) {
-        status = AJ_CredentialExpired(expiration);
-        if (AJ_ERR_KEY_EXPIRED != status) {
-            /* secret not expired or time unknown */
-            peerContext.state = AJ_AUTH_SUCCESS;
-        } else {
-            AJ_CredentialDeletePeer(peerContext.peerGuid);
-        }
+        status = LoadECDSAContext(peerContext.peerGuid);
+    }
+    if (AJ_OK != status) {
+        /* Credential expired or failed to load */
+        AJ_CredentialDeletePeer(peerContext.peerGuid);
+        /* Clear master secret buffer */
+        AJ_MemZeroSecure(authContext.mastersecret, AJ_MASTER_SECRET_LEN);
     }
 
     /*
@@ -438,8 +533,6 @@ AJ_Status AJ_PeerHandleExchangeGUIDsReply(AJ_Message* msg)
     AJ_Status status;
     const char* guidStr;
     AJ_GUID remoteGuid;
-    uint32_t expiration;
-    AJ_CredField data;
 
     AJ_InfoPrintf(("AJ_PeerHandleExchangeGUIDsReply(msg=%p)\n", msg));
 
@@ -500,19 +593,18 @@ AJ_Status AJ_PeerHandleExchangeGUIDsReply(AJ_Message* msg)
     /*
      * If we have a mastersecret stored - use it
      */
-    data.size = AJ_MASTER_SECRET_LEN;
-    data.data = authContext.mastersecret;
-    status = AJ_CredentialGetPeer(peerContext.peerGuid, &expiration, &data);
+    status = LoadMasterSecret(peerContext.peerGuid);
     if (AJ_OK == status) {
-        status = AJ_CredentialExpired(expiration);
-        if (AJ_ERR_KEY_EXPIRED != status) {
-            /* secret not expired or time unknown */
-            peerContext.state = AJ_AUTH_SUCCESS;
-            GenSessionKey(msg);
-            return status;
-        } else {
-            AJ_CredentialDeletePeer(peerContext.peerGuid);
-        }
+        status = LoadECDSAContext(peerContext.peerGuid);
+    }
+    if (AJ_OK == status) {
+        status = GenSessionKey(msg);
+        return status;
+    } else {
+        /* Credential expired or failed to load */
+        AJ_CredentialDeletePeer(peerContext.peerGuid);
+        /* Clear master secret buffer */
+        AJ_MemZeroSecure(authContext.mastersecret, AJ_MASTER_SECRET_LEN);
     }
 
     /*
@@ -930,13 +1022,6 @@ AJ_Status AJ_PeerHandleKeyAuthentication(AJ_Message* msg, AJ_Message* reply)
     AJ_InfoPrintf(("Key Authentication Complete\n"));
     peerContext.state = AJ_AUTH_SUCCESS;
 
-    if (authContext.expiration) {
-        status = SaveMasterSecret(peerGuid, authContext.expiration);
-        if (AJ_OK != status) {
-            AJ_WarnPrintf(("AJ_PeerHandleKeyAuthentication(msg=%p, reply=%p): Save master secret error\n", msg, reply));
-        }
-    }
-
     return status;
 
 Exit:
@@ -986,13 +1071,6 @@ AJ_Status AJ_PeerHandleKeyAuthenticationReply(AJ_Message* msg)
      */
     AJ_InfoPrintf(("Key Authentication Complete\n"));
     peerContext.state = AJ_AUTH_SUCCESS;
-
-    if (authContext.expiration) {
-        status = SaveMasterSecret(peerGuid, authContext.expiration);
-        if (AJ_OK != status) {
-            AJ_WarnPrintf(("AJ_PeerHandleKeyAuthenticationReply(msg=%p): Save master secret error\n", msg));
-        }
-    }
 
     status = GenSessionKey(msg);
 
@@ -1546,18 +1624,17 @@ static AJ_Status CommonIssuer(AJ_CredField* data)
 {
     AJ_Status status;
     AJ_CertificateId id;
-    AJ_ECCPublicKeys* head = authContext.kactx.ecdsa.issuers;
+    size_t i;
 
     status = AJ_GetCertificateId(&id, data, AJ_ECC_CA_ADMIN);
     if (AJ_OK != status) {
         AJ_InfoPrintf(("CommonIssuer(data=%p): Certificate Id failed\n", data));
         return AJ_ERR_UNKNOWN;
     }
-    while (head) {
-        if (0 == memcmp((uint8_t*) &id.pub, (uint8_t*) &head->pub, sizeof (AJ_ECCPublicKey))) {
+    for (i = 1; i < authContext.kactx.ecdsa.num; i++) {
+        if (0 == memcmp((uint8_t*) &id.pub, (uint8_t*) &authContext.kactx.ecdsa.key[i], sizeof (AJ_ECCPublicKey))) {
             return AJ_OK;
         }
-        head = head->next;
     }
 
     return AJ_ERR_UNKNOWN;
@@ -1713,7 +1790,9 @@ static AJ_Status UnmarshalCertificates(AJ_Message* msg)
          * Also save the group for authorisation check
          */
         if (NULL == node->next) {
-            if (0 != memcmp((uint8_t*) &node->certificate.tbs.publickey, (uint8_t*) &authContext.kactx.ecdsa.subject, sizeof (AJ_ECCPublicKey))) {
+            AJ_ASSERT(authContext.kactx.ecdsa.key);
+            AJ_ASSERT(authContext.kactx.ecdsa.num);
+            if (0 != memcmp((uint8_t*) &node->certificate.tbs.publickey, (uint8_t*) &authContext.kactx.ecdsa.key[0], sizeof (AJ_ECCPublicKey))) {
                 AJ_InfoPrintf(("UnmarshalCertificates(msg=%p): Subject invalid\n", msg));
                 goto Exit;
             }

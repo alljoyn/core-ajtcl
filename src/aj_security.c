@@ -655,7 +655,15 @@ AJ_Status AJ_SecurityClaimMethod(AJ_Message* msg, AJ_Message* reply)
     }
 
     /* Clear master secrets */
-    status = AJ_ClearCredentials(AJ_CRED_TYPE_GENERIC);
+    status = AJ_ClearCredentials(AJ_GENERIC_MASTER_SECRET | AJ_CRED_TYPE_GENERIC);
+    if (AJ_OK != status) {
+        return status;
+    }
+    status = AJ_ClearCredentials(AJ_GENERIC_ECDSA_MANIFEST | AJ_CRED_TYPE_GENERIC);
+    if (AJ_OK != status) {
+        return status;
+    }
+    status = AJ_ClearCredentials(AJ_GENERIC_ECDSA_KEYS | AJ_CRED_TYPE_GENERIC);
     if (AJ_OK != status) {
         return status;
     }
@@ -748,7 +756,15 @@ AJ_Status AJ_SecurityUpdatePolicyMethod(AJ_Message* msg, AJ_Message* reply)
         return status;
     }
     /* Clear master secrets */
-    status = AJ_ClearCredentials(AJ_CRED_TYPE_GENERIC);
+    status = AJ_ClearCredentials(AJ_GENERIC_MASTER_SECRET | AJ_CRED_TYPE_GENERIC);
+    if (AJ_OK != status) {
+        return status;
+    }
+    status = AJ_ClearCredentials(AJ_GENERIC_ECDSA_MANIFEST | AJ_CRED_TYPE_GENERIC);
+    if (AJ_OK != status) {
+        return status;
+    }
+    status = AJ_ClearCredentials(AJ_GENERIC_ECDSA_KEYS | AJ_CRED_TYPE_GENERIC);
     if (AJ_OK != status) {
         return status;
     }
@@ -772,7 +788,15 @@ AJ_Status AJ_SecurityResetPolicyMethod(AJ_Message* msg, AJ_Message* reply)
         return AJ_MarshalErrorMsg(msg, reply, AJ_ErrPermissionDenied);
     }
     /* Clear master secrets */
-    status = AJ_ClearCredentials(AJ_CRED_TYPE_GENERIC);
+    status = AJ_ClearCredentials(AJ_GENERIC_MASTER_SECRET | AJ_CRED_TYPE_GENERIC);
+    if (AJ_OK != status) {
+        return status;
+    }
+    status = AJ_ClearCredentials(AJ_GENERIC_ECDSA_MANIFEST | AJ_CRED_TYPE_GENERIC);
+    if (AJ_OK != status) {
+        return status;
+    }
+    status = AJ_ClearCredentials(AJ_GENERIC_ECDSA_KEYS | AJ_CRED_TYPE_GENERIC);
     if (AJ_OK != status) {
         return status;
     }

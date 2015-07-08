@@ -299,7 +299,11 @@ int AJ_Main()
                 AJ_BusEnableSecurity(&bus, suites, numsuites);
                 AJ_BusSetAuthListenerCallback(&bus, AuthListenerCallback);
                 if (clearkeys) {
-                    status = AJ_ClearCredentials(AJ_CRED_TYPE_GENERIC);
+                    status = AJ_ClearCredentials(AJ_GENERIC_MASTER_SECRET | AJ_CRED_TYPE_GENERIC);
+                    AJ_ASSERT(AJ_OK == status);
+                    status = AJ_ClearCredentials(AJ_GENERIC_ECDSA_MANIFEST | AJ_CRED_TYPE_GENERIC);
+                    AJ_ASSERT(AJ_OK == status);
+                    status = AJ_ClearCredentials(AJ_GENERIC_ECDSA_KEYS | AJ_CRED_TYPE_GENERIC);
                     AJ_ASSERT(AJ_OK == status);
                 }
                 status = AJ_BusAuthenticatePeer(&bus, peerServiceName, AuthCallback, &authStatus);
