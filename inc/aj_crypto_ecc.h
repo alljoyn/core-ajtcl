@@ -54,6 +54,11 @@ typedef struct _AJ_ECCPublicKey {
     uint8_t y[KEY_ECC_SZ];
 } AJ_ECCPublicKey;
 
+typedef struct _AJ_ECCPublicKeys {
+    AJ_ECCPublicKey pub;
+    struct _AJ_ECCPublicKeys* next;
+} AJ_ECCPublicKeys;
+
 typedef struct _AJ_ECCPrivateKey {
     uint8_t alg;                   /**< Algorithm */
     uint8_t crv;                   /**< Elliptic curve */

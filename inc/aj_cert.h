@@ -31,6 +31,21 @@
 extern "C" {
 #endif
 
+extern const uint8_t OID_SIG_ECDSA_SHA256[8];
+extern const uint8_t OID_KEY_ECC[7];
+extern const uint8_t OID_CRV_PRIME256V1[8];
+extern const uint8_t OID_DN_OU[3];
+extern const uint8_t OID_DN_CN[3];
+extern const uint8_t OID_BASIC_CONSTRAINTS[3];
+extern const uint8_t OID_SKI[3];
+extern const uint8_t OID_AKI[3];
+extern const uint8_t OID_SUB_ALTNAME[3];
+extern const uint8_t OID_HASH_SHA256[9];
+extern const uint8_t OID_CUSTOM_TYPE[10];
+extern const uint8_t OID_CUSTOM_DIGEST[10];
+extern const uint8_t OID_CUSTOM_GROUP[10];
+extern const uint8_t OID_CUSTOM_ALIAS[10];
+
 /**
  * DER encoding types.
  */
@@ -88,16 +103,6 @@ AJ_Status AJ_ASN1DecodeElement(DER_Element* der, uint8_t tag, DER_Element* out);
 AJ_Status AJ_ASN1DecodeElements(DER_Element* der, const uint8_t* tags, size_t len, ...);
 
 #define CERT_FMT_X509_DER  0
-
-/**
- * OIDs used in X.509 certificates.
- */
-extern const uint8_t OID_SIG_ECDSA_SHA256[8];
-extern const uint8_t OID_CRV_PRIME256V1[8];
-extern const uint8_t OID_SKI[3];
-extern const uint8_t OID_AKI[3];
-extern const uint8_t OID_HASH_SHA256[9];
-extern const uint8_t OID_CUSTOM_DIGEST[10];
 
 typedef struct _X509Validity {
     uint64_t from;

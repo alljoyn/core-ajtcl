@@ -194,6 +194,7 @@ AJ_Status AJ_AccessControlCheck(uint32_t id, const char* name, uint8_t direction
         switch (id) {
         case AJ_METHOD_EXCHANGE_GROUP_KEYS:
         case AJ_METHOD_SEND_MANIFEST:
+        case AJ_METHOD_SEND_MEMBERSHIPS:
             status = AJ_OK;
             break;
 
@@ -292,6 +293,9 @@ static void AJ_PermissionPeerFree(AJ_PermissionPeer* head)
         head = head->next;
         if (node->pub) {
             AJ_Free(node->pub);
+        }
+        if (node->group) {
+            AJ_Free(node->group);
         }
         AJ_Free(node);
     }
@@ -393,7 +397,7 @@ AJ_Status AJ_ManifestTemplateMarshal(AJ_Message* msg)
     return AJ_ManifestMarshal(g_manifest, msg);
 }
 
-AJ_Status AJ_MarshalDefaultPolicy(AJ_Message* msg, AJ_ECCPublicKey* pub, uint8_t* g, size_t glen)
+AJ_Status AJ_MarshalDefaultPolicy(AJ_Message* msg, AJ_ECCPublicKey* pub, DER_Element* group)
 {
     AJ_Status status;
 
@@ -407,7 +411,7 @@ AJ_Status AJ_MarshalDefaultPolicy(AJ_Message* msg, AJ_ECCPublicKey* pub, uint8_t
     AJ_PermissionRule rule1 = { "*", "*", &member1_1, NULL };
 
     /* Admin group */
-    AJ_PermissionPeer peer0 = { AJ_PEER_TYPE_WITH_MEMBERSHIP, pub, (AJ_GUID*) g, NULL };
+    AJ_PermissionPeer peer0 = { AJ_PEER_TYPE_WITH_MEMBERSHIP, pub, group, NULL };
     /* Any authenticated peer */
     AJ_PermissionPeer peer1 = { AJ_PEER_TYPE_ANY_TRUSTED, NULL, NULL, NULL };
 
@@ -466,7 +470,7 @@ static AJ_Status AJ_PermissionPeerMarshal(const AJ_PermissionPeer* head, AJ_Mess
 
         // Marshal group (optional)
         if (head->group) {
-            status = AJ_MarshalArgs(msg, "ay", head->group, AJ_GUID_LEN);
+            status = AJ_MarshalArgs(msg, "ay", head->group->data, head->group->size);
         } else {
             status = AJ_MarshalArgs(msg, "ay", head->group, 0);
         }
@@ -741,10 +745,18 @@ static AJ_Status AJ_PermissionPeerUnmarshal(AJ_PermissionPeer** head, AJ_Message
 
         // Unmarshal group (optional)
         status = AJ_UnmarshalArgs(msg, "ay", &data, &size);
-        if (AJ_OK == status) {
-            if (AJ_GUID_LEN == size) {
-                node->group = (AJ_GUID*) data;
+        if (AJ_OK != status) {
+            goto Exit;
+        }
+        switch (node->type) {
+        case AJ_PEER_TYPE_WITH_MEMBERSHIP:
+            node->group = (DER_Element*) AJ_Malloc(sizeof (DER_Element));
+            if (NULL == node->group) {
+                goto Exit;
             }
+            node->group->data = data;
+            node->group->size = size;
+            break;
         }
 
         status = AJ_UnmarshalCloseContainer(msg, &container2);
@@ -1061,50 +1073,33 @@ AJ_Status AJ_ManifestApply(AJ_Manifest* manifest, const char* name)
     return AJ_OK;
 }
 
-static AJ_Status PermissionPeerFind(AJ_PermissionPeer* peer, AJ_AuthenticationContext* ctx, uint8_t* type)
+static uint8_t PermissionPeerFind(AJ_PermissionPeer* head, uint8_t type, AJ_ECCPublicKey* pub, DER_Element* group)
 {
-    AJ_Status status = AJ_ERR_UNKNOWN;
-
-    while (peer) {
-        switch (peer->type) {
-        case AJ_PEER_TYPE_ALL:
-            status = AJ_OK;
-            break;
-
-        case AJ_PEER_TYPE_ANY_TRUSTED:
-            if (AUTH_SUITE_ECDHE_NULL != ctx->suite) {
-                status = AJ_OK;
-            }
-            break;
-
-        case AJ_PEER_TYPE_FROM_CA:
-            if (AUTH_SUITE_ECDHE_ECDSA == ctx->suite) {
-                AJ_ASSERT(peer->pub);
-                if (0 == memcmp((uint8_t*) peer->pub, (uint8_t*) &ctx->kactx.ecdsa.issuer, sizeof (AJ_ECCPublicKey))) {
-                    status = AJ_OK;
+    while (head) {
+        if (type == head->type) {
+            if ((AJ_PEER_TYPE_ALL == type) || (AJ_PEER_TYPE_ANY_TRUSTED == type)) {
+                return 1;
+            } else {
+                /* Type is FROM_CA or WITH_PUBLIC_KEY or WITH_MEMBERSHIP */
+                AJ_ASSERT(pub);
+                AJ_ASSERT(head->pub);
+                if (0 == memcmp((uint8_t*) pub, (uint8_t*) head->pub, sizeof (AJ_ECCPublicKey))) {
+                    if (AJ_PEER_TYPE_WITH_MEMBERSHIP == type) {
+                        AJ_ASSERT(group);
+                        AJ_ASSERT(head->group);
+                        if ((group->size == head->group->size) && (0 == memcmp(group->data, head->group->data, group->size))) {
+                            return 1;
+                        }
+                    } else {
+                        return 1;
+                    }
                 }
             }
-            break;
-
-        case AJ_PEER_TYPE_WITH_PUBLIC_KEY:
-            if (AUTH_SUITE_ECDHE_ECDSA == ctx->suite) {
-                AJ_ASSERT(peer->pub);
-                if (0 == memcmp((uint8_t*) peer->pub, (uint8_t*) &ctx->kactx.ecdsa.subject, sizeof (AJ_ECCPublicKey))) {
-                    status = AJ_OK;
-                    /* Only set output type if its with public key */
-                    *type = AJ_PEER_TYPE_WITH_PUBLIC_KEY;
-                }
-            }
-            break;
-
-        case AJ_PEER_TYPE_WITH_MEMBERSHIP:
-            //TODO
-            break;
         }
-        peer = peer->next;
+        head = head->next;
     }
 
-    return status;
+    return 0;
 }
 
 AJ_Status AJ_PolicyApply(AJ_AuthenticationContext* ctx, const char* name)
@@ -1115,10 +1110,10 @@ AJ_Status AJ_PolicyApply(AJ_AuthenticationContext* ctx, const char* name)
     uint8_t access;
     AccessControlMember* acm;
     AJ_PermissionACL* acl;
-    uint8_t type;
     uint16_t state;
     uint16_t capabilities;
     uint16_t info;
+    uint8_t found;
 
     AJ_InfoPrintf(("AJ_PolicyApply(ctx=%p, name=%s)\n", ctx, name));
 
@@ -1132,19 +1127,31 @@ AJ_Status AJ_PolicyApply(AJ_AuthenticationContext* ctx, const char* name)
     if (AJ_OK == status) {
         acm = g_access;
         while (acm) {
+            /* Default to no access */
             acm->access[peer] = 0;
             acl = policy.policy->acls;
             while (acl) {
-                type = 0;
+                found = 0;
                 /* Look for a match in the peer list */
-                status = PermissionPeerFind(acl->peers, ctx, &type);
-                if (AJ_OK == status) {
+                found |= PermissionPeerFind(acl->peers, AJ_PEER_TYPE_ALL, NULL, NULL);
+                if (AUTH_SUITE_ECDHE_NULL != ctx->suite) {
+                    found |= PermissionPeerFind(acl->peers, AJ_PEER_TYPE_ANY_TRUSTED, NULL, NULL);
+                }
+                if (AUTH_SUITE_ECDHE_ECDSA == ctx->suite) {
+                    AJ_ASSERT(ctx->kactx.ecdsa.issuers);
+                    found |= PermissionPeerFind(acl->peers, AJ_PEER_TYPE_FROM_CA, &ctx->kactx.ecdsa.issuers->pub, NULL);
+                    /* With public key applies deny rules, flip the 2nd bit to indicate this type */
+                    found |= (PermissionPeerFind(acl->peers, AJ_PEER_TYPE_WITH_PUBLIC_KEY, &ctx->kactx.ecdsa.subject, NULL) << 1);
+                }
+                if (found) {
                     access = PermissionRuleAccess(acl->rules, acm);
-                    if (AJ_PEER_TYPE_WITH_PUBLIC_KEY != type) {
-                        /* Only allow explicit deny with public key type */
-                        access &= ~ACCESS_DENY;
+                    if (0x2 & found) {
+                        /* With public key type */
+                        acm->access[peer] |= access;
+                    } else {
+                        /* Not with public key type, deny does not apply */
+                        acm->access[peer] |= (access & ~ACCESS_DENY);
                     }
-                    acm->access[peer] |= access;
 #ifndef NDEBUG
                     if ((ACCESS_INCOMING_ALLOW & acm->access[peer]) && !(ACCESS_DENY & acm->access[peer])) {
                         AJ_InfoPrintf(("INCOMING: %s %s %s\n", acm->obj, acm->ifn, acm->mbr));
@@ -1187,6 +1194,55 @@ AJ_Status AJ_PolicyApply(AJ_AuthenticationContext* ctx, const char* name)
             }
             acm = acm->next;
         }
+    }
+
+    return AJ_OK;
+}
+
+AJ_Status AJ_MembershipApply(AJ_ECCPublicKey* issuer, DER_Element* group, const char* name)
+{
+    AJ_Status status;
+    Policy policy;
+    uint32_t peer;
+    uint8_t access;
+    AccessControlMember* acm;
+    AJ_PermissionACL* acl;
+    uint8_t found;
+
+    AJ_InfoPrintf(("AJ_MembershipApply(issuer=%p, group=%p, name=%s)\n", issuer, group, name));
+
+    status = AJ_GetPeerIndex(name, &peer);
+    if (AJ_OK != status) {
+        AJ_WarnPrintf(("AJ_MembershipApply(issuer=%p, group=%p, name=%s): Peer not in table\n", issuer, group, name));
+        return AJ_ERR_ACCESS;
+    }
+
+    status = PolicyLoad(&policy);
+    if (AJ_OK == status) {
+        acm = g_access;
+        while (acm) {
+            acl = policy.policy->acls;
+            while (acl) {
+                /* Look for a match in the peer list */
+                found = PermissionPeerFind(acl->peers, AJ_PEER_TYPE_WITH_MEMBERSHIP, issuer, group);
+                if (found) {
+                    access = PermissionRuleAccess(acl->rules, acm);
+                    /* Deny rules do not apply here */
+                    acm->access[peer] |= (access & ~ACCESS_DENY);
+#ifndef NDEBUG
+                    if ((ACCESS_INCOMING_ALLOW & acm->access[peer]) && !(ACCESS_DENY & acm->access[peer])) {
+                        AJ_InfoPrintf(("INCOMING: %s %s %s\n", acm->obj, acm->ifn, acm->mbr));
+                    }
+                    if ((ACCESS_OUTGOING_ALLOW & acm->access[peer]) && !(ACCESS_DENY & acm->access[peer])) {
+                        AJ_InfoPrintf(("OUTGOING: %s %s %s\n", acm->obj, acm->ifn, acm->mbr));
+                    }
+#endif
+                }
+                acl = acl->next;
+            }
+            acm = acm->next;
+        }
+        PolicyUnload(&policy);
     }
 
     return AJ_OK;

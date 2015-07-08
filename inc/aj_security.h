@@ -21,6 +21,7 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
+#include "aj_cert.h"
 #include "aj_creds.h"
 #include "aj_crypto_ecc.h"
 #include "aj_crypto_sha2.h"
@@ -44,6 +45,12 @@ extern "C" {
 #define CLAIM_CAPABILITY_ECDHE_ECDSA   0x0004
 #define CLAIM_PSK_SECURITY_MANAGER     0x0001
 #define CLAIM_PSK_APPLICATION          0x0002
+
+typedef struct _AJ_CertificateId {
+    DER_Element serial;                /**< Certificate serial number */
+    DER_Element aki;                   /**< Certificate issuer aki */
+    AJ_ECCPublicKey pub;               /**< Certificate issuer public key */
+} AJ_CertificateId;
 
 /**
  * Set the application claim configuration
@@ -203,6 +210,19 @@ AJ_Status AJ_SecurityRemoveMembershipMethod(AJ_Message* msg, AJ_Message* reply);
  *          - AJ_ERR_INVALID on all failures
  */
 AJ_Status AJ_UnmarshalECCPublicKey(AJ_Message* msg, AJ_ECCPublicKey* pub);
+
+/**
+ * Unmarshal a certificate chain field and generate the id
+ *
+ * @param certId       The certificate Id
+ * @param field        The marshalled certificate chain
+ * @param type         The certificate type
+ *
+ * @return  Return AJ_Status
+ *          - AJ_OK on success
+ *          - AJ_ERR_INVALID on all failures
+ */
+AJ_Status AJ_GetCertificateId(AJ_CertificateId* certificateId, AJ_CredField* field, uint16_t type);
 
 #ifdef __cplusplus
 }

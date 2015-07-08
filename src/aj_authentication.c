@@ -560,6 +560,8 @@ static AJ_Status ECDSAMarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
 
     AJ_InfoPrintf(("AJ_ECDSA_Marshal(ctx=%p, msg=%p)\n", ctx, msg));
 
+    ctx->expiration = 0xFFFFFFFF;
+
     field.data = NULL;
     field.size = 0;
 
@@ -641,7 +643,6 @@ static AJ_Status ECDSAUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
     uint8_t fmt;
     DER_Element der;
     AJ_CredField id;
-    AJ_ECCPublicKey pub;
     AJ_ECCSignature sig;
     uint8_t* sig_r;
     uint8_t* sig_s;
@@ -649,6 +650,8 @@ static AJ_Status ECDSAUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
     size_t len_s;
     X509CertificateChain* head = NULL;
     X509CertificateChain* node = NULL;
+    AJ_ECCPublicKeys* issuer_head = NULL;
+    AJ_ECCPublicKeys* issuer_node = NULL;
     uint8_t trusted = 0;
 
     AJ_InfoPrintf(("AJ_ECDSA_Unmarshal(msg=%p)\n", msg));
@@ -759,6 +762,18 @@ static AJ_Status ECDSAUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
             }
             memcpy((uint8_t*) &ctx->kactx.ecdsa.manifest, node->certificate.tbs.extensions.digest.data, SHA256_DIGEST_LENGTH);
         }
+        issuer_node = (AJ_ECCPublicKeys*) AJ_Malloc(sizeof (AJ_ECCPublicKeys));
+        if (NULL == issuer_node) {
+            status = AJ_ERR_RESOURCES;
+            goto Exit;
+        }
+        if (issuer_head) {
+            /* Copy public key into previous node */
+            memcpy((uint8_t*) &issuer_head->pub, (uint8_t*) &node->certificate.tbs.subject, sizeof (AJ_ECCPublicKey));
+        }
+        /* Push onto the front of the list */
+        issuer_node->next = issuer_head;
+        issuer_head = issuer_node;
     }
     if (AJ_ERR_NO_MORE != status) {
         AJ_InfoPrintf(("AJ_ECDSA_Unmarshal(msg=%p): Certificate chain error %s\n", msg, AJ_StatusText(status)));
@@ -780,15 +795,13 @@ static AJ_Status ECDSAUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
     /* Lookup certificate authority public key */
     id.size = head->certificate.tbs.extensions.aki.size;
     id.data = head->certificate.tbs.extensions.aki.data;
-    status = AJ_CredentialGetECCPublicKey(AJ_ECC_CA, &id, NULL, &pub);
+    status = AJ_CredentialGetECCPublicKey(AJ_ECC_CA, &id, NULL, &issuer_head->pub);
     if (AJ_OK != status) {
         AJ_InfoPrintf(("AJ_ECDSA_Unmarshal(msg=%p): Certificate authority unknown\n", msg));
         goto Exit;
     }
-    /* Save the root issuer for authorisation check */
-    memcpy((uint8_t*) &ctx->kactx.ecdsa.issuer, &pub, sizeof (AJ_ECCPublicKey));
     /* Verify the chain */
-    status = AJ_X509VerifyChain(head, &pub);
+    status = AJ_X509VerifyChain(head, &issuer_head->pub);
     if (AJ_OK != status) {
         AJ_InfoPrintf(("AJ_ECDSA_Unmarshal(msg=%p): Certificate chain invalid\n", msg));
         goto Exit;
@@ -801,6 +814,16 @@ Exit:
         node = head;
         head = head->next;
         AJ_Free(node);
+    }
+    if (AJ_OK == status) {
+        ctx->kactx.ecdsa.issuers = issuer_head;
+    } else {
+        /* Free issuers */
+        while (issuer_head) {
+            issuer_node = issuer_head;
+            issuer_head = issuer_head->next;
+            AJ_Free(issuer_node);
+        }
     }
     return trusted ? AJ_OK : AJ_ERR_SECURITY;
 }

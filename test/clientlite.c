@@ -22,6 +22,7 @@
 
 #ifndef TEST_DISABLE_SECURITY
 #define SECURE_INTERFACE
+#define SECURE_OBJECT
 #endif
 
 #include <aj_target.h>
@@ -292,6 +293,8 @@ AJ_Status SendPing(AJ_BusAttachment* bus, uint32_t sessionId, const char* servic
     }
     if (status == AJ_OK) {
         status = AJ_DeliverMsg(&msg);
+    } else {
+        AJ_AlwaysPrintf(("SendPing %s\n", AJ_StatusText(status)));
     }
     return status;
 }
@@ -303,8 +306,12 @@ AJ_Status SendGetProp(AJ_BusAttachment* bus, uint32_t sessionId, const char* ser
 
     status = AJ_MarshalMethodCall(bus, &msg, PRX_GET_PROP, serviceName, sessionId, 0, METHOD_TIMEOUT);
     if (status == AJ_OK) {
-        AJ_MarshalPropertyArgs(&msg, PRX_GET_INT);
+        status = AJ_MarshalPropertyArgs(&msg, PRX_GET_INT);
+    }
+    if (status == AJ_OK) {
         status = AJ_DeliverMsg(&msg);
+    } else {
+        AJ_AlwaysPrintf(("SendGetProp %s\n", AJ_StatusText(status)));
     }
     return status;
 }
@@ -317,18 +324,14 @@ AJ_Status SendSetProp(AJ_BusAttachment* bus, uint32_t sessionId, const char* ser
     status = AJ_MarshalMethodCall(bus, &msg, PRX_SET_PROP, serviceName, sessionId, 0, METHOD_TIMEOUT);
     if (status == AJ_OK) {
         status = AJ_MarshalPropertyArgs(&msg, PRX_SET_INT);
-
-        if (status == AJ_OK) {
-            status = AJ_MarshalArgs(&msg, "i", val);
-        } else {
-            AJ_AlwaysPrintf((">>>>>>>>In SendSetProp() AJ_MarshalPropertyArgs() returned status = 0x%04x\n", status));
-        }
-
-        if (status == AJ_OK) {
-            status = AJ_DeliverMsg(&msg);
-        } else {
-            AJ_AlwaysPrintf((">>>>>>>>In SendSetProp() AJ_MarshalArgs() returned status = 0x%04x\n", status));
-        }
+    }
+    if (status == AJ_OK) {
+        status = AJ_MarshalArgs(&msg, "i", val);
+    }
+    if (status == AJ_OK) {
+        status = AJ_DeliverMsg(&msg);
+    } else {
+        AJ_AlwaysPrintf(("SendSetProp %s\n", AJ_StatusText(status)));
     }
 
     return status;

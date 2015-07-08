@@ -57,12 +57,6 @@ static uint16_t claimState = APP_STATE_NOT_CLAIMABLE;
 static uint16_t claimCapabilities = 0;
 static uint16_t claimInfo = 0;
 
-typedef struct _CertificateId {
-    DER_Element serial;    /**< Certificate serial number */
-    DER_Element aki;       /**< Certificate issuer aki */
-    AJ_ECCPublicKey pub;   /**< Certificate issuer public key */
-} CertificateId;
-
 static AJ_Status SetClaimState(uint16_t state)
 {
     AJ_Status status;
@@ -192,10 +186,6 @@ AJ_Status AJ_SecurityInit(AJ_BusAttachment* bus)
 
     AJ_AuthorisationInit();
 
-    /* Security 2.0 requires a minimal of ECDHE_NULL and ECDHE_ECDSA */
-    AJ_EnableSuite(AUTH_SUITE_ECDHE_NULL);
-    AJ_EnableSuite(AUTH_SUITE_ECDHE_ECDSA);
-
     emit = TRUE;
 
     return AJ_ApplicationStateSignal(bus);
@@ -232,7 +222,7 @@ Exit:
     return AJ_ERR_INVALID;
 }
 
-static AJ_Status GetCertificateId(CertificateId* certificateId, AJ_CredField* field, uint16_t type)
+AJ_Status AJ_GetCertificateId(AJ_CertificateId* certificateId, AJ_CredField* field, uint16_t type)
 {
     AJ_Status status;
     AJ_MsgHeader hdr;
@@ -251,7 +241,7 @@ static AJ_Status GetCertificateId(CertificateId* certificateId, AJ_CredField* fi
      * Authority AKI is in the last certificate
      * Authority PublicKey is in the keystore
      */
-    memset(certificateId, 0, sizeof (CertificateId));
+    memset(certificateId, 0, sizeof (AJ_CertificateId));
     status = AJ_UnmarshalContainer(&msg, &container, AJ_ARG_ARRAY);
     if (AJ_OK != status) {
         return status;
@@ -286,7 +276,7 @@ static AJ_Status GetCertificateId(CertificateId* certificateId, AJ_CredField* fi
     return status;
 }
 
-static AJ_Status SetDefaultPolicy(AJ_ECCPublicKey* pub, uint8_t* g, size_t glen)
+static AJ_Status SetDefaultPolicy(AJ_ECCPublicKey* pub, DER_Element* group)
 {
     AJ_Status status;
     AJ_BusAttachment tmp;
@@ -304,7 +294,7 @@ static AJ_Status SetDefaultPolicy(AJ_ECCPublicKey* pub, uint8_t* g, size_t glen)
     }
     AJ_LocalMsg(&tmp, &hdr, &msg, "(qua(a(ya(yyayay)ay)a(ssa(syy))))", buf, len);
     data.data = tmp.sock.tx.writePtr;
-    status = AJ_MarshalDefaultPolicy(&msg, pub, g, glen);
+    status = AJ_MarshalDefaultPolicy(&msg, pub, group);
     if (AJ_OK != status) {
         goto Exit;
     }
@@ -323,7 +313,7 @@ static AJ_Status MarshalMembershipIds(AJ_Message* msg)
     AJ_Status status;
     AJ_Arg container;
     AJ_CredField data;
-    CertificateId certificate;
+    AJ_CertificateId certificate;
     uint16_t slot = AJ_CREDS_NV_ID_BEGIN;
 
     data.data = NULL;
@@ -336,7 +326,7 @@ static AJ_Status MarshalMembershipIds(AJ_Message* msg)
         status = AJ_CredentialGetNext(AJ_CERTIFICATE_MBR_X509 | AJ_CRED_TYPE_CERTIFICATE, NULL, NULL, &data, &slot);
         slot++;
         if (AJ_OK == status) {
-            status = GetCertificateId(&certificate, &data, AJ_ECC_CA_ADMIN);
+            status = AJ_GetCertificateId(&certificate, &data, AJ_ECC_CA_ADMIN);
             if (AJ_OK != status) {
                 goto Exit;
             }
@@ -425,11 +415,12 @@ AJ_Status AJ_ApplicationStateSignal(AJ_BusAttachment* bus)
 static AJ_Status SecurityGetProperty(AJ_Message* reply, uint32_t id, void* context)
 {
     AJ_Status status = AJ_ERR_UNEXPECTED;
-    CertificateId certificate;
+    AJ_CertificateId certificate;
     AJ_CredField field;
     AJ_ECCPublicKey pub;
     uint8_t digest[SHA256_DIGEST_LENGTH];
     uint32_t version;
+    DER_Element group;
 
     field.data = NULL;
     field.size = 0;
@@ -509,7 +500,7 @@ static AJ_Status SecurityGetProperty(AJ_Message* reply, uint32_t id, void* conte
         if (AJ_OK != status) {
             break;
         }
-        status = GetCertificateId(&certificate, &field, AJ_ECC_CA);
+        status = AJ_GetCertificateId(&certificate, &field, AJ_ECC_CA);
         if (AJ_OK != status) {
             break;
         }
@@ -545,7 +536,9 @@ static AJ_Status SecurityGetProperty(AJ_Message* reply, uint32_t id, void* conte
         if (AJ_OK != status) {
             break;
         }
-        status = AJ_MarshalDefaultPolicy(reply, &pub, field.data, field.size);
+        group.data = field.data;
+        group.size = field.size;
+        status = AJ_MarshalDefaultPolicy(reply, &pub, &group);
         break;
 
     case AJ_PROPERTY_MANAGED_MEMBERSHIP_SUMMARY:
@@ -575,8 +568,7 @@ AJ_Status AJ_SecurityClaimMethod(AJ_Message* msg, AJ_Message* reply)
     AJ_CredField id;
     AJ_CredField data;
     AJ_ECCPublicKey pub;
-    uint8_t* g;
-    size_t glen;
+    DER_Element group;
 
     AJ_InfoPrintf(("AJ_SecurityClaimMethod(msg=%p, reply=%p)\n", msg, reply));
 
@@ -601,13 +593,13 @@ AJ_Status AJ_SecurityClaimMethod(AJ_Message* msg, AJ_Message* reply)
     }
 
     /* Unmarshal admin group guid */
-    status = AJ_UnmarshalArgs(msg, "ay", &g, &glen);
+    status = AJ_UnmarshalArgs(msg, "ay", &group.data, &group.size);
     if (AJ_OK != status) {
         goto Exit;
     }
     /* Store the admin group guid */
-    data.size = glen;
-    data.data = g;
+    data.size = group.size;
+    data.data = group.data;
     status = AJ_CredentialSet(AJ_CONFIG_ADMIN_GROUP | AJ_CRED_TYPE_CONFIG, NULL, 0xFFFFFFFF, &data);
     if (AJ_OK != status) {
         goto Exit;
@@ -652,7 +644,7 @@ AJ_Status AJ_SecurityClaimMethod(AJ_Message* msg, AJ_Message* reply)
     }
 
     /* Set default policy */
-    status = SetDefaultPolicy(&pub, g, glen);
+    status = SetDefaultPolicy(&pub, &group);
     if (AJ_OK != status) {
         goto Exit;
     }
@@ -797,7 +789,7 @@ AJ_Status AJ_SecurityInstallMembershipMethod(AJ_Message* msg, AJ_Message* reply)
     AJ_Status status;
     AJ_CredField id;
     AJ_CredField data;
-    CertificateId certificate;
+    AJ_CertificateId certificate;
     uint8_t* tmp;
 
     AJ_InfoPrintf(("AJ_SecurityInstallMembershipMethod(msg=%p, reply=%p)\n", msg, reply));
@@ -810,7 +802,7 @@ AJ_Status AJ_SecurityInstallMembershipMethod(AJ_Message* msg, AJ_Message* reply)
     if (AJ_OK != status) {
         goto Exit;
     }
-    status = GetCertificateId(&certificate, &data, AJ_ECC_CA_ADMIN);
+    status = AJ_GetCertificateId(&certificate, &data, AJ_ECC_CA_ADMIN);
     if (AJ_OK != status) {
         AJ_WarnPrintf(("AJ_SecurityInstallMembershipMethod(msg=%p, reply=%p): Certificate Id not valid\n", msg, reply));
         goto Exit;
@@ -844,7 +836,7 @@ AJ_Status AJ_SecurityRemoveMembershipMethod(AJ_Message* msg, AJ_Message* reply)
 {
     AJ_Status status;
     AJ_CredField id;
-    CertificateId certificate;
+    AJ_CertificateId certificate;
     uint8_t* x;
     uint8_t* y;
     size_t xlen;
