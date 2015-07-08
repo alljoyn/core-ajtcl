@@ -50,6 +50,7 @@
 #include <string.h>	/* memcpy()/memset() or bcopy()/bzero() */
 #include <assert.h>	/* assert() */
 #include "sha2.h"
+#include "aj_util.h" /* AJ_MemZeroSecure() */
 
 /*
  * ASSERT NOTE:
@@ -188,31 +189,32 @@ typedef u_int64_t sha2_word64;	/* Exactly 8 bytes */
 }
 
 /*
- * Macros for copying blocks of memory and for zeroing out ranges
- * of memory.  Using these macros makes it easy to switch from
- * using memset()/memcpy() and using bzero()/bcopy().
+ * Macros for copying blocks of memory.
+ * Using these macros makes it easy to switch from
+ * using memcpy() and bcopy().
  *
- * Please define either SHA2_USE_MEMSET_MEMCPY or define
- * SHA2_USE_BZERO_BCOPY depending on which function set you
+ * Please define either SHA2_USE_MEMCPY or define
+ * SHA2_USE_BCOPY depending on which function you
  * choose to use:
  */
-#if !defined(SHA2_USE_MEMSET_MEMCPY) && !defined(SHA2_USE_BZERO_BCOPY)
-/* Default to memset()/memcpy() if no option is specified */
-#define	SHA2_USE_MEMSET_MEMCPY	1
+#if !defined(SHA2_USE_MEMCPY) && !defined(SHA2_USE_BCOPY)
+/* Default to memcpy() if no option is specified */
+#define	SHA2_USE_MEMCPY	1
 #endif
-#if defined(SHA2_USE_MEMSET_MEMCPY) && defined(SHA2_USE_BZERO_BCOPY)
+#if defined(SHA2_USE_MEMCPY) && defined(SHA2_USE_BCOPY)
 /* Abort with an error if BOTH options are defined */
-#error Define either SHA2_USE_MEMSET_MEMCPY or SHA2_USE_BZERO_BCOPY, not both!
+#error Define either SHA2_USE_MEMCPY or SHA2_USE_BCOPY, not both!
 #endif
 
-#ifdef SHA2_USE_MEMSET_MEMCPY
-#define MEMSET_BZERO(p,l)	memset((p), 0, (l))
+#ifdef SHA2_USE_MEMCPY
 #define MEMCPY_BCOPY(d,s,l)	memcpy((d), (s), (l))
 #endif
-#ifdef SHA2_USE_BZERO_BCOPY
-#define MEMSET_BZERO(p,l)	bzero((p), (l))
+#ifdef SHA2_USE_BCOPY
 #define MEMCPY_BCOPY(d,s,l)	bcopy((s), (d), (l))
 #endif
+
+/* Macro to securely erase memory */
+#define MEMSET_BZERO(p,l)	AJ_MemZeroSecure((p), (l))
 
 
 /*** THE SIX LOGICAL FUNCTIONS ****************************************/

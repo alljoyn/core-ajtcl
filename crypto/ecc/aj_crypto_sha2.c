@@ -49,19 +49,22 @@ void AJ_SHA256_Update(AJ_SHA256_Context* context, const uint8_t* buf, size_t buf
  * Retrieve the digest
  * @param context the hash context
  * @param digest the buffer to hold the digest.  Must be of size SHA256_DIGEST_LENGTH
- * @param keepAlive keep the digest process alive for continuing digest
+ * @param keepAlive keep the digest context alive for continuing digest
+ *
+ * @remark If keepAlive is 0, the state is securely erased.
  */
 
 void AJ_SHA256_GetDigest(AJ_SHA256_Context* context, uint8_t* digest,
                          const uint8_t keepAlive) {
     AJ_SHA256_Context savedCtx;
 
-    if (keepAlive != 0) {
+    if (keepAlive) {
         memcpy(&savedCtx, context, sizeof(AJ_SHA256_Context));
     }
-    SHA256_Final(digest, context);
-    if (keepAlive != 0) {
+    SHA256_Final(digest, context);  // Securely zeroes the context
+    if (keepAlive) {
         memcpy(context, &savedCtx, sizeof(AJ_SHA256_Context));
+        AJ_MemZeroSecure(&savedCtx, sizeof(AJ_SHA256_Context));
     }
 }
 
