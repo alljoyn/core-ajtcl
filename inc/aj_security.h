@@ -214,15 +214,15 @@ AJ_Status AJ_UnmarshalECCPublicKey(AJ_Message* msg, AJ_ECCPublicKey* pub);
 /**
  * Unmarshal a certificate chain field and generate the id
  *
- * @param certId       The certificate Id
- * @param field        The marshalled certificate chain
  * @param type         The certificate type
+ * @param chain        The certificate chain
+ * @param id           The certificate id
  *
  * @return  Return AJ_Status
  *          - AJ_OK on success
  *          - AJ_ERR_INVALID on all failures
  */
-AJ_Status AJ_GetCertificateId(AJ_CertificateId* certificateId, AJ_CredField* field, uint16_t type);
+AJ_Status AJ_GetCertificateId(uint16_t type, X509CertificateChain* chain, AJ_CertificateId* id);
 
 #ifdef __cplusplus
 }

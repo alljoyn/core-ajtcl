@@ -1393,16 +1393,13 @@ static AJ_Status SendManifest(AJ_Message* msg)
 {
     AJ_Status status;
     AJ_Message call;
-    AJ_CredField field;
+    AJ_CredField field = { 0, NULL };
+    AJ_Manifest* manifest = NULL;
 
     AJ_InfoPrintf(("SendManifest(msg=%p)\n", msg));
 
-    field.data = NULL;
-    field.size = 0;
-
     status = AJ_MarshalMethodCall(msg->bus, &call, AJ_METHOD_SEND_MANIFEST, msg->sender, 0, AJ_FLAG_ENCRYPTED, AJ_AUTH_CALL_TIMEOUT);
     if (AJ_OK != status) {
-        AJ_InfoPrintf(("SendManifest(msg=%p): Marshal error\n", msg));
         goto Exit;
     }
     status = AJ_CredentialGet(AJ_CRED_TYPE_MANIFEST, NULL, NULL, &field);
@@ -1410,27 +1407,34 @@ static AJ_Status SendManifest(AJ_Message* msg)
         AJ_InfoPrintf(("SendManifest(msg=%p): No stored manifest\n", msg));
         goto Exit;
     }
-    status = AJ_SetMsgBody(&call, 'a', field.data, field.size);
+    status = AJ_ManifestFromBuffer(&manifest, &field);
+    if (AJ_OK != status) {
+        AJ_InfoPrintf(("SendManifest(msg=%p): Manifest buffer failed\n", msg));
+        goto Exit;
+    }
+    status = AJ_ManifestMarshal(manifest, &call);
     if (AJ_OK != status) {
         AJ_InfoPrintf(("SendManifest(msg=%p): Manifest marshal failed\n", msg));
         goto Exit;
     }
 
-    AJ_CredFieldFree(&field);
-    return AJ_DeliverMsg(&call);
-
 Exit:
     AJ_CredFieldFree(&field);
-    HandshakeComplete(AJ_ERR_SECURITY);
-    return AJ_ERR_SECURITY;
+    AJ_ManifestFree(manifest);
+    if (AJ_OK == status) {
+        return AJ_DeliverMsg(&call);
+    } else {
+        HandshakeComplete(AJ_ERR_SECURITY);
+        return AJ_ERR_SECURITY;
+    }
 }
 
 AJ_Status AJ_PeerHandleSendManifest(AJ_Message* msg, AJ_Message* reply)
 {
     AJ_Status status;
-    AJ_CredField field;
+    AJ_CredField field = { 0, NULL };
     const AJ_GUID* peerGuid = AJ_GUID_Find(msg->sender);
-    AJ_Manifest* manifest;
+    AJ_Manifest* manifest = NULL;
     uint8_t digest[SHA256_DIGEST_LENGTH];
 
     AJ_InfoPrintf(("AJ_PeerHandleSendManifest(msg=%p, reply=%p)\n", msg, reply));
@@ -1439,9 +1443,6 @@ AJ_Status AJ_PeerHandleSendManifest(AJ_Message* msg, AJ_Message* reply)
     if (AJ_OK != status) {
         return AJ_MarshalErrorMsg(msg, reply, AJ_ErrResources);
     }
-
-    field.data = NULL;
-    field.size = 0;
 
     field.data = msg->bus->sock.rx.readPtr;
     status = AJ_ManifestUnmarshal(&manifest, msg);
@@ -1471,6 +1472,8 @@ AJ_Status AJ_PeerHandleSendManifest(AJ_Message* msg, AJ_Message* reply)
         AJ_InfoPrintf(("AJ_PeerHandleSendManifest(msg=%p, reply=%p): Manifest apply failed\n", msg, reply));
         goto Exit;
     }
+    AJ_ManifestFree(manifest);
+    manifest = NULL;
 
     status = AJ_MarshalReplyMsg(msg, reply);
     if (AJ_OK != status) {
@@ -1482,14 +1485,18 @@ AJ_Status AJ_PeerHandleSendManifest(AJ_Message* msg, AJ_Message* reply)
         AJ_InfoPrintf(("AJ_PeerHandleSendManifest(msg=%p, reply=%p): Manifest get failed\n", msg, reply));
         goto Exit;
     }
-    status = AJ_SetMsgBody(reply, 'a', field.data, field.size);
+    status = AJ_ManifestFromBuffer(&manifest, &field);
+    if (AJ_OK != status) {
+        AJ_InfoPrintf(("AJ_PeerHandleSendManifest(msg=%p, reply=%p): Manifest buffer failed\n", msg, reply));
+        goto Exit;
+    }
+    status = AJ_ManifestMarshal(manifest, reply);
     if (AJ_OK != status) {
         AJ_InfoPrintf(("AJ_PeerHandleSendManifest(msg=%p, reply=%p): Manifest marshal failed\n", msg, reply));
         goto Exit;
     }
-
     AJ_ManifestFree(manifest);
-    AJ_CredFieldFree(&field);
+    manifest = NULL;
 
     /* Search for membership certificates from the beginning */
     authContext.slot = AJ_CREDS_NV_ID_BEGIN;
@@ -1499,14 +1506,17 @@ AJ_Status AJ_PeerHandleSendManifest(AJ_Message* msg, AJ_Message* reply)
         /* There is at least one cert to send, we don't know if the last yet */
         authContext.code = SEND_MEMBERSHIPS_MORE;
     }
-
-    return AJ_OK;
+    status = AJ_OK;
 
 Exit:
-    AJ_ManifestFree(manifest);
     AJ_CredFieldFree(&field);
-    HandshakeComplete(AJ_ERR_SECURITY);
-    return AJ_MarshalErrorMsg(msg, reply, AJ_ErrSecurityViolation);
+    AJ_ManifestFree(manifest);
+    if (AJ_OK == status) {
+        return status;
+    } else {
+        HandshakeComplete(AJ_ERR_SECURITY);
+        return AJ_MarshalErrorMsg(msg, reply, AJ_ErrSecurityViolation);
+    }
 }
 
 AJ_Status AJ_PeerHandleSendManifestReply(AJ_Message* msg)
@@ -1514,7 +1524,7 @@ AJ_Status AJ_PeerHandleSendManifestReply(AJ_Message* msg)
     AJ_Status status;
     const AJ_GUID* peerGuid = AJ_GUID_Find(msg->sender);
     AJ_Manifest* manifest = NULL;
-    AJ_CredField field;
+    AJ_CredField field = { 0, NULL };
     uint8_t digest[SHA256_DIGEST_LENGTH];
 
     AJ_InfoPrintf(("AJ_PeerHandleSendManifestReply(msg=%p)\n", msg));
@@ -1537,9 +1547,12 @@ AJ_Status AJ_PeerHandleSendManifestReply(AJ_Message* msg)
     }
     field.size = msg->bus->sock.rx.readPtr - field.data;
     AJ_ManifestDigest(&field, digest);
+    field.data = NULL;
+    field.size = 0;
     /* Compare with digest from certificate */
     if (0 != memcmp(digest, authContext.kactx.ecdsa.manifest, SHA256_DIGEST_LENGTH)) {
         AJ_InfoPrintf(("AJ_PeerHandleSendManifestReply(msg=%p): Manifest digest mismatch\n", msg));
+        status = AJ_ERR_SECURITY;
         goto Exit;
     }
 
@@ -1554,8 +1567,8 @@ AJ_Status AJ_PeerHandleSendManifestReply(AJ_Message* msg)
         AJ_InfoPrintf(("AJ_PeerHandleSendManifestReply(msg=%p): Manifest apply failed\n", msg));
         goto Exit;
     }
-
     AJ_ManifestFree(manifest);
+    manifest = NULL;
 
     /* Search for membership certificates from the beginning */
     authContext.slot = AJ_CREDS_NV_ID_BEGIN;
@@ -1566,13 +1579,16 @@ AJ_Status AJ_PeerHandleSendManifestReply(AJ_Message* msg)
         /* There is at least one cert to send, we don't know if the last yet */
         authContext.code = SEND_MEMBERSHIPS_MORE;
     }
-
-    return SendMemberships(msg);
+    status = AJ_OK;
 
 Exit:
     AJ_ManifestFree(manifest);
-    HandshakeComplete(AJ_ERR_SECURITY);
-    return AJ_ERR_SECURITY;
+    if (AJ_OK == status) {
+        return SendMemberships(msg);
+    } else {
+        HandshakeComplete(AJ_ERR_SECURITY);
+        return AJ_ERR_SECURITY;
+    }
 }
 
 static AJ_Status MarshalCertificates(AJ_Message* msg, AJ_CredField* field)
@@ -1623,21 +1639,28 @@ Exit:
 static AJ_Status CommonIssuer(AJ_CredField* data)
 {
     AJ_Status status;
+    X509CertificateChain* chain = NULL;
     AJ_CertificateId id;
     size_t i;
 
-    status = AJ_GetCertificateId(&id, data, AJ_ECC_CA_ADMIN);
+    status = AJ_X509ChainFromBuffer(&chain, data);
     if (AJ_OK != status) {
-        AJ_InfoPrintf(("CommonIssuer(data=%p): Certificate Id failed\n", data));
-        return AJ_ERR_UNKNOWN;
+        goto Exit;
+    }
+    status = AJ_GetCertificateId(AJ_ECC_CA_ADMIN, chain, &id);
+    if (AJ_OK != status) {
+        goto Exit;
     }
     for (i = 1; i < authContext.kactx.ecdsa.num; i++) {
         if (0 == memcmp((uint8_t*) &id.pub, (uint8_t*) &authContext.kactx.ecdsa.key[i], sizeof (AJ_ECCPublicKey))) {
-            return AJ_OK;
+            status = AJ_OK;
+            break;
         }
     }
 
-    return AJ_ERR_UNKNOWN;
+Exit:
+    AJ_X509ChainFree(chain);
+    return status;
 }
 
 static AJ_Status MarshalMembership(AJ_Message* msg)
@@ -1688,7 +1711,6 @@ static AJ_Status MarshalMembership(AJ_Message* msg)
         }
         return status;
     }
-
 
     AJ_ASSERT(SEND_MEMBERSHIPS_MORE == authContext.code);
     /* Find slot of next membership certificate (if available) */

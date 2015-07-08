@@ -224,17 +224,17 @@ static const char* const SecurityManagedApplicationIface[] = {
     "@Version >q",
     "@Identity >a(yay)",
     "@Manifest >a(ssa(syy))",
-    "@IdentityCertificateId >(ayayyyayay)",
+    "@IdentityCertificateId >(ayay(yyayay))",
     "@PolicyVersion >u",
     "@Policy >(qua(a(ya(yyayay)ay)a(ssa(syy))))",
     "@DefaultPolicy >(qua(a(ya(yyayay)ay)a(ssa(syy))))",
-    "@MembershipSummaries >a(ayayyyayay)",
+    "@MembershipSummaries >a(ayay(yyayay))",
     "?Reset",
     "?UpdateIdentity <a(yay) <a(ssa(syy))",
     "?UpdatePolicy <(qua(a(ya(yyayay)ay)a(ssa(syy))))",
     "?ResetPolicy",
     "?InstallMembership <a(yay)",
-    "?RemoveMembership <(ayayyyayay)",
+    "?RemoveMembership <(ayay(yyayay))",
     NULL
 };
 

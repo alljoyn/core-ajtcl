@@ -26,6 +26,8 @@
 #include "aj_target.h"
 #include "aj_status.h"
 #include "aj_crypto_ecc.h"
+#include "aj_creds.h"
+#include "aj_msg.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -236,6 +238,61 @@ AJ_Status AJ_X509Verify(const X509Certificate* certificate, const AJ_ECCPublicKe
  *          - AJ_ERR_SECURITY on failure
  */
 AJ_Status AJ_X509VerifyChain(const X509CertificateChain* chain, const AJ_ECCPublicKey* key);
+
+/**
+ * Free memory associated with X.509 chain.
+ *
+ * @param head        The input certificate chain.
+ */
+void AJ_X509ChainFree(X509CertificateChain* head);
+
+/**
+ * Marshal a X.509 certificate chain.
+ *
+ * @param chain       The input certificate chain.
+ * @param msg         The message.
+ *
+ * @return  Return AJ_Status
+ *          - AJ_OK on success
+ *          - AJ_ERR_SECURITY on failure
+ */
+AJ_Status AJ_X509ChainMarshal(X509CertificateChain* chain, AJ_Message* msg);
+
+/**
+ * Unmarshal a X.509 certificate chain.
+ *
+ * @param chain       The output certificate chain.
+ * @param msg         The message.
+ *
+ * @return  Return AJ_Status
+ *          - AJ_OK on success
+ *          - AJ_ERR_SECURITY on failure
+ */
+AJ_Status AJ_X509ChainUnmarshal(X509CertificateChain** chain, AJ_Message* msg);
+
+/**
+ * Marshal a X.509 certificate chain to a local buffer.
+ *
+ * @param chain       The input certificate chain.
+ * @param field       The local buffer.
+ *
+ * @return  Return AJ_Status
+ *          - AJ_OK on success
+ *          - AJ_ERR_SECURITY on failure
+ */
+AJ_Status AJ_X509ChainToBuffer(X509CertificateChain* chain, AJ_CredField* field);
+
+/**
+ * Unmarshal a X.509 certificate chain from a local buffer.
+ *
+ * @param chain       The output certificate chain.
+ * @param field       The local buffer.
+ *
+ * @return  Return AJ_Status
+ *          - AJ_OK on success
+ *          - AJ_ERR_SECURITY on failure
+ */
+AJ_Status AJ_X509ChainFromBuffer(X509CertificateChain** chain, AJ_CredField* field);
 
 #ifdef __cplusplus
 }

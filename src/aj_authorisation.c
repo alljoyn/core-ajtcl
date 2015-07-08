@@ -893,9 +893,6 @@ static void PolicyUnload(Policy* policy)
 static AJ_Status PolicyLoad(Policy* policy)
 {
     AJ_Status status;
-    AJ_BusAttachment bus;
-    AJ_MsgHeader hdr;
-    AJ_Message msg;
 
     AJ_InfoPrintf(("PolicyLoad(policy=%p)\n", policy));
 
@@ -911,8 +908,7 @@ static AJ_Status PolicyLoad(Policy* policy)
     }
 
     /* Unmarshal the policy */
-    AJ_LocalMsg(&bus, &hdr, &msg, "(qua(a(ya(yyayay)ay)a(ssa(syy))))", policy->buffer.data, policy->buffer.size);
-    status = AJ_PolicyUnmarshal(&policy->policy, &msg);
+    status = AJ_PolicyFromBuffer(&policy->policy, &policy->buffer);
     if (AJ_OK != status) {
         AJ_InfoPrintf(("PolicyLoad(policy=%p): Unmarshal failed\n", policy));
         goto Exit;
@@ -1008,7 +1004,7 @@ static uint8_t PermissionRuleAccess(AJ_PermissionRule* rule, AccessControlMember
     obj = acm->obj;
     ifn = acm->ifn;
     /* Skip over secure annotation */
-    if (SECURE_TRUE == *ifn) {
+    if ((SECURE_TRUE == *ifn) || (SECURE_OFF == *ifn)) {
         ifn++;
     }
     mbr = acm->mbr;
@@ -1266,4 +1262,58 @@ AJ_Status AJ_PolicyVersion(uint32_t* version)
     PolicyUnload(&policy);
 
     return AJ_OK;
+}
+
+AJ_Status AJ_ManifestToBuffer(AJ_Manifest* manifest, AJ_CredField* field)
+{
+    AJ_Status status;
+    AJ_BusAttachment bus;
+    AJ_MsgHeader hdr;
+    AJ_Message msg;
+
+    AJ_LocalMsg(&bus, &hdr, &msg, "a(ssa(syy))", field->data, field->size);
+    status = AJ_ManifestMarshal(manifest, &msg);
+    field->size = bus.sock.tx.writePtr - field->data;
+
+    return status;
+}
+
+AJ_Status AJ_ManifestFromBuffer(AJ_Manifest** manifest, AJ_CredField* field)
+{
+    AJ_Status status;
+    AJ_BusAttachment bus;
+    AJ_MsgHeader hdr;
+    AJ_Message msg;
+
+    AJ_LocalMsg(&bus, &hdr, &msg, "a(ssa(syy))", field->data, field->size);
+    status = AJ_ManifestUnmarshal(manifest, &msg);
+
+    return status;
+}
+
+AJ_Status AJ_PolicyToBuffer(AJ_Policy* policy, AJ_CredField* field)
+{
+    AJ_Status status;
+    AJ_BusAttachment bus;
+    AJ_MsgHeader hdr;
+    AJ_Message msg;
+
+    AJ_LocalMsg(&bus, &hdr, &msg, "(qua(a(ya(yyayay)ay)a(ssa(syy))))", field->data, field->size);
+    status = AJ_PolicyMarshal(policy, &msg);
+    field->size = bus.sock.tx.writePtr - field->data;
+
+    return status;
+}
+
+AJ_Status AJ_PolicyFromBuffer(AJ_Policy** policy, AJ_CredField* field)
+{
+    AJ_Status status;
+    AJ_BusAttachment bus;
+    AJ_MsgHeader hdr;
+    AJ_Message msg;
+
+    AJ_LocalMsg(&bus, &hdr, &msg, "(qua(a(ya(yyayay)ay)a(ssa(syy))))", field->data, field->size);
+    status = AJ_PolicyUnmarshal(policy, &msg);
+
+    return status;
 }

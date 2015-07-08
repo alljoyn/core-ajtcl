@@ -2446,65 +2446,6 @@ AJ_Status AJ_MarshalStatusMsg(const AJ_Message* methodCall, AJ_Message* reply, A
     return status;
 }
 
-AJ_Status AJ_SetMsgBody(AJ_Message* msg, char sig, uint8_t* data, uint16_t size)
-{
-    AJ_IOBuffer* buf = &msg->bus->sock.tx;
-    uint8_t* start = buf->writePtr;
-    uint8_t pad;
-
-    AJ_InfoPrintf(("AJ_SetMsgBody(msg=%p, sig=%c, data=%p, size=%d)\n", msg, sig, data, size));
-
-    /* Determine padding from signature */
-    pad = PadForType(sig, buf);
-    /* Write body */
-    WriteBytes(msg, data, size, pad);
-    msg->bodyBytes += (uint16_t)(buf->writePtr - start);
-
-    return AJ_OK;
-}
-
-AJ_Status AJ_GetMsgBody(AJ_Message* msg, char sig, uint8_t** data, uint16_t* size)
-{
-    AJ_IOBuffer* buf = &msg->bus->sock.rx;
-    uint8_t pad;
-
-    AJ_InfoPrintf(("AJ_GetMsgBody(msg=%p, sig=%c, data=%p, size=%p)\n", msg, sig, data, size));
-
-    /* Determine padding from signature */
-    pad = PadForType(sig, buf);
-    /* Skip over padding */
-    if (AJ_IO_BUF_AVAIL(buf) < pad) {
-        AJ_WarnPrintf(("AJ_GetMsgBody(msg=%p, sig=%c, data=%p, size=%p): insufficient buffer available\n", msg, sig, data, size));
-        return AJ_ERR_RESOURCES;
-    }
-    buf->readPtr += pad;
-    msg->bodyBytes -= pad;
-    /* Message body starts here */
-    *data = buf->readPtr;
-    /* Size is at the start of body */
-    if (AJ_IO_BUF_AVAIL(buf) < sizeof (uint32_t)) {
-        AJ_WarnPrintf(("AJ_GetMsgBody(msg=%p, sig=%c, data=%p, size=%p): insufficient buffer available\n", msg, sig, data, size));
-        return AJ_ERR_RESOURCES;
-    }
-    EndianSwap(msg, AJ_ARG_UINT32, buf->readPtr, 1);
-    *size = *((uint32_t*)buf->readPtr);
-    /* To account for padding? */
-    *size += 8;
-    if (AJ_IO_BUF_AVAIL(buf) < *size) {
-        AJ_WarnPrintf(("AJ_GetMsgBody(msg=%p, sig=%c, data=%p, size=%p): insufficient buffer available\n", msg, sig, data, size));
-        return AJ_ERR_RESOURCES;
-    }
-    /* Move the read pointer on and decrease body bytes */
-    if (msg->bodyBytes < *size) {
-        AJ_WarnPrintf(("AJ_GetMsgBody(msg=%p, sig=%c, data=%p, size=%p): insufficient body available\n", msg, sig, data, size));
-        return AJ_ERR_RESOURCES;
-    }
-    buf->readPtr += *size;
-    msg->bodyBytes -= *size;
-
-    return AJ_OK;
-}
-
 AJ_Status rx_noop(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)
 {
     buf->writePtr += len;

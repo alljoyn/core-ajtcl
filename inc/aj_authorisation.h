@@ -273,6 +273,54 @@ AJ_Status AJ_AccessControlCheck(uint32_t id, const char* name, uint8_t direction
  */
 AJ_Status AJ_AccessControlReset(const char* name);
 
+/**
+ * Marshal a manifest to a local buffer.
+ *
+ * @param manifest     The input manifest.
+ * @param field        The local buffer.
+ *
+ * @return  Return AJ_Status
+ *          - AJ_OK on success
+ *          - AJ_ERR_SECURITY on failure
+ */
+AJ_Status AJ_ManifestToBuffer(AJ_Manifest* manifest, AJ_CredField* field);
+
+/**
+ * Unmarshal a manifest from a local buffer.
+ *
+ * @param manifest     The output manifest.
+ * @param field        The local buffer.
+ *
+ * @return  Return AJ_Status
+ *          - AJ_OK on success
+ *          - AJ_ERR_SECURITY on failure
+ */
+AJ_Status AJ_ManifestFromBuffer(AJ_Manifest** manifest, AJ_CredField* field);
+
+/**
+ * Marshal a policy to a local buffer.
+ *
+ * @param policy       The input policy.
+ * @param field        The local buffer.
+ *
+ * @return  Return AJ_Status
+ *          - AJ_OK on success
+ *          - AJ_ERR_SECURITY on failure
+ */
+AJ_Status AJ_PolicyToBuffer(AJ_Policy* policy, AJ_CredField* field);
+
+/**
+ * Unmarshal a policy from a local buffer.
+ *
+ * @param policy       The output policy.
+ * @param field        The local buffer.
+ *
+ * @return  Return AJ_Status
+ *          - AJ_OK on success
+ *          - AJ_ERR_SECURITY on failure
+ */
+AJ_Status AJ_PolicyFromBuffer(AJ_Policy** policy, AJ_CredField* field);
+
 #ifdef __cplusplus
 }
 #endif
