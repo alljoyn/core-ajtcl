@@ -629,11 +629,10 @@ static AJ_Status RecvValidateSegment(uint8_t* rxbuf, uint16_t len, struct ArdpSe
     }
 
     /*
-     * SEQ and ACKNXT must fall within receive window. In case of segment with no payload,
-     * allow one extra.
+     * SEQ and ACKNXT must fall within receive window.
      */
-    if (((seg->SEQ - seg->ACKNXT) > UDP_SEGMAX) || (SEQ32_LT(seg->SEQ, seg->ACKNXT)) ||
-        ((seg->DLEN != 0) && ((seg->SEQ - seg->ACKNXT) == UDP_SEGMAX))) {
+    if ((SEQ32_LT(seg->SEQ, seg->ACKNXT)) ||
+        ((seg->DLEN != 0) && ((seg->SEQ - seg->ACKNXT) >= UDP_SEGMAX))) {
         AJ_ErrPrintf(("Receive: incorrect sequence numbers seg->seq = %u, seg->acknxt = %u\n",
                       seg->SEQ, seg->ACKNXT));
         return AJ_ERR_INVALID;
@@ -743,7 +742,7 @@ static void FlushExpiredRcvMessages(uint32_t seq, uint32_t ackNXT)
 
     AJ_InfoPrintf(("FlushExpiredRcvMessages: seq = %u, expected %u got %u\n",
                    seq, conn->rcv.CUR + 1, ackNXT));
-    while (SEQ32_LT(conn->rcv.CUR, ackNXT)) {
+    while (SEQ32_LT(conn->rcv.CUR + 1, ackNXT)) {
         rBuf->fcnt = 0;
         rBuf->dataLen = 0;
         rBuf = rBuf->next;
@@ -1333,6 +1332,9 @@ UPDATE_READ:
          */
         AJ_WarnPrintf(("AJ_ARDP_Recv: Expired message, LCS %u\n", conn->rcv.LCS));
         conn->rcv.LCS = conn->rcv.CUR;
+        if (conn->ackTimer.retry == 0) {
+            InitTimer(&conn->ackTimer, ARDP_MIN_DELAYED_ACK_TIMEOUT, 1);
+        }
     }
 
     if (timerStatus != AJ_OK) {
