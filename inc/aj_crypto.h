@@ -208,7 +208,7 @@ AJ_Status AES_CTR_DRBG_Generate(CTR_DRBG_CTX* ctx, uint8_t* rand, size_t size);
  * @return 0  if the first count bytes of buf1 and buf2 are equal, nonzero otherwise.
  *
  */
-int Crypto_Compare(const void* buf1, const void* buf2, size_t count);
+int AJ_Crypto_Compare(const void* buf1, const void* buf2, size_t count);
 
 #ifdef __cplusplus
 }

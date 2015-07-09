@@ -441,7 +441,7 @@ static AJ_Status NULLUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
         AJ_InfoPrintf(("NULLUnmarshal(ctx=%p, msg=%p): Invalid signature size\n", ctx, msg));
         return AJ_ERR_SECURITY;
     }
-    if (0 != Crypto_Compare(local, remote, AUTH_VERIFIER_LEN)) {
+    if (0 != AJ_Crypto_Compare(local, remote, AUTH_VERIFIER_LEN)) {
         AJ_InfoPrintf(("NULLUnmarshal(ctx=%p, msg=%p): Invalid verifier\n", ctx, msg));
         return AJ_ERR_SECURITY;
     }
@@ -608,7 +608,7 @@ static AJ_Status PSKUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
         return AJ_ERR_SECURITY;
     }
 
-    if (0 != Crypto_Compare(verifier, data, AUTH_VERIFIER_LEN)) {
+    if (0 != AJ_Crypto_Compare(verifier, data, AUTH_VERIFIER_LEN)) {
         AJ_InfoPrintf(("PSKUnmarshal(ctx=%p, msg=%p): Invalid verifier\n", ctx, msg));
         return AJ_ERR_SECURITY;
     }
