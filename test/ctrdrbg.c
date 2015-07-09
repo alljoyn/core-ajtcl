@@ -19,9 +19,9 @@
 #define AJ_MODULE CTRDRBG
 
 #include <ajtcl/aj_target.h>
-
 #include <ajtcl/alljoyn.h>
 #include <ajtcl/aj_crypto.h>
+#include <ajtcl/aj_crypto_drbg.h>
 #include <ajtcl/aj_debug.h>
 
 uint8_t dbgCTRDRBG = 0;
