@@ -168,8 +168,8 @@ static const char* const PeerAuthIface[] = {
     "?KeyAuthentication <v >v",
     "?SendManifest <a(ssa(syy)) >a(ssa(syy))",
     "?SendMemberships <ya(yay) >ya(yay)",
-    "@Mechanisms >s",
-    "@Version >u",
+    "@Mechanisms>s",
+    "@Version>u",
     NULL
 };
 
@@ -194,41 +194,41 @@ static const char* const AboutIconIface[] = {
 
 static const char* const ApplicationIface[] = {
     ApplicationInterface,
-    "@Version >q",
+    "@Version>q",
     "!&State >(yyayay) >q",
     NULL
 };
 
 static const char* const SecurityApplicationIface[] = {
     SecurityApplicationInterface,
-    "@Version >q",
-    "@ApplicationState >q",
-    "@ManifestTemplateDigest >(yay)",
-    "@EccPublicKey >(yyayay)",
-    "@ManufacturerCertificate >a(yay)",
-    "@ManifestTemplate >a(ssa(syy))",
-    "@ClaimCapabilities >q",
-    "@ClaimCapabilitiesAdditionalInfo >q",
+    "@Version>q",
+    "@ApplicationState>q",
+    "@ManifestTemplateDigest>(yay)",
+    "@EccPublicKey>(yyayay)",
+    "@ManufacturerCertificate>a(yay)",
+    "@ManifestTemplate>a(ssa(syy))",
+    "@ClaimCapabilities>q",
+    "@ClaimCapabilitiesAdditionalInfo>q",
     NULL
 };
 
 static const char* const SecurityClaimableApplicationIface[] = {
     SecurityClaimableApplicationInterface,
-    "@Version >q",
+    "@Version>q",
     "?Claim <(yyayay) <ay <ay <(yyayay) <ay <a(yay) <a(ssa(syy))",
     NULL
 };
 
 static const char* const SecurityManagedApplicationIface[] = {
     SecurityManagedApplicationInterface,
-    "@Version >q",
-    "@Identity >a(yay)",
-    "@Manifest >a(ssa(syy))",
-    "@IdentityCertificateId >(ayay(yyayay))",
-    "@PolicyVersion >u",
-    "@Policy >(qua(a(ya(yyayay)ay)a(ssa(syy))))",
-    "@DefaultPolicy >(qua(a(ya(yyayay)ay)a(ssa(syy))))",
-    "@MembershipSummaries >a(ayay(yyayay))",
+    "@Version>q",
+    "@Identity>a(yay)",
+    "@Manifest>a(ssa(syy))",
+    "@IdentityCertificateId>(ayay(yyayay))",
+    "@PolicyVersion>u",
+    "@Policy>(qua(a(ya(yyayay)ay)a(ssa(syy))))",
+    "@DefaultPolicy>(qua(a(ya(yyayay)ay)a(ssa(syy))))",
+    "@MembershipSummaries>a(ayay(yyayay))",
     "?Reset",
     "?UpdateIdentity <a(yay) <a(ssa(syy))",
     "?UpdatePolicy <(qua(a(ya(yyayay)ay)a(ssa(syy))))",

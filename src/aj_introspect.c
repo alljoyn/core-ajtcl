@@ -810,6 +810,7 @@ static AJ_Status ComposeSignature(const char* encoding, char direction, char* si
 
 static AJ_Status MatchProp(const char* member, const char* prop, uint8_t op, const char** sig)
 {
+    AJ_Status status;
     const char* encoding = member;
 
     if (*encoding++ != '@') {
@@ -822,16 +823,30 @@ static AJ_Status MatchProp(const char* member, const char* prop, uint8_t op, con
             return AJ_ERR_NO_MATCH;
         }
     }
-    if ((op == AJ_PROP_GET) && (*encoding == WRITE_ONLY)) {
-        AJ_InfoPrintf(("MatchProp(): AJ_ERR_DISALLOWED\n"));
-        return AJ_ERR_DISALLOWED;
+
+    switch (*encoding) {
+    case WRITE_ONLY:
+        status = (AJ_PROP_SET == op) ? AJ_OK : AJ_ERR_DISALLOWED;
+        break;
+
+    case READ_ONLY:
+        status = (AJ_PROP_GET == op) ? AJ_OK : AJ_ERR_DISALLOWED;
+        break;
+
+    case READ_WRITE:
+        status = AJ_OK;
+        break;
+
+    default:
+        AJ_InfoPrintf(("MatchProp(): AJ_ERR_NO_MATCH - incorrect annotation or substring match\n"));
+        status = AJ_ERR_NO_MATCH;
+        break;
     }
-    if ((op == AJ_PROP_SET) && (*encoding == READ_ONLY)) {
-        AJ_InfoPrintf(("MatchProp(): AJ_ERR_DISALLOWED\n"));
-        return AJ_ERR_DISALLOWED;
+    if (AJ_OK == status) {
+        *sig = ++encoding;
     }
-    *sig = ++encoding;
-    return AJ_OK;
+
+    return status;
 }
 
 static uint32_t MatchMember(const char* encoding, const AJ_Message* msg)
