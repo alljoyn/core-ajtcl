@@ -1502,7 +1502,10 @@ AJ_Status AJ_PeerHandleSendManifest(AJ_Message* msg, AJ_Message* reply)
         goto Exit;
     }
     field.size = msg->bus->sock.rx.readPtr - field.data;
-    AJ_ManifestDigest(&field, digest);
+    status = AJ_ManifestDigest(&field, digest);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
     field.data = NULL;
     field.size = 0;
     /* Compare with digest from certificate */

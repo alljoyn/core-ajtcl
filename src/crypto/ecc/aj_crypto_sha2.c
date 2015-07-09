@@ -20,18 +20,83 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
+/**
+ * Per-module definition of the current module for debug logging.  Must be defined
+ * prior to first inclusion of aj_debug.h
+ */
+#define AJ_MODULE CRYPTO_SHA2
+
 #include <ajtcl/aj_crypto.h>
 #include <ajtcl/aj_crypto_sha2.h>
 #include <ajtcl/aj_util.h>
 #include <sha2.h>
+#include <ajtcl/aj_debug.h>
+
+/**
+ * Turn on per-module debug printing by setting this variable to non-zero value
+ * (usually in debugger).
+ */
+#ifndef NDEBUG
+uint8_t dbgCRYPTO_SHA2 = 0;
+#endif
+
+#define HMAC_SHA256_DIGEST_LENGTH SHA256_DIGEST_LENGTH
+#define HMAC_SHA256_BLOCK_LENGTH  64
+
+struct AJ_SHA256_Context {
+    SHA256_CTX internal;
+};
+
+typedef struct _AJ_HMAC_SHA256_CTX {
+    uint8_t ipad[HMAC_SHA256_BLOCK_LENGTH];
+    uint8_t opad[HMAC_SHA256_BLOCK_LENGTH];
+    AJ_SHA256_Context* hashCtx;
+} AJ_HMAC_SHA256_CTX;
+
+/**
+ * Initialize the HMAC context
+ * @param ctx the HMAC context
+ * @param key the key
+ * @param keyLen the length of the key
+ * @return
+ *  - AJ_OK if successful
+ *  - AJ_ERR_INVALID if the length is negative
+ */
+static AJ_Status AJ_HMAC_SHA256_Init(AJ_HMAC_SHA256_CTX* ctx, const uint8_t* key, size_t keyLen);
+
+/**
+ * Update the hash with data
+ * @param ctx the HMAC context
+ * @param data the data
+ * @param dataLen the length of the data
+ * @return
+ *  - AJ_OK if successful
+ *  - AJ_ERR_INVALID if the length is negative
+ */
+static void AJ_HMAC_SHA256_Update(AJ_HMAC_SHA256_CTX* ctx, const uint8_t* data, size_t dataLen);
+
+/**
+ * Retrieve the final digest for the HMAC
+ * @param ctx the HMAC context
+ * @param digest the buffer to hold the digest.  Must be of size SHA256_DIGEST_LENGTH
+ */
+static AJ_Status AJ_HMAC_SHA256_Final(AJ_HMAC_SHA256_CTX* ctx, uint8_t* digest);
 
 /**
  * Initialize the hash context
  * @param context the hash context
  * @return AJ_OK if successful
  */
-void AJ_SHA256_Init(AJ_SHA256_Context* context) {
-    SHA256_Init((SHA256_CTX*)context);
+AJ_SHA256_Context* AJ_SHA256_Init()
+{
+    AJ_SHA256_Context* context;
+    context = AJ_Malloc(sizeof(*context));
+    if (context) {
+        SHA256_Init(&context->internal);
+    } else {
+        AJ_ErrPrintf(("SHA256 context allocation failure\n"));
+    }
+    return context;
 }
 
 /**
@@ -41,7 +106,7 @@ void AJ_SHA256_Init(AJ_SHA256_Context* context) {
  * @param bufSize the number of bytes to digest
  */
 void AJ_SHA256_Update(AJ_SHA256_Context* context, const uint8_t* buf, size_t bufSize) {
-    SHA256_Update((SHA256_CTX*)context, buf, bufSize);
+    SHA256_Update(&context->internal, buf, bufSize);
 }
 
 /**
@@ -53,14 +118,21 @@ void AJ_SHA256_Update(AJ_SHA256_Context* context, const uint8_t* buf, size_t buf
 
 void AJ_SHA256_GetDigest(AJ_SHA256_Context* context, uint8_t* digest,
                          const uint8_t keepAlive) {
-    AJ_SHA256_Context savedCtx;
+    AJ_SHA256_Context tempCtx;
+    AJ_SHA256_Context* finalCtx;
 
-    if (keepAlive != 0) {
-        memcpy(&savedCtx, context, sizeof(AJ_SHA256_Context));
+    if (keepAlive) {
+        memcpy(&tempCtx, context, sizeof(AJ_SHA256_Context));
+        finalCtx = &tempCtx;
+    } else {
+        finalCtx = context;
     }
-    SHA256_Final(digest, (SHA256_CTX*)context);
-    if (keepAlive != 0) {
-        memcpy(context, &savedCtx, sizeof(AJ_SHA256_Context));
+
+    SHA256_Final(digest, finalCtx);
+    AJ_MemZeroSecure(finalCtx, sizeof(*finalCtx));
+
+    if (!keepAlive) {
+        AJ_Free(context);
     }
 }
 
@@ -73,7 +145,7 @@ void AJ_SHA256_Final(AJ_SHA256_Context* context, uint8_t* digest) {
     AJ_SHA256_GetDigest(context, digest, 0);
 }
 
-AJ_Status AJ_HMAC_SHA256_Init(AJ_HMAC_SHA256_CTX* ctx, const uint8_t* key, size_t keyLen)
+static AJ_Status AJ_HMAC_SHA256_Init(AJ_HMAC_SHA256_CTX* ctx, const uint8_t* key, size_t keyLen)
 {
     int cnt;
     memset(ctx->ipad, 0, HMAC_SHA256_BLOCK_LENGTH);
@@ -81,10 +153,13 @@ AJ_Status AJ_HMAC_SHA256_Init(AJ_HMAC_SHA256_CTX* ctx, const uint8_t* key, size_
     /* if keyLen > 64, hash it and use it as key */
     if (keyLen > HMAC_SHA256_BLOCK_LENGTH) {
         uint8_t digest[AJ_SHA256_DIGEST_LENGTH];
-        AJ_SHA256_Init(&ctx->hashCtx);
-        AJ_SHA256_Update(&ctx->hashCtx, key, keyLen);
-        AJ_SHA256_Final(&ctx->hashCtx, digest);
-        keyLen = AJ_SHA256_DIGEST_LENGTH;
+        ctx->hashCtx = AJ_SHA256_Init();
+        if (!ctx->hashCtx) {
+            return AJ_ERR_RESOURCES;
+        }
+        AJ_SHA256_Update(ctx->hashCtx, key, keyLen);
+        AJ_SHA256_Final(ctx->hashCtx, digest);
+        keyLen = SHA256_DIGEST_LENGTH;
         memcpy(ctx->ipad, digest, AJ_SHA256_DIGEST_LENGTH);
         memcpy(ctx->opad, digest, AJ_SHA256_DIGEST_LENGTH);
     } else {
@@ -110,22 +185,24 @@ AJ_Status AJ_HMAC_SHA256_Init(AJ_HMAC_SHA256_CTX* ctx, const uint8_t* key, size_
         ctx->ipad[cnt] ^= 0x36;
     }
 
-    AJ_SHA256_Init(&ctx->hashCtx);
-    AJ_SHA256_Update(&ctx->hashCtx, ctx->ipad, HMAC_SHA256_BLOCK_LENGTH);
+    ctx->hashCtx = AJ_SHA256_Init();
+    if (!ctx->hashCtx) {
+        return AJ_ERR_RESOURCES;
+    }
+    AJ_SHA256_Update(ctx->hashCtx, ctx->ipad, HMAC_SHA256_BLOCK_LENGTH);
     return AJ_OK;
 }
 
-AJ_Status AJ_HMAC_SHA256_Update(AJ_HMAC_SHA256_CTX* ctx, const uint8_t* data, size_t dataLen)
+static void AJ_HMAC_SHA256_Update(AJ_HMAC_SHA256_CTX* ctx, const uint8_t* data, size_t dataLen)
 {
-    AJ_SHA256_Update(&ctx->hashCtx, data, dataLen);
-    return AJ_OK;
+    AJ_SHA256_Update(ctx->hashCtx, data, dataLen);
 }
 
-AJ_Status AJ_HMAC_SHA256_Final(AJ_HMAC_SHA256_CTX* ctx, uint8_t* digest)
+static AJ_Status AJ_HMAC_SHA256_Final(AJ_HMAC_SHA256_CTX* ctx, uint8_t* digest)
 {
     int cnt;
     /* complete inner hash SHA256(K XOR ipad, msg) */
-    AJ_SHA256_Final(&ctx->hashCtx, digest);
+    AJ_SHA256_Final(ctx->hashCtx, digest);
 
     /*
      * perform outer hash SHA256(K XOR opad, SHA256(K XOR ipad, msg))
@@ -133,10 +210,13 @@ AJ_Status AJ_HMAC_SHA256_Final(AJ_HMAC_SHA256_CTX* ctx, uint8_t* digest)
     for (cnt = 0; cnt < HMAC_SHA256_BLOCK_LENGTH; cnt++) {
         ctx->opad[cnt] ^= 0x5c;
     }
-    AJ_SHA256_Init(&ctx->hashCtx);
-    AJ_SHA256_Update(&ctx->hashCtx, ctx->opad, HMAC_SHA256_BLOCK_LENGTH);
-    AJ_SHA256_Update(&ctx->hashCtx, digest, AJ_SHA256_DIGEST_LENGTH);
-    AJ_SHA256_Final(&ctx->hashCtx, digest);
+    ctx->hashCtx = AJ_SHA256_Init();
+    if (!ctx->hashCtx) {
+        return AJ_ERR_RESOURCES;
+    }
+    AJ_SHA256_Update(ctx->hashCtx, ctx->opad, HMAC_SHA256_BLOCK_LENGTH);
+    AJ_SHA256_Update(ctx->hashCtx, digest, AJ_SHA256_DIGEST_LENGTH);
+    AJ_SHA256_Final(ctx->hashCtx, digest);
     return AJ_OK;
 }
 
@@ -147,6 +227,7 @@ AJ_Status AJ_Crypto_PRF_SHA256(const uint8_t** inputs, const uint8_t* lengths,
     AJ_HMAC_SHA256_CTX msgHash;
     uint8_t digest[AJ_SHA256_DIGEST_LENGTH];
     uint32_t len = 0;
+    AJ_Status status;
 
     if (count < 2) {
         return AJ_ERR_INVALID;
@@ -155,7 +236,10 @@ AJ_Status AJ_Crypto_PRF_SHA256(const uint8_t** inputs, const uint8_t* lengths,
         /*
          * Initialize SHA256 in HMAC mode with the secret
          */
-        AJ_HMAC_SHA256_Init(&msgHash, inputs[0], lengths[0]);
+        status = AJ_HMAC_SHA256_Init(&msgHash, inputs[0], lengths[0]);
+        if (status != AJ_OK) {
+            return status;
+        }
         /*
          * If this is not the first iteration hash in the digest from the previous iteration.
          */

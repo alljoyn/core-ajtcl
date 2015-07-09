@@ -879,13 +879,17 @@ Exit:
     return AJ_ERR_INVALID;
 }
 
-void AJ_ManifestDigest(AJ_CredField* manifest, uint8_t digest[AJ_SHA256_DIGEST_LENGTH])
+AJ_Status AJ_ManifestDigest(AJ_CredField* manifest, uint8_t digest[AJ_SHA256_DIGEST_LENGTH])
 {
-    AJ_SHA256_Context ctx;
+    AJ_SHA256_Context* ctx;
 
-    AJ_SHA256_Init(&ctx);
-    AJ_SHA256_Update(&ctx, manifest->data, manifest->size);
-    AJ_SHA256_Final(&ctx, digest);
+    ctx = AJ_SHA256_Init();
+    if (!ctx) {
+        return AJ_ERR_RESOURCES;
+    }
+    AJ_SHA256_Update(ctx, manifest->data, manifest->size);
+    AJ_SHA256_Final(ctx, digest);
+    return AJ_OK;
 }
 
 static void PolicyUnload(Policy* policy)

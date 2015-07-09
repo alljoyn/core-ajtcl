@@ -1718,12 +1718,15 @@ AJ_Status AJ_ECDSASignDigest(const uint8_t* digest, const AJ_ECCPrivateKey* prv,
 
 AJ_Status AJ_ECDSASign(const uint8_t* buf, uint16_t len, const AJ_ECCPrivateKey* prv, AJ_ECCSignature* sig)
 {
-    AJ_SHA256_Context ctx;
+    AJ_SHA256_Context* ctx;
     uint8_t digest[AJ_SHA256_DIGEST_LENGTH];
 
-    AJ_SHA256_Init(&ctx);
-    AJ_SHA256_Update(&ctx, buf, (size_t) len);
-    AJ_SHA256_Final(&ctx, digest);
+    ctx = AJ_SHA256_Init();
+    if (!ctx) {
+        return AJ_ERR_RESOURCES;
+    }
+    AJ_SHA256_Update(ctx, buf, (size_t) len);
+    AJ_SHA256_Final(ctx, digest);
 
     return AJ_ECDSASignDigest(digest, prv, sig);
 }
@@ -1751,12 +1754,15 @@ AJ_Status AJ_ECDSAVerifyDigest(const uint8_t* digest, const AJ_ECCSignature* sig
 
 AJ_Status AJ_ECDSAVerify(const uint8_t* buf, uint16_t len, const AJ_ECCSignature* sig, const AJ_ECCPublicKey* pub)
 {
-    AJ_SHA256_Context ctx;
+    AJ_SHA256_Context* ctx;
     uint8_t digest[AJ_SHA256_DIGEST_LENGTH];
 
-    AJ_SHA256_Init(&ctx);
-    AJ_SHA256_Update(&ctx, (const uint8_t*) buf, (size_t) len);
-    AJ_SHA256_Final(&ctx, digest);
+    ctx = AJ_SHA256_Init();
+    if (!ctx) {
+        return AJ_ERR_RESOURCES;
+    }
+    AJ_SHA256_Update(ctx, (const uint8_t*) buf, (size_t) len);
+    AJ_SHA256_Final(ctx, digest);
 
     return AJ_ECDSAVerifyDigest(digest, sig, pub);
 }

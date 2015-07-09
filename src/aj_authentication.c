@@ -236,7 +236,7 @@ static AJ_Status GenerateShareSecret(AJ_AuthenticationContext* ctx, AJ_ECCPublic
 {
     AJ_Status status;
     AJ_ECCSecret sec;
-    AJ_SHA256_Context sha;
+    AJ_SHA256_Context* sha;
     uint8_t* data;
     size_t size;
 
@@ -251,10 +251,16 @@ static AJ_Status GenerateShareSecret(AJ_AuthenticationContext* ctx, AJ_ECCPublic
     if (NULL == data) {
         return AJ_ERR_RESOURCES;
     }
-    AJ_SHA256_Init(&sha);
-    AJ_SHA256_Update(&sha, sec.x, KEY_ECC_SZ);
-    AJ_SHA256_Final(&sha, data);
+    sha = AJ_SHA256_Init();
+    if (!sha) {
+        status = AJ_ERR_RESOURCES;
+        goto Exit;
+    }
+    AJ_SHA256_Update(sha, sec.x, KEY_ECC_SZ);
+    AJ_SHA256_Final(sha, data);
     status = ComputeMasterSecret(ctx, data, size);
+
+Exit:
     AJ_Free(data);
 
     return status;
@@ -1000,7 +1006,7 @@ void AJ_EnableSuite(AJ_BusAttachment* bus, uint32_t suite)
 
 void AJ_ConversationHash_Initialize(AJ_AuthenticationContext* ctx)
 {
-    AJ_SHA256_Init(&ctx->hash);
+    ctx->hash = AJ_SHA256_Init();
 }
 
 static inline int ConversationVersionDoesNotApply(uint32_t conversationVersion, uint32_t currentAuthVersion)
@@ -1022,7 +1028,7 @@ void AJ_ConversationHash_Update_UInt8(AJ_AuthenticationContext* ctx, uint32_t co
     if (ConversationVersionDoesNotApply(conversationVersion, ctx->version)) {
         return;
     }
-    AJ_SHA256_Update(&ctx->hash, &byte, sizeof(byte));
+    AJ_SHA256_Update(ctx->hash, &byte, sizeof(byte));
 }
 
 void AJ_ConversationHash_Update_UInt8Array(AJ_AuthenticationContext* ctx, uint32_t conversationVersion, const uint8_t* buf, size_t bufSize)
@@ -1035,9 +1041,9 @@ void AJ_ConversationHash_Update_UInt8Array(AJ_AuthenticationContext* ctx, uint32
         AJ_ASSERT(bufSize <= 0xFFFFFFFF);
         uint32_t bufSizeU32 = (uint32_t)bufSize;
         HostU32ToLittleEndianU8(&bufSizeU32, sizeof(bufSizeU32), v_uintLE);
-        AJ_SHA256_Update(&ctx->hash, v_uintLE, sizeof(v_uintLE));
+        AJ_SHA256_Update(ctx->hash, v_uintLE, sizeof(v_uintLE));
     }
-    AJ_SHA256_Update(&ctx->hash, buf, bufSize);
+    AJ_SHA256_Update(ctx->hash, buf, bufSize);
 }
 
 void AJ_ConversationHash_Update_String(AJ_AuthenticationContext* ctx, uint32_t conversationVersion, const char* str, size_t strSize)
@@ -1083,5 +1089,5 @@ void AJ_ConversationHash_Update_Message(AJ_AuthenticationContext* ctx, uint32_t 
 
 void AJ_ConversationHash_GetDigest(AJ_AuthenticationContext* ctx, uint8_t* digest, const uint8_t keepAlive)
 {
-    AJ_SHA256_GetDigest(&ctx->hash, digest, keepAlive);
+    AJ_SHA256_GetDigest(ctx->hash, digest, keepAlive);
 }

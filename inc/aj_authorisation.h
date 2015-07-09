@@ -123,8 +123,12 @@ AJ_Status AJ_ManifestTemplateMarshal(AJ_Message* msg);
  *
  * @param manifest     The marshalled manifest message body
  * @param digest       The output digest
+ *
+ * @return
+ *          - AJ_OK on success
+ *          - AJ_ERR_RESOURCES or AJ_ERR_SECURITY if the digest failed
  */
-void AJ_ManifestDigest(AJ_CredField * manifest, uint8_t digest[AJ_SHA256_DIGEST_LENGTH]);
+AJ_Status AJ_ManifestDigest(AJ_CredField * manifest, uint8_t digest[AJ_SHA256_DIGEST_LENGTH]);
 
 /**
  * Marshal a manifest record

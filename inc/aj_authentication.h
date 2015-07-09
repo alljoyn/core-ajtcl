@@ -95,7 +95,7 @@ typedef struct _AJ_AuthenticationContext {
     uint8_t role;                                  /**< Role (client or server) */
     uint32_t suite;                                /**< Authentication suite */
     uint32_t version;                              /**< Protocol version */
-    AJ_SHA256_Context hash;                        /**< Running hash of exchanged messages */
+    AJ_SHA256_Context* hash;                       /**< Running hash of exchanged messages */
     KeyExchangeContext kectx;                      /**< Context for key exchange step */
     KeyAuthenticationContext kactx;                /**< Context for key authentication step */
     uint8_t mastersecret[AJ_MASTER_SECRET_LEN];    /**< Master secret */
