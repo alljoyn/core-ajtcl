@@ -215,6 +215,8 @@ static const char pem_x509_11[] = {
     "-----END CERTIFICATE-----"
 };
 
+#define ASN_OCTETS           0x04
+#define ASN_UTF8             0x0C
 void PrintElement(char* tag, DER_Element* der, uint8_t type)
 {
     size_t i;

@@ -49,25 +49,6 @@ extern const uint8_t OID_CUSTOM_GROUP[10];
 extern const uint8_t OID_CUSTOM_ALIAS[10];
 
 /**
- * DER encoding types.
- */
-#define ASN_BOOLEAN          0x01
-#define ASN_INTEGER          0x02
-#define ASN_BITS             0x03
-#define ASN_OCTETS           0x04
-#define ASN_NULL             0x05
-#define ASN_OID              0x06
-#define ASN_UTF8             0x0C
-#define ASN_SEQ              0x10
-#define ASN_SET_OF           0x11
-#define ASN_PRINTABLE        0x13
-#define ASN_ASCII            0x16
-#define ASN_UTC_TIME         0x17
-#define ASN_GEN_TIME         0x18
-#define ASN_CONTEXT_SPECIFIC 0x80
-#define ASN_UNKNOWN          0xFF
-
-/**
  * Structure for a DER encoded element.
  */
 typedef struct _DER_Element {
