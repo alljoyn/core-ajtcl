@@ -726,89 +726,95 @@ uint8_t AJ_IsRoutingNodeBlacklisted(AJ_Service* service)
 void AJ_AddRoutingNodeToResponseList(AJ_Service* service)
 {
     /*
-     * An unsorted fixed length list is kept such that the entries
-     * in the list have the highest protocol version and the lowest
-     * service priority (inverse of static rank/score) of the routing
-     * node responses that have been received so far.  When the list
-     * is full and there are new responses of the same rank as entries
-     * in the list, the previously received responses are preferred
+     * The routing node response list is an unsorted fixed length list
+     * of routing node responses that have 1) highest protocol
+     * version and 2) lowest service priority (inverse of static rank/score)
+     * of the routing node responses that have been received so far.
+     * When the list is full and there are new responses of the same rank
+     * as entries in the list, the previously received responses are preferred
      * over the newer responses.  This may have a side-effect of not
      * allowing some responses to be considered. An alternative is
      * to randomly select which responses will get added to the list
      * in such a situation.
      */
     int i = 0;
-    uint8_t replace = 0;
-    int RoutingNodeSlot = 0;
-    if (RoutingNodeResponselist_idx == AJ_ROUTING_NODE_RESPONSELIST_SIZE) {
-        replace = 0;
-        RoutingNodeSlot = 0;
-    } else if (RoutingNodeResponselist_idx < AJ_ROUTING_NODE_RESPONSELIST_SIZE) {
-        replace = 1;
+    int RoutingNodeSlot = 0; // default candidate for replacement
+
+    // if the list is not full the candidate slot is the next open entry
+    if (RoutingNodeResponselist_idx < AJ_ROUTING_NODE_RESPONSELIST_SIZE) {
         RoutingNodeSlot = RoutingNodeResponselist_idx;
     }
+
+    // pass through the list and either update responses already received or
+    // identify candidate slot for replacement (the slot with the lowest rank
+    // in the list
     for (i = 0; i  < AJ_ROUTING_NODE_RESPONSELIST_SIZE; ++i) {
+        // if this slot is occupied
         if (RoutingNodeResponselist[i].ipv4 || RoutingNodeResponselist[i].ipv4Udp) {
+            // if the service is already on the list
             if ((RoutingNodeResponselist[i].ipv4 && RoutingNodeResponselist[i].ipv4 == service->ipv4 && RoutingNodeResponselist[i].ipv4port == service->ipv4port)
                 || (RoutingNodeResponselist[i].ipv4Udp && RoutingNodeResponselist[i].ipv4Udp == service->ipv4Udp && RoutingNodeResponselist[i].ipv4portUdp == service->ipv4portUdp)) {
-                // track only the highest protocol version per service
+                // if the new response has higher protocol
                 if (RoutingNodeResponselist[i].pv < service->pv) {
+                    // update to the highest protocol version per service
                     RoutingNodeResponselist[i].pv = service->pv;
                     RoutingNodeResponselist[i].priority = service->priority;
-                    AJ_InfoPrintf(("Updated routing node entry to 0x%x (pv = %d, port = %d, priority = %d) to response list with %d response(s) in list\n", service->ipv4, service->pv, service->ipv4port, service->priority, RoutingNodeResponselist_idx));
-                } else if (RoutingNodeResponselist[i].pv == service->pv) {
-                    // update the priority if necessary
-                    if (RoutingNodeResponselist[i].priority != service->priority) {
-                        RoutingNodeResponselist[i].priority = service->priority;
-                        AJ_InfoPrintf(("Updated the priority value for routing node entry to 0x%x (pv = %d, port = %d, priority = %d) to response list with %d response(s) in list\n", service->ipv4, service->pv, service->ipv4port, service->priority, RoutingNodeResponselist_idx));
-                    }
+                    AJ_InfoPrintf(("Updated RN 0x%x pv (pv = %d, port = %d, priority = %d) (slot %d of %d)\n", service->ipv4, service->pv, service->ipv4port, service->priority, i, RoutingNodeResponselist_idx));
+                } else if ((RoutingNodeResponselist[i].pv == service->pv) &&
+                    (RoutingNodeResponselist[i].priority != service->priority)) {
+                    // equal protocol version, update the priority to that of the latest response
+                    RoutingNodeResponselist[i].priority = service->priority;
+                    AJ_InfoPrintf(("Updated RN 0x%x priority (pv = %d, port = %d, priority = %d) (slot %d of %d)\n", service->ipv4, service->pv, service->ipv4port, service->priority, i, RoutingNodeResponselist_idx));
                 }
-                // entry already present in the list
+                // else existing entry has better protocol version
                 return;
             } else {
-                // if the list is full, find a tentative candidate for eviction, if possible
+                // this response not on list, find a candidate for replacement
                 if (RoutingNodeResponselist_idx == AJ_ROUTING_NODE_RESPONSELIST_SIZE) {
                     if (RoutingNodeResponselist[i].pv > RoutingNodeResponselist[RoutingNodeSlot].pv) {
+                        // this slot has higher protocol version than current candidate
                         continue;
                     } else if (RoutingNodeResponselist[i].pv < RoutingNodeResponselist[RoutingNodeSlot].pv) {
+                        // this slot has lower protocol version than current candidate, so new candidate
                         RoutingNodeSlot = i;
-                        replace = 1;
                     } else if (RoutingNodeResponselist[i].priority < RoutingNodeResponselist[RoutingNodeSlot].priority) {
+                        // this slot has better priority than current candidate
                         continue;
                     } else if (RoutingNodeResponselist[i].priority > RoutingNodeResponselist[RoutingNodeSlot].priority) {
+                        // this slot has worse priority than current candidate, so new candidate
                         RoutingNodeSlot = i;
-                        replace = 1;
                     }
                 }
             }
         } else {
-            // break early if list isn't full
+            // break early if list is not full
             break;
         }
     }
-    if (replace) {
-        if (RoutingNodeResponselist_idx == AJ_ROUTING_NODE_RESPONSELIST_SIZE) {
-            // Is current candidate for eviction of a lower ranking ?
-            if (service->pv < RoutingNodeResponselist[RoutingNodeSlot].pv) {
-                return;
-            }
-            if (service->pv == RoutingNodeResponselist[RoutingNodeSlot].pv && service->priority >= RoutingNodeResponselist[RoutingNodeSlot].priority) {
-                return;
-            }
-            AJ_InfoPrintf(("Evicting slot number %d\n", RoutingNodeSlot));
+
+    // check if candidate is actually lower ranking than service
+    if (RoutingNodeResponselist_idx == AJ_ROUTING_NODE_RESPONSELIST_SIZE) {
+        // if candidate for eviction has higher protocol version do not replace
+        if (service->pv < RoutingNodeResponselist[RoutingNodeSlot].pv) {
+            return;
         }
-        RoutingNodeResponselist[RoutingNodeSlot].ipv4 = service->ipv4;
-        RoutingNodeResponselist[RoutingNodeSlot].ipv4port = service->ipv4port;
-        RoutingNodeResponselist[RoutingNodeSlot].ipv4Udp = service->ipv4Udp;
-        RoutingNodeResponselist[RoutingNodeSlot].ipv4portUdp = service->ipv4portUdp;
-        RoutingNodeResponselist[RoutingNodeSlot].addrTypes = service->addrTypes;
-        RoutingNodeResponselist[RoutingNodeSlot].pv = service->pv;
-        RoutingNodeResponselist[RoutingNodeSlot].priority = service->priority;
-        if (RoutingNodeResponselist_idx < AJ_ROUTING_NODE_RESPONSELIST_SIZE) {
-            RoutingNodeResponselist_idx++;
+        // if candidate for eviction has equal protocol version but better priority then do not replace
+        if (service->pv == RoutingNodeResponselist[RoutingNodeSlot].pv && service->priority >= RoutingNodeResponselist[RoutingNodeSlot].priority) {
+            return;
         }
-        AJ_InfoPrintf(("Added routing node 0x%x (pv = %d, port = %d, priority = %d) to response list with %d response(s) in list\n", service->ipv4, service->pv, service->ipv4port, service->priority, RoutingNodeResponselist_idx));
+        AJ_InfoPrintf(("Replacing slot number %d\n", RoutingNodeSlot));
     }
+    RoutingNodeResponselist[RoutingNodeSlot].ipv4 = service->ipv4;
+    RoutingNodeResponselist[RoutingNodeSlot].ipv4port = service->ipv4port;
+    RoutingNodeResponselist[RoutingNodeSlot].ipv4Udp = service->ipv4Udp;
+    RoutingNodeResponselist[RoutingNodeSlot].ipv4portUdp = service->ipv4portUdp;
+    RoutingNodeResponselist[RoutingNodeSlot].addrTypes = service->addrTypes;
+    RoutingNodeResponselist[RoutingNodeSlot].pv = service->pv;
+    RoutingNodeResponselist[RoutingNodeSlot].priority = service->priority;
+    if (RoutingNodeResponselist_idx < AJ_ROUTING_NODE_RESPONSELIST_SIZE) {
+        RoutingNodeResponselist_idx++;
+    }
+    AJ_InfoPrintf(("Added RN 0x%x (pv = %d, port = %d, priority = %d) to list (slot %d of %d)\n", service->ipv4, service->pv, service->ipv4port, service->priority, RoutingNodeSlot, RoutingNodeResponselist_idx));
 }
 
 AJ_Status AJ_SelectRoutingNodeFromResponseList(AJ_Service* service)
