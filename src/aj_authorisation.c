@@ -888,8 +888,7 @@ AJ_Status AJ_ManifestDigest(AJ_CredField* manifest, uint8_t digest[AJ_SHA256_DIG
         return AJ_ERR_RESOURCES;
     }
     AJ_SHA256_Update(ctx, manifest->data, manifest->size);
-    AJ_SHA256_Final(ctx, digest);
-    return AJ_OK;
+    return AJ_SHA256_Final(ctx, digest);
 }
 
 static void PolicyUnload(Policy* policy)

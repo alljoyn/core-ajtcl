@@ -65,8 +65,12 @@ static AJ_Status ComputeVerifier(AJ_AuthenticationContext* ctx, const char* labe
     const uint8_t* data[3];
     uint8_t lens[3];
     uint8_t digest[AJ_SHA256_DIGEST_LENGTH];
+    AJ_Status status;
 
-    AJ_ConversationHash_GetDigest(ctx, digest, 1);
+    status = AJ_ConversationHash_GetDigest(ctx, digest, 1);
+    if (AJ_OK != status) {
+        return status;
+    }
 
     data[0] = ctx->mastersecret;
     lens[0] = AJ_MASTER_SECRET_LEN;
@@ -83,8 +87,12 @@ static AJ_Status ComputePSKVerifier(AJ_AuthenticationContext* ctx, const char* l
     const uint8_t* data[5];
     uint8_t lens[5];
     uint8_t digest[AJ_SHA256_DIGEST_LENGTH];
+    AJ_Status status;
 
-    AJ_ConversationHash_GetDigest(ctx, digest, 1);
+    status = AJ_ConversationHash_GetDigest(ctx, digest, 1);
+    if (status != AJ_OK) {
+        return status;
+    }
 
     data[0] = ctx->mastersecret;
     lens[0] = AJ_MASTER_SECRET_LEN;
@@ -257,7 +265,10 @@ static AJ_Status GenerateShareSecret(AJ_AuthenticationContext* ctx, AJ_ECCPublic
         goto Exit;
     }
     AJ_SHA256_Update(sha, sec.x, KEY_ECC_SZ);
-    AJ_SHA256_Final(sha, data);
+    status = AJ_SHA256_Final(sha, data);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
     status = ComputeMasterSecret(ctx, data, size);
 
 Exit:
@@ -1087,7 +1098,7 @@ void AJ_ConversationHash_Update_Message(AJ_AuthenticationContext* ctx, uint32_t 
 
 }
 
-void AJ_ConversationHash_GetDigest(AJ_AuthenticationContext* ctx, uint8_t* digest, const uint8_t keepAlive)
+AJ_Status AJ_ConversationHash_GetDigest(AJ_AuthenticationContext* ctx, uint8_t* digest, const uint8_t keepAlive)
 {
-    AJ_SHA256_GetDigest(ctx->hash, digest, keepAlive);
+    return AJ_SHA256_GetDigest(ctx->hash, digest, keepAlive);
 }

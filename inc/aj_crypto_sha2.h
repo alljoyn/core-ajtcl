@@ -38,6 +38,7 @@ typedef struct AJ_SHA256_Context AJ_SHA256_Context;
 /**
  * Initialize the hash context
  * @param context the hash context
+ * @return Pointer to context. NULL if init failed.
  */
 AJ_SHA256_Context* AJ_SHA256_Init();
 
@@ -54,15 +55,17 @@ void AJ_SHA256_Update(AJ_SHA256_Context* context, const uint8_t* buf, size_t buf
  * @param context the hash context
  * @param digest the buffer to hold the digest.  Must be of size SHA256_DIGEST_LENGTH
  * @param keepAlive keep the digest process alive for continuing digest
+ * @return AJ_OK if successful, otherwise error.
  */
-void AJ_SHA256_GetDigest(AJ_SHA256_Context* context, uint8_t* digest, const uint8_t keepAlive);
+AJ_Status AJ_SHA256_GetDigest(AJ_SHA256_Context* context, uint8_t* digest, const uint8_t keepAlive);
 
 /**
  * Retrieve the final digest
  * @param context the hash context
  * @param digest the buffer to hold the digest.  Must be of size SHA256_DIGEST_LENGTH
+ * @return AJ_OK if successful, otherwise error.
  */
-void AJ_SHA256_Final(AJ_SHA256_Context* context, uint8_t* digest);
+AJ_Status AJ_SHA256_Final(AJ_SHA256_Context* context, uint8_t* digest);
 
 /**
  * Random function
@@ -71,7 +74,7 @@ void AJ_SHA256_Final(AJ_SHA256_Context* context, uint8_t* digest);
  * @param count     the size of the input array
  * @param out       the buffer holding the random value
  * @param outLen    the buffer size
- * @return  AJ_OK if succeeds; otherwise error
+ * @return AJ_OK if succeeds; otherwise error
  */
 AJ_Status AJ_Crypto_PRF_SHA256(const uint8_t** inputs, const uint8_t* lengths,
                                uint32_t count, uint8_t* out, uint32_t outLen);

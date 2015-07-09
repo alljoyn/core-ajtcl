@@ -233,8 +233,12 @@ void AJ_ConversationHash_Update_Message(AJ_AuthenticationContext* ctx, uint32_t 
  * @param ctx           The authentication context
  * @param digest        The buffer to receive the digest. Must be of SHA256_DIGEST_LENGTH
  * @param keepAlive     Whether or not to keep the digest alive for continuing digest
+ *
+ * @return
+ *         - AJ_OK on success
+ *         - An error status otherwise
  */
-void AJ_ConversationHash_GetDigest(AJ_AuthenticationContext* ctx, uint8_t* digest, const uint8_t keepAlive);
+AJ_Status AJ_ConversationHash_GetDigest(AJ_AuthenticationContext* ctx, uint8_t* digest, const uint8_t keepAlive);
 
 #ifdef __cplusplus
 }

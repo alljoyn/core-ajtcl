@@ -1720,13 +1720,17 @@ AJ_Status AJ_ECDSASign(const uint8_t* buf, uint16_t len, const AJ_ECCPrivateKey*
 {
     AJ_SHA256_Context* ctx;
     uint8_t digest[AJ_SHA256_DIGEST_LENGTH];
+    AJ_Status status;
 
     ctx = AJ_SHA256_Init();
     if (!ctx) {
         return AJ_ERR_RESOURCES;
     }
     AJ_SHA256_Update(ctx, buf, (size_t) len);
-    AJ_SHA256_Final(ctx, digest);
+    status = AJ_SHA256_Final(ctx, digest);
+    if (status != AJ_OK) {
+        return status;
+    }
 
     return AJ_ECDSASignDigest(digest, prv, sig);
 }
@@ -1756,13 +1760,17 @@ AJ_Status AJ_ECDSAVerify(const uint8_t* buf, uint16_t len, const AJ_ECCSignature
 {
     AJ_SHA256_Context* ctx;
     uint8_t digest[AJ_SHA256_DIGEST_LENGTH];
+    AJ_Status status;
 
     ctx = AJ_SHA256_Init();
     if (!ctx) {
         return AJ_ERR_RESOURCES;
     }
     AJ_SHA256_Update(ctx, (const uint8_t*) buf, (size_t) len);
-    AJ_SHA256_Final(ctx, digest);
+    status = AJ_SHA256_Final(ctx, digest);
+    if (status != AJ_OK) {
+        return status;
+    }
 
     return AJ_ECDSAVerifyDigest(digest, sig, pub);
 }
