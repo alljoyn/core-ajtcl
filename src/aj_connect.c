@@ -445,8 +445,6 @@ AJ_Status AJ_FindBusAndConnect(AJ_BusAttachment* bus, const char* serviceName, u
     AJ_Time connectionTimer;
     int32_t connectionTime;
     uint8_t finished = FALSE;
-    bus->isAuthenticated = FALSE;
-    bus->isProbeRequired = TRUE;
 
 #ifdef AJ_SERIAL_CONNECTION
     AJ_Time start, now;
@@ -459,6 +457,8 @@ AJ_Status AJ_FindBusAndConnect(AJ_BusAttachment* bus, const char* serviceName, u
      * Clear the bus struct
      */
     memset(bus, 0, sizeof(AJ_BusAttachment));
+    bus->isProbeRequired = TRUE;
+
     /*
      * Clear stale name->GUID mappings
      */
@@ -697,20 +697,20 @@ void AJ_Disconnect(AJ_BusAttachment* bus)
     routingProtoVersion = 0;
 }
 
-static uint32_t RoutingNodeIPBlacklist[AJ_ROUTING_NODE_BLACKLIST_SIZE];
-static uint16_t RoutingNodePortBlacklist[AJ_ROUTING_NODE_BLACKLIST_SIZE];
-static uint8_t RoutingNodeBlacklist_idx = 0;
+static uint32_t RNBlacklistIP[AJ_ROUTING_NODE_BLACKLIST_SIZE];
+static uint16_t RNBlacklistPort[AJ_ROUTING_NODE_BLACKLIST_SIZE];
+static uint8_t RNBlacklistIndex = 0;
 
-static AJ_Service RoutingNodeResponselist[AJ_ROUTING_NODE_RESPONSELIST_SIZE];
-static uint16_t RoutingNodeAttemptsResponselist[AJ_ROUTING_NODE_RESPONSELIST_SIZE];
-static uint8_t RoutingNodeResponselist_idx = 0;
+static AJ_Service RNResponseList[AJ_ROUTING_NODE_RESPONSELIST_SIZE];
+static uint16_t RNAttemptsList[AJ_ROUTING_NODE_RESPONSELIST_SIZE];
+static uint8_t RNResponseListIndex = 0;
 
 uint8_t AJ_IsRoutingNodeBlacklisted(AJ_Service* service)
 {
     uint8_t i = 0;
     for (; i < AJ_ROUTING_NODE_BLACKLIST_SIZE; ++i) {
-        if (RoutingNodeIPBlacklist[i]) {
-            if (RoutingNodeIPBlacklist[i] == service->ipv4 && RoutingNodePortBlacklist[i] == service->ipv4port) {
+        if (RNBlacklistIP[i]) {
+            if (RNBlacklistIP[i] == service->ipv4 && RNBlacklistPort[i] == service->ipv4port) {
                 return TRUE;
             }
         } else {
@@ -726,89 +726,96 @@ uint8_t AJ_IsRoutingNodeBlacklisted(AJ_Service* service)
 void AJ_AddRoutingNodeToResponseList(AJ_Service* service)
 {
     /*
-     * An unsorted fixed length list is kept such that the entries
-     * in the list have the highest protocol version and the lowest
-     * service priority (inverse of static rank/score) of the routing
-     * node responses that have been received so far.  When the list
-     * is full and there are new responses of the same rank as entries
-     * in the list, the previously received responses are preferred
+     * The routing node response list is an unsorted fixed length list
+     * of routing node responses that have 1) highest protocol
+     * version and 2) lowest service priority (inverse of static rank/score)
+     * of the routing node responses that have been received so far.
+     * When the list is full and there are new responses of the same rank
+     * as entries in the list, the previously received responses are preferred
      * over the newer responses.  This may have a side-effect of not
      * allowing some responses to be considered. An alternative is
      * to randomly select which responses will get added to the list
      * in such a situation.
      */
     int i = 0;
-    uint8_t replace = 0;
-    int RoutingNodeSlot = 0;
-    if (RoutingNodeResponselist_idx == AJ_ROUTING_NODE_RESPONSELIST_SIZE) {
-        replace = 0;
-        RoutingNodeSlot = 0;
-    } else if (RoutingNodeResponselist_idx < AJ_ROUTING_NODE_RESPONSELIST_SIZE) {
-        replace = 1;
-        RoutingNodeSlot = RoutingNodeResponselist_idx;
+    int candidate = 0;
+    if (RNResponseListIndex < AJ_ROUTING_NODE_RESPONSELIST_SIZE) {
+        candidate = RNResponseListIndex;
     }
+
+    // pass through the list and either update responses already received or
+    // identify candidate slot for replacement (the slot with the lowest rank
+    // in the list
     for (i = 0; i  < AJ_ROUTING_NODE_RESPONSELIST_SIZE; ++i) {
-        if (RoutingNodeResponselist[i].ipv4 || RoutingNodeResponselist[i].ipv4Udp) {
-            if ((RoutingNodeResponselist[i].ipv4 && RoutingNodeResponselist[i].ipv4 == service->ipv4 && RoutingNodeResponselist[i].ipv4port == service->ipv4port)
-                || (RoutingNodeResponselist[i].ipv4Udp && RoutingNodeResponselist[i].ipv4Udp == service->ipv4Udp && RoutingNodeResponselist[i].ipv4portUdp == service->ipv4portUdp)) {
-                // track only the highest protocol version per service
-                if (RoutingNodeResponselist[i].pv < service->pv) {
-                    RoutingNodeResponselist[i].pv = service->pv;
-                    RoutingNodeResponselist[i].priority = service->priority;
-                    AJ_InfoPrintf(("Updated routing node entry to 0x%x (pv = %d, port = %d, priority = %d) to response list with %d response(s) in list\n", service->ipv4, service->pv, service->ipv4port, service->priority, RoutingNodeResponselist_idx));
-                } else if (RoutingNodeResponselist[i].pv == service->pv) {
-                    // update the priority if necessary
-                    if (RoutingNodeResponselist[i].priority != service->priority) {
-                        RoutingNodeResponselist[i].priority = service->priority;
-                        AJ_InfoPrintf(("Updated the priority value for routing node entry to 0x%x (pv = %d, port = %d, priority = %d) to response list with %d response(s) in list\n", service->ipv4, service->pv, service->ipv4port, service->priority, RoutingNodeResponselist_idx));
+        // if this slot is occupied
+        if (RNResponseList[i].ipv4 || RNResponseList[i].ipv4Udp) {
+            // if the service is already on the list
+            if ((RNResponseList[i].ipv4 &&
+                 RNResponseList[i].ipv4 == service->ipv4 && RNResponseList[i].ipv4port == service->ipv4port) ||
+                (RNResponseList[i].ipv4Udp &&
+                 RNResponseList[i].ipv4Udp == service->ipv4Udp && RNResponseList[i].ipv4portUdp == service->ipv4portUdp)) {
+                // if the new response has higher protocol
+                if (RNResponseList[i].pv < service->pv) {
+                    // update to the highest protocol version per service
+                    RNResponseList[i].pv = service->pv;
+                    RNResponseList[i].priority = service->priority;
+                    AJ_InfoPrintf(("Updated RN 0x%x pv (pv = %d, port = %d, priority = %d) (slot %d of %d)\n", service->ipv4, service->pv, service->ipv4port, service->priority, i, RNResponseListIndex));
+                } else if (RNResponseList[i].pv == service->pv) {
+                    // equal protocol version, update the priority to that of the latest response
+                    if (RNResponseList[i].priority != service->priority) {
+                        RNResponseList[i].priority = service->priority;
+                        AJ_InfoPrintf(("Updated RN 0x%x priority (pv = %d, port = %d, priority = %d) (slot %d of %d)\n", service->ipv4, service->pv, service->ipv4port, service->priority, i, RNResponseListIndex));
                     }
                 }
-                // entry already present in the list
+                // else existing entry has better protocol version
                 return;
             } else {
-                // if the list is full, find a tentative candidate for eviction, if possible
-                if (RoutingNodeResponselist_idx == AJ_ROUTING_NODE_RESPONSELIST_SIZE) {
-                    if (RoutingNodeResponselist[i].pv > RoutingNodeResponselist[RoutingNodeSlot].pv) {
+                // this response not on list, find a candidate for replacement
+                if (RNResponseListIndex == AJ_ROUTING_NODE_RESPONSELIST_SIZE) {
+                    if (RNResponseList[i].pv > RNResponseList[candidate].pv) {
+                        // this slot has higher protocol version than current candidate
                         continue;
-                    } else if (RoutingNodeResponselist[i].pv < RoutingNodeResponselist[RoutingNodeSlot].pv) {
-                        RoutingNodeSlot = i;
-                        replace = 1;
-                    } else if (RoutingNodeResponselist[i].priority < RoutingNodeResponselist[RoutingNodeSlot].priority) {
+                    } else if (RNResponseList[i].pv < RNResponseList[candidate].pv) {
+                        // this slot has lower protocol version than current candidate, so new candidate
+                        candidate = i;
+                    } else if (RNResponseList[i].priority < RNResponseList[candidate].priority) {
+                        // this slot has better priority than current candidate
                         continue;
-                    } else if (RoutingNodeResponselist[i].priority > RoutingNodeResponselist[RoutingNodeSlot].priority) {
-                        RoutingNodeSlot = i;
-                        replace = 1;
+                    } else if (RNResponseList[i].priority > RNResponseList[candidate].priority) {
+                        // this slot has worse priority than current candidate, so new candidate
+                        candidate = i;
                     }
                 }
             }
         } else {
-            // break early if list isn't full
+            // break early if list is not full
             break;
         }
     }
-    if (replace) {
-        if (RoutingNodeResponselist_idx == AJ_ROUTING_NODE_RESPONSELIST_SIZE) {
-            // Is current candidate for eviction of a lower ranking ?
-            if (service->pv < RoutingNodeResponselist[RoutingNodeSlot].pv) {
-                return;
-            }
-            if (service->pv == RoutingNodeResponselist[RoutingNodeSlot].pv && service->priority >= RoutingNodeResponselist[RoutingNodeSlot].priority) {
-                return;
-            }
-            AJ_InfoPrintf(("Evicting slot number %d\n", RoutingNodeSlot));
+
+    // check if candidate is actually lower ranking than service
+    if (RNResponseListIndex == AJ_ROUTING_NODE_RESPONSELIST_SIZE) {
+        // if candidate for eviction has higher protocol version do not replace
+        if (service->pv < RNResponseList[candidate].pv) {
+            return;
         }
-        RoutingNodeResponselist[RoutingNodeSlot].ipv4 = service->ipv4;
-        RoutingNodeResponselist[RoutingNodeSlot].ipv4port = service->ipv4port;
-        RoutingNodeResponselist[RoutingNodeSlot].ipv4Udp = service->ipv4Udp;
-        RoutingNodeResponselist[RoutingNodeSlot].ipv4portUdp = service->ipv4portUdp;
-        RoutingNodeResponselist[RoutingNodeSlot].addrTypes = service->addrTypes;
-        RoutingNodeResponselist[RoutingNodeSlot].pv = service->pv;
-        RoutingNodeResponselist[RoutingNodeSlot].priority = service->priority;
-        if (RoutingNodeResponselist_idx < AJ_ROUTING_NODE_RESPONSELIST_SIZE) {
-            RoutingNodeResponselist_idx++;
+        // if candidate for eviction has equal protocol version but better priority then do not replace
+        if (service->pv == RNResponseList[candidate].pv && service->priority >= RNResponseList[candidate].priority) {
+            return;
         }
-        AJ_InfoPrintf(("Added routing node 0x%x (pv = %d, port = %d, priority = %d) to response list with %d response(s) in list\n", service->ipv4, service->pv, service->ipv4port, service->priority, RoutingNodeResponselist_idx));
+        AJ_InfoPrintf(("Evicting slot number %d\n", candidate));
     }
+    RNResponseList[candidate].ipv4 = service->ipv4;
+    RNResponseList[candidate].ipv4port = service->ipv4port;
+    RNResponseList[candidate].ipv4Udp = service->ipv4Udp;
+    RNResponseList[candidate].ipv4portUdp = service->ipv4portUdp;
+    RNResponseList[candidate].addrTypes = service->addrTypes;
+    RNResponseList[candidate].pv = service->pv;
+    RNResponseList[candidate].priority = service->priority;
+    if (RNResponseListIndex < AJ_ROUTING_NODE_RESPONSELIST_SIZE) {
+        RNResponseListIndex++;
+    }
+    AJ_InfoPrintf(("Added RN 0x%x (pv = %d, port = %d, priority = %d) to list (slot %d of %d)\n", service->ipv4, service->pv, service->ipv4port, service->priority, candidate, RNResponseListIndex));
 }
 
 AJ_Status AJ_SelectRoutingNodeFromResponseList(AJ_Service* service)
@@ -825,53 +832,53 @@ AJ_Status AJ_SelectRoutingNodeFromResponseList(AJ_Service* service)
     uint32_t priority_idx = 0;
     uint32_t priority_srv = 0;
     uint32_t random = 0;
-    if (RoutingNodeResponselist[0].ipv4 || RoutingNodeResponselist[0].ipv4Udp) {
-        service->ipv4 = RoutingNodeResponselist[0].ipv4;
-        service->ipv4port = RoutingNodeResponselist[0].ipv4port;
-        service->ipv4Udp = RoutingNodeResponselist[0].ipv4Udp;
-        service->ipv4portUdp = RoutingNodeResponselist[0].ipv4portUdp;
-        service->pv = RoutingNodeResponselist[0].pv;
-        service->addrTypes = RoutingNodeResponselist[0].addrTypes;
-        service->priority = RoutingNodeResponselist[0].priority;
+    if (RNResponseList[0].ipv4 || RNResponseList[0].ipv4Udp) {
+        service->ipv4 = RNResponseList[0].ipv4;
+        service->ipv4port = RNResponseList[0].ipv4port;
+        service->ipv4Udp = RNResponseList[0].ipv4Udp;
+        service->ipv4portUdp = RNResponseList[0].ipv4portUdp;
+        service->pv = RNResponseList[0].pv;
+        service->addrTypes = RNResponseList[0].addrTypes;
+        service->priority = RNResponseList[0].priority;
         runningSum = service->priority;
-        skip = RoutingNodeAttemptsResponselist[0];
+        skip = RNAttemptsList[0];
         if (skip) {
             AJ_InfoPrintf(("Index 0 was previously selected\n"));
         }
         for (; i  < AJ_ROUTING_NODE_RESPONSELIST_SIZE; ++i) {
-            if (RoutingNodeResponselist[i].ipv4 || RoutingNodeResponselist[i].ipv4Udp) {
-                if (RoutingNodeAttemptsResponselist[i]) {
+            if (RNResponseList[i].ipv4 || RNResponseList[i].ipv4Udp) {
+                if (RNAttemptsList[i]) {
                     AJ_InfoPrintf(("Index %d was previously selected\n", i));
                     continue;
                 }
                 if (skip) {
-                    service->ipv4 = RoutingNodeResponselist[i].ipv4;
-                    service->ipv4port = RoutingNodeResponselist[i].ipv4port;
-                    service->ipv4Udp = RoutingNodeResponselist[i].ipv4Udp;
-                    service->ipv4portUdp = RoutingNodeResponselist[i].ipv4portUdp;
-                    service->pv = RoutingNodeResponselist[i].pv;
-                    service->addrTypes = RoutingNodeResponselist[i].addrTypes;
-                    service->priority = RoutingNodeResponselist[i].priority;
+                    service->ipv4 = RNResponseList[i].ipv4;
+                    service->ipv4port = RNResponseList[i].ipv4port;
+                    service->ipv4Udp = RNResponseList[i].ipv4Udp;
+                    service->ipv4portUdp = RNResponseList[i].ipv4portUdp;
+                    service->pv = RNResponseList[i].pv;
+                    service->addrTypes = RNResponseList[i].addrTypes;
+                    service->priority = RNResponseList[i].priority;
                     selectedIndex = i;
                     runningSum = service->priority;
                     skip = 0;
                     continue;
                 }
-                if (RoutingNodeResponselist[i].pv < service->pv) {
+                if (RNResponseList[i].pv < service->pv) {
                     continue;
                 }
-                if (RoutingNodeResponselist[i].pv > service->pv || (RoutingNodeResponselist[i].pv == service->pv && RoutingNodeResponselist[i].priority < service->priority)) {
-                    service->ipv4 = RoutingNodeResponselist[i].ipv4;
-                    service->ipv4port = RoutingNodeResponselist[i].ipv4port;
-                    service->ipv4Udp = RoutingNodeResponselist[i].ipv4Udp;
-                    service->ipv4portUdp = RoutingNodeResponselist[i].ipv4portUdp;
-                    service->pv = RoutingNodeResponselist[i].pv;
-                    service->addrTypes = RoutingNodeResponselist[i].addrTypes;
-                    service->priority = RoutingNodeResponselist[i].priority;
+                if (RNResponseList[i].pv > service->pv || (RNResponseList[i].pv == service->pv && RNResponseList[i].priority < service->priority)) {
+                    service->ipv4 = RNResponseList[i].ipv4;
+                    service->ipv4port = RNResponseList[i].ipv4port;
+                    service->ipv4Udp = RNResponseList[i].ipv4Udp;
+                    service->ipv4portUdp = RNResponseList[i].ipv4portUdp;
+                    service->pv = RNResponseList[i].pv;
+                    service->addrTypes = RNResponseList[i].addrTypes;
+                    service->priority = RNResponseList[i].priority;
                     runningSum = service->priority;
                     selectedIndex = i;
                     AJ_InfoPrintf(("Tentatively selecting routing node %x (pv = %d, port = %d, priority = %d).\n", service->ipv4, service->pv, service->ipv4port, service->priority));
-                } else if (RoutingNodeResponselist[i].priority == service->priority) {
+                } else if (RNResponseList[i].priority == service->priority) {
                     /*
                      * Randomly select one of out of all the routing nodes with the same
                      * protocol version and priority with each node given an equal chance
@@ -884,20 +891,20 @@ AJ_Status AJ_SelectRoutingNodeFromResponseList(AJ_Service* service)
                      */
                     random = 0;
                     AJ_RandBytes((uint8_t*)&random, sizeof(random));
-                    priority_idx = RoutingNodeResponselist[i].priority + runningSum;
+                    priority_idx = RNResponseList[i].priority + runningSum;
                     priority_srv = runningSum;
                     runningSum = priority_idx;
                     random %= (runningSum + 1);
                     AJ_InfoPrintf(("P_idx is %u and P_srv is %u and random is %u\n", priority_idx, priority_srv, random));
                     if (random > priority_srv) {
                         AJ_InfoPrintf(("Picking index %d on this round\n", i));
-                        service->ipv4 = RoutingNodeResponselist[i].ipv4;
-                        service->ipv4port = RoutingNodeResponselist[i].ipv4port;
-                        service->ipv4Udp = RoutingNodeResponselist[i].ipv4Udp;
-                        service->ipv4portUdp = RoutingNodeResponselist[i].ipv4portUdp;
-                        service->pv = RoutingNodeResponselist[i].pv;
-                        service->addrTypes = RoutingNodeResponselist[i].addrTypes;
-                        service->priority = RoutingNodeResponselist[i].priority;
+                        service->ipv4 = RNResponseList[i].ipv4;
+                        service->ipv4port = RNResponseList[i].ipv4port;
+                        service->ipv4Udp = RNResponseList[i].ipv4Udp;
+                        service->ipv4portUdp = RNResponseList[i].ipv4portUdp;
+                        service->pv = RNResponseList[i].pv;
+                        service->addrTypes = RNResponseList[i].addrTypes;
+                        service->priority = RNResponseList[i].priority;
                         selectedIndex = i;
                         AJ_InfoPrintf(("Tentatively selecting routing node 0x%x (pv = %d, port = %d, priority = %d).\n", service->ipv4, service->pv, service->ipv4port, service->priority));
                     }
@@ -916,41 +923,41 @@ AJ_Status AJ_SelectRoutingNodeFromResponseList(AJ_Service* service)
         AJ_InfoPrintf(("All entries in the response list have been previously selected\n"));
         return AJ_ERR_END_OF_DATA;
     }
-    RoutingNodeAttemptsResponselist[selectedIndex] = 1;
-    AJ_InfoPrintf(("Selected routing node 0x%x (pv = %d, port = %d, priority = %d) out of %d responses in the list.\n", service->ipv4, service->pv, service->ipv4port, service->priority, RoutingNodeResponselist_idx));
+    RNAttemptsList[selectedIndex] = 1;
+    AJ_InfoPrintf(("Selected routing node 0x%x (pv = %d, port = %d, priority = %d) out of %d responses in the list.\n", service->ipv4, service->pv, service->ipv4port, service->priority, RNResponseListIndex));
     return AJ_OK;
 }
 
 uint8_t AJ_GetRoutingNodeResponseListSize()
 {
-    return RoutingNodeResponselist_idx;
+    return RNResponseListIndex;
 }
 
 static void AddRoutingNodeToBlacklist(const AJ_Service* service, uint8_t addrTypes)
 {
     if ((addrTypes & AJ_ADDR_TCP4) && (service->addrTypes & AJ_ADDR_TCP4)) {
-        RoutingNodeIPBlacklist[RoutingNodeBlacklist_idx] = service->ipv4;
-        RoutingNodePortBlacklist[RoutingNodeBlacklist_idx] = service->ipv4port;
-        RoutingNodeBlacklist_idx = (RoutingNodeBlacklist_idx + 1) % AJ_ROUTING_NODE_BLACKLIST_SIZE;
+        RNBlacklistIP[RNBlacklistIndex] = service->ipv4;
+        RNBlacklistPort[RNBlacklistIndex] = service->ipv4port;
+        RNBlacklistIndex = (RNBlacklistIndex + 1) % AJ_ROUTING_NODE_BLACKLIST_SIZE;
     }
 
     if ((addrTypes & AJ_ADDR_UDP4) && (service->addrTypes & AJ_ADDR_UDP4)) {
-        RoutingNodeIPBlacklist[RoutingNodeBlacklist_idx] = service->ipv4Udp;
-        RoutingNodePortBlacklist[RoutingNodeBlacklist_idx] = service->ipv4portUdp;
-        RoutingNodeBlacklist_idx = (RoutingNodeBlacklist_idx + 1) % AJ_ROUTING_NODE_BLACKLIST_SIZE;
+        RNBlacklistIP[RNBlacklistIndex] = service->ipv4Udp;
+        RNBlacklistPort[RNBlacklistIndex] = service->ipv4portUdp;
+        RNBlacklistIndex = (RNBlacklistIndex + 1) % AJ_ROUTING_NODE_BLACKLIST_SIZE;
     }
 }
 
 void AJ_InitRoutingNodeResponselist()
 {
-    memset(RoutingNodeResponselist, 0, sizeof(RoutingNodeResponselist));
-    memset(RoutingNodeAttemptsResponselist, 0, sizeof(RoutingNodeAttemptsResponselist));
-    RoutingNodeResponselist_idx = 0;
+    memset(RNResponseList, 0, sizeof(RNResponseList));
+    memset(RNAttemptsList, 0, sizeof(RNAttemptsList));
+    RNResponseListIndex = 0;
 }
 
 void AJ_InitRoutingNodeBlacklist()
 {
-    memset(RoutingNodeIPBlacklist, 0, sizeof(RoutingNodeIPBlacklist));
-    memset(RoutingNodePortBlacklist, 0, sizeof(RoutingNodePortBlacklist));
-    RoutingNodeBlacklist_idx = 0;
+    memset(RNBlacklistIP, 0, sizeof(RNBlacklistIP));
+    memset(RNBlacklistPort, 0, sizeof(RNBlacklistPort));
+    RNBlacklistIndex = 0;
 }

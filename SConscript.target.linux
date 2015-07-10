@@ -65,6 +65,8 @@ env.Append(CFLAGS = [
     '-Wpointer-arith',
     '-Wshadow',
     '-Wundef',
+    '-Wformat-security',
+    '-Werror=format-security',
     '-Wwrite-strings'
 ])
 

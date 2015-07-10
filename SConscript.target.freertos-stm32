@@ -76,6 +76,8 @@ env.Append(CFLAGS = [
     '-Wpointer-arith',
     '-Wshadow',
     '-Wundef',
+    '-Wformat-security',
+    '-Werror=format-security',
     '-Wwrite-strings'
 ])
 env.Append(CPPDEFINES = {
@@ -85,7 +87,8 @@ env.Append(CPPDEFINES = {
     'HAL_RCC_MODULE_ENABLED'  : None,
     'HAL_GPIO_MODULE_ENABLED' : None,
     'HAL_USART_MODULE_ENABLED': None,
-    'HAL_FLASH_MODULE_ENABLED': None
+    'HAL_FLASH_MODULE_ENABLED': None,
+    '_FORTIFY_SOURCE':          '1'
 })
 
 # Linker flags

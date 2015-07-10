@@ -23,9 +23,9 @@ whitespacedb = '.whitespace.db'
 
 def main(argv = None):
     start_time = time.clock()
-    dir_ignore = ["build", ".git", ".repo", "external", ".sconf_temp" ]
+    dir_ignore = ["build", "dist", ".git", ".repo", "external", ".sconf_temp" ]
     file_ignore_patterns = ['\.#.*']
-    file_patterns = ['*.c', '*.h', '*.cpp', '*.cc']
+    file_patterns = ['*.c', '*.h', '*.cpp', '*.cc', '*.ino']
     valid_commands = ["check", "detail", "fix", "off"]
     uncrustify_config = None
     required_uncrustify_version = "0.61"

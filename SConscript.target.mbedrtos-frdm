@@ -67,6 +67,8 @@ env.Append(CCFLAGS = ['-mcpu=cortex-m4',
                       '-Wall',
                       '-fno-exceptions',
                       '-ffunction-sections',
+                      '-Wformat-security',
+                      '-Werror=format-security',
                       '-fdata-sections'])
 
 env.Append(PRELINKFLAGS = ['-mcpu=cortex-m4',
@@ -110,7 +112,9 @@ env.Append(CPPDEFINES = {'TARGET_K64F'      : None,
                          'FSL_RTOS_MBED'    : None,
                          'TARGET_FF_ARDUINO': None,
                          '__CORTEX_M4'      : None,
-                         'FSL_RTOS_MBED'    : None})
+                         'FSL_RTOS_MBED'    : None,
+                         '_FORTIFY_SOURCE'  : '1'
+                     })
 
 # Linker flags
 env.Append(LINKFLAGS = [

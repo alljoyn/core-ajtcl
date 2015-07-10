@@ -78,15 +78,18 @@ env.Append(CFLAGS = [
     '-Wpointer-arith',
     '-Wshadow',
     '-Wundef',
+    '-Wformat-security',
+    '-Werror=format-security',
     '-Wwrite-strings'
 ])
 
 # Pre-processor directives
 env.Append(CPPDEFINES = {
-    '__SAM3X8E__':  None,
-    'ARM_MATH_CM3': 'true',
-    'BOARD':        'ARDUINO_DUE_X',
-    'printf':       'iprintf',
+    '__SAM3X8E__':     None,
+    'ARM_MATH_CM3':    'true',
+    'BOARD':           'ARDUINO_DUE_X',
+    'printf':          'iprintf',
+    '_FORTIFY_SOURCE': '1'
 })
 
 # Linker flags
