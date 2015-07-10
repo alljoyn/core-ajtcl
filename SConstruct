@@ -162,6 +162,9 @@ env.Append(CPPDEFINES = [ v for k, v in ARGLIST if k.lower() == 'define' ])
 #######################################################
 env.Install('#dist/include/ajtcl', env.Glob('inc/*.h'))
 env.Install('#dist/include/ajtcl', env.Glob('src/target/$TARG/aj_target.h'))
+# Need to force a dpendency here because SCons can't follow nested
+# #include dependencies otherwise
+env.Depends('#build/$VARIANT', '#dist/include')
 
 #######################################################
 # Build the various parts
@@ -171,6 +174,19 @@ if env['build']:
     env.SConscript('samples/SConscript',   variant_dir='#build/$VARIANT/samples',   duplicate = 0)
     env.SConscript('test/SConscript',      variant_dir='#build/$VARIANT/test',      duplicate = 0)
     env.SConscript('unit_test/SConscript', variant_dir='#build/$VARIANT/unit_test', duplicate = 0)
+
+
+#######################################################
+# Distclean target
+#######################################################
+Clean('distclean',
+          [ 'dist',
+            'build',
+            'config.log',
+            #'.sconsign.dblite',  # Can't delete .sconsign.dblite because it doesn't exist until SCons completes
+            '.sconf_temp',
+            '.whitespace.db'
+        ])
 
 #######################################################
 # Run the whitespace checker
