@@ -118,10 +118,10 @@ AJ_Status AJ_AboutHandleGetAboutData(AJ_Message* msg, AJ_Message* reply)
         if (PropStoreGetter) {
             status = PropStoreGetter(reply, language);
         } else {
-            status = MarshalDefaultProps(reply);
+            status = AJ_ERR_NO_MATCH;
         }
         if (status != AJ_OK) {
-            status = AJ_MarshalErrorMsg(msg, reply, AJ_ErrLanguageNotSuppored);
+            status = MarshalDefaultProps(reply);
         }
     }
     return status;
