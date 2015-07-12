@@ -399,7 +399,7 @@ AJ_Status AJ_PeerAuthenticate(AJ_BusAttachment* bus, const char* peerName, AJ_Pe
     authContext.bus = bus;
     authContext.role = AUTH_CLIENT;
     if (bus->pwdCallback) {
-        AJ_EnableSuite(AUTH_SUITE_ECDHE_PSK);
+        AJ_EnableSuite(bus, AUTH_SUITE_ECDHE_PSK);
     }
 
     /*
@@ -454,7 +454,7 @@ AJ_Status AJ_PeerHandleExchangeGUIDs(AJ_Message* msg, AJ_Message* reply)
     authContext.bus = msg->bus;
     authContext.role = AUTH_SERVER;
     if (msg->bus->pwdCallback) {
-        AJ_EnableSuite(AUTH_SUITE_ECDHE_PSK);
+        AJ_EnableSuite(msg->bus, AUTH_SUITE_ECDHE_PSK);
     }
 
     status = AJ_UnmarshalArgs(msg, "su", &str, &authContext.version);
@@ -632,13 +632,13 @@ static AJ_Status ExchangeSuites(AJ_Message* msg)
     /*
      * Send suites in this priority order
      */
-    if (AJ_IsSuiteEnabled(AUTH_SUITE_ECDHE_ECDSA, authContext.version >> 16)) {
+    if (AJ_IsSuiteEnabled(msg->bus, AUTH_SUITE_ECDHE_ECDSA, authContext.version >> 16)) {
         suites[num++] = AUTH_SUITE_ECDHE_ECDSA;
     }
-    if (AJ_IsSuiteEnabled(AUTH_SUITE_ECDHE_PSK, authContext.version >> 16)) {
+    if (AJ_IsSuiteEnabled(msg->bus, AUTH_SUITE_ECDHE_PSK, authContext.version >> 16)) {
         suites[num++] = AUTH_SUITE_ECDHE_PSK;
     }
-    if (AJ_IsSuiteEnabled(AUTH_SUITE_ECDHE_NULL, authContext.version >> 16)) {
+    if (AJ_IsSuiteEnabled(msg->bus, AUTH_SUITE_ECDHE_NULL, authContext.version >> 16)) {
         suites[num++] = AUTH_SUITE_ECDHE_NULL;
     }
     if (!num) {
@@ -707,7 +707,7 @@ AJ_Status AJ_PeerHandleExchangeSuites(AJ_Message* msg, AJ_Message* reply)
      * If it's enabled, marshal the suite to send to the other peer.
      */
     for (i = 0; i < numsuites; i++) {
-        if (AJ_IsSuiteEnabled(suites[i], authContext.version >> 16)) {
+        if (AJ_IsSuiteEnabled(msg->bus, suites[i], authContext.version >> 16)) {
             status = AJ_MarshalArgs(reply, "u", suites[i]);
             if (AJ_OK != status) {
                 goto Exit;
@@ -763,7 +763,7 @@ AJ_Status AJ_PeerHandleExchangeSuitesReply(AJ_Message* msg)
      */
     authContext.suite = 0;
     for (i = 0; i < numsuites; i++) {
-        if (AJ_IsSuiteEnabled(suites[i], authContext.version >> 16)) {
+        if (AJ_IsSuiteEnabled(msg->bus, suites[i], authContext.version >> 16)) {
             // Pick the highest priority suite, which happens to be the highest integer
             authContext.suite = (suites[i] > authContext.suite) ? suites[i] : authContext.suite;
         }
@@ -847,7 +847,7 @@ AJ_Status AJ_PeerHandleKeyExchange(AJ_Message* msg, AJ_Message* reply)
     if (AJ_OK != status) {
         goto Exit;
     }
-    if (!AJ_IsSuiteEnabled(authContext.suite, authContext.version >> 16)) {
+    if (!AJ_IsSuiteEnabled(msg->bus, authContext.suite, authContext.version >> 16)) {
         goto Exit;
     }
     HostU32ToBigEndianU8(&authContext.suite, sizeof (authContext.suite), suiteb8);

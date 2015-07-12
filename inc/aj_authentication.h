@@ -140,19 +140,21 @@ AJ_Status AJ_KeyAuthenticationUnmarshal(AJ_AuthenticationContext* ctx, AJ_Messag
 /**
  * Check if an authentication suite is available
  *
+ * @param bus          The bus attachment
  * @param suite        The authentication suite to check
  * @param version      The authentication protocol version
  *
  * @return  Return true or false
  */
-uint8_t AJ_IsSuiteEnabled(uint32_t suite, uint32_t version);
+uint8_t AJ_IsSuiteEnabled(AJ_BusAttachment* bus, uint32_t suite, uint32_t version);
 
 /**
  * Enable an authentication suite
  *
+ * @param bus          The bus attachment
  * @param suite        The authentication suite to enable
  */
-void AJ_EnableSuite(uint32_t suite);
+void AJ_EnableSuite(AJ_BusAttachment* bus, uint32_t suite);
 
 #ifdef __cplusplus
 }

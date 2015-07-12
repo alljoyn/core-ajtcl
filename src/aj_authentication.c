@@ -40,9 +40,6 @@
 uint8_t dbgAUTHENTICATION = 0;
 #endif
 
-// Enabled suites (this should initialize to zero)
-static uint32_t suites[AJ_AUTH_SUITES_NUM];
-
 #define SIG_FMT            0
 #define AUTH_VERIFIER_LEN  SHA256_DIGEST_LENGTH
 
@@ -865,20 +862,20 @@ AJ_Status AJ_KeyAuthenticationUnmarshal(AJ_AuthenticationContext* ctx, AJ_Messag
     return status;
 }
 
-uint8_t AJ_IsSuiteEnabled(uint32_t suite, uint32_t version)
+uint8_t AJ_IsSuiteEnabled(AJ_BusAttachment* bus, uint32_t suite, uint32_t version)
 {
     switch (suite) {
     case AUTH_SUITE_ECDHE_NULL:
-        return 1 == suites[0];
+        return 1 == bus->suites[0];
 
     case AUTH_SUITE_ECDHE_PSK:
-        return 1 == suites[1];
+        return 1 == bus->suites[1];
 
     case AUTH_SUITE_ECDHE_ECDSA:
         if (version < 3) {
             return 0;
         }
-        return 1 == suites[2];
+        return 1 == bus->suites[2];
 
     default:
         return 0;
@@ -887,19 +884,19 @@ uint8_t AJ_IsSuiteEnabled(uint32_t suite, uint32_t version)
     return 0;
 }
 
-void AJ_EnableSuite(uint32_t suite)
+void AJ_EnableSuite(AJ_BusAttachment* bus, uint32_t suite)
 {
     switch (suite) {
     case AUTH_SUITE_ECDHE_NULL:
-        suites[0] = 1;
+        bus->suites[0] = 1;
         break;
 
     case AUTH_SUITE_ECDHE_PSK:
-        suites[1] = 1;
+        bus->suites[1] = 1;
         break;
 
     case AUTH_SUITE_ECDHE_ECDSA:
-        suites[2] = 1;
+        bus->suites[2] = 1;
         break;
     }
 }
