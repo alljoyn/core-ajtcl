@@ -1171,10 +1171,19 @@ AJ_Status AJ_PolicyApply(AJ_AuthenticationContext* ctx, const char* name)
         /* Initial restricted access rights */
         acm = g_access;
         while (acm) {
+            acm->access[peer] = 0;
             switch (acm->id) {
             case AJ_METHOD_SECURITY_GET_PROP:
+            case AJ_PROPERTY_SEC_VERSION:
+            case AJ_PROPERTY_SEC_APPLICATION_STATE:
+            case AJ_PROPERTY_SEC_MANIFEST_DIGEST:
             case AJ_PROPERTY_SEC_ECC_PUBLICKEY:
+            case AJ_PROPERTY_SEC_MANUFACTURER_CERTIFICATE:
             case AJ_PROPERTY_SEC_MANIFEST_TEMPLATE:
+            case AJ_PROPERTY_SEC_CLAIM_CAPABILITIES:
+            case AJ_PROPERTY_SEC_CLAIM_CAPABILITIES_INFO:
+            case AJ_PROPERTY_CLAIMABLE_VERSION:
+            case AJ_PROPERTY_MANAGED_VERSION:
                 acm->access[peer] = ACCESS_INCOMING_ALLOW;
                 break;
 
@@ -1191,6 +1200,29 @@ AJ_Status AJ_PolicyApply(AJ_AuthenticationContext* ctx, const char* name)
                     }
                 }
                 break;
+
+            case AJ_METHOD_SECURITY_SET_PROP:
+            case AJ_PROPERTY_MANAGED_IDENTITY:
+            case AJ_PROPERTY_MANAGED_MANIFEST:
+            case AJ_PROPERTY_MANAGED_IDENTITY_CERT_ID:
+            case AJ_PROPERTY_MANAGED_POLICY_VERSION:
+            case AJ_PROPERTY_MANAGED_POLICY:
+            case AJ_PROPERTY_MANAGED_DEFAULT_POLICY:
+            case AJ_PROPERTY_MANAGED_MEMBERSHIP_SUMMARY:
+            case AJ_METHOD_MANAGED_RESET:
+            case AJ_METHOD_MANAGED_UPDATE_IDENTITY:
+            case AJ_METHOD_MANAGED_UPDATE_POLICY:
+            case AJ_METHOD_MANAGED_RESET_POLICY:
+            case AJ_METHOD_MANAGED_INSTALL_MEMBERSHIP:
+            case AJ_METHOD_MANAGED_REMOVE_MEMBERSHIP:
+                /* Default not allowed */
+                break;
+
+            default:
+                if (AUTH_SUITE_ECDHE_NULL != ctx->suite) {
+                    /* Any trusted allowed incoming and outgoing (Security 1.0) */
+                    acm->access[peer] = ACCESS_ALLOW;
+                }
             }
             acm = acm->next;
         }
