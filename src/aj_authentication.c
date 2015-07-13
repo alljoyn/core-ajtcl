@@ -67,7 +67,7 @@ static AJ_Status ComputeVerifier(AJ_AuthenticationContext* ctx, const char* labe
     uint8_t digest[AJ_SHA256_DIGEST_LENGTH];
     AJ_Status status;
 
-    status = AJ_ConversationHash_GetDigest(ctx, digest, 1);
+    status = AJ_ConversationHash_GetDigest(ctx, digest);
     if (AJ_OK != status) {
         return status;
     }
@@ -89,7 +89,7 @@ static AJ_Status ComputePSKVerifier(AJ_AuthenticationContext* ctx, const char* l
     uint8_t digest[AJ_SHA256_DIGEST_LENGTH];
     AJ_Status status;
 
-    status = AJ_ConversationHash_GetDigest(ctx, digest, 1);
+    status = AJ_ConversationHash_GetDigest(ctx, digest);
     if (status != AJ_OK) {
         return status;
     }
@@ -1015,9 +1015,11 @@ void AJ_EnableSuite(AJ_BusAttachment* bus, uint32_t suite)
     }
 }
 
-void AJ_ConversationHash_Initialize(AJ_AuthenticationContext* ctx)
+AJ_Status AJ_ConversationHash_Initialize(AJ_AuthenticationContext* ctx)
 {
     ctx->hash = AJ_SHA256_Init();
+
+    return ctx->hash ? AJ_OK : AJ_ERR_RESOURCES;
 }
 
 static inline int ConversationVersionDoesNotApply(uint32_t conversationVersion, uint32_t currentAuthVersion)
@@ -1098,7 +1100,20 @@ void AJ_ConversationHash_Update_Message(AJ_AuthenticationContext* ctx, uint32_t 
 
 }
 
-AJ_Status AJ_ConversationHash_GetDigest(AJ_AuthenticationContext* ctx, uint8_t* digest, const uint8_t keepAlive)
+AJ_Status AJ_ConversationHash_GetDigest(AJ_AuthenticationContext* ctx, uint8_t* digest)
 {
-    return AJ_SHA256_GetDigest(ctx->hash, digest, keepAlive);
+    return AJ_SHA256_GetDigest(ctx->hash, digest);
+}
+
+AJ_Status AJ_ConversationHash_Reset(AJ_AuthenticationContext* ctx)
+{
+    AJ_Status status;
+
+    status = AJ_SHA256_Final(ctx->hash, NULL);
+
+    if (status == AJ_OK) {
+        status = AJ_ConversationHash_Initialize(ctx);
+    }
+
+    return status;
 }

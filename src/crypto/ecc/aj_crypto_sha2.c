@@ -60,7 +60,10 @@ static void AJ_HMAC_SHA256_Update(AJ_HMAC_SHA256_CTX* ctx, const uint8_t* data, 
 static AJ_Status AJ_HMAC_SHA256_Final(AJ_HMAC_SHA256_CTX* ctx, uint8_t* digest);
 
 /**
- * Initialize the hash context
+ * Initialize the hash context.  Calls to this function must be
+ * matched with a call to AJ_SHA256_Final() to ensure that resources
+ * are released.
+ *
  * @param context the hash context
  * @return Pointer to context. NULL if init failed.
  */
@@ -93,9 +96,8 @@ void AJ_SHA256_Update(AJ_SHA256_Context* context, const uint8_t* buf, size_t buf
  * @param keepAlive keep the digest process alive for continuing digest
  * @return AJ_OK if successful, otherwise error.
  */
-
-AJ_Status AJ_SHA256_GetDigest(AJ_SHA256_Context* context, uint8_t* digest,
-                              const uint8_t keepAlive) {
+static AJ_Status getDigest(AJ_SHA256_Context* context, uint8_t* digest,
+                           const uint8_t keepAlive) {
     AJ_SHA256_Context tempCtx;
     AJ_SHA256_Context* finalCtx;
 
@@ -117,13 +119,35 @@ AJ_Status AJ_SHA256_GetDigest(AJ_SHA256_Context* context, uint8_t* digest,
 }
 
 /**
- * Retrieve the final digest
+ * Retrieve the digest but keep the hash active for further updates.
  * @param context the hash context
- * @param digest the buffer to hold the digest.  Must be of size AJ_SHA256_DIGEST_LENGTH
+ * @param digest the buffer to hold the digest.  Must be of size SHA256_DIGEST_LENGTH
+ * @return AJ_OK if successful, otherwise error.
+ */
+AJ_Status AJ_SHA256_GetDigest(AJ_SHA256_Context* context, uint8_t* digest)
+{
+    return getDigest(context, digest, 1);
+}
+
+/**
+ * Finish the hash calculation and free resources.
+ * @param context the hash context
+ * @param digest - the buffer to hold the digest.
+ *        Must be NULL or of size SHA256_DIGEST_LENGTH.
+ *        If the value is NULL, resources are freed but the digest
+ *        is not calculated.
  * @return AJ_OK if successful, otherwise error.
  */
 AJ_Status AJ_SHA256_Final(AJ_SHA256_Context* context, uint8_t* digest) {
-    return AJ_SHA256_GetDigest(context, digest, 0);
+    AJ_Status status = AJ_OK;
+
+    if (!digest) {
+        AJ_MemZeroSecure(context, sizeof(*context));
+        AJ_Free(context);
+    } else {
+        status = getDigest(context, digest, 0);
+    }
+    return status;
 }
 
 /**
