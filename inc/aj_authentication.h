@@ -177,8 +177,11 @@ void AJ_EnableSuite(AJ_BusAttachment* bus, uint32_t suite);
  *
  * @param ctx          The authentication context
  *
+ * @return
+ *         - AJ_OK on success
+ *         - An error status otherwise
  */
-void AJ_ConversationHash_Initialize(AJ_AuthenticationContext* ctx);
+AJ_Status AJ_ConversationHash_Initialize(AJ_AuthenticationContext* ctx);
 
 /**
  * Update the conversation hash with a uint8_t
@@ -238,7 +241,18 @@ void AJ_ConversationHash_Update_Message(AJ_AuthenticationContext* ctx, uint32_t 
  *         - AJ_OK on success
  *         - An error status otherwise
  */
-AJ_Status AJ_ConversationHash_GetDigest(AJ_AuthenticationContext* ctx, uint8_t* digest, const uint8_t keepAlive);
+AJ_Status AJ_ConversationHash_GetDigest(AJ_AuthenticationContext* ctx, uint8_t* digest);
+
+/**
+ * Reset the conversation hash
+ *
+ * @param ctx           The authentication context
+ *
+ * @return
+ *         - AJ_OK on success
+ *         - An error status otherwise
+ */
+AJ_Status AJ_ConversationHash_Reset(AJ_AuthenticationContext* ctx);
 
 #ifdef __cplusplus
 }

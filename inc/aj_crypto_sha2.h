@@ -36,7 +36,10 @@ typedef struct AJ_SHA256_Context AJ_SHA256_Context;
 /*** SHA-256/384/512 Function Prototypes ******************************/
 
 /**
- * Initialize the hash context
+ * Initialize the hash context.  Calls to this function must be
+ * matched with a call to AJ_SHA256_Final() to ensure that resources
+ * are released.
+ *
  * @param context the hash context
  * @return Pointer to context. NULL if init failed.
  */
@@ -51,18 +54,20 @@ AJ_SHA256_Context* AJ_SHA256_Init();
 void AJ_SHA256_Update(AJ_SHA256_Context* context, const uint8_t* buf, size_t bufSize);
 
 /**
- * Retrieve the digest
+ * Retrieve the digest but keep the hash active for further updates.
  * @param context the hash context
  * @param digest the buffer to hold the digest.  Must be of size SHA256_DIGEST_LENGTH
- * @param keepAlive keep the digest process alive for continuing digest
  * @return AJ_OK if successful, otherwise error.
  */
-AJ_Status AJ_SHA256_GetDigest(AJ_SHA256_Context* context, uint8_t* digest, const uint8_t keepAlive);
+AJ_Status AJ_SHA256_GetDigest(AJ_SHA256_Context* context, uint8_t* digest);
 
 /**
- * Retrieve the final digest
+ * Finish the hash calculation and free resources.
  * @param context the hash context
- * @param digest the buffer to hold the digest.  Must be of size SHA256_DIGEST_LENGTH
+ * @param digest - the buffer to hold the digest.
+ *        Must be NULL or of size SHA256_DIGEST_LENGTH.
+ *        If the value is NULL, resources are freed but the digest
+ *        is not calculated.
  * @return AJ_OK if successful, otherwise error.
  */
 AJ_Status AJ_SHA256_Final(AJ_SHA256_Context* context, uint8_t* digest);
