@@ -172,7 +172,7 @@ static AJ_Status ECDHEUnmarshalV1(AJ_AuthenticationContext* ctx, AJ_Message* msg
 
     // Encode the shared secret
     size = KEY_ECC_OLD_SZ;
-    data = AJ_Malloc(size);
+    data = (uint8_t*) AJ_Malloc(size);
     if (NULL == data) {
         return AJ_ERR_RESOURCES;
     }
@@ -223,7 +223,7 @@ static AJ_Status ECDHEUnmarshalV2(AJ_AuthenticationContext* ctx, AJ_Message* msg
 
     // Encode the shared secret
     size = SHA256_DIGEST_LENGTH;
-    data = AJ_Malloc(size);
+    data = (uint8_t*) AJ_Malloc(size);
     if (NULL == data) {
         return AJ_ERR_RESOURCES;
     }

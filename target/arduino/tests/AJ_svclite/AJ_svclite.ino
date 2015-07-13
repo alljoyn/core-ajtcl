@@ -43,22 +43,32 @@ void setup() {
 
 #ifdef WIFI_UDP_WORKING
     char ssid[] = "eric-wifi";
-    int status = WL_IDLE_STATUS;     // the Wifi radio's status
 
-    if (WiFi.status() == WL_NO_SHIELD) {
-        Serial.println("WiFi shield not present");
-        // don't continue:
-        while (true) ;
+    // check for the presence of the shield:
+    unsigned int retries = 10;
+    while (WiFi.status() == WL_NO_SHIELD) {
+        if (retries == 0) {
+            Serial.println("WiFi shield not present");
+            // don't continue:
+            while (true);
+        }
+        retries--;
+        delay(500);
     }
 
-    while (status != WL_CONNECTED) {
+    // attempt to connect to Wifi network:
+    while (true) {
         Serial.print("Attempting to connect to open SSID: ");
         Serial.println(ssid);
         WiFi.begin(ssid);
-
-        // wait 10 seconds for connection:
+        if (WiFi.status() == WL_CONNECTED) {
+            break;
+        }
         delay(10000);
     }
+    IPAddress ip = WiFi.localIP();
+    Serial.print("Connected: ");
+    Serial.println(ip);
 #else
     byte mac[] = { 0x90, 0xA2, 0xDA, 0x0D, 0xA7, 0xCA };
     // start the Ethernet connection:

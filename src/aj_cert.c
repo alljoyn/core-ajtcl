@@ -263,7 +263,7 @@ AJ_Status AJ_DecodePrivateKeyPEM(AJ_ECCPrivateKey* key, const char* pem)
     }
 
     der.size = 3 * (end - beg) / 4;
-    der.data = AJ_Malloc(der.size);
+    der.data = (uint8_t*) AJ_Malloc(der.size);
     if (NULL == der.data) {
         return AJ_ERR_RESOURCES;
     }
@@ -786,7 +786,7 @@ AJ_Status AJ_X509DecodeCertificatePEM(X509Certificate* certificate, const char* 
     }
     len = end - beg;
     certificate->der.size = 3 * len / 4;
-    certificate->der.data = AJ_Malloc(certificate->der.size);
+    certificate->der.data = (uint8_t*) AJ_Malloc(certificate->der.size);
     if (NULL == certificate->der.data) {
         return AJ_ERR_RESOURCES;
     }

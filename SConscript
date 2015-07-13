@@ -666,11 +666,11 @@ if env['TARG'] == 'arduino':
         env.InstallAs(File(arduinoLibDir + 'tests/AJ_' + test + '/' + test + '.cpp').abspath, in_path.abspath)
 
     replaced_names = []
-    for x in Flatten([env['aj_srcs'], env['aj_targ_srcs'], env['aj_sw_crypto'], env['aj_external_sha2']]):
+    for x in Flatten([env['aj_srcs'], env['aj_targ_srcs'], env['aj_sw_crypto'], env['aj_crypto_ecc'], env['aj_external_sha2']]):
         replaced_names.append( File(arduinoLibDir + x.name.replace('.c', '.cpp') ) )
 
     # change the extension
-    install_renamed_files = env.InstallAs(Flatten(replaced_names), Flatten([env['aj_srcs'], env['aj_targ_srcs'], env['aj_sw_crypto'], env['aj_external_sha2']]))
+    install_renamed_files = env.InstallAs(Flatten(replaced_names), Flatten([env['aj_srcs'], env['aj_targ_srcs'], env['aj_sw_crypto'], env['aj_crypto_ecc'], env['aj_external_sha2']]))
     install_host_headers = env.Install(arduinoLibDir, env['aj_targ_headers'])
     install_headers = env.Install(arduinoLibDir, env['aj_headers'])
 
