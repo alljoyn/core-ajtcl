@@ -600,6 +600,11 @@ AJ_Status AJ_SecurityClaimMethod(AJ_Message* msg, AJ_Message* reply)
     if (AJ_OK != status) {
         goto Exit;
     }
+    if (0 == id.size) {
+        AJ_InfoPrintf(("AJ_SecurityClaimMethod(msg=%p, reply=%p): Empty AKI\n", msg, reply));
+        status = AJ_ERR_SECURITY;
+        goto Exit;
+    }
     /* Store the certificate authority */
     status = AJ_CredentialSetECCPublicKey(AJ_ECC_CA, &id, 0xFFFFFFFF, &pub);
     if (AJ_OK != status) {
@@ -627,6 +632,11 @@ AJ_Status AJ_SecurityClaimMethod(AJ_Message* msg, AJ_Message* reply)
     /* Unmarshal admin certificate authority identifier */
     status = AJ_UnmarshalArgs(msg, "ay", &id.data, &id.size);
     if (AJ_OK != status) {
+        goto Exit;
+    }
+    if (0 == id.size) {
+        AJ_InfoPrintf(("AJ_SecurityClaimMethod(msg=%p, reply=%p): Empty AKI\n", msg, reply));
+        status = AJ_ERR_SECURITY;
         goto Exit;
     }
     /* Store the admin certificate authority */
