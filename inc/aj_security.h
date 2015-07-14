@@ -55,12 +55,13 @@ typedef struct _AJ_CertificateId {
 /**
  * Set the application claim configuration
  *
+ * @param bus          Bus attachment
  * @param state        Claim state
  * @param capabilities Claim capabilities
  * @param info         Claim capabilities info
  *
  */
-void AJ_SecuritySetClaimConfig(uint16_t state, uint16_t capabilities, uint16_t info);
+void AJ_SecuritySetClaimConfig(AJ_BusAttachment* bus, uint16_t state, uint16_t capabilities, uint16_t info);
 
 /**
  * Get the application claim configuration

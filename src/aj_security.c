@@ -64,7 +64,6 @@ static AJ_Status SetClaimState(uint16_t state)
 
     data.size = sizeof (uint16_t);
     data.data = (uint8_t*) &state;
-
     status = AJ_CredentialSet(AJ_CONFIG_CLAIMSTATE | AJ_CRED_TYPE_CONFIG, NULL, 0xFFFFFFFF, &data);
 
     return status;
@@ -75,9 +74,6 @@ static AJ_Status GetClaimState(uint16_t* state)
     AJ_Status status;
     AJ_CredField data;
 
-    /* Default to not claimable, in case of error */
-    *state = APP_STATE_NOT_CLAIMABLE;
-
     data.size = sizeof (uint16_t);
     data.data = (uint8_t*) state;
     status = AJ_CredentialGet(AJ_CONFIG_CLAIMSTATE | AJ_CRED_TYPE_CONFIG, NULL, NULL, &data);
@@ -85,12 +81,15 @@ static AJ_Status GetClaimState(uint16_t* state)
     return status;
 }
 
-void AJ_SecuritySetClaimConfig(uint16_t state, uint16_t capabilities, uint16_t info)
+void AJ_SecuritySetClaimConfig(AJ_BusAttachment* bus, uint16_t state, uint16_t capabilities, uint16_t info)
 {
     claimState = state;
     claimCapabilities = capabilities;
     claimInfo = info;
     SetClaimState(state);
+    /* Claiming state changed, emit signal */
+    emit = TRUE;
+    AJ_ApplicationStateSignal(bus);
 }
 
 void AJ_SecurityGetClaimConfig(uint16_t* state, uint16_t* capabilities, uint16_t* info)
@@ -182,7 +181,12 @@ AJ_Status AJ_SecurityInit(AJ_BusAttachment* bus)
     }
 
     /* Get the initial claim state */
-    GetClaimState(&claimState);
+    status = GetClaimState(&claimState);
+    if (AJ_OK != status) {
+        /* If not stored, default to claimable */
+        claimState = APP_STATE_CLAIMABLE;
+        claimCapabilities = CLAIM_CAPABILITY_ECDHE_NULL | CLAIM_CAPABILITY_ECDHE_PSK;
+    }
 
     AJ_AuthorisationInit();
 
@@ -587,6 +591,7 @@ AJ_Status AJ_SecurityClaimMethod(AJ_Message* msg, AJ_Message* reply)
     AJ_InfoPrintf(("AJ_SecurityClaimMethod(msg=%p, reply=%p)\n", msg, reply));
 
     if (APP_STATE_CLAIMABLE != claimState) {
+        AJ_InfoPrintf(("AJ_SecurityClaimMethod(msg=%p, reply=%p): Not in claimable state\n", msg, reply));
         return AJ_MarshalErrorMsg(msg, reply, AJ_ErrPermissionDenied);
     }
 
@@ -666,6 +671,7 @@ AJ_Status AJ_SecurityClaimMethod(AJ_Message* msg, AJ_Message* reply)
     }
     AJ_X509ChainFree(identity);
     identity = NULL;
+
     /* Store identity certificate as raw marshalled body */
     status = AJ_CredentialSet(AJ_CERTIFICATE_IDN_X509 | AJ_CRED_TYPE_CERTIFICATE, NULL, 0xFFFFFFFF, &identity_data);
     if (AJ_OK != status) {
@@ -707,11 +713,6 @@ AJ_Status AJ_SecurityClaimMethod(AJ_Message* msg, AJ_Message* reply)
         goto Exit;
     }
 
-    status = AJ_MarshalReplyMsg(msg, reply);
-    if (AJ_OK != status) {
-        goto Exit;
-    }
-
     /* Clear master secrets */
     status = AJ_ClearCredentials(AJ_GENERIC_MASTER_SECRET | AJ_CRED_TYPE_GENERIC);
     if (AJ_OK != status) {
@@ -726,6 +727,11 @@ AJ_Status AJ_SecurityClaimMethod(AJ_Message* msg, AJ_Message* reply)
         goto Exit;
     }
     /* Cannot clear session keys because we are currently in one */
+
+    status = AJ_MarshalReplyMsg(msg, reply);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
 
     /* Set claim state and save to nvram */
     claimState = APP_STATE_CLAIMED;
@@ -742,7 +748,7 @@ Exit:
     if (AJ_OK == status) {
         return AJ_MarshalReplyMsg(msg, reply);
     } else {
-        return AJ_MarshalErrorMsg(msg, reply, AJ_ErrSecurityViolation);
+        return AJ_MarshalStatusMsg(msg, reply, status);
     }
 }
 
@@ -758,6 +764,9 @@ AJ_Status AJ_SecurityResetMethod(AJ_Message* msg, AJ_Message* reply)
     status = AJ_ClearCredentials(0);
 
     if (AJ_OK == status) {
+        /* Set claim state and emit signal*/
+        claimState = APP_STATE_CLAIMABLE;
+        emit = TRUE;
         return AJ_MarshalReplyMsg(msg, reply);
     } else {
         return AJ_MarshalErrorMsg(msg, reply, AJ_ErrSecurityViolation);
