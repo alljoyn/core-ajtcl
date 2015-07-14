@@ -552,7 +552,11 @@ static AJ_Status DecodeCertificateExt(X509Extensions* extensions, DER_Element* d
             extensions->aki.data = tmp.data;
             extensions->aki.size = tmp.size;
         } else if (CompareOID(&oid, OID_CUSTOM_TYPE, sizeof (OID_CUSTOM_TYPE))) {
-            status = AJ_ASN1DecodeElement(&oct, ASN_INTEGER, &tmp);
+            status = AJ_ASN1DecodeElement(&oct, ASN_SEQ, &seq);
+            if (AJ_OK != status) {
+                return status;
+            }
+            status = AJ_ASN1DecodeElement(&seq, ASN_INTEGER, &tmp);
             if (AJ_OK != status) {
                 return status;
             }
@@ -1037,4 +1041,15 @@ AJ_Status AJ_X509ChainFromBuffer(X509CertificateChain** chain, AJ_CredField* fie
     status = AJ_X509ChainUnmarshal(chain, &msg);
 
     return status;
+}
+
+X509Certificate* AJ_X509LeafCertificate(X509CertificateChain* chain)
+{
+    if (NULL == chain) {
+        return NULL;
+    }
+    while (chain->next) {
+        chain = chain->next;
+    }
+    return &chain->certificate;
 }

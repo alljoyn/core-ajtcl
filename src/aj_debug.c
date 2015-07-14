@@ -207,6 +207,8 @@ const char* AJ_StatusText(AJ_Status status)
         AJ_CASE(AJ_ERR_ARDP_SEND_EXPIRED);
         AJ_CASE(AJ_ERR_ARDP_RECV_EXPIRED);
         AJ_CASE(AJ_ERR_ARDP_VERSION_NOT_SUPPORTED);
+        AJ_CASE(AJ_ERR_SECURITY_DIGEST_MISMATCH);
+        AJ_CASE(AJ_ERR_SECURITY_UNKNOWN_CERTIFICATE);
 
     default:
         return "<unknown>";

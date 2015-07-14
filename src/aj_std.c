@@ -34,7 +34,9 @@ const char AJ_ErrMaxSizeExceeded[] = "org.alljoyn.Error.MaxSizeExceeded";
 const char AJ_ErrLanguageNotSuppored[] = "org.alljoyn.Error.LanguageNotSupported";
 /* Security specific errors */
 const char AJ_ErrSecurityViolation[] = "org.alljoyn.Bus.SecurityViolation";
-const char AJ_ErrPermissionDenied[] = "org.alljoyn.Bus.PermissionDenied";
+const char AJ_ErrPermissionDenied[] = "org.alljoyn.Bus.Security.Error.PermissionDenied";
+const char AJ_ErrDigestMismatch[] = "org.alljoyn.Bus.Security.Error.DigestMismatch";
+const char AJ_ErrUnknownCertificate[] = "org.alljoyn.Bus.Security.Error.UnknownCertificate";
 
 static const char DBusObjectPath[] = "/org/freedesktop/DBus";
 static const char DBusInterface[] = "org.freedesktop.DBus";

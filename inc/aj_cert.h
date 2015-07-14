@@ -274,6 +274,7 @@ AJ_Status AJ_X509ChainToBuffer(X509CertificateChain* chain, AJ_CredField* field)
  *          - AJ_ERR_SECURITY on failure
  */
 AJ_Status AJ_X509ChainFromBuffer(X509CertificateChain** chain, AJ_CredField* field);
+X509Certificate* AJ_X509LeafCertificate(X509CertificateChain* chain);
 
 #ifdef __cplusplus
 }

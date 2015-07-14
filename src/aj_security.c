@@ -582,11 +582,14 @@ AJ_Status AJ_SecurityClaimMethod(AJ_Message* msg, AJ_Message* reply)
     AJ_CredField id;
     AJ_CredField data;
     AJ_ECCPublicKey pub;
+    AJ_ECCPublicKey admin;
     DER_Element group;
     X509CertificateChain* identity = NULL;
     AJ_CredField identity_data = { 0, NULL };
     AJ_Manifest* manifest = NULL;
     AJ_CredField manifest_data = { 0, NULL };
+    X509Certificate* certificate;
+    uint8_t digest[SHA256_DIGEST_LENGTH];
 
     AJ_InfoPrintf(("AJ_SecurityClaimMethod(msg=%p, reply=%p)\n", msg, reply));
 
@@ -630,7 +633,7 @@ AJ_Status AJ_SecurityClaimMethod(AJ_Message* msg, AJ_Message* reply)
     }
 
     /* Unmarshal admin certificate authority */
-    status = AJ_UnmarshalECCPublicKey(msg, &pub);
+    status = AJ_UnmarshalECCPublicKey(msg, &admin);
     if (AJ_OK != status) {
         goto Exit;
     }
@@ -645,7 +648,7 @@ AJ_Status AJ_SecurityClaimMethod(AJ_Message* msg, AJ_Message* reply)
         goto Exit;
     }
     /* Store the admin certificate authority */
-    status = AJ_CredentialSetECCPublicKey(AJ_ECC_CA_ADMIN, &id, 0xFFFFFFFF, &pub);
+    status = AJ_CredentialSetECCPublicKey(AJ_ECC_CA_ADMIN, &id, 0xFFFFFFFF, &admin);
     if (AJ_OK != status) {
         goto Exit;
     }
@@ -669,15 +672,27 @@ AJ_Status AJ_SecurityClaimMethod(AJ_Message* msg, AJ_Message* reply)
     if (AJ_OK != status) {
         goto Exit;
     }
-    AJ_X509ChainFree(identity);
-    identity = NULL;
+    /* Check leaf certificate public key is mine */
+    certificate = AJ_X509LeafCertificate(identity);
+    if (NULL == certificate) {
+        status = AJ_ERR_SECURITY;
+        goto Exit;
+    }
+    status = AJ_CredentialGetECCPublicKey(AJ_ECC_SIG, NULL, NULL, &pub);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+    if (0 != memcmp((uint8_t*) &pub, &certificate->tbs.publickey, sizeof (pub))) {
+        AJ_InfoPrintf(("AJ_SecurityClaimMethod(msg=%p, reply=%p): Unknown certificate\n", msg, reply));
+        status = AJ_ERR_SECURITY_UNKNOWN_CERTIFICATE;
+        goto Exit;
+    }
 
     /* Store identity certificate as raw marshalled body */
     status = AJ_CredentialSet(AJ_CERTIFICATE_IDN_X509 | AJ_CRED_TYPE_CERTIFICATE, NULL, 0xFFFFFFFF, &identity_data);
     if (AJ_OK != status) {
         goto Exit;
     }
-    AJ_CredFieldFree(&identity_data);
 
     /* Unmarshal manifest */
     manifest_data.data = msg->bus->sock.rx.readPtr;
@@ -698,17 +713,32 @@ AJ_Status AJ_SecurityClaimMethod(AJ_Message* msg, AJ_Message* reply)
     if (AJ_OK != status) {
         goto Exit;
     }
-    AJ_ManifestFree(manifest);
-    manifest = NULL;
+    /* Check digest of manifest matches that in certificate */
+    AJ_ManifestDigest(&manifest_data, digest);
+    if (sizeof (digest) != certificate->tbs.extensions.digest.size) {
+        AJ_InfoPrintf(("AJ_SecurityClaimMethod(msg=%p, reply=%p): Digest mismatch\n", msg, reply));
+        status = AJ_ERR_SECURITY_DIGEST_MISMATCH;
+        goto Exit;
+    }
+    if (0 != memcmp(digest, certificate->tbs.extensions.digest.data, sizeof (digest))) {
+        AJ_InfoPrintf(("AJ_SecurityClaimMethod(msg=%p, reply=%p): Digest mismatch\n", msg, reply));
+        status = AJ_ERR_SECURITY_DIGEST_MISMATCH;
+        goto Exit;
+    }
     /* Store manifest as raw marshalled body */
     status = AJ_CredentialSet(AJ_CRED_TYPE_MANIFEST, NULL, 0xFFFFFFFF, &manifest_data);
     if (AJ_OK != status) {
         goto Exit;
     }
+    AJ_X509ChainFree(identity);
+    identity = NULL;
+    AJ_ManifestFree(manifest);
+    manifest = NULL;
+    AJ_CredFieldFree(&identity_data);
     AJ_CredFieldFree(&manifest_data);
 
     /* Set default policy */
-    status = SetDefaultPolicy(&pub, &group);
+    status = SetDefaultPolicy(&admin, &group);
     if (AJ_OK != status) {
         goto Exit;
     }
@@ -748,6 +778,13 @@ Exit:
     if (AJ_OK == status) {
         return AJ_MarshalReplyMsg(msg, reply);
     } else {
+        /* Remove stored values on error */
+        AJ_ClearCredentials(AJ_ECC_CA | AJ_CRED_TYPE_PUBLIC);
+        AJ_ClearCredentials(AJ_CONFIG_ADMIN_GROUP | AJ_CRED_TYPE_CONFIG);
+        AJ_ClearCredentials(AJ_ECC_CA_ADMIN | AJ_CRED_TYPE_PUBLIC);
+        AJ_ClearCredentials(AJ_CERTIFICATE_IDN_X509 | AJ_CRED_TYPE_CERTIFICATE);
+        AJ_ClearCredentials(AJ_CRED_TYPE_MANIFEST);
+        AJ_ClearCredentials(AJ_CRED_TYPE_POLICY);
         return AJ_MarshalStatusMsg(msg, reply, status);
     }
 }
@@ -980,7 +1017,6 @@ AJ_Status AJ_SecurityInstallMembershipMethod(AJ_Message* msg, AJ_Message* reply)
     if (AJ_OK != status) {
         goto Exit;
     }
-    //id.size = certificate.serial.size + certificate.aki.size + sizeof (AJ_ECCPublicKey);
     id.size = certificate.serial.size + certificate.aki.size;
     id.data = AJ_Malloc(id.size);
     if (NULL == id.data) {
@@ -991,7 +1027,6 @@ AJ_Status AJ_SecurityInstallMembershipMethod(AJ_Message* msg, AJ_Message* reply)
     tmp += certificate.serial.size;
     memcpy(tmp, certificate.aki.data, certificate.aki.size);
     tmp += certificate.aki.size;
-    //memcpy(tmp, (uint8_t*) &certificate.pub, sizeof (AJ_ECCPublicKey));
     /* Store membership certificate as raw marshalled body */
     status = AJ_CredentialSet(AJ_CERTIFICATE_MBR_X509 | AJ_CRED_TYPE_CERTIFICATE, &id, 0xFFFFFFFF, &membership_data);
 
@@ -1039,7 +1074,6 @@ AJ_Status AJ_SecurityRemoveMembershipMethod(AJ_Message* msg, AJ_Message* reply)
     memcpy(certificate.pub.y, y, KEY_ECC_SZ);
 
     /* Delete membership certificate */
-    //id.size = certificate.serial.size + certificate.aki.size + sizeof (AJ_ECCPublicKey);
     id.size = certificate.serial.size + certificate.aki.size;
     id.data = AJ_Malloc(id.size);
     if (NULL == id.data) {
@@ -1050,7 +1084,6 @@ AJ_Status AJ_SecurityRemoveMembershipMethod(AJ_Message* msg, AJ_Message* reply)
     tmp += certificate.serial.size;
     memcpy(tmp, certificate.aki.data, certificate.aki.size);
     tmp += certificate.aki.size;
-    //memcpy(tmp, (uint8_t*) &certificate.pub, sizeof (AJ_ECCPublicKey));
     status = AJ_CredentialDelete(AJ_CERTIFICATE_MBR_X509 | AJ_CRED_TYPE_CERTIFICATE, &id);
 
 Exit:

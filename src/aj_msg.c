@@ -1296,6 +1296,7 @@ AJ_Status AJ_UnmarshalMsg(AJ_BusAttachment* bus, AJ_Message* msg, uint32_t timeo
                     AJ_Message reply;
                     AJ_MarshalStatusMsg(msg, &reply, status);
                     AJ_DeliverMsg(&reply);
+                    return status;
                 }
             }
         }
@@ -2430,13 +2431,14 @@ AJ_Status AJ_MarshalStatusMsg(const AJ_Message* methodCall, AJ_Message* reply, A
 
     case  AJ_ERR_ACCESS:
         status = AJ_MarshalErrorMsg(methodCall, reply, AJ_ErrPermissionDenied);
-        /*
-         * We get a security violation error so if we encrypt the error message the receiver
-         * won't be able to decrypt it. We can fix this by clearing the header flags.
-         */
-        if (status == AJ_OK) {
-            reply->hdr->flags = 0;
-        }
+        break;
+
+    case  AJ_ERR_SECURITY_DIGEST_MISMATCH:
+        status = AJ_MarshalErrorMsg(methodCall, reply, AJ_ErrDigestMismatch);
+        break;
+
+    case  AJ_ERR_SECURITY_UNKNOWN_CERTIFICATE:
+        status = AJ_MarshalErrorMsg(methodCall, reply, AJ_ErrUnknownCertificate);
         break;
 
     default:
