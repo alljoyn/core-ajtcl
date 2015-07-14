@@ -96,6 +96,17 @@ AJ_Status AJ_SecurityInit(AJ_BusAttachment* bus);
 AJ_Status AJ_ApplicationGetProperty(AJ_Message* msg);
 
 /**
+ * Set application state signal to be sent
+ *
+ * @param bus        The bus attachment
+ *
+ * @return
+ *          - AJ_OK on success
+ *          - AJ_ERR_SECURITY on all failures
+ */
+AJ_Status AJ_ApplicationStateSignalEmit(AJ_BusAttachment* bus);
+
+/**
  * Send application state signal
  *
  * @param bus        The bus attachment

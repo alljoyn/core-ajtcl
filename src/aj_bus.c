@@ -795,5 +795,5 @@ AJ_Status AJ_BusEnableSecurity(AJ_BusAttachment* bus, const uint32_t* suites, si
         AJ_EnableSuite(bus, suites[i]);
     }
 
-    return AJ_OK;
+    return AJ_ApplicationStateSignalEmit(bus);
 }

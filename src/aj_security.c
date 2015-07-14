@@ -186,9 +186,7 @@ AJ_Status AJ_SecurityInit(AJ_BusAttachment* bus)
 
     AJ_AuthorisationInit();
 
-    emit = TRUE;
-
-    return AJ_ApplicationStateSignal(bus);
+    return AJ_OK;
 }
 
 AJ_Status AJ_UnmarshalECCPublicKey(AJ_Message* msg, AJ_ECCPublicKey* pub)
@@ -347,6 +345,12 @@ static AJ_Status ApplicationGetProperty(AJ_Message* reply, uint32_t id, void* co
 AJ_Status AJ_ApplicationGetProperty(AJ_Message* msg)
 {
     return AJ_BusPropGet(msg, ApplicationGetProperty, NULL);
+}
+
+AJ_Status AJ_ApplicationStateSignalEmit(AJ_BusAttachment* bus)
+{
+    emit = TRUE;
+    return AJ_ApplicationStateSignal(bus);
 }
 
 AJ_Status AJ_ApplicationStateSignal(AJ_BusAttachment* bus)
