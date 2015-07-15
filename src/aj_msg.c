@@ -1886,9 +1886,12 @@ static AJ_Status MarshalMsg(AJ_Message* msg, uint8_t msgType, uint32_t msgId, ui
          * Check outgoing policy
          */
         if ((msgType == AJ_MSG_METHOD_CALL) || (msgType == AJ_MSG_SIGNAL)) {
-            status = AJ_AccessControlCheck(msg->msgId, msg->destination, AJ_ACCESS_OUTGOING);
-            if (AJ_OK != status) {
-                return status;
+            if (msg->destination) {
+                /* Method or session based signal */
+                status = AJ_AccessControlCheck(msg->msgId, msg->destination, AJ_ACCESS_OUTGOING);
+                if (AJ_OK != status) {
+                    return status;
+                }
             }
         }
     }

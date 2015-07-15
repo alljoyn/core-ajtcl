@@ -861,8 +861,9 @@ Exit:
         /* Free issuers */
         if (ctx->kactx.ecdsa.key) {
             AJ_Free(ctx->kactx.ecdsa.key);
+            ctx->kactx.ecdsa.key = NULL;
+            ctx->kactx.ecdsa.num = 0;
         }
-        ctx->kactx.ecdsa.num = 0;
     }
     return trusted ? AJ_OK : AJ_ERR_SECURITY;
 }

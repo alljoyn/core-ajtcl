@@ -195,6 +195,8 @@ AJ_Status AJ_AccessControlCheck(uint32_t id, const char* name, uint8_t direction
         case AJ_METHOD_EXCHANGE_GROUP_KEYS:
         case AJ_METHOD_SEND_MANIFEST:
         case AJ_METHOD_SEND_MEMBERSHIPS:
+        case AJ_METHOD_SECURITY_GET_PROP:
+        case AJ_PROPERTY_APPLICATION_VERSION:
             status = AJ_OK;
             break;
 

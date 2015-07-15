@@ -87,16 +87,6 @@ void AJ_SecurityGetClaimConfig(uint16_t* state, uint16_t* capabilities, uint16_t
 AJ_Status AJ_SecurityInit(AJ_BusAttachment* bus);
 
 /**
- * Get application property
- *
- * @param msg        The message
- *
- * @return
- *          - AJ_OK on success
- */
-AJ_Status AJ_ApplicationGetProperty(AJ_Message* msg);
-
-/**
  * Set application state signal to be sent
  *
  * @param bus        The bus attachment

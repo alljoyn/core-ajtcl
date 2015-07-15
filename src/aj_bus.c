@@ -604,9 +604,6 @@ AJ_Status AJ_BusHandleBusMessage(AJ_Message* msg)
         break;
 #endif
 
-    case AJ_METHOD_APPLICATION_GET_PROP:
-        return AJ_ApplicationGetProperty(msg);
-
     case AJ_METHOD_SECURITY_GET_PROP:
         return AJ_SecurityGetProperty(msg);
 
