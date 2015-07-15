@@ -526,7 +526,7 @@ static AJ_Status CheckTimers()
     /* Check probe timer, it's always turned on */
     delta = AJ_GetElapsedTime(&conn->probeTimer.tStart, TRUE);
     if (delta >= conn->probeTimer.delta) {
-        if (conn->probeTimer.retry == 1) {
+        if (conn->probeTimer.retry == 0) {
             AJ_ErrPrintf(("CheckTimers: link timeout\n"));
             return AJ_ERR_ARDP_PROBE_TIMEOUT;
         }
@@ -813,16 +813,16 @@ static AJ_Status ArdpMachine(struct ArdpSeg* seg, uint8_t* rxBuf, uint16_t len)
                          */
                         status = SendHeader(ARDP_FLAG_ACK | ARDP_FLAG_VER);
 
+                        if (status == AJ_OK) {
+                            AddRcvBuffer(seg, rxBuf, ARDP_SYN_HEADER_SIZE);
+                        }
                     }
                 }
-            }
 
-            if (status == AJ_OK) {
-                AddRcvBuffer(seg, rxBuf, ARDP_SYN_HEADER_SIZE);
-            }
+                /* Stop connect retry timer */
+                conn->connectTimer.retry = 0;
 
-            /* Stop connect retry timer */
-            conn->connectTimer.retry = 0;
+            }
 
             break;
         }
