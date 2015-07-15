@@ -37,6 +37,25 @@ uint8_t dbgCERTIFICATE = 0;
 #endif
 
 /**
+ * DER encoding types.
+ */
+#define ASN_BOOLEAN          0x01
+#define ASN_INTEGER          0x02
+#define ASN_BITS             0x03
+#define ASN_OCTETS           0x04
+#define ASN_NULL             0x05
+#define ASN_OID              0x06
+#define ASN_UTF8             0x0C
+#define ASN_SEQ              0x10
+#define ASN_SET_OF           0x11
+#define ASN_PRINTABLE        0x13
+#define ASN_ASCII            0x16
+#define ASN_UTC_TIME         0x17
+#define ASN_GEN_TIME         0x18
+#define ASN_CONTEXT_SPECIFIC 0x80
+#define ASN_UNKNOWN          0xFF
+
+/**
  * PEM encoding tags
  */
 #define PEM_PRIV_BEG "-----BEGIN EC PRIVATE KEY-----"
@@ -533,7 +552,11 @@ static AJ_Status DecodeCertificateExt(X509Extensions* extensions, DER_Element* d
             extensions->aki.data = tmp.data;
             extensions->aki.size = tmp.size;
         } else if (CompareOID(&oid, OID_CUSTOM_TYPE, sizeof (OID_CUSTOM_TYPE))) {
-            status = AJ_ASN1DecodeElement(&oct, ASN_INTEGER, &tmp);
+            status = AJ_ASN1DecodeElement(&oct, ASN_SEQ, &seq);
+            if (AJ_OK != status) {
+                return status;
+            }
+            status = AJ_ASN1DecodeElement(&seq, ASN_INTEGER, &tmp);
             if (AJ_OK != status) {
                 return status;
             }
@@ -900,4 +923,133 @@ AJ_Status AJ_X509VerifyChain(const X509CertificateChain* chain, const AJ_ECCPubl
     }
 
     return AJ_OK;
+}
+
+void AJ_X509ChainFree(X509CertificateChain* head)
+{
+    X509CertificateChain* node;
+
+    while (head) {
+        node = head;
+        head = head->next;
+        AJ_Free(node);
+    }
+}
+
+AJ_Status AJ_X509ChainMarshal(X509CertificateChain* chain, AJ_Message* msg)
+{
+    AJ_Status status;
+    AJ_Arg container;
+
+    status = AJ_MarshalContainer(msg, &container, AJ_ARG_ARRAY);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+    while (chain) {
+        status = AJ_MarshalArgs(msg, "(yay)", CERT_FMT_X509_DER, chain->certificate.der.data, chain->certificate.der.size);
+        if (AJ_OK != status) {
+            goto Exit;
+        }
+        chain = chain->next;
+    }
+    status = AJ_MarshalCloseContainer(msg, &container);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+
+    return status;
+
+Exit:
+    return AJ_ERR_FAILURE;
+}
+
+AJ_Status AJ_X509ChainUnmarshal(X509CertificateChain** chain, AJ_Message* msg)
+{
+    AJ_Status status;
+    AJ_Arg container;
+    uint8_t fmt;
+    DER_Element der;
+    X509CertificateChain* head = NULL;
+    X509CertificateChain* node = NULL;
+
+    status = AJ_UnmarshalContainer(msg, &container, AJ_ARG_ARRAY);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+    while (AJ_OK == status) {
+        status = AJ_UnmarshalArgs(msg, "(yay)", &fmt, &der.data, &der.size);
+        if (AJ_OK != status) {
+            break;
+        }
+        if (CERT_FMT_X509_DER != fmt) {
+            AJ_WarnPrintf(("AJ_X509ChainUnmarshal(chain=%p, msg=%p): Certificate format unknown\n", chain, msg));
+            goto Exit;
+        }
+        node = (X509CertificateChain*) AJ_Malloc(sizeof (X509CertificateChain));
+        if (NULL == node) {
+            goto Exit;
+        }
+        node->certificate.der.size = der.size;
+        node->certificate.der.data = der.data;
+        node->next = head;
+        head = node;
+        status = AJ_X509DecodeCertificateDER(&node->certificate, &der);
+        if (AJ_OK != status) {
+            AJ_WarnPrintf(("AJ_X509ChainUnmarshal(chain=%p, msg=%p): Certificate decode failed\n", chain, msg));
+            goto Exit;
+        }
+    }
+    if (AJ_ERR_NO_MORE != status) {
+        goto Exit;
+    }
+    status = AJ_UnmarshalCloseContainer(msg, &container);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+
+    *chain = head;
+    return status;
+
+Exit:
+    /* Free the cert chain */
+    AJ_X509ChainFree(head);
+    return AJ_ERR_FAILURE;
+}
+
+AJ_Status AJ_X509ChainToBuffer(X509CertificateChain* chain, AJ_CredField* field)
+{
+    AJ_Status status;
+    AJ_BusAttachment bus;
+    AJ_MsgHeader hdr;
+    AJ_Message msg;
+
+    AJ_LocalMsg(&bus, &hdr, &msg, "a(yay)", field->data, field->size);
+    status = AJ_X509ChainMarshal(chain, &msg);
+    field->size = bus.sock.tx.writePtr - field->data;
+
+    return status;
+}
+
+AJ_Status AJ_X509ChainFromBuffer(X509CertificateChain** chain, AJ_CredField* field)
+{
+    AJ_Status status;
+    AJ_BusAttachment bus;
+    AJ_MsgHeader hdr;
+    AJ_Message msg;
+
+    AJ_LocalMsg(&bus, &hdr, &msg, "a(yay)", field->data, field->size);
+    status = AJ_X509ChainUnmarshal(chain, &msg);
+
+    return status;
+}
+
+X509Certificate* AJ_X509LeafCertificate(X509CertificateChain* chain)
+{
+    if (NULL == chain) {
+        return NULL;
+    }
+    while (chain->next) {
+        chain = chain->next;
+    }
+    return &chain->certificate;
 }

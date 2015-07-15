@@ -893,9 +893,6 @@ static void PolicyUnload(Policy* policy)
 static AJ_Status PolicyLoad(Policy* policy)
 {
     AJ_Status status;
-    AJ_BusAttachment bus;
-    AJ_MsgHeader hdr;
-    AJ_Message msg;
 
     AJ_InfoPrintf(("PolicyLoad(policy=%p)\n", policy));
 
@@ -911,8 +908,7 @@ static AJ_Status PolicyLoad(Policy* policy)
     }
 
     /* Unmarshal the policy */
-    AJ_LocalMsg(&bus, &hdr, &msg, "(qua(a(ya(yyayay)ay)a(ssa(syy))))", policy->buffer.data, policy->buffer.size);
-    status = AJ_PolicyUnmarshal(&policy->policy, &msg);
+    status = AJ_PolicyFromBuffer(&policy->policy, &policy->buffer);
     if (AJ_OK != status) {
         AJ_InfoPrintf(("PolicyLoad(policy=%p): Unmarshal failed\n", policy));
         goto Exit;
@@ -1008,7 +1004,7 @@ static uint8_t PermissionRuleAccess(AJ_PermissionRule* rule, AccessControlMember
     obj = acm->obj;
     ifn = acm->ifn;
     /* Skip over secure annotation */
-    if (SECURE_TRUE == *ifn) {
+    if ((SECURE_TRUE == *ifn) || (SECURE_OFF == *ifn)) {
         ifn++;
     }
     mbr = acm->mbr;
@@ -1175,10 +1171,19 @@ AJ_Status AJ_PolicyApply(AJ_AuthenticationContext* ctx, const char* name)
         /* Initial restricted access rights */
         acm = g_access;
         while (acm) {
+            acm->access[peer] = 0;
             switch (acm->id) {
             case AJ_METHOD_SECURITY_GET_PROP:
+            case AJ_PROPERTY_SEC_VERSION:
+            case AJ_PROPERTY_SEC_APPLICATION_STATE:
+            case AJ_PROPERTY_SEC_MANIFEST_DIGEST:
             case AJ_PROPERTY_SEC_ECC_PUBLICKEY:
+            case AJ_PROPERTY_SEC_MANUFACTURER_CERTIFICATE:
             case AJ_PROPERTY_SEC_MANIFEST_TEMPLATE:
+            case AJ_PROPERTY_SEC_CLAIM_CAPABILITIES:
+            case AJ_PROPERTY_SEC_CLAIM_CAPABILITIES_INFO:
+            case AJ_PROPERTY_CLAIMABLE_VERSION:
+            case AJ_PROPERTY_MANAGED_VERSION:
                 acm->access[peer] = ACCESS_INCOMING_ALLOW;
                 break;
 
@@ -1195,6 +1200,29 @@ AJ_Status AJ_PolicyApply(AJ_AuthenticationContext* ctx, const char* name)
                     }
                 }
                 break;
+
+            case AJ_METHOD_SECURITY_SET_PROP:
+            case AJ_PROPERTY_MANAGED_IDENTITY:
+            case AJ_PROPERTY_MANAGED_MANIFEST:
+            case AJ_PROPERTY_MANAGED_IDENTITY_CERT_ID:
+            case AJ_PROPERTY_MANAGED_POLICY_VERSION:
+            case AJ_PROPERTY_MANAGED_POLICY:
+            case AJ_PROPERTY_MANAGED_DEFAULT_POLICY:
+            case AJ_PROPERTY_MANAGED_MEMBERSHIP_SUMMARY:
+            case AJ_METHOD_MANAGED_RESET:
+            case AJ_METHOD_MANAGED_UPDATE_IDENTITY:
+            case AJ_METHOD_MANAGED_UPDATE_POLICY:
+            case AJ_METHOD_MANAGED_RESET_POLICY:
+            case AJ_METHOD_MANAGED_INSTALL_MEMBERSHIP:
+            case AJ_METHOD_MANAGED_REMOVE_MEMBERSHIP:
+                /* Default not allowed */
+                break;
+
+            default:
+                if (AUTH_SUITE_ECDHE_NULL != ctx->suite) {
+                    /* Any trusted allowed incoming and outgoing (Security 1.0) */
+                    acm->access[peer] = ACCESS_ALLOW;
+                }
             }
             acm = acm->next;
         }
@@ -1266,4 +1294,58 @@ AJ_Status AJ_PolicyVersion(uint32_t* version)
     PolicyUnload(&policy);
 
     return AJ_OK;
+}
+
+AJ_Status AJ_ManifestToBuffer(AJ_Manifest* manifest, AJ_CredField* field)
+{
+    AJ_Status status;
+    AJ_BusAttachment bus;
+    AJ_MsgHeader hdr;
+    AJ_Message msg;
+
+    AJ_LocalMsg(&bus, &hdr, &msg, "a(ssa(syy))", field->data, field->size);
+    status = AJ_ManifestMarshal(manifest, &msg);
+    field->size = bus.sock.tx.writePtr - field->data;
+
+    return status;
+}
+
+AJ_Status AJ_ManifestFromBuffer(AJ_Manifest** manifest, AJ_CredField* field)
+{
+    AJ_Status status;
+    AJ_BusAttachment bus;
+    AJ_MsgHeader hdr;
+    AJ_Message msg;
+
+    AJ_LocalMsg(&bus, &hdr, &msg, "a(ssa(syy))", field->data, field->size);
+    status = AJ_ManifestUnmarshal(manifest, &msg);
+
+    return status;
+}
+
+AJ_Status AJ_PolicyToBuffer(AJ_Policy* policy, AJ_CredField* field)
+{
+    AJ_Status status;
+    AJ_BusAttachment bus;
+    AJ_MsgHeader hdr;
+    AJ_Message msg;
+
+    AJ_LocalMsg(&bus, &hdr, &msg, "(qua(a(ya(yyayay)ay)a(ssa(syy))))", field->data, field->size);
+    status = AJ_PolicyMarshal(policy, &msg);
+    field->size = bus.sock.tx.writePtr - field->data;
+
+    return status;
+}
+
+AJ_Status AJ_PolicyFromBuffer(AJ_Policy** policy, AJ_CredField* field)
+{
+    AJ_Status status;
+    AJ_BusAttachment bus;
+    AJ_MsgHeader hdr;
+    AJ_Message msg;
+
+    AJ_LocalMsg(&bus, &hdr, &msg, "(qua(a(ya(yyayay)ay)a(ssa(syy))))", field->data, field->size);
+    status = AJ_PolicyUnmarshal(policy, &msg);
+
+    return status;
 }

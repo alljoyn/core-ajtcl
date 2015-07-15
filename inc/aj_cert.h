@@ -26,6 +26,8 @@
 #include "aj_target.h"
 #include "aj_status.h"
 #include "aj_crypto_ecc.h"
+#include "aj_creds.h"
+#include "aj_msg.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -45,25 +47,6 @@ extern const uint8_t OID_CUSTOM_TYPE[10];
 extern const uint8_t OID_CUSTOM_DIGEST[10];
 extern const uint8_t OID_CUSTOM_GROUP[10];
 extern const uint8_t OID_CUSTOM_ALIAS[10];
-
-/**
- * DER encoding types.
- */
-#define ASN_BOOLEAN          0x01
-#define ASN_INTEGER          0x02
-#define ASN_BITS             0x03
-#define ASN_OCTETS           0x04
-#define ASN_NULL             0x05
-#define ASN_OID              0x06
-#define ASN_UTF8             0x0C
-#define ASN_SEQ              0x10
-#define ASN_SET_OF           0x11
-#define ASN_PRINTABLE        0x13
-#define ASN_ASCII            0x16
-#define ASN_UTC_TIME         0x17
-#define ASN_GEN_TIME         0x18
-#define ASN_CONTEXT_SPECIFIC 0x80
-#define ASN_UNKNOWN          0xFF
 
 /**
  * Structure for a DER encoded element.
@@ -236,6 +219,62 @@ AJ_Status AJ_X509Verify(const X509Certificate* certificate, const AJ_ECCPublicKe
  *          - AJ_ERR_SECURITY on failure
  */
 AJ_Status AJ_X509VerifyChain(const X509CertificateChain* chain, const AJ_ECCPublicKey* key);
+
+/**
+ * Free memory associated with X.509 chain.
+ *
+ * @param head        The input certificate chain.
+ */
+void AJ_X509ChainFree(X509CertificateChain* head);
+
+/**
+ * Marshal a X.509 certificate chain.
+ *
+ * @param chain       The input certificate chain.
+ * @param msg         The message.
+ *
+ * @return  Return AJ_Status
+ *          - AJ_OK on success
+ *          - AJ_ERR_SECURITY on failure
+ */
+AJ_Status AJ_X509ChainMarshal(X509CertificateChain* chain, AJ_Message* msg);
+
+/**
+ * Unmarshal a X.509 certificate chain.
+ *
+ * @param chain       The output certificate chain.
+ * @param msg         The message.
+ *
+ * @return  Return AJ_Status
+ *          - AJ_OK on success
+ *          - AJ_ERR_SECURITY on failure
+ */
+AJ_Status AJ_X509ChainUnmarshal(X509CertificateChain** chain, AJ_Message* msg);
+
+/**
+ * Marshal a X.509 certificate chain to a local buffer.
+ *
+ * @param chain       The input certificate chain.
+ * @param field       The local buffer.
+ *
+ * @return  Return AJ_Status
+ *          - AJ_OK on success
+ *          - AJ_ERR_SECURITY on failure
+ */
+AJ_Status AJ_X509ChainToBuffer(X509CertificateChain* chain, AJ_CredField* field);
+
+/**
+ * Unmarshal a X.509 certificate chain from a local buffer.
+ *
+ * @param chain       The output certificate chain.
+ * @param field       The local buffer.
+ *
+ * @return  Return AJ_Status
+ *          - AJ_OK on success
+ *          - AJ_ERR_SECURITY on failure
+ */
+AJ_Status AJ_X509ChainFromBuffer(X509CertificateChain** chain, AJ_CredField* field);
+X509Certificate* AJ_X509LeafCertificate(X509CertificateChain* chain);
 
 #ifdef __cplusplus
 }

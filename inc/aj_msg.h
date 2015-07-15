@@ -601,32 +601,6 @@ AJ_EXPORT
 AJ_Status AJ_MarshalVariant(AJ_Message* msg, const char* sig);
 
 /**
- * Write an already marshalled blob directly to the message body
- *
- * @param msg  The message
- * @param sig  The blob signature
- * @param data The data to write
- * @param size The data size
- *
- * @return   Return AJ_Status
- *          - AJ_OK if the data was succesfully written.
- */
-AJ_Status AJ_SetMsgBody(AJ_Message* msg, char sig, uint8_t* data, uint16_t size);
-
-/**
- * Read an already marshalled blob directly from the message body
- *
- * @param msg  The message
- * @param sig  The blob signature
- * @param data Start of the blob
- * @param data The blob size
- *
- * @return   Return AJ_Status
- *          - AJ_OK if the data was succesfully read.
- */
-AJ_Status AJ_GetMsgBody(AJ_Message* msg, char sig, uint8_t** data, uint16_t* size);
-
-/**
  * Create a message for local marshal or unmarshal
  *
  * @param bus  A dummy bus attachment

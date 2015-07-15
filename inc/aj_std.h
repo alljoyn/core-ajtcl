@@ -208,7 +208,9 @@ extern const char AJ_BusDestination[16];
  * Error message strings
  */
 extern const char AJ_ErrSecurityViolation[34];     /**< Error security violation string */
-extern const char AJ_ErrPermissionDenied[33];      /**< Error permission denied string */
+extern const char AJ_ErrPermissionDenied[48];      /**< Error permission denied string */
+extern const char AJ_ErrDigestMismatch[46];        /**< Error digest mismatch string */
+extern const char AJ_ErrUnknownCertificate[50];    /**< Error unknown certificate string */
 extern const char AJ_ErrTimeout[24];               /**< Error timeout string */
 extern const char AJ_ErrRejected[25];              /**< Error rejected string */
 extern const char AJ_ErrResources[26];             /**< Error resource string */

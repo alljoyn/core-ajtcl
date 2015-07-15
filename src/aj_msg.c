@@ -1296,6 +1296,7 @@ AJ_Status AJ_UnmarshalMsg(AJ_BusAttachment* bus, AJ_Message* msg, uint32_t timeo
                     AJ_Message reply;
                     AJ_MarshalStatusMsg(msg, &reply, status);
                     AJ_DeliverMsg(&reply);
+                    return status;
                 }
             }
         }
@@ -2430,13 +2431,14 @@ AJ_Status AJ_MarshalStatusMsg(const AJ_Message* methodCall, AJ_Message* reply, A
 
     case  AJ_ERR_ACCESS:
         status = AJ_MarshalErrorMsg(methodCall, reply, AJ_ErrPermissionDenied);
-        /*
-         * We get a security violation error so if we encrypt the error message the receiver
-         * won't be able to decrypt it. We can fix this by clearing the header flags.
-         */
-        if (status == AJ_OK) {
-            reply->hdr->flags = 0;
-        }
+        break;
+
+    case  AJ_ERR_SECURITY_DIGEST_MISMATCH:
+        status = AJ_MarshalErrorMsg(methodCall, reply, AJ_ErrDigestMismatch);
+        break;
+
+    case  AJ_ERR_SECURITY_UNKNOWN_CERTIFICATE:
+        status = AJ_MarshalErrorMsg(methodCall, reply, AJ_ErrUnknownCertificate);
         break;
 
     default:
@@ -2444,65 +2446,6 @@ AJ_Status AJ_MarshalStatusMsg(const AJ_Message* methodCall, AJ_Message* reply, A
         break;
     }
     return status;
-}
-
-AJ_Status AJ_SetMsgBody(AJ_Message* msg, char sig, uint8_t* data, uint16_t size)
-{
-    AJ_IOBuffer* buf = &msg->bus->sock.tx;
-    uint8_t* start = buf->writePtr;
-    uint8_t pad;
-
-    AJ_InfoPrintf(("AJ_SetMsgBody(msg=%p, sig=%c, data=%p, size=%d)\n", msg, sig, data, size));
-
-    /* Determine padding from signature */
-    pad = PadForType(sig, buf);
-    /* Write body */
-    WriteBytes(msg, data, size, pad);
-    msg->bodyBytes += (uint16_t)(buf->writePtr - start);
-
-    return AJ_OK;
-}
-
-AJ_Status AJ_GetMsgBody(AJ_Message* msg, char sig, uint8_t** data, uint16_t* size)
-{
-    AJ_IOBuffer* buf = &msg->bus->sock.rx;
-    uint8_t pad;
-
-    AJ_InfoPrintf(("AJ_GetMsgBody(msg=%p, sig=%c, data=%p, size=%p)\n", msg, sig, data, size));
-
-    /* Determine padding from signature */
-    pad = PadForType(sig, buf);
-    /* Skip over padding */
-    if (AJ_IO_BUF_AVAIL(buf) < pad) {
-        AJ_WarnPrintf(("AJ_GetMsgBody(msg=%p, sig=%c, data=%p, size=%p): insufficient buffer available\n", msg, sig, data, size));
-        return AJ_ERR_RESOURCES;
-    }
-    buf->readPtr += pad;
-    msg->bodyBytes -= pad;
-    /* Message body starts here */
-    *data = buf->readPtr;
-    /* Size is at the start of body */
-    if (AJ_IO_BUF_AVAIL(buf) < sizeof (uint32_t)) {
-        AJ_WarnPrintf(("AJ_GetMsgBody(msg=%p, sig=%c, data=%p, size=%p): insufficient buffer available\n", msg, sig, data, size));
-        return AJ_ERR_RESOURCES;
-    }
-    EndianSwap(msg, AJ_ARG_UINT32, buf->readPtr, 1);
-    *size = *((uint32_t*)buf->readPtr);
-    /* To account for padding? */
-    *size += 8;
-    if (AJ_IO_BUF_AVAIL(buf) < *size) {
-        AJ_WarnPrintf(("AJ_GetMsgBody(msg=%p, sig=%c, data=%p, size=%p): insufficient buffer available\n", msg, sig, data, size));
-        return AJ_ERR_RESOURCES;
-    }
-    /* Move the read pointer on and decrease body bytes */
-    if (msg->bodyBytes < *size) {
-        AJ_WarnPrintf(("AJ_GetMsgBody(msg=%p, sig=%c, data=%p, size=%p): insufficient body available\n", msg, sig, data, size));
-        return AJ_ERR_RESOURCES;
-    }
-    buf->readPtr += *size;
-    msg->bodyBytes -= *size;
-
-    return AJ_OK;
 }
 
 AJ_Status rx_noop(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)

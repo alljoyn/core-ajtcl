@@ -50,18 +50,10 @@ uint8_t dbgSECURITYTEST = 0;
 
 /*Interface */
 static const char* const Test1_Interface1[] = { "$org.alljoyn.alljoyn_test", "?my_ping inStr<s outStr>s", NULL };
-
-
 static const AJ_InterfaceDescription Test1_Interfaces[] = { AJ_PropertiesIface, Test1_Interface1, NULL };
-
 static const char testObj[] = "/org/alljoyn/alljoyn_test";
-
-
-static const char intfc[] = "org.alljoyn.test";
-
-
 static AJ_Object AppObjects[] = {
-    { NULL, Test1_Interfaces },     /* Object path will be specified later */
+    { testObj, Test1_Interfaces, AJ_OBJ_FLAG_SECURE },
     { NULL }
 };
 
@@ -232,34 +224,17 @@ static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, 
 
 static const char PingString[] = "Ping String";
 
-void MakeMethodCall(int*count, uint32_t ID) {
-
-    AJ_Message msg;
-    AJ_Status status = AJ_OK;
-    if (*count == 0) {
-        *count = 1;
-        status = AJ_MarshalMethodCall(&testBus, &msg, ID, ServiceName, 0, 0, 5000);
-        ASSERT_EQ(AJ_OK, status) << "Cannot marshal method calls parameters" << AJ_StatusText(status);
-        status = AJ_MarshalArgs(&msg, "s", PingString);
-        ASSERT_EQ(AJ_OK, status) << "Cannot marshal method calls arguments" << AJ_StatusText(status);
-        status = AJ_DeliverMsg(&msg);
-        ASSERT_EQ(AJ_OK, status) << "Cannot deliver msg" << AJ_StatusText(status);
-    }
-
-}
-
 /* Test for ECDHE_NULL  */
 
 TEST_F(SecurityTest, Test1)
 {
-
     // Register bus objects and proxy bus objects
     AJ_RegisterObjects(NULL, AppObjects);
     AJ_Status status = AJ_OK;
-    int count = 0;
     AJ_Message msg;
+    AJ_Message call;
     char*value;
-    uint32_t suites[16];
+    uint32_t suites[AJ_AUTH_SUITES_NUM];
     size_t numsuites = 0;
 
     AJ_Initialize();
@@ -271,22 +246,24 @@ TEST_F(SecurityTest, Test1)
     }
 
     suites[numsuites++] = AUTH_SUITE_ECDHE_NULL;
-    AJ_BusEnableSecurity(&testBus, suites, numsuites);
+    status = AJ_BusEnableSecurity(&testBus, suites, numsuites);
     ASSERT_EQ(AJ_OK, status) << "Unable to enable security. " << "The status returned is " << AJ_StatusText(status);
     AJ_BusSetAuthListenerCallback(&testBus, AuthListenerCallback);
 
     status = AJ_BusAuthenticatePeer(&testBus, ServiceName, AuthCallback, &authStatus);
-
 
     while (TRUE) {
         status = AJ_SetProxyObjectPath(AppObjects, TEST1_APP_MY_PING, testObj);
         status = AJ_UnmarshalMsg(&testBus, &msg, UNMARSHAL_TIMEOUT);
         if (status == AJ_ERR_TIMEOUT) {
             if (authStatus == AJ_OK) {
-                MakeMethodCall(&count, TEST1_APP_MY_PING);
+                ASSERT_EQ(AJ_ERR_ACCESS, AJ_MarshalMethodCall(&testBus, &call, TEST1_APP_MY_PING, ServiceName, 0, 0, 5000));
+                status = AJ_OK;
+                break;
             }
         } else if (msg.msgId == AJ_REPLY_ID(TEST1_APP_MY_PING)) {
-            AJ_UnmarshalArgs(&msg, "s", &value);
+            status = AJ_UnmarshalArgs(&msg, "s", &value);
+            ASSERT_EQ(AJ_OK, status);
             ASSERT_STREQ(PingString, value);
             AJ_CloseMsg(&msg);
             break;
@@ -313,10 +290,10 @@ TEST_F(SecurityTest, Test2)
     // Register bus objects and proxy bus objects
     AJ_RegisterObjects(NULL, AppObjects);
     AJ_Status status = AJ_OK;
-    int count = 0;
     AJ_Message msg;
+    AJ_Message call;
     char*value;
-    uint32_t suites[16];
+    uint32_t suites[AJ_AUTH_SUITES_NUM];
     size_t numsuites = 0;
 
     AJ_Initialize();
@@ -339,10 +316,14 @@ TEST_F(SecurityTest, Test2)
         status = AJ_UnmarshalMsg(&testBus, &msg, UNMARSHAL_TIMEOUT);
         if (status == AJ_ERR_TIMEOUT) {
             if (authStatus == AJ_OK) {
-                MakeMethodCall(&count, TEST1_APP_MY_PING);
+                ASSERT_EQ(AJ_OK, AJ_MarshalMethodCall(&testBus, &call, TEST1_APP_MY_PING, ServiceName, 0, 0, 5000));
+                ASSERT_EQ(AJ_OK, AJ_MarshalArgs(&call, "s", PingString));
+                ASSERT_EQ(AJ_OK, AJ_DeliverMsg(&call));
+                authStatus = AJ_ERR_NULL;
             }
         } else if (msg.msgId == AJ_REPLY_ID(TEST1_APP_MY_PING)) {
-            AJ_UnmarshalArgs(&msg, "s", &value);
+            status = AJ_UnmarshalArgs(&msg, "s", &value);
+            ASSERT_EQ(AJ_OK, status);
             ASSERT_STREQ(PingString, value);
             AJ_CloseMsg(&msg);
             break;
@@ -356,7 +337,6 @@ TEST_F(SecurityTest, Test2)
     AJ_ClearCredentials(AJ_CRED_TYPE_GENERIC);
     ASSERT_EQ(AJ_OK, status) << "AJ_ClearCredentials returned status. " << AJ_StatusText(status);
     AJ_Disconnect(&testBus);
-
 }
 
 
@@ -367,10 +347,10 @@ TEST_F(SecurityTest, Test3)
     // Register bus objects and proxy bus objects
     AJ_RegisterObjects(NULL, AppObjects);
     AJ_Status status = AJ_OK;
-    int count = 0;
     AJ_Message msg;
+    AJ_Message call;
     char*value;
-    uint32_t suites[16];
+    uint32_t suites[AJ_AUTH_SUITES_NUM];
     size_t numsuites = 0;
 
     AJ_Initialize();
@@ -382,7 +362,7 @@ TEST_F(SecurityTest, Test3)
     }
 
     suites[numsuites++] = AUTH_SUITE_ECDHE_ECDSA;
-    AJ_BusEnableSecurity(&testBus, suites, numsuites);
+    status = AJ_BusEnableSecurity(&testBus, suites, numsuites);
     ASSERT_EQ(AJ_OK, status) << "Unable to enable security" << "The status returned is " << AJ_StatusText(status);
     AJ_BusSetAuthListenerCallback(&testBus, AuthListenerCallback);
     status = AJ_BusAuthenticatePeer(&testBus, ServiceName, AuthCallback, &authStatus);
@@ -392,10 +372,14 @@ TEST_F(SecurityTest, Test3)
         status = AJ_UnmarshalMsg(&testBus, &msg, UNMARSHAL_TIMEOUT);
         if (status == AJ_ERR_TIMEOUT) {
             if (authStatus == AJ_OK) {
-                MakeMethodCall(&count, TEST1_APP_MY_PING);
+                /* ECDSA will fail, then drop back to NULL */
+                ASSERT_EQ(AJ_ERR_ACCESS, AJ_MarshalMethodCall(&testBus, &call, TEST1_APP_MY_PING, ServiceName, 0, 0, 5000));
+                status = AJ_OK;
+                break;
             }
         } else if (msg.msgId == AJ_REPLY_ID(TEST1_APP_MY_PING)) {
-            AJ_UnmarshalArgs(&msg, "s", &value);
+            status = AJ_UnmarshalArgs(&msg, "s", &value);
+            ASSERT_EQ(AJ_OK, status);
             ASSERT_STREQ(PingString, value);
             AJ_CloseMsg(&msg);
             break;
@@ -410,5 +394,4 @@ TEST_F(SecurityTest, Test3)
     AJ_ClearCredentials(AJ_CRED_TYPE_GENERIC);
     ASSERT_EQ(AJ_OK, status) << "AJ_ClearCredentials returned status. " << AJ_StatusText(status);
     AJ_Disconnect(&testBus);
-
 }
