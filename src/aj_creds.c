@@ -89,9 +89,10 @@ static AJ_Status CredFieldRead(AJ_CredField* field, AJ_NV_DATASET* handle)
     }
 
     /* Read data */
-    if (size != AJ_NVRAM_Read(field->data, field->size, handle)) {
+    if (size != AJ_NVRAM_Read(field->data, size, handle)) {
         return AJ_ERR_FAILURE;
     }
+    field->size = size;
 
     return AJ_OK;
 }
