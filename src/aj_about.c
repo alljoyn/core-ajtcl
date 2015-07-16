@@ -20,9 +20,9 @@
  */
 #define AJ_MODULE ABOUT
 
-#include "alljoyn.h"
-#include "aj_debug.h"
-#include "aj_config.h"
+#include <ajtcl/alljoyn.h>
+#include <ajtcl/aj_debug.h>
+#include <ajtcl/aj_config.h>
 
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value

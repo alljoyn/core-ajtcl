@@ -21,8 +21,8 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <aj_debug.h>
-#include "alljoyn.h"
+#include <ajtcl/aj_debug.h>
+#include <ajtcl/alljoyn.h>
 
 uint8_t dbgSIGNAL_CONSUMER = 0;
 /**

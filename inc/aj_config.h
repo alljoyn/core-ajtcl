@@ -21,7 +21,7 @@
  *    ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
-#include "aj_debug.h"
+#include <ajtcl/aj_debug.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -100,10 +100,6 @@ extern "C" {
 #define HOST_ENDIANESS AJ_LITTLE_ENDIAN
 #elif HOST_IS_BIG_ENDIAN
 #define HOST_ENDIANESS AJ_BIG_ENDIAN
-#endif
-
-#ifndef AJ_NO_TCP
-#define AJ_TCP
 #endif
 
 #ifdef __cplusplus

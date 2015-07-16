@@ -1,0 +1,64 @@
+import os
+
+Import('env')
+
+src_env = env.Clone()
+
+src_env['srcs'] = []
+
+# Default common optional components to off (enabled according target platform)
+src_env['crypto'] = False
+src_env['crypto_ecc'] = False
+src_env['external_sha2'] = False
+src_env['malloc'] = False
+src_env['freertos'] = False
+src_env['mbedrtos'] = False
+src_env['wsl'] = False
+src_env['system_objects'] = False
+src_env['nvram'] = False
+
+Export ('src_env')
+
+# Get the core sources
+src_env['srcs'] += Glob('*.c')
+
+# Get the target sources
+src_env.SConscript('target/$TARG/SConscript')
+
+# Get sources for any optional components
+if src_env['nvram']:
+    src_env['srcs'] += Glob('nvram/*.c')
+if src_env['crypto']:
+    src_env['srcs'] += Glob('crypto/*.c')
+if src_env['crypto_ecc']:
+    src_env['srcs'] += Glob('crypto/ecc/*.c')
+if src_env['external_sha2']:
+    src_env['srcs'] += Glob('external/sha2/*.c')
+    src_env.Append(CPPPATH = [ 'external/sha2' ])
+if src_env['malloc']:
+    src_env.Append(CPPPATH = 'malloc')
+    src_env['srcs'] += Glob('malloc/*.c')
+if src_env['freertos']:
+    src_env.Append(CPPPATH = Dir(['freertos']))
+    src_env['srcs'] += Glob('freertos/*.c')
+if src_env['mbedrtos']:
+    src_env.Append(CPPPATH = Dir(['mbedrtos']))
+    src_env['srcs'] += Glob('mbedrtos/*.cpp')
+    src_env['srcs'] += Glob('mbedrtos/*.c')
+if src_env['wsl']:
+    src_env.Append(CPPPATH = Dir(['target/$TARG']))
+    src_env.Append(CPPPATH = Dir(['bsp']))
+    src_env['srcs'] += Glob('wsl/*.c')
+
+src_env.Append(CPPPATH = Dir(['.']))
+
+# Compile sources and create libraries
+objs = src_env.StaticObject(src_env['srcs'])
+
+lib = src_env.Library("ajtcl", objs)
+src_env.Install('#dist/lib', lib)
+
+if src_env['build_shared']:
+    objs = src_env.SharedObject(src_env['srcs'])
+    lib = src_env.SharedLibrary("ajtcl", objs)
+    src_env.Install('#dist/lib', lib)

@@ -27,7 +27,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <alljoyn.h>
+#include <ajtcl/alljoyn.h>
 
 
 /**

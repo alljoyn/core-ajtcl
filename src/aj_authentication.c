@@ -23,14 +23,14 @@
  */
 #define AJ_MODULE AUTHENTICATION
 
-#include "aj_target.h"
-#include "aj_debug.h"
-#include "aj_authentication.h"
-#include "aj_cert.h"
-#include "aj_peer.h"
-#include "aj_creds.h"
-#include "aj_auth_listener.h"
-#include "aj_crypto.h"
+#include <ajtcl/aj_target.h>
+#include <ajtcl/aj_debug.h>
+#include <ajtcl/aj_authentication.h>
+#include <ajtcl/aj_cert.h>
+#include <ajtcl/aj_peer.h>
+#include <ajtcl/aj_creds.h>
+#include <ajtcl/aj_auth_listener.h>
+#include <ajtcl/aj_crypto.h>
 
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
@@ -46,7 +46,7 @@ static uint32_t suites[AJ_AUTH_SUITES_NUM];
 #define ECC_NIST_P256      0
 #define SIG_FMT            0
 #define CERT_FMT_X509_DER  0
-#define AUTH_VERIFIER_LEN  SHA256_DIGEST_LENGTH
+#define AUTH_VERIFIER_LEN  AJ_SHA256_DIGEST_LENGTH
 
 static AJ_Status ComputeMasterSecret(AJ_AuthenticationContext* ctx, uint8_t* pms, size_t len)
 {
@@ -67,7 +67,7 @@ static AJ_Status ComputeVerifier(AJ_AuthenticationContext* ctx, const char* labe
 {
     const uint8_t* data[3];
     uint8_t lens[3];
-    uint8_t digest[SHA256_DIGEST_LENGTH];
+    uint8_t digest[AJ_SHA256_DIGEST_LENGTH];
 
     AJ_SHA256_GetDigest(&ctx->hash, digest, 1);
 
@@ -240,11 +240,11 @@ static AJ_Status ECDHEUnmarshalV2(AJ_AuthenticationContext* ctx, AJ_Message* msg
     // Only use x-coordinate for secret
     AJ_BigvalEncode(&secret.x, data, KEY_ECC_SZ);
     // Reuse the data buffer - hash of the point
-    AJ_ASSERT(SHA256_DIGEST_LENGTH <= size);
+    AJ_ASSERT(AJ_SHA256_DIGEST_LENGTH <= size);
     AJ_SHA256_Init(&sha);
     AJ_SHA256_Update(&sha, data, size);
     AJ_SHA256_Final(&sha, data);
-    size = SHA256_DIGEST_LENGTH;
+    size = AJ_SHA256_DIGEST_LENGTH;
     status = ComputeMasterSecret(ctx, data, size);
     AJ_Free(data);
 
@@ -526,7 +526,7 @@ static AJ_Status ECDSAMarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
     AJ_Arg container2;
     AJ_Credential cred;
     SigInfoCtx* sig = NULL;
-    uint8_t verifier[SHA256_DIGEST_LENGTH];
+    uint8_t verifier[AJ_SHA256_DIGEST_LENGTH];
     X509CertificateChain* chain = NULL;
     uint8_t fmt;
 
@@ -648,7 +648,7 @@ static AJ_Status ECDSAUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
     AJ_Credential cred;
     AJ_Arg container1;
     AJ_Arg container2;
-    uint8_t digest[SHA256_DIGEST_LENGTH];
+    uint8_t digest[AJ_SHA256_DIGEST_LENGTH];
     const char* variant;
     uint8_t fmt;
     DER_Element der;

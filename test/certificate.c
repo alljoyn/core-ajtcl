@@ -21,11 +21,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-#include "aj_debug.h"
-#include "alljoyn.h"
-#include "aj_cert.h"
-#include "aj_crypto.h"
-#include "aj_crypto_sha2.h"
+#include <ajtcl/aj_debug.h>
+#include <ajtcl/alljoyn.h>
+#include <ajtcl/aj_cert.h>
+#include <ajtcl/aj_crypto.h>
+#include <ajtcl/aj_crypto_sha2.h>
 
 uint8_t dbgTEST_CERTIFICATE = 1;
 
@@ -142,7 +142,7 @@ int AJ_Main(int ac, char** av)
     DER_Element der;
     ecc_privatekey prv;
     ecc_signature sig;
-    uint8_t digest[SHA256_DIGEST_LENGTH];
+    uint8_t digest[AJ_SHA256_DIGEST_LENGTH];
 
     status = AJ_X509DecodeCertificatePEM(&certificate, pem_x509_self);
     AJ_ASSERT(AJ_OK == status);

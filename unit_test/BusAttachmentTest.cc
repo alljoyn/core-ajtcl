@@ -19,8 +19,8 @@
 #include <gtest/gtest.h>
 
 extern "C" {
-#include "aj_debug.h"
-#include "alljoyn.h"
+#include <ajtcl/aj_debug.h>
+#include <ajtcl/alljoyn.h>
 }
 
 static const char* serviceName = "org.alljoyn.thinclient.test.theoffice";

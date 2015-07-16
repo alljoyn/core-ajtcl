@@ -23,9 +23,9 @@
 #include <stdlib.h>
 #include <assert.h>
 
-#include "alljoyn.h"
-#include "aj_debug.h"
-#include "aj_crypto.h"
+#include <ajtcl/alljoyn.h>
+#include <ajtcl/aj_debug.h>
+#include <ajtcl/aj_crypto.h>
 
 uint8_t dbgSECURE_CLIENT = 0;
 

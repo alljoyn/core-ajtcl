@@ -17,8 +17,8 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
-#include "aj_target.h"
-#include "alljoyn.h"
+#include <ajtcl/aj_target.h>
+#include <ajtcl/alljoyn.h>
 
 
 #define CONNECT_TIMEOUT    (1000ul * 200)

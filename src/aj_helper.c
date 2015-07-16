@@ -20,11 +20,11 @@
  */
 #define AJ_MODULE HELPER
 
-#include "alljoyn.h"
-#include "aj_helper.h"
-#include "aj_link_timeout.h"
-#include "aj_debug.h"
-#include "aj_config.h"
+#include <ajtcl/alljoyn.h>
+#include <ajtcl/aj_helper.h>
+#include <ajtcl/aj_link_timeout.h>
+#include <ajtcl/aj_debug.h>
+#include <ajtcl/aj_config.h>
 
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value

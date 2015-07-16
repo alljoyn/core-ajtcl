@@ -23,32 +23,32 @@
  */
 #define AJ_MODULE CONNECT
 
-#include "aj_target.h"
-#include "aj_status.h"
-#include "aj_bufio.h"
-#include "aj_msg.h"
-#include "aj_connect.h"
-#include "aj_introspect.h"
-#include "aj_net.h"
-#include "aj_bus.h"
-#include "aj_disco.h"
-#include "aj_std.h"
-#include "aj_debug.h"
-#include "aj_config.h"
-#include "aj_creds.h"
-#include "aj_peer.h"
+#include <ajtcl/aj_target.h>
+#include <ajtcl/aj_status.h>
+#include <ajtcl/aj_bufio.h>
+#include <ajtcl/aj_msg.h>
+#include <ajtcl/aj_connect.h>
+#include <ajtcl/aj_introspect.h>
+#include <ajtcl/aj_net.h>
+#include <ajtcl/aj_bus.h>
+#include <ajtcl/aj_disco.h>
+#include <ajtcl/aj_std.h>
+#include <ajtcl/aj_debug.h>
+#include <ajtcl/aj_config.h>
+#include <ajtcl/aj_creds.h>
+#include <ajtcl/aj_peer.h>
 
 #ifdef AJ_ARDP
-#include "aj_ardp.h"
+#include <ajtcl/aj_ardp.h>
 #endif
-#include "aj_crypto.h"
+#include <ajtcl/aj_crypto.h>
 
 #if !(defined(ARDUINO) || defined(__linux) || defined(_WIN32) || defined(__MACH__))
-#include "aj_wifi_ctrl.h"
+#include <ajtcl/aj_wifi_ctrl.h>
 #endif
 
 #ifdef AJ_SERIAL_CONNECTION
-#include "aj_serial.h"
+#include <ajtcl/aj_serial.h>
 #endif
 
 /**

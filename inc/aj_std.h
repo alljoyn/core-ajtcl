@@ -21,9 +21,9 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
-#include "aj_target.h"
-#include "aj_status.h"
-#include "aj_introspect.h"
+#include <ajtcl/aj_target.h>
+#include <ajtcl/aj_status.h>
+#include <ajtcl/aj_introspect.h>
 
 /**
  * Identifiers for standard methods and signals. These are the values returned by

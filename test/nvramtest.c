@@ -18,13 +18,13 @@
  ******************************************************************************/
 #define AJ_MODULE NVT
 
-#include <alljoyn.h>
-#include <aj_creds.h>
-#include <aj_nvram.h>
-#include <aj_crypto.h>
-#include <aj_crypto_ecc.h>
-#include <aj_config.h>
-#include <aj_util.h>
+#include <ajtcl/alljoyn.h>
+#include <ajtcl/aj_creds.h>
+#include <ajtcl/aj_nvram.h>
+#include <ajtcl/aj_crypto.h>
+#include <ajtcl/aj_crypto_ecc.h>
+#include <ajtcl/aj_config.h>
+#include <ajtcl/aj_util.h>
 
 uint8_t dbgNVT = 0;
 

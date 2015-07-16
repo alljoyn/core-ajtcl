@@ -23,16 +23,16 @@
  */
 #define AJ_MODULE DISCO
 
-#include "aj_target.h"
-#include "aj_status.h"
-#include "aj_util.h"
-#include "aj_net.h"
-#include "aj_disco.h"
-#include "aj_debug.h"
-#include "aj_config.h"
-#include "aj_connect.h"
-#include "aj_guid.h"
-#include "aj_creds.h"
+#include <ajtcl/aj_target.h>
+#include <ajtcl/aj_status.h>
+#include <ajtcl/aj_util.h>
+#include <ajtcl/aj_net.h>
+#include <ajtcl/aj_disco.h>
+#include <ajtcl/aj_debug.h>
+#include <ajtcl/aj_config.h>
+#include <ajtcl/aj_connect.h>
+#include <ajtcl/aj_guid.h>
+#include <ajtcl/aj_creds.h>
 
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
