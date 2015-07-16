@@ -32,12 +32,18 @@ extern "C" {
 #endif
 
 /**
- * Prototype for a function provided by the property store for getting ANNOUNCE and ABOUT properties
+ * Prototype for a function provided by the property store for getting ANNOUNCE
+ * and ABOUT properties.  If the language tag given is not supported, use the
+ * best matching language according to RFC 4647 section 3.4. This algorithm
+ * requires that the "supported" languages be the least specific they can
+ * (e.g., "en" in order to match both "en" and "en-US" if requested), and the
+ * "requested" language be the most specific it can (e.g., "en-US" in
+ * order to match either "en-US" or "en" if supported).
  *
  * @param reply     The message to marshal the property values into. The getter can also figure out
  *                  from the msgId in the reply message if the reply is for ANNOUNCE or ABOUT.
  *
- * @param language  The language to use to return the string properties. If this is NULL the default
+ * @param language  The requested language to use to return the string properties. If this is NULL the default
  *                  language will be used.
  *
  * @return   Return AJ_OK if the properties were succesfully marshaled into the reply.
