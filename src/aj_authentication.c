@@ -538,51 +538,36 @@ static AJ_Status PSKUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
 }
 
 /*
- * Store certificate chain is a(yay)
  * KeyAuthentication call expects yv = ya(ay)
- * Need to convert from a(yay) to a(ay)
  */
-static AJ_Status MarshalCertificates(AJ_AuthenticationContext* ctx, AJ_Message* msg, AJ_CredField* field)
+static AJ_Status MarshalCertificates(AJ_AuthenticationContext* ctx, X509CertificateChain* head, AJ_Message* msg)
 {
     AJ_Status status;
-    AJ_BusAttachment bus;
-    AJ_MsgHeader hdr;
-    AJ_Message tmp;
-    AJ_Arg container1;
-    AJ_Arg container2;
-    uint8_t fmt;
-    uint8_t* data;
-    size_t size;
+    AJ_Arg container;
+    uint8_t fmt = CERT_FMT_X509_DER;
 
-    AJ_LocalMsg(&bus, &hdr, &tmp, "a(yay)", field->data, field->size);
-
-    status = AJ_UnmarshalContainer(&tmp, &container1, AJ_ARG_ARRAY);
+    AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, &fmt, sizeof(fmt));
+    status = AJ_MarshalArgs(msg, "y", fmt);
     if (AJ_OK != status) {
         goto Exit;
     }
-    status = AJ_MarshalContainer(msg, &container2, AJ_ARG_ARRAY);
+    status = AJ_MarshalVariant(msg, "a(ay)");
     if (AJ_OK != status) {
         goto Exit;
     }
-    while (AJ_OK == status) {
-        status = AJ_UnmarshalArgs(&tmp, "(yay)", &fmt, &data, &size);
-        if (AJ_OK != status) {
-            break;
-        }
-        status = AJ_MarshalArgs(msg, "(ay)", data, size);
+    status = AJ_MarshalContainer(msg, &container, AJ_ARG_ARRAY);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+    while (head) {
+        status = AJ_MarshalArgs(msg, "(ay)", head->certificate.der.data, head->certificate.der.size);
         if (AJ_OK != status) {
             goto Exit;
         }
-        AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, data, size);
+        AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, head->certificate.der.data, head->certificate.der.size);
+        head = head->next;
     }
-    if (AJ_ERR_NO_MORE != status) {
-        return status;
-    }
-    status = AJ_MarshalCloseContainer(msg, &container2);
-    if (AJ_OK != status) {
-        goto Exit;
-    }
-    status = AJ_UnmarshalCloseContainer(&tmp, &container1);
+    status = AJ_MarshalCloseContainer(msg, &container);
 
 Exit:
     return status;
@@ -595,7 +580,7 @@ static AJ_Status ECDSAMarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
     AJ_ECCPrivateKey prv;
     AJ_ECCSignature sig;
     uint8_t verifier[AJ_SHA256_DIGEST_LENGTH];
-    uint8_t fmt;
+    X509CertificateChain* chain = NULL;
     AJ_CredField field;
 
     AJ_InfoPrintf(("AJ_ECDSA_Marshal(ctx=%p, msg=%p)\n", ctx, msg));
@@ -651,17 +636,11 @@ static AJ_Status ECDSAMarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
     }
 
     /* Marshal certificate chain */
-    fmt = CERT_FMT_X509_DER;
-    AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, &fmt, sizeof(fmt));
-    status = AJ_MarshalArgs(msg, "y", fmt);
+    status = AJ_X509ChainFromBuffer(&chain, &field);
     if (AJ_OK != status) {
         goto Exit;
     }
-    status = AJ_MarshalVariant(msg, "a(ay)");
-    if (AJ_OK != status) {
-        goto Exit;
-    }
-    status = MarshalCertificates(ctx, msg, &field);
+    status = MarshalCertificates(ctx, chain, msg);
     if (AJ_OK != status) {
         AJ_WarnPrintf(("AJ_ECDSA_Marshal(msg=%p): Marshal certificate chain error\n", msg));
         goto Exit;
@@ -669,6 +648,7 @@ static AJ_Status ECDSAMarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
     status = AJ_MarshalCloseContainer(msg, &container);
 
 Exit:
+    AJ_X509ChainFree(chain);
     AJ_CredFieldFree(&field);
     return status;
 }

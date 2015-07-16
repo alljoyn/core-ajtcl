@@ -1512,7 +1512,6 @@ AJ_Status AJ_PeerHandleSendManifest(AJ_Message* msg, AJ_Message* reply)
         goto Exit;
     }
 
-    /* Important: apply policy before manifest */
     status = AJ_PolicyApply(&authContext, msg->sender);
     if (AJ_OK != status) {
         AJ_InfoPrintf(("AJ_PeerHandleSendManifest(msg=%p, reply=%p): Policy apply failed\n", msg, reply));
@@ -1607,7 +1606,6 @@ AJ_Status AJ_PeerHandleSendManifestReply(AJ_Message* msg)
         goto Exit;
     }
 
-    /* Important: apply policy before manifest */
     status = AJ_PolicyApply(&authContext, msg->sender);
     if (AJ_OK != status) {
         AJ_InfoPrintf(("AJ_PeerHandleSendManifestReply(msg=%p): Policy apply failed\n", msg));
@@ -1642,46 +1640,24 @@ Exit:
     }
 }
 
-static AJ_Status MarshalCertificates(AJ_Message* msg, AJ_CredField* field)
+static AJ_Status MarshalCertificates(X509CertificateChain* head, AJ_Message* msg)
 {
     AJ_Status status;
-    AJ_BusAttachment bus;
-    AJ_MsgHeader hdr;
-    AJ_Message tmp;
-    AJ_Arg container1;
-    AJ_Arg container2;
-    uint8_t fmt;
-    uint8_t* data;
-    size_t size;
+    AJ_Arg container;
+    uint8_t fmt = CERT_FMT_X509_DER;
 
-    AJ_LocalMsg(&bus, &hdr, &tmp, "a(yay)", field->data, field->size);
-
-    status = AJ_UnmarshalContainer(&tmp, &container1, AJ_ARG_ARRAY);
+    status = AJ_MarshalContainer(msg, &container, AJ_ARG_ARRAY);
     if (AJ_OK != status) {
         goto Exit;
     }
-    status = AJ_MarshalContainer(msg, &container2, AJ_ARG_ARRAY);
-    if (AJ_OK != status) {
-        goto Exit;
-    }
-    while (AJ_OK == status) {
-        status = AJ_UnmarshalArgs(&tmp, "(yay)", &fmt, &data, &size);
-        if (AJ_OK != status) {
-            break;
-        }
-        status = AJ_MarshalArgs(msg, "(yay)", fmt, data, size);
+    while (head) {
+        status = AJ_MarshalArgs(msg, "(yay)", fmt, head->certificate.der.data, head->certificate.der.size);
         if (AJ_OK != status) {
             goto Exit;
         }
+        head = head->next;
     }
-    if (AJ_ERR_NO_MORE != status) {
-        return status;
-    }
-    status = AJ_MarshalCloseContainer(msg, &container2);
-    if (AJ_OK != status) {
-        goto Exit;
-    }
-    status = AJ_UnmarshalCloseContainer(&tmp, &container1);
+    status = AJ_MarshalCloseContainer(msg, &container);
 
 Exit:
     return status;
@@ -1719,6 +1695,7 @@ static AJ_Status MarshalMembership(AJ_Message* msg)
     AJ_Status status = AJ_ERR_UNKNOWN;
     AJ_Arg container;
     AJ_CredField data;
+    X509CertificateChain* chain = NULL;
 
     AJ_ASSERT(SEND_MEMBERSHIPS_LAST != authContext.code);
 
@@ -1778,7 +1755,11 @@ static AJ_Status MarshalMembership(AJ_Message* msg)
         AJ_InfoPrintf(("MarshalMemberships(msg=%p): Marshal error\n", msg));
         goto Exit;
     }
-    status = MarshalCertificates(msg, &data);
+    status = AJ_X509ChainFromBuffer(&chain, &data);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+    status = MarshalCertificates(chain, msg);
     if (AJ_OK != status) {
         AJ_InfoPrintf(("MarshalMemberships(msg=%p): Marshal error\n", msg));
         goto Exit;
@@ -1789,6 +1770,7 @@ static AJ_Status MarshalMembership(AJ_Message* msg)
     }
 
 Exit:
+    AJ_X509ChainFree(chain);
     AJ_CredFieldFree(&data);
     return status;
 }
