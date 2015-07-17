@@ -35,7 +35,7 @@ extern "C" {
 typedef struct _AJ_SHA256_Context {
     uint32_t state[8];
     uint64_t bitcount;
-    uint8_t buffer[AJ_SHA256_DIGEST_LENGTH];
+    uint8_t buffer[AJ_SHA256_BLOCK_LENGTH];
 } AJ_SHA256_Context;
 
 #define HMAC_SHA256_DIGEST_LENGTH AJ_SHA256_DIGEST_LENGTH
