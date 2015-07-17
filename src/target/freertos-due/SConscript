@@ -1,0 +1,47 @@
+Import('src_env')
+
+# Enable common components for Arduino Due running FreeRTOS
+src_env['crypto'] = True
+src_env['crypto_ecc'] = True
+src_env['external_sha2'] = True
+src_env['malloc'] = True
+src_env['freertos'] = True
+src_env['wsl'] = True
+src_env['nvram'] = True
+
+# Build target source
+src_env['srcs'].extend(Glob('*.c'))
+src_env['srcs'].extend(Glob(src_env['FREE_RTOS_DIR'] + '/Source/*.c'))
+src_env['srcs'].extend(Glob(src_env['FREE_RTOS_DIR'] + '/Source/portable/GCC/ARM_CM3/*.c'))
+src_env['srcs'].extend(File([
+    src_env['FREE_RTOS_DIR'] + '/Source/portable/GCC/ARM_CM3/port.c',
+    src_env['FREE_RTOS_DIR'] + '/Source/portable/MemMang/heap_3.c',
+    src_env['ATMEL_DIR'] + '/common/services/clock/sam3x/sysclk.c',
+    src_env['ATMEL_DIR'] + '/common/services/spi/sam_spi/spi_master.c',
+    src_env['ATMEL_DIR'] + '/common/services/freertos/sam/freertos_peripheral_control.c',
+    src_env['ATMEL_DIR'] + '/common/services/freertos/sam/freertos_usart_serial.c',
+    src_env['ATMEL_DIR'] + '/common/utils/interrupt/interrupt_sam_nvic.c',
+    src_env['ATMEL_DIR'] + '/common/utils/stdio/read.c',
+    src_env['ATMEL_DIR'] + '/common/utils/stdio/write.c',
+    src_env['ATMEL_DIR'] + '/common/drivers/nvm/sam/sam_nvm.c',
+    src_env['ATMEL_DIR'] + '/sam/boards/arduino_due_x/init.c',
+    src_env['ATMEL_DIR'] + '/sam/boards/arduino_due_x/led.c',
+    src_env['ATMEL_DIR'] + '/sam/drivers/pdc/pdc.c',
+    src_env['ATMEL_DIR'] + '/sam/drivers/pio/pio.c',
+    src_env['ATMEL_DIR'] + '/sam/drivers/pio/pio_handler.c',
+    src_env['ATMEL_DIR'] + '/sam/drivers/pmc/pmc.c',
+    src_env['ATMEL_DIR'] + '/sam/drivers/pmc/sleep.c',
+    src_env['ATMEL_DIR'] + '/sam/drivers/uart/uart.c',
+    src_env['ATMEL_DIR'] + '/sam/drivers/usart/usart.c',
+    src_env['ATMEL_DIR'] + '/sam/drivers/spi/spi.c',
+    src_env['ATMEL_DIR'] + '/sam/drivers/efc/efc.c',
+    src_env['ATMEL_DIR'] + '/sam/drivers/tc/tc.c',
+    src_env['ATMEL_DIR'] + '/sam/drivers/trng/trng.c',
+    src_env['ATMEL_DIR'] + '/sam/drivers/rstc/rstc.c',
+    src_env['ATMEL_DIR'] + '/sam/utils/cmsis/sam3x/source/templates/exceptions.c',
+    src_env['ATMEL_DIR'] + '/sam/utils/cmsis/sam3x/source/templates/system_sam3x.c',
+    src_env['ATMEL_DIR'] + '/sam/utils/cmsis/sam3x/source/templates/gcc/startup_sam3x.c',
+    src_env['ATMEL_DIR'] + '/sam/services/flash_efc/flash_efc.c',
+    src_env['ATMEL_DIR'] + '/sam/utils/syscalls/gcc/syscalls.c',
+    src_env['ATMEL_DIR'] + '/sam/drivers/dmac/dmac.c'
+]))

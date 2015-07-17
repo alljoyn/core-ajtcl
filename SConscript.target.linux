@@ -1,0 +1,93 @@
+import os
+
+Import('env')
+
+# Target specific SCons command line variables
+vars = Variables()
+vars.Add(BoolVariable('FORCE32',   'Force building 32 bit on 64 bit architecture',           os.environ.get('AJ_FORCE32', False)))
+vars.Add(BoolVariable('NO_AUTH',   "Compile in authentication mechanism's to the code base", os.environ.get('AJ_NO_AUTH', False)))
+vars.Update(env)
+Help(vars.GenerateHelpText(env))
+
+
+# Platform libraries
+env.Append(LIBS = ['rt', 'pthread'])
+
+# Cross compile setup
+if os.environ.has_key('CROSS_PREFIX'):
+    env.Replace(CC = os.environ['CROSS_PREFIX'] + env['CC'])
+    env.Replace(CXX = os.environ['CROSS_PREFIX'] + env['CXX'])
+    env.Replace(LINK = env['CC'])
+    env.Replace(AR = os.environ['CROSS_PREFIX'] + 'ar')
+    env.Replace(RANLIB = os.environ['CROSS_PREFIX'] + 'ranlib')
+    env['ENV']['STAGING_DIR'] = os.environ.get('STAGING_DIR', '')
+if os.environ.has_key('CROSS_PATH'):
+    env['ENV']['PATH'] = ':'.join([ os.environ['CROSS_PATH'], env['ENV']['PATH'] ] )
+if os.environ.has_key('CROSS_CFLAGS'):
+    env.Append(CFLAGS=os.environ['CROSS_CFLAGS'].split())
+if os.environ.has_key('CROSS_LINKFLAGS'):
+    env.Append(LINKFLAGS=os.environ['CROSS_LINKFLAGS'].split())
+
+config = Configure(env)
+has_openssl = config.CheckLib('crypto', 'AES_options', '#include <openssl/aes.h>', 'c', False)
+env = config.Finish()
+
+crypto_opts = [ 'builtin' ]
+default_crypto = 'builtin'
+if has_openssl:
+    crypto_opts.append('openssl')
+    default_crypto = 'openssl'
+    
+vars = Variables()
+vars.Add(EnumVariable('AJ_CRYPTO', 'Select Crypto system to use', os.environ.get('AJ__CRYPTO', default_crypto), crypto_opts))
+vars.Update(env)
+Help(vars.GenerateHelpText(env))
+
+env['use_aj_sw_crypto'] = env['AJ_CRYPTO'] == 'builtin'
+
+# Compiler flags
+env.Append(CFLAGS = [
+    '-pipe',
+    '-funsigned-char',
+    '-fno-strict-aliasing',
+    '-Wall',
+    '-Waggregate-return',
+    '-Wbad-function-cast',
+    '-Wcast-align',
+    '-Wfloat-equal',
+    '-Wformat=2',
+    '-Wlong-long',
+    '-Wmissing-declarations',
+    '-Wmissing-format-attribute',
+    '-Wmissing-prototypes',
+    '-Wno-deprecated-declarations',
+    '-Wpacked',
+    '-Wpointer-arith',
+    '-Wshadow',
+    '-Wundef',
+    '-Wformat-security',
+    '-Werror=format-security',
+    '-Wwrite-strings'
+])
+
+if env['FORCE32']:
+    env.Append(CFLAGS = '-m32')
+    env.Append(LINKFLAGS = '-m32')
+env.Append(CPPDEFINES = [ 'AJ_MAIN' ])
+if env['NO_AUTH']:
+    env.Append(CPPDEFINES = [ 'NO_SECURITY' ])
+
+if env['use_aj_sw_crypto']:
+    env.Append(CPPDEFINES = 'USE_AJ_SW_CRYPTO')
+else:
+    env.Append(LIBS = [ 'crypto' ])
+
+# Debug/Release Variants
+if env['VARIANT'] == 'debug':
+    env.Append(CFLAGS = '-g')
+else:
+    env.Append(CFLAGS = '-Os')
+    env.Append(LINKFLAGS = '-s')
+
+env['build_shared'] = True
+env['connectivity_options'] = [ 'tcp', 'ardp' ]

@@ -22,8 +22,8 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
-#include "aj_target.h"
-#include "aj_msg.h"
+#include <ajtcl/aj_target.h>
+#include <ajtcl/aj_msg.h>
 #include "aj_crypto_sha2.h"
 
 #ifdef __cplusplus

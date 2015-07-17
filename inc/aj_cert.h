@@ -23,9 +23,9 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
-#include "aj_target.h"
-#include "aj_status.h"
-#include "aj_crypto_ecc.h"
+#include <ajtcl/aj_target.h>
+#include <ajtcl/aj_status.h>
+#include <ajtcl/aj_crypto_ecc.h>
 #include "aj_creds.h"
 #include "aj_msg.h"
 

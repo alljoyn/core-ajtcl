@@ -17,8 +17,8 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
-#include "alljoyn.h"
-#include "aj_debug.h"
+#include <ajtcl/alljoyn.h>
+#include <ajtcl/aj_debug.h>
 
 static const char ServiceName[] = "org.alljoyn.ajlite";
 

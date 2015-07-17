@@ -1,0 +1,177 @@
+import os
+
+Import('env')
+
+# Target specific SCons command line variables
+vars = Variables()
+vars.Add(BoolVariable('AJWSL',             'Compile driver for the QCA4004 for a specific platform', os.environ.get('AJ_AJWSL', True)))
+vars.Add(PathVariable('ATMEL_DIR',         'Directory for ATMEL source code',                        os.environ.get('AJ_ATMEL_DIR'),         PathVariable.PathIsDir))
+vars.Add(PathVariable('FREE_RTOS_DIR',     'Directory to FreeRTOS source code',                      os.environ.get('AJ_FREE_RTOS_DIR'),     PathVariable.PathIsDir))
+vars.Add(PathVariable('ARM_TOOLCHAIN_DIR', 'Path to the GNU ARM toolchain bin folder',               os.environ.get('AJ_ARM_TOOLCHAIN_DIR'), PathVariable.PathIsDir))
+vars.Update(env)
+Help(vars.GenerateHelpText(env))
+
+# Disable building unit tests
+env['build_unit_tests'] = False
+
+# Update environment
+if env.has_key('ARM_TOOLCHAIN_DIR'):
+    env['ENV']['PATH'] = ';'.join([ env['ENV']['PATH'], env['ARM_TOOLCHAIN_DIR'] ])
+
+# Cross compile setup
+cross_prefix = 'arm-none-eabi-'
+env.Replace(CC = cross_prefix + 'gcc')
+env.Replace(CXX = cross_prefix + 'g++')
+env.Replace(LINK = cross_prefix + 'gcc')
+env.Replace(AR = cross_prefix + 'ar')
+env.Replace(RANLIB = cross_prefix + 'ranlib')
+
+env.Replace(CCCOM           = '$CC -o $TARGET -c $CFLAGS $CCFLAGS $_CCCOMCOM $SOURCES')
+env.Replace(CPPDEFPREFIX    = '-D')
+env.Replace(OBJSUFFIX       = '.o')
+env.Replace(INCPREFIX       = '-I')
+env.Replace(LIBPREFIX       = 'lib')
+env.Replace(LIBSUFFIX       = '.a')
+env.Replace(PROGPREFIX      = '')
+env.Replace(PROGSUFFIX      = '.elf')
+env.Replace(LIBDIRPREFIX    = '-L')
+env.Replace(LIBDIRSUFFIX    = '')
+env.Replace(LIBLINKPREFIX   = '-l')
+env.Replace(LIBLINKSUFFIX   = '')
+env.Replace(LINKCOM         = '$LINK $PRELINKFLAGS $LINKSCRIPT $LIBPATHS -o $TARGET $__RPATH $SOURCES $_LIBDIRFLAGS $_LIBFLAGS $LINKFLAGS')
+env.Replace(LINKFLAGS       = '')
+env.Replace(CCFLAGS         = '')
+env.Replace(ARFLAGS         = 'rc')
+env.Replace(ARCOM           = '$AR $ARFLAGS $TARGET $SOURCES')
+
+# This was done because scons creates a link file to feed into the linker
+# and arm-none-eabi removes '\' when interpreting a linker file. This
+# prevents scons from creating a link file and just feeding the command line
+# options directly to the compiler/linker
+env['MAXLINELENGTH'] = 10000
+
+# Platform libraries
+env.Append(LIBS = ['c'])
+
+# Compiler flags
+env.Append(CFLAGS = [
+    '-std=gnu99',
+    '-pipe',
+    '-mcpu=cortex-m3',
+    '-mthumb',
+    '-mlong-calls',
+    '-fdata-sections',
+    '-ffunction-sections',
+    '-fno-strict-aliasing',
+    '-Wall',
+    '-Waggregate-return',
+    '-Wbad-function-cast',
+    '-Wcast-align',
+    '-Wfloat-equal',
+    '-Wformat=2',
+    '-Wlong-long',
+    '-Wmissing-declarations',
+    '-Wmissing-format-attribute',
+    '-Wmissing-prototypes',
+    '-Wno-deprecated-declarations',
+    '-Wpacked',
+    '-Wpointer-arith',
+    '-Wshadow',
+    '-Wundef',
+    '-Wformat-security',
+    '-Werror=format-security',
+    '-Wwrite-strings'
+])
+
+# Pre-processor directives
+env.Append(CPPDEFINES = {
+    '__SAM3X8E__':     None,
+    'ARM_MATH_CM3':    'true',
+    'BOARD':           'ARDUINO_DUE_X',
+    'printf':          'iprintf',
+    '_FORTIFY_SOURCE': '1'
+})
+
+# Linker flags
+env.Append(LINKFLAGS = [
+    '-mcpu=cortex-m3',
+    '-mthumb',
+    '-Wl,--gc-sections',
+    '-Wl,-Map,${TARGET.base}.map',
+    '-Wl,--entry=Reset_Handler',
+])
+
+env.Replace(LINKSCRIPT = '-T$ATMEL_DIR/sam/utils/linker_scripts/sam3x/sam3x8/gcc/flash.ld')
+
+# Path to libajtcl.a and standard C libraries
+env.Append(LIBPATH = ['$ATMEL_DIR/thirdparty/CMSIS/Lib/GCC'])
+
+# Add in extra non standard include files
+env.Install('#dist/include/ajtcl', Glob('src/wsl/*.h'))
+env.Install('#dist/include/ajtcl', Glob('src/target/freertos-due/*.h'))
+env.Install('#dist/include/ajtcl', Glob('src/freertos/*.h'))
+env.Install('#dist/include/ajtcl', Glob('src/bsp/*.h'))
+
+# The Atmel software pack requires that you provide "conf_uart_serial.h" as a
+# configurable header file.  Install that file to '#dist/include' where it will
+# be found via the normal -I flags test SCons files use.
+env.Install('#dist/include', Glob('src/target/freertos-due/atmel/conf_uart_serial.h'))
+
+# ATMEL include paths
+env.Append(CPPPATH = Dir([
+    'src/bsp',
+    env['FREE_RTOS_DIR'] + '/Source/include',
+    env['FREE_RTOS_DIR'] + '/Source/portable/GCC/ARM_CM3',
+    env['ATMEL_DIR'] + '/common/boards',
+    env['ATMEL_DIR'] + '/common/services/clock',
+    env['ATMEL_DIR'] + '/common/services/clock/sam3x',
+    env['ATMEL_DIR'] + '/common/services/gpio',
+    env['ATMEL_DIR'] + '/common/services/ioport',
+    env['ATMEL_DIR'] + '/common/services/freertos/sam',
+    env['ATMEL_DIR'] + '/common/services/serial/sam_uart',
+    env['ATMEL_DIR'] + '/common/services/serial',
+    env['ATMEL_DIR'] + '/common/services/spi',
+    env['ATMEL_DIR'] + '/common/services/sam_spi',
+    env['ATMEL_DIR'] + '/common/services/spi/sam_spi/module_config',
+    env['ATMEL_DIR'] + '/common/utils',
+    env['ATMEL_DIR'] + '/common/utils/stdio/stdio_serial',
+    env['ATMEL_DIR'] + '/common/drivers/nvm',
+    env['ATMEL_DIR'] + '/common/nvm/sam/module_config',
+    env['ATMEL_DIR'] + '/sam/boards',
+    env['ATMEL_DIR'] + '/sam/boards/arduino_due_x',
+    env['ATMEL_DIR'] + '/sam/drivers/pio',
+    env['ATMEL_DIR'] + '/sam/drivers/pmc',
+    env['ATMEL_DIR'] + '/sam/drivers/tc',
+    env['ATMEL_DIR'] + '/sam/drivers/trng',
+    env['ATMEL_DIR'] + '/sam/drivers/pdc',
+    env['ATMEL_DIR'] + '/sam/drivers/uart',
+    env['ATMEL_DIR'] + '/sam/drivers/usart',
+    env['ATMEL_DIR'] + '/sam/drivers/spi',
+    env['ATMEL_DIR'] + '/sam/drivers/efc',
+    env['ATMEL_DIR'] + '/sam/drivers/dmac',
+    env['ATMEL_DIR'] + '/sam/drivers/rstc',
+    env['ATMEL_DIR'] + '/sam/utils',
+    env['ATMEL_DIR'] + '/sam/utils/cmsis/sam3x/include',
+    env['ATMEL_DIR'] + '/sam/utils/cmsis/sam3x/source/templates',
+    env['ATMEL_DIR'] + '/sam/utils/cmsis/sam3x/include/component',
+    env['ATMEL_DIR'] + '/sam/utils/header_files',
+    env['ATMEL_DIR'] + '/sam/utils/preprocessor',
+    env['ATMEL_DIR'] + '/sam/services/flash_efc',
+    env['ATMEL_DIR'] + '/thirdparty/CMSIS/Include',
+    env['ATMEL_DIR'] + '/thirdparty/CMSIS/Lib/GCC',
+    env['ATMEL_DIR'] + '/sam/boards/arduino_due_x/board_config',
+    env['ATMEL_DIR'] + '/config',
+    env['ATMEL_DIR'] + '/common/services/clock/sam3x/module_config',
+    env['ATMEL_DIR'] + '/common/services/clock/sam3x',
+    env['ATMEL_DIR'] + '/thirdparty/freertos/freertos-7.3.0/module_config'
+]))
+
+# Debug/Release Variants
+if env['VARIANT'] == 'debug':
+    env.Append(CFLAGS = '-g3')
+else:
+    env.Append(CFLAGS = '-Os')
+    env.Append(LINKFLAGS = '-s')
+
+env['build_shared'] = False
+#env['connectivity_options'] = [ 'tcp', 'ardp' ]

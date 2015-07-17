@@ -24,9 +24,9 @@
 #define AJ_MODULE CERTIFICATE
 
 #include <stdarg.h>
-#include "aj_debug.h"
-#include "aj_cert.h"
-#include "aj_util.h"
+#include <ajtcl/aj_debug.h>
+#include <ajtcl/aj_cert.h>
+#include <ajtcl/aj_util.h>
 
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value

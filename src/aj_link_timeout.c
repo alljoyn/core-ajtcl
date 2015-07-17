@@ -23,9 +23,9 @@
  */
 #define AJ_MODULE LINK_TIMEOUT
 
-#include <aj_link_timeout.h>
-#include "aj_debug.h"
-#include "aj_config.h"
+#include <ajtcl/aj_link_timeout.h>
+#include <ajtcl/aj_debug.h>
+#include <ajtcl/aj_config.h>
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
  * (usually in debugger).

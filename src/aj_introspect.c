@@ -23,16 +23,16 @@
  */
 #define AJ_MODULE INTROSPECT
 
-#include "aj_target.h"
-#include "aj_debug.h"
-#include "aj_introspect.h"
-#include "aj_std.h"
-#include "aj_msg.h"
-#include "aj_msg_priv.h"
-#include "aj_debug.h"
-#include "aj_util.h"
-#include "aj_debug.h"
-#include "aj_config.h"
+#include <ajtcl/aj_target.h>
+#include <ajtcl/aj_debug.h>
+#include <ajtcl/aj_introspect.h>
+#include <ajtcl/aj_std.h>
+#include <ajtcl/aj_msg.h>
+#include <ajtcl/aj_msg_priv.h>
+#include <ajtcl/aj_debug.h>
+#include <ajtcl/aj_util.h>
+#include <ajtcl/aj_debug.h>
+#include <ajtcl/aj_config.h>
 #include "aj_authorisation.h"
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value

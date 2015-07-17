@@ -18,9 +18,9 @@
  ******************************************************************************/
 #define AJ_MODULE SESSIONS_LITE
 
-#include "aj_target.h"
-#include <alljoyn.h>
-#include <aj_debug.h>
+#include <ajtcl/aj_target.h>
+#include <ajtcl/alljoyn.h>
+#include <ajtcl/aj_debug.h>
 
 uint8_t dbgSESSIONS_LITE = 0;
 

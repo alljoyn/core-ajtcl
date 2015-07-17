@@ -18,15 +18,15 @@
  ******************************************************************************/
 #define AJ_MODULE DEBUG
 
-#include "aj_debug.h"
+#include <ajtcl/aj_debug.h>
 
 uint8_t dbgDEBUG = 0;
 
 #ifndef NDEBUG
 
-#include "aj_target.h"
-#include "aj_util.h"
-#include "aj_config.h"
+#include <ajtcl/aj_target.h>
+#include <ajtcl/aj_util.h>
+#include <ajtcl/aj_config.h>
 
 #define Printable(c) (((c) >= ' ') && ((c) <= '~')) ? (c) : '.'
 

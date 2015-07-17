@@ -21,8 +21,8 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <aj_debug.h>
-#include <alljoyn.h>
+#include <ajtcl/aj_debug.h>
+#include <ajtcl/alljoyn.h>
 
 static const char ServiceName[] = "org.alljoyn.Bus.sample";
 static const char ServicePath[] = "/sample";

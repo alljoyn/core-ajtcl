@@ -24,16 +24,15 @@
 #include <stdlib.h>
 #include <assert.h>
 
-#include "alljoyn.h"
-#include "aj_debug.h"
-#include "aj_helper.h"
-#include "aj_debug.h"
-#include "aj_config.h"
-#include "aj_net.h"
-#include "aj_bus.h"
-#include "aj_disco.h"
-#include "aj_wifi_ctrl.h"
-#include "aj_guid.h"
+#include <ajtcl/alljoyn.h>
+#include <ajtcl/aj_debug.h>
+#include <ajtcl/aj_helper.h>
+#include <ajtcl/aj_config.h>
+#include <ajtcl/aj_net.h>
+#include <ajtcl/aj_bus.h>
+#include <ajtcl/aj_disco.h>
+#include <ajtcl/aj_wifi_ctrl.h>
+#include <ajtcl/aj_guid.h>
 
 #ifndef NDEBUG
 AJ_EXPORT uint8_t dbgNETBUSSAMPLE = 0;

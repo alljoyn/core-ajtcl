@@ -23,14 +23,14 @@
  */
 #define AJ_MODULE AUTHENTICATION
 
-#include "aj_target.h"
-#include "aj_debug.h"
-#include "aj_authentication.h"
-#include "aj_cert.h"
-#include "aj_peer.h"
-#include "aj_creds.h"
-#include "aj_auth_listener.h"
-#include "aj_crypto.h"
+#include <ajtcl/aj_target.h>
+#include <ajtcl/aj_debug.h>
+#include <ajtcl/aj_authentication.h>
+#include <ajtcl/aj_cert.h>
+#include <ajtcl/aj_peer.h>
+#include <ajtcl/aj_creds.h>
+#include <ajtcl/aj_auth_listener.h>
+#include <ajtcl/aj_crypto.h>
 
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
@@ -41,7 +41,7 @@ uint8_t dbgAUTHENTICATION = 0;
 #endif
 
 #define SIG_FMT            0
-#define AUTH_VERIFIER_LEN  SHA256_DIGEST_LENGTH
+#define AUTH_VERIFIER_LEN  AJ_SHA256_DIGEST_LENGTH
 
 static AJ_Status ComputeMasterSecret(AJ_AuthenticationContext* ctx, uint8_t* pms, size_t len)
 {
@@ -62,7 +62,7 @@ static AJ_Status ComputeVerifier(AJ_AuthenticationContext* ctx, const char* labe
 {
     const uint8_t* data[3];
     uint8_t lens[3];
-    uint8_t digest[SHA256_DIGEST_LENGTH];
+    uint8_t digest[AJ_SHA256_DIGEST_LENGTH];
 
     AJ_SHA256_GetDigest(&ctx->hash, digest, 1);
 
@@ -635,7 +635,7 @@ static AJ_Status ECDSAUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
     AJ_Status status;
     AJ_Arg container1;
     AJ_Arg container2;
-    uint8_t digest[SHA256_DIGEST_LENGTH];
+    uint8_t digest[AJ_SHA256_DIGEST_LENGTH];
     const char* variant;
     uint8_t fmt;
     DER_Element der;

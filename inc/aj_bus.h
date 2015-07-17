@@ -22,11 +22,11 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
-#include "aj_target.h"
-#include "aj_net.h"
-#include "aj_status.h"
-#include "aj_util.h"
-#include "aj_auth_listener.h"
+#include <ajtcl/aj_target.h>
+#include <ajtcl/aj_net.h>
+#include <ajtcl/aj_status.h>
+#include <ajtcl/aj_util.h>
+#include <ajtcl/aj_auth_listener.h>
 
 #ifdef __cplusplus
 extern "C" {

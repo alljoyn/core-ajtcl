@@ -23,33 +23,33 @@
  */
 #define AJ_MODULE CONNECT
 
-#include "aj_target.h"
-#include "aj_status.h"
-#include "aj_bufio.h"
-#include "aj_msg.h"
-#include "aj_connect.h"
-#include "aj_introspect.h"
-#include "aj_net.h"
-#include "aj_bus.h"
-#include "aj_disco.h"
-#include "aj_std.h"
-#include "aj_debug.h"
-#include "aj_config.h"
-#include "aj_creds.h"
-#include "aj_peer.h"
+#include <ajtcl/aj_target.h>
+#include <ajtcl/aj_status.h>
+#include <ajtcl/aj_bufio.h>
+#include <ajtcl/aj_msg.h>
+#include <ajtcl/aj_connect.h>
+#include <ajtcl/aj_introspect.h>
+#include <ajtcl/aj_net.h>
+#include <ajtcl/aj_bus.h>
+#include <ajtcl/aj_disco.h>
+#include <ajtcl/aj_std.h>
+#include <ajtcl/aj_debug.h>
+#include <ajtcl/aj_config.h>
+#include <ajtcl/aj_creds.h>
+#include <ajtcl/aj_peer.h>
 #include "aj_authorisation.h"
 
 #ifdef AJ_ARDP
-#include "aj_ardp.h"
+#include <ajtcl/aj_ardp.h>
 #endif
-#include "aj_crypto.h"
+#include <ajtcl/aj_crypto.h>
 
 #if !(defined(ARDUINO) || defined(__linux) || defined(_WIN32) || defined(__MACH__))
-#include "aj_wifi_ctrl.h"
+#include <ajtcl/aj_wifi_ctrl.h>
 #endif
 
 #ifdef AJ_SERIAL_CONNECTION
-#include "aj_serial.h"
+#include <ajtcl/aj_serial.h>
 #endif
 
 /**
@@ -115,12 +115,14 @@ static AJ_Status SendHello(AJ_BusAttachment* bus)
     return status;
 }
 
-static void ResetRead(AJ_IOBuffer* rxBuf) {
+static void ResetRead(AJ_IOBuffer* rxBuf)
+{
     rxBuf->readPtr += AJ_IO_BUF_AVAIL(rxBuf);
     *rxBuf->writePtr = '\0';
 }
 
-static AJ_Status ReadLine(AJ_IOBuffer* rxBuf) {
+static AJ_Status ReadLine(AJ_IOBuffer* rxBuf)
+{
     /*
      * All the authentication messages end in a CR/LF so read until we get a newline
      */
@@ -134,7 +136,8 @@ static AJ_Status ReadLine(AJ_IOBuffer* rxBuf) {
     return status;
 }
 
-static AJ_Status WriteLine(AJ_IOBuffer* txBuf, char* line) {
+static AJ_Status WriteLine(AJ_IOBuffer* txBuf, char* line)
+{
     strcpy((char*) txBuf->writePtr, line);
     txBuf->writePtr += strlen(line);
     return txBuf->send(txBuf);
@@ -147,7 +150,8 @@ static AJ_Status WriteLine(AJ_IOBuffer* txBuf, char* line) {
  * Thin Client.  All thin clients will connect as untrusted clients to the
  * routing node.
  */
-static AJ_Status AnonymousAuthAdvance(AJ_IOBuffer* rxBuf, AJ_IOBuffer* txBuf) {
+static AJ_Status AnonymousAuthAdvance(AJ_IOBuffer* rxBuf, AJ_IOBuffer* txBuf)
+{
     AJ_Status status = AJ_OK;
     AJ_GUID localGuid;
     char buf[40];
@@ -268,7 +272,7 @@ AJ_Status AJ_Authenticate(AJ_BusAttachment* bus)
     bus->sock.tx.writePtr += 1;
     status = bus->sock.tx.send(&bus->sock.tx);
     if (status != AJ_OK) {
-        AJ_InfoPrintf(("AJ_Authenticate(): status=%s\n", AJ_StatusText(status)));
+        AJ_ErrPrintf(("AJ_Authenticate(): status=%s\n", AJ_StatusText(status)));
         goto ExitConnect;
     }
 
@@ -542,6 +546,7 @@ AJ_Status AJ_FindBusAndConnect(AJ_BusAttachment* bus, const char* serviceName, u
             AJ_InfoPrintf(("AJ_FindBusAndConnect(): Blacklisting routing node"));
             // only TCP can fail to authenticate here
             AddRoutingNodeToBlacklist(&service, AJ_ADDR_TCP4);
+            AJ_Disconnect(bus);
             // try again
             finished = FALSE;
             connectionTime -= AJ_GetElapsedTime(&connectionTimer, FALSE);
@@ -678,6 +683,7 @@ void AJ_Disconnect(AJ_BusAttachment* bus)
      * We won't be getting any more method replies.
      */
     AJ_ReleaseReplyContexts();
+
     /*
      * Disconnect the network closing sockets etc.
      */

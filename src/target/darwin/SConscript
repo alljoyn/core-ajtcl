@@ -1,0 +1,11 @@
+Import('src_env')
+
+# Enable common components for Linux
+src_env['crypto'] = True
+src_env['crypto_ecc'] = True
+src_env['external_sha2'] = True
+src_env['malloc'] = True
+src_env['nvram'] = True
+
+# Build target source
+src_env['srcs'] += src_env.Glob('*.c')

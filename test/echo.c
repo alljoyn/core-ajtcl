@@ -17,11 +17,11 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 #include <stdio.h>
-#include "alljoyn.h"
-#include "aj_util.h"
-#include "aj_debug.h"
-#include "aj_bufio.h"
-#include "aj_serial.h"
+#include <ajtcl/alljoyn.h>
+#include <ajtcl/aj_util.h>
+#include <ajtcl/aj_debug.h>
+#include <ajtcl/aj_bufio.h>
+#include <ajtcl/aj_serial.h>
 
 
 #define BITRATE B115200

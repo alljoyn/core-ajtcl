@@ -17,9 +17,9 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
-#include <aj_crypto.h>
-#include <aj_nvram.h>
-#include <alljoyn.h>
+#include <ajtcl/alljoyn.h>
+#include <ajtcl/aj_nvram.h>
+#include <ajtcl/aj_crypto.h>
 
 /* Forward Declaration */
 AJ_Status CreateTrailOfBreadcrumbs(void);

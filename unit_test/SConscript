@@ -1,24 +1,20 @@
-# Copyright AllSeen Alliance. All rights reserved.
-#
-#    Permission to use, copy, modify, and/or distribute this software for any
-#    purpose with or without fee is hereby granted, provided that the above
-#    copyright notice and this permission notice appear in all copies.
-#
-#    THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
-#    WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-#    MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
-#    ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
-#    WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
-#    ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
-#    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
-#
 import os
+import platform
 
 Import('env')
 
-if(not(env.has_key('GTEST_DIR'))):
-    print('GTEST_DIR not specified skipping ajtcl unit test build')
+if platform.system() == 'Linux' and os.path.exists('/usr/src/gtest'):
+    # Use the googletest from the system package as a default if it is installed.
+    default_gtest_dir = '/usr'
 else:
+    default_gtest_dir = None
+
+vars = Variables()
+vars.Add(PathVariable('GTEST_DIR', 'The path to googletest sources', os.environ.get('GTEST_DIR', default_gtest_dir), PathVariable.PathIsDir))
+vars.Update(env)
+Help(vars.GenerateHelpText(env))
+
+if env.has_key('GTEST_DIR') and os.path.exists(os.path.join(env['GTEST_DIR'], 'include', 'gtest', 'gtest.h')) and env['build_unit_tests']:
     gtest_env = env.Clone();
     gtest_dir = gtest_env['GTEST_DIR']
     vars = Variables();
@@ -30,7 +26,7 @@ else:
     else:
         gtest_src_base = gtest_dir
 
-    if(env['TARG'] == 'win32'):
+    if env['TARG'] == 'win32':
         # gTest needs different CPPDEFINES as compared to AllJoyn TCL.
         gtest_env.Append(CPPDEFINES = ['WIN32', '_LIB'])
         gtest_env.Append(CXXFLAGS = ['/wd4355', '/vmm', '/vmg', '/MDd', '/Od', '/Gd', '/Ob1', '/EHsc'])
@@ -40,58 +36,43 @@ else:
         if(env['MSVC_VERSION'] == '11.0' or env['MSVC_VERSION'] == '11.0Exp'):
             gtest_env.Append(CPPDEFINES = ['_VARIADIC_MAX=10'])
 
-    # We compile with no rtti and no exceptions
-    gtest_env.Append(CPPDEFINES = ['GTEST_HAS_RTTI=0'])
-    gtest_env.Append(CPPDEFINES = ['GTEST_HAS_EXCEPTIONS=0'])
-    # In case of thin client, we would also prefer not to use threads
-    gtest_env.Append(CPPDEFINES = ['GTEST_HAS_PTHREAD=0'])
+    # We compile with no rtti, no exceptions and no threads
+    gtest_env.Append(CPPDEFINES = { 'GTEST_HAS_RTTI': '0',
+                                    'GTEST_HAS_EXCEPTIONS': '0',
+                                    'GTEST_HAS_PTHREAD': '0' })
     # we replace AllJoyn's include CPPPATH options.
     gtest_env.Replace(CPPPATH = [ gtest_src_base ])
     if gtest_dir != '/usr':
         gtest_env.Append(CPPPATH = [ gtest_env.Dir('$GTEST_DIR/include') ])
 
     gtest_obj = gtest_env.StaticObject(target = 'gtest-all', source = [ '%s/src/gtest-all.cc' % gtest_src_base ])
-    gtest_env.StaticLibrary(target = 'gtest', source = gtest_obj)
+    gtest_lib = gtest_env.StaticLibrary(target = 'gtest', source = gtest_obj)
 
     test_src = env.Glob('*.cc')
 
     unittest_env = env.Clone()
+    unittest_env.Append(LIBPATH = "#dist/lib")
+    unittest_env.Append(LIBS = "ajtcl")
 
     gtest_dir = unittest_env['GTEST_DIR']
     if gtest_dir != '/usr':
         unittest_env.Append(CPPPATH = [gtest_dir + '/include'])
 
-    # The unit test code needs to find the AllJoyn Thin Client include files
-    unittest_env.Append(CPPPATH = [env['includes']])
-
-    if(env['TARG'] == 'win32'):
-        unittest_env.Append(CXXFLAGS = ['/wd4355', '/vmm', '/vmg', '/MDd', '/Od', '/Gd', '/Ob1', '/EHsc'])
-        if(env['MSVC_VERSION'] == '11.0' or env['MSVC_VERSION'] == '11.0Exp'):
-            unittest_env.Append(CPPDEFINES = ['_VARIADIC_MAX=10'])
-
-
-    unittest_env.Append(CPPDEFINES = ['GTEST_HAS_RTTI=0'])
-    unittest_env.Append(CPPDEFINES = ['GTEST_HAS_EXCEPTIONS=0'])
-    unittest_env.Append(CPPDEFINES = ['GTEST_HAS_PTHREAD=0'])
-
-    if(env['TARG'] == 'linux'):
-        unittest_env.Append(CXXFLAGS=['-Wall',
-                                      '-pipe',
-                                      '-funsigned-char',
-                                      '-fno-strict-aliasing'])
-        if unittest_env['VARIANT'] == 'debug':
-            unittest_env.Append(CXXFLAGS='-g')
-
-        unittest_env.Append(LIBS = ['rt', 'crypto'])
+    unittest_env.Append(CPPDEFINES = { 'GTEST_HAS_RTTI': '0',
+                                       'GTEST_HAS_EXCEPTIONS': '0',
+                                       'GTEST_HAS_PTHREAD': '0' })
 
     #gtest library file is placed in the same directory
-    unittest_env.Append(LIBPATH = ['./'])
-    unittest_env.Prepend(LIBS = ['gtest'])
+    unittest_env.Append(LIBPATH = [ Dir('.') ])
+    unittest_env.Prepend(LIBS = [ gtest_lib ])
 
     objs = [ unittest_env.Object(test_src) ]
 
-    if(env['TARG'] == 'win32'):
+    if env['TARG'] == 'win32':
+        unittest_env.Append(CXXFLAGS = ['/wd4355', '/vmm', '/vmg', '/MDd', '/Od', '/Gd', '/Ob1', '/EHsc'])
         unittest_env.Append(LFLAGS=['/NODEFAULTLIB:msvcrt.lib'])
         unittest_env.Append(LINKFLAGS=['/NODEFAULTLIB:msvcrt.lib'])
+        unittest_env.Append(CXXFLAGS = ['/wd4355', '/vmm', '/vmg', '/MDd', '/Od', '/Gd', '/Ob1', '/EHsc'])
 
-    unittest_prog = unittest_env.Program('ajtcltest', objs + unittest_env['aj_obj'])
+    unittest_prog = unittest_env.Program('ajtcltest', objs)
+    unittest_env.Install('#dist/test', unittest_prog)

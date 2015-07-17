@@ -17,7 +17,7 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
-#include "aj_crc16.h"
+#include <ajtcl/aj_crc16.h>
 
 
 static const uint16_t crc16[256] = {

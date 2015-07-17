@@ -27,12 +27,12 @@ extern "C" {
 
 #define AJ_MODULE ARDP
 
-#include "aj_ardp.h"
-#include "aj_msg.h"
-#include "aj_net.h"
-#include "aj_crypto.h"
-#include "aj_debug.h"
-#include "aj_util.h"
+#include <ajtcl/aj_ardp.h>
+#include <ajtcl/aj_msg.h>
+#include <ajtcl/aj_net.h>
+#include <ajtcl/aj_crypto.h>
+#include <ajtcl/aj_debug.h>
+#include <ajtcl/aj_util.h>
 
 #ifndef NDEBUG
 uint8_t dbgARDP = 0;

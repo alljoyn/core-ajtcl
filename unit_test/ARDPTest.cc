@@ -20,9 +20,9 @@
 
 #include <gtest/gtest.h>
 
-#include "aj_debug.h"
-#include "alljoyn.h"
-#include "aj_ardp.h"
+#include <ajtcl/aj_debug.h>
+#include <ajtcl/alljoyn.h>
+#include <ajtcl/aj_ardp.h>
 
 #define ARDP_FLAG_SYN  0x01    /**< Control flag. Request to open a connection.  Must be separate segment. */
 #define ARDP_FLAG_ACK  0x02    /**< Control flag. Acknowledge a segment. May accompany message */

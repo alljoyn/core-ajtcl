@@ -19,10 +19,10 @@
 #define AJ_MODULE EVENTACTION_SERVICE
 
 #include <stdio.h>
-#include <aj_debug.h>
-#include <aj_guid.h>
-#include <aj_creds.h>
-#include "alljoyn.h"
+#include <ajtcl/aj_debug.h>
+#include <ajtcl/aj_guid.h>
+#include <ajtcl/aj_creds.h>
+#include <ajtcl/alljoyn.h>
 
 #define CONNECT_ATTEMPTS   10
 static const char ServiceName[] = "org.alljoyn.Bus.eventaction.sample";

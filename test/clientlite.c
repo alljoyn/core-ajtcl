@@ -25,14 +25,14 @@
 #define SECURE_OBJECT
 #endif
 
-#include <aj_target.h>
-#include <alljoyn.h>
-#include <aj_cert.h>
-#include <aj_peer.h>
-#include <aj_creds.h>
-#include <aj_auth_listener.h>
-#include <aj_authentication.h>
-#include "aj_config.h"
+#include <ajtcl/aj_target.h>
+#include <ajtcl/alljoyn.h>
+#include <ajtcl/aj_cert.h>
+#include <ajtcl/aj_peer.h>
+#include <ajtcl/aj_creds.h>
+#include <ajtcl/aj_auth_listener.h>
+#include <ajtcl/aj_authentication.h>
+#include <ajtcl/aj_config.h>
 
 uint8_t dbgCLIENTLITE = 1;
 

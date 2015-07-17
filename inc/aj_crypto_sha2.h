@@ -22,19 +22,24 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
-#include "aj_target.h"
-#include "aj_status.h"
+#include <ajtcl/aj_target.h>
+#include <ajtcl/aj_status.h>
 
-#include "sha2.h"
+#define AJ_SHA256_BLOCK_LENGTH  64
+#define AJ_SHA256_DIGEST_LENGTH 32
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-typedef SHA256_CTX AJ_SHA256_Context;
+typedef struct _AJ_SHA256_Context {
+    uint32_t state[8];
+    uint64_t bitcount;
+    uint8_t buffer[AJ_SHA256_DIGEST_LENGTH];
+} AJ_SHA256_Context;
 
-#define HMAC_SHA256_DIGEST_LENGTH SHA256_DIGEST_LENGTH
-#define HMAC_SHA256_BLOCK_LENGTH  64
+#define HMAC_SHA256_DIGEST_LENGTH AJ_SHA256_DIGEST_LENGTH
+#define HMAC_SHA256_BLOCK_LENGTH  AJ_SHA256_BLOCK_LENGTH
 
 typedef struct _AJ_HMAC_SHA256_CTX {
     uint8_t ipad[HMAC_SHA256_BLOCK_LENGTH];

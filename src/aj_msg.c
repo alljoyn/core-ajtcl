@@ -25,25 +25,25 @@
 
 #include <stdarg.h>
 
-#include "aj_target.h"
-#include "aj_status.h"
-#include "aj_msg.h"
-#include "aj_msg_priv.h"
-#include "aj_bufio.h"
-#include "aj_connect.h"
-#include "aj_guid.h"
-#include "aj_peer.h"
-#include "aj_util.h"
-#include "aj_crypto.h"
-#include "aj_introspect.h"
-#include "aj_std.h"
-#include "aj_bus.h"
-#include "aj_debug.h"
-#include "aj_config.h"
+#include <ajtcl/aj_target.h>
+#include <ajtcl/aj_status.h>
+#include <ajtcl/aj_msg.h>
+#include <ajtcl/aj_msg_priv.h>
+#include <ajtcl/aj_bufio.h>
+#include <ajtcl/aj_connect.h>
+#include <ajtcl/aj_guid.h>
+#include <ajtcl/aj_peer.h>
+#include <ajtcl/aj_util.h>
+#include <ajtcl/aj_crypto.h>
+#include <ajtcl/aj_introspect.h>
+#include <ajtcl/aj_std.h>
+#include <ajtcl/aj_bus.h>
+#include <ajtcl/aj_debug.h>
+#include <ajtcl/aj_config.h>
 #include "aj_authorisation.h"
 
 #ifdef AJ_ARDP
-#include "aj_ardp.h"
+#include <ajtcl/aj_ardp.h>
 #endif
 
 /**
