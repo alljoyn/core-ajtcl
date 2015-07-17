@@ -88,6 +88,7 @@ vars.Add(EnumVariable('VARIANT',        'Build variant',               os.enviro
 vars.Add(EnumVariable('DEBUG_RESTRICT', 'Set compiled in debug level', os.environ.get('AJ_DEBUG_RESTRICT'),       allowed_values = debug_restrict_options))
 vars.Add('CC',  'C Compiler override')
 vars.Add('CXX', 'C++ Compiler override')
+vars.Add(EnumVariable('NDEBUG', 'Override NDEBUG default for release variant', 'defined', allowed_values=('defined', 'undefined')))
 vars.Update(env)
 Help(vars.GenerateHelpText(env))
 
@@ -142,7 +143,7 @@ env = config.Finish()
 #######################################################
 if env.has_key('DEBUG_RESTRICT'):
     env.Append(CPPDEFINES = { 'AJ_DEBUG_RESTRICT' : env['DEBUG_RESTRICT'] })
-if env['VARIANT'] == 'release':
+if env['VARIANT'] == 'release' and env['NDEBUG'] == 'defined':
     env.Append(CPPDEFINES = [ 'NDEBUG' ])
 
 env.Append(CPPDEFINES = [ 'AJ_' + conn for conn in env['connectivity'] ])
