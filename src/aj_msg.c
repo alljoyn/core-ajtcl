@@ -937,7 +937,7 @@ AJ_Status AJ_ResetArgs(AJ_Message* msg)
     AJ_ASSERT(msg->sigOffset == strlen(msg->signature));
     if (status == AJ_OK) {
         AJ_IOBuffer* ioBuf = &msg->bus->sock.rx;
-        size_t hdrSize = sizeof(AJ_MsgHeader) + msg->hdr->headerLen + ((8 - msg->hdr->headerLen) & 7);
+        size_t hdrSize = sizeof(AJ_MsgHeader) + msg->hdr->headerLen + HEADERPAD(msg->hdr->headerLen);
         /*
          * Args have already been converted to native endianess in place in the input buffer, this
          * prevents the unmarshaler from incorrectly undoing the conversion.
@@ -1110,7 +1110,7 @@ AJ_Status AJ_UnmarshalMsg(AJ_BusAttachment* bus, AJ_Message* msg, uint32_t timeo
     /*
      * The header is null-padded to an 8-byte boundary
      */
-    hdrPad = (8 - msg->hdr->headerLen) & 7;
+    hdrPad = HEADERPAD(msg->hdr->headerLen);
     /*
      * Make sure the header (plus pad) isn't going to overrun the buffer
      * and that the total header length doesn't overflow.
@@ -1593,7 +1593,7 @@ AJ_Status AJ_UnmarshalRaw(AJ_Message* msg, const void** data, size_t len, size_t
     AJ_Status status;
     size_t sz;
     AJ_IOBuffer* ioBuf = &msg->bus->sock.rx;
-    size_t hdrSize = 8 + msg->hdr->headerLen + ((8 - msg->hdr->headerLen) & 7);
+    size_t hdrSize = sizeof(AJ_MsgHeader) + msg->hdr->headerLen + HEADERPAD(msg->hdr->headerLen);
 
     /*
      * A sig offset of 0xFF indicates we are already doing raw unnmarshaling
@@ -2017,7 +2017,7 @@ static AJ_Status MarshalMsg(AJ_Message* msg, uint8_t msgType, uint32_t msgId, ui
         /*
          * Header must be padded to an 8 byte boundary
          */
-        status = WritePad(msg, (8 - msg->hdr->headerLen) & 7);
+        status = WritePad(msg, HEADERPAD(msg->hdr->headerLen));
     }
     return status;
 }

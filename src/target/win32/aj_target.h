@@ -22,7 +22,7 @@
 #include <stdio.h>
 #include <stddef.h>
 #include <windows.h>
-#include <assert.h>
+#include <crtdbg.h>
 
 #if _MSC_VER >= 1600   /* MSVC 2010 or higher */
 #include <stdint.h>
@@ -72,7 +72,7 @@ extern uint8_t dbgTARGET_UTIL;
 
 #endif
 
-#define AJ_ASSERT(x)  assert(x)
+#define AJ_ASSERT(x)  _ASSERT(x)
 
 /*
  * AJ_Reboot() is a NOOP on this platform

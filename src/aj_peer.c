@@ -57,7 +57,7 @@ uint8_t dbgPEER = 0;
  * The base authentication version number
  */
 #define MIN_AUTH_VERSION  0x0002
-#define MAX_AUTH_VERSION  0x0003
+#define MAX_AUTH_VERSION  0x0004
 
 #define REQUIRED_AUTH_VERSION  (((uint32_t)MAX_AUTH_VERSION << 16) | MIN_KEYGEN_VERSION)
 
@@ -398,6 +398,7 @@ AJ_Status AJ_PeerAuthenticate(AJ_BusAttachment* bus, const char* peerName, AJ_Pe
     AJ_InitTimer(&peerContext.timer);
     authContext.bus = bus;
     authContext.role = AUTH_CLIENT;
+    AJ_ConversationHash_Initialize(&authContext);
     if (bus->pwdCallback) {
         AJ_EnableSuite(bus, AUTH_SUITE_ECDHE_PSK);
     }
@@ -422,6 +423,12 @@ AJ_Status AJ_PeerAuthenticate(AJ_BusAttachment* bus, const char* peerName, AJ_Pe
     if (AJ_OK != status) {
         return status;
     }
+    /* At this point, we don't know for sure if we're using CONVERSATION_V4. For now we're assuming
+     * so and hashing, since we won't have this message content after the call to AJ_DeliverMsg.
+     * When we get the ExchangeGuids reply, if we discover the peer doesn't support CONVERSATION_V4,
+     * we'll clear the hash and fall back to the older version at that point.
+     */
+    AJ_ConversationHash_Update_Message(&authContext, CONVERSATION_V4, &msg, 1);
     return AJ_DeliverMsg(&msg);
 }
 
@@ -453,6 +460,7 @@ AJ_Status AJ_PeerHandleExchangeGUIDs(AJ_Message* msg, AJ_Message* reply)
     AJ_InitTimer(&peerContext.timer);
     authContext.bus = msg->bus;
     authContext.role = AUTH_SERVER;
+    AJ_ConversationHash_Initialize(&authContext);
     if (msg->bus->pwdCallback) {
         AJ_EnableSuite(msg->bus, AUTH_SUITE_ECDHE_PSK);
     }
@@ -520,6 +528,12 @@ AJ_Status AJ_PeerHandleExchangeGUIDs(AJ_Message* msg, AJ_Message* reply)
     if (AJ_OK != status) {
         goto Exit;
     }
+
+    /*
+     * Now that we know the authentication version, update the conversation hash.
+     */
+    AJ_ConversationHash_Update_Message(&authContext, CONVERSATION_V4, msg, 0);
+    AJ_ConversationHash_Update_Message(&authContext, CONVERSATION_V4, reply, 1);
 
     return status;
 
@@ -591,6 +605,17 @@ AJ_Status AJ_PeerHandleExchangeGUIDsReply(AJ_Message* msg)
     AJ_AccessControlReset(msg->sender);
 
     /*
+     * Now that we know the auth version, determine if we're operating at at least
+     * CONVERSATION_V4. If we aren't, we already put the exchange GUIDs request
+     * into the hash in AJ_PeerAuthenticate, so reset it.
+     */
+    if ((authContext.version >> 16) < CONVERSATION_V4) {
+        AJ_ConversationHash_Initialize(&authContext);
+    } else {
+        AJ_ConversationHash_Update_Message(&authContext, CONVERSATION_V4, msg, 0);
+    }
+
+    /*
      * If we have a mastersecret stored - use it
      */
     status = LoadMasterSecret(peerContext.peerGuid);
@@ -656,6 +681,8 @@ static AJ_Status ExchangeSuites(AJ_Message* msg)
         goto Exit;
     }
 
+    AJ_ConversationHash_Update_Message(&authContext, CONVERSATION_V4, &call, 1);
+
     return AJ_DeliverMsg(&call);
 
 Exit:
@@ -680,7 +707,6 @@ AJ_Status AJ_PeerHandleExchangeSuites(AJ_Message* msg, AJ_Message* reply)
     }
 
     authContext.role = AUTH_SERVER;
-    AJ_SHA256_Init(&authContext.hash);
 
     /*
      * Receive suites
@@ -720,10 +746,17 @@ AJ_Status AJ_PeerHandleExchangeSuites(AJ_Message* msg, AJ_Message* reply)
         goto Exit;
     }
 
+    AJ_ConversationHash_Update_Message(&authContext, CONVERSATION_V4, msg, 0);
+    AJ_ConversationHash_Update_Message(&authContext, CONVERSATION_V4, reply, 1);
+
     AJ_InfoPrintf(("Exchange Suites Complete\n"));
     return status;
 
 Exit:
+
+    if (AJ_OK != status) {
+        AJ_WarnPrintf(("AJ_PeerHandleExchangeSuites(msg=%p, reply=%p): Marshal error\n", msg, reply));
+    }
 
     HandshakeComplete(AJ_ERR_SECURITY);
     return AJ_MarshalErrorMsg(msg, reply, AJ_ErrSecurityViolation);
@@ -777,6 +810,7 @@ AJ_Status AJ_PeerHandleExchangeSuitesReply(AJ_Message* msg)
      * Exchange suites complete.
      */
     AJ_InfoPrintf(("Exchange Suites Complete\n"));
+    AJ_ConversationHash_Update_Message(&authContext, CONVERSATION_V4, msg, 0);
     status = KeyExchange(msg->bus);
     return status;
 
@@ -812,13 +846,15 @@ static AJ_Status KeyExchange(AJ_BusAttachment* bus)
     }
 
     HostU32ToBigEndianU8(&authContext.suite, sizeof (authContext.suite), suiteb8);
-    AJ_SHA256_Update(&authContext.hash, suiteb8, sizeof (suiteb8));
+    AJ_ConversationHash_Update_UInt8Array(&authContext, CONVERSATION_V1, suiteb8, sizeof (suiteb8));
     status = AJ_KeyExchangeMarshal(&authContext, &call);
     if (AJ_OK != status) {
         AJ_WarnPrintf(("KeyExchange(bus=%p): Key exchange marshal error\n", bus));
         goto Exit;
     }
-
+    if (AUTH_CLIENT == authContext.role) {
+        AJ_ConversationHash_Update_Message(&authContext, CONVERSATION_V4, &call, 1);
+    }
     return AJ_DeliverMsg(&call);
 
 Exit:
@@ -851,7 +887,7 @@ AJ_Status AJ_PeerHandleKeyExchange(AJ_Message* msg, AJ_Message* reply)
         goto Exit;
     }
     HostU32ToBigEndianU8(&authContext.suite, sizeof (authContext.suite), suiteb8);
-    AJ_SHA256_Update(&authContext.hash, suiteb8, sizeof (suiteb8));
+    AJ_ConversationHash_Update_UInt8Array(&authContext, CONVERSATION_V1, suiteb8, sizeof (suiteb8));
 
     /*
      * Receive key material
@@ -861,6 +897,8 @@ AJ_Status AJ_PeerHandleKeyExchange(AJ_Message* msg, AJ_Message* reply)
         AJ_InfoPrintf(("AJ_PeerHandleKeyExchange(msg=%p, reply=%p): Key exchange unmarshal error\n", msg, reply));
         goto Exit;
     }
+
+    AJ_ConversationHash_Update_Message(&authContext, CONVERSATION_V4, msg, 0);
 
     /*
      * Send key material
@@ -873,12 +911,13 @@ AJ_Status AJ_PeerHandleKeyExchange(AJ_Message* msg, AJ_Message* reply)
     if (AJ_OK != status) {
         goto Exit;
     }
-    AJ_SHA256_Update(&authContext.hash, (uint8_t*) suiteb8, sizeof (suiteb8));
+    AJ_ConversationHash_Update_UInt8Array(&authContext, CONVERSATION_V1, (uint8_t*)suiteb8, sizeof(suiteb8));
     status = AJ_KeyExchangeMarshal(&authContext, reply);
     if (AJ_OK != status) {
         AJ_WarnPrintf(("AJ_PeerHandleKeyExchange(msg=%p, reply=%p): Key exchange marshal error\n", msg, reply));
         goto Exit;
     }
+    AJ_ConversationHash_Update_Message(&authContext, CONVERSATION_V4, reply, 1);
     peerContext.state = AJ_AUTH_EXCHANGED;
     AJ_InfoPrintf(("Key Exchange Complete\n"));
     return status;
@@ -926,7 +965,7 @@ AJ_Status AJ_PeerHandleKeyExchangeReply(AJ_Message* msg)
         goto Exit;
     }
     HostU32ToBigEndianU8(&suite, sizeof (suite), suiteb8);
-    AJ_SHA256_Update(&authContext.hash, suiteb8, sizeof (suiteb8));
+    AJ_ConversationHash_Update_UInt8Array(&authContext, CONVERSATION_V1, suiteb8, sizeof(suiteb8));
     status = AJ_KeyExchangeUnmarshal(&authContext, msg);
     if (AJ_OK != status) {
         AJ_WarnPrintf(("AJ_PeerHandleKeyExchangeReply(msg=%p): Key exchange unmarshal error\n", msg));
@@ -967,11 +1006,17 @@ static AJ_Status KeyAuthentication(AJ_Message* msg)
         AJ_WarnPrintf(("AJ_KeyAuthentication(msg=%p): Key authentication marshal error\n", msg));
         goto Exit;
     }
+    /* msg must be hashed in before the call to AJ_KeyAuthenticationMarshal because the verifier gets
+     * computed inside it.
+     */
+    AJ_ConversationHash_Update_Message(&authContext, CONVERSATION_V4, msg, 0);
     status = AJ_KeyAuthenticationMarshal(&authContext, &call);
     if (AJ_OK != status) {
         AJ_WarnPrintf(("AJ_KeyAuthentication(msg=%p): Key authentication marshal error\n", msg));
         goto Exit;
     }
+
+    AJ_ConversationHash_Update_Message(&authContext, CONVERSATION_V4, &call, 1);
 
     return AJ_DeliverMsg(&call);
 
@@ -1005,6 +1050,8 @@ AJ_Status AJ_PeerHandleKeyAuthentication(AJ_Message* msg, AJ_Message* reply)
         AJ_InfoPrintf(("AJ_PeerHandleKeyAuthentication(msg=%p, reply=%p): Key authentication unmarshal error\n", msg, reply));
         goto Exit;
     }
+
+    AJ_ConversationHash_Update_Message(&authContext, CONVERSATION_V4, msg, 0);
 
     /*
      * Send authentication material
@@ -1122,6 +1169,8 @@ static AJ_Status GenSessionKey(AJ_Message* msg)
         return status;
     }
 
+    AJ_ConversationHash_Update_Message(&authContext, CONVERSATION_V4, &call, 1);
+
     return AJ_DeliverMsg(&call);
 }
 
@@ -1165,6 +1214,9 @@ AJ_Status AJ_PeerHandleGenSessionKey(AJ_Message* msg, AJ_Message* reply)
     if (AJ_OK != status) {
         goto Exit;
     }
+
+    AJ_ConversationHash_Update_Message(&authContext, CONVERSATION_V4, msg, 0);
+
     /*
      * We expect arg[1] to be the local GUID
      */
@@ -1195,7 +1247,7 @@ AJ_Status AJ_PeerHandleGenSessionKey(AJ_Message* msg, AJ_Message* reply)
     if (AJ_OK != status) {
         goto Exit;
     }
-
+    AJ_ConversationHash_Update_Message(&authContext, CONVERSATION_V4, reply, 1);
     return status;
 
 Exit:
@@ -1245,6 +1297,8 @@ AJ_Status AJ_PeerHandleGenSessionKeyReply(AJ_Message* msg)
     if (AJ_OK != status) {
         goto Exit;
     }
+    AJ_ConversationHash_Update_Message(&authContext, CONVERSATION_V4, msg, 0);
+
     status = KeyGen(msg->sender, AJ_ROLE_KEY_INITIATOR, peerContext.nonce, nonce, (uint8_t*)verifier, sizeof(verifier));
     if (AJ_OK != status) {
         goto Exit;

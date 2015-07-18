@@ -28,6 +28,11 @@
 extern "C" {
 #endif
 
+/*
+ * Get the amount of header padding needed for a given header length.
+ */
+#define HEADERPAD(headerLength) ((8 - (headerLength))& 7)
+
 /**
  * Returns the signature of the next arg to be unmarshalled.
  *
