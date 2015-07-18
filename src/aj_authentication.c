@@ -77,6 +77,31 @@ static AJ_Status ComputeVerifier(AJ_AuthenticationContext* ctx, const char* labe
     return AJ_Crypto_PRF_SHA256(data, lens, ArraySize(data), buffer, bufferlen);
 }
 
+static AJ_Status ComputePSKVerifier(AJ_AuthenticationContext* ctx, const char* label, uint8_t* buffer, size_t bufferlen)
+{
+    const uint8_t* data[5];
+    uint8_t lens[5];
+    uint8_t digest[AJ_SHA256_DIGEST_LENGTH];
+
+    AJ_ConversationHash_GetDigest(ctx, digest, 1);
+
+    data[0] = ctx->mastersecret;
+    lens[0] = AJ_MASTER_SECRET_LEN;
+    data[1] = (uint8_t*)label;
+    lens[1] = (uint8_t)strlen(label);
+    data[2] = digest;
+    lens[2] = sizeof(digest);
+    data[3] = ctx->kactx.psk.hint;
+    AJ_ASSERT(ctx->kactx.psk.hintSize <= 0xFF);
+    lens[3] = (uint8_t)ctx->kactx.psk.hintSize;
+    data[4] = ctx->kactx.psk.key;
+    AJ_ASSERT(ctx->kactx.psk.keySize <= 0xFF);
+    lens[4] = (uint8_t)ctx->kactx.psk.keySize;
+
+    AJ_ASSERT(bufferLen <= 0xFFFFFFFF);
+    return AJ_Crypto_PRF_SHA256(data, lens, ArraySize(data), buffer, (uint32_t)bufferlen);
+}
+
 static AJ_Status ECDHEMarshalV1(AJ_AuthenticationContext* ctx, AJ_Message* msg)
 {
     AJ_Status status;
@@ -209,7 +234,7 @@ static AJ_Status ECDHEUnmarshalV2(AJ_AuthenticationContext* ctx, AJ_Message* msg
     // Copy the public key
     memcpy(pub.x, data, KEY_ECC_SZ);
     memcpy(pub.y, data + KEY_ECC_SZ, KEY_ECC_SZ);
-    AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, &pub.crv, sizeof (uint8_t));
+    AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, &pub.crv, sizeof (pub.crv));
     AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, data, size);
 
     // Generate shared secret
@@ -360,11 +385,13 @@ static AJ_Status PSKCallbackV1(AJ_AuthenticationContext* ctx, AJ_Message* msg)
         return AJ_ERR_RESOURCES;
     }
     ctx->expiration = 0xFFFFFFFF;
-    AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, ctx->kactx.psk.hint, ctx->kactx.psk.size);
+    AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, ctx->kactx.psk.hint, ctx->kactx.psk.hintSize);
     AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, data, size);
 
-    AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V4, ctx->kactx.psk.hint, ctx->kactx.psk.size);
-    AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V4, data, size);
+    // CONVERSATION_V4 computes the PSK verifier based on these instead of including it in the conversation
+    // hash, so save them for later.
+    ctx->kactx.psk.key = data;
+    ctx->kactx.psk.keySize = size;
 
     return AJ_OK;
 }
@@ -380,14 +407,14 @@ static AJ_Status PSKCallbackV2(AJ_AuthenticationContext* ctx, AJ_Message* msg)
         status = ctx->bus->authListenerCallback(AUTH_SUITE_ECDHE_PSK, AJ_CRED_PUB_KEY, &cred);
         if (AJ_OK == status) {
             ctx->kactx.psk.hint = cred.data;
-            ctx->kactx.psk.size = cred.len;
+            ctx->kactx.psk.hintSize = cred.len;
         }
         break;
 
     case AUTH_SERVER:
         cred.direction = AJ_CRED_RESPONSE;
         cred.data = ctx->kactx.psk.hint;
-        cred.len = ctx->kactx.psk.size;
+        cred.len = ctx->kactx.psk.hintSize;
         status = ctx->bus->authListenerCallback(AUTH_SUITE_ECDHE_PSK, AJ_CRED_PUB_KEY, &cred);
         break;
     }
@@ -398,11 +425,13 @@ static AJ_Status PSKCallbackV2(AJ_AuthenticationContext* ctx, AJ_Message* msg)
     }
     ctx->expiration = cred.expiration;
     // Hash in psk hint, then psk
-    AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, ctx->kactx.psk.hint, ctx->kactx.psk.size);
+    AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, ctx->kactx.psk.hint, ctx->kactx.psk.hintSize);
     AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, cred.data, cred.len);
 
-    AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V4, ctx->kactx.psk.hint, ctx->kactx.psk.size);
-    AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V4, cred.data, cred.len);
+    // CONVERSATION_V4 computes the PSK verifier based on these instead of including it in the conversation
+    // hash, so save them for later.
+    ctx->kactx.psk.key = cred.data;
+    ctx->kactx.psk.keySize = cred.len;
 
     return status;
 }
@@ -436,25 +465,25 @@ static AJ_Status PSKMarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
     case AUTH_CLIENT:
         // Default to anonymous
         ctx->kactx.psk.hint = (uint8_t*) anon;
-        ctx->kactx.psk.size = strlen(anon);
+        ctx->kactx.psk.hintSize = strlen(anon);
         status = PSKCallback(ctx, msg);
         if (AJ_OK != status) {
             return AJ_ERR_SECURITY;
         }
-        status = ComputeVerifier(ctx, "client finished", verifier, sizeof (verifier));
+        status = ComputePSKVerifier(ctx, "client finished", verifier, sizeof (verifier));
         AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, verifier, sizeof (verifier));
 
         break;
 
     case AUTH_SERVER:
-        status = ComputeVerifier(ctx, "server finished", verifier, sizeof (verifier));
+        status = ComputePSKVerifier(ctx, "server finished", verifier, sizeof (verifier));
         break;
     }
     if (AJ_OK != status) {
         return AJ_ERR_SECURITY;
     }
 
-    status = AJ_MarshalArgs(msg, "v", "(ayay)", ctx->kactx.psk.hint, ctx->kactx.psk.size, verifier, sizeof (verifier));
+    status = AJ_MarshalArgs(msg, "v", "(ayay)", ctx->kactx.psk.hint, ctx->kactx.psk.hintSize, verifier, sizeof (verifier));
 
     return status;
 }
@@ -468,7 +497,7 @@ static AJ_Status PSKUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
 
     AJ_InfoPrintf(("PSKUnmarshal(ctx=%p, msg=%p)\n", ctx, msg));
 
-    status = AJ_UnmarshalArgs(msg, "v", "(ayay)", &ctx->kactx.psk.hint, &ctx->kactx.psk.size, &data, &size);
+    status = AJ_UnmarshalArgs(msg, "v", "(ayay)", &ctx->kactx.psk.hint, &ctx->kactx.psk.hintSize, &data, &size);
     if (AJ_OK != status) {
         return AJ_ERR_SECURITY;
     }
@@ -478,7 +507,7 @@ static AJ_Status PSKUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
 
     switch (ctx->role) {
     case AUTH_CLIENT:
-        status = ComputeVerifier(ctx, "server finished", verifier, sizeof (verifier));
+        status = ComputePSKVerifier(ctx, "server finished", verifier, sizeof (verifier));
         break;
 
     case AUTH_SERVER:
@@ -486,7 +515,7 @@ static AJ_Status PSKUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
         if (AJ_OK != status) {
             return AJ_ERR_SECURITY;
         }
-        status = ComputeVerifier(ctx, "client finished", verifier, sizeof (verifier));
+        status = ComputePSKVerifier(ctx, "client finished", verifier, sizeof (verifier));
 
         if (AJ_OK == status) {
             AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, verifier, sizeof(verifier));
