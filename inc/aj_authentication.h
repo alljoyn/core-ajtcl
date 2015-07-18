@@ -71,7 +71,9 @@ typedef struct _KeyExchangeContext {
  */
 typedef struct _PSKContext {
     uint8_t* hint;                                 /**< PSK hint */
-    size_t size;                                   /**< Size of PSK hint */
+    size_t hintSize;                              /**< Size of PSK hint */
+    uint8_t* key;                                  /**< PSK */
+    size_t keySize;                               /**< Size of PSK */
 } PSKContext;
 
 typedef struct _ECDSAContext {

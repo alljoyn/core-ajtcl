@@ -829,8 +829,6 @@ static AJ_Status KeyExchange(AJ_BusAttachment* bus)
 
     AJ_InfoPrintf(("Authenticating using suite %x\n", authContext.suite));
 
-    AJ_SHA256_Init(&authContext.hash);
-
     /*
      * Send suite and key material
      */
@@ -874,7 +872,6 @@ AJ_Status AJ_PeerHandleKeyExchange(AJ_Message* msg, AJ_Message* reply)
     if (AJ_OK != status) {
         return AJ_MarshalErrorMsg(msg, reply, AJ_ErrResources);
     }
-    AJ_SHA256_Init(&authContext.hash);
 
     /*
      * Receive suite
