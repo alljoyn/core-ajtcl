@@ -8,7 +8,7 @@ src_env['srcs'] = []
 
 # Default common optional components to off (enabled according target platform)
 src_env['crypto'] = False
-src_env['crypto_ecc'] = False
+src_env['crypto_sw_aes'] = False
 src_env['external_sha2'] = False
 src_env['malloc'] = False
 src_env['freertos'] = False
@@ -29,9 +29,13 @@ src_env.SConscript('target/$TARG/SConscript')
 if src_env['nvram']:
     src_env['srcs'] += Glob('nvram/*.c')
 if src_env['crypto']:
-    src_env['srcs'] += Glob('crypto/*.c')
-if src_env['crypto_ecc']:
-    src_env['srcs'] += Glob('crypto/ecc/*.c')
+    # Partial OpenSSL AES support is scheduled to be removed (see
+    # ASACORE-1838). When that change is made, this line can be
+    # cleaned up to avoid the unsightly exclusion of aj_sw_crypto.c
+    src_env['srcs'] += [f for f in Glob('crypto/*.c') if not str(f).endswith('aj_sw_crypto.c')]
+if src_env['crypto_sw_aes']:
+    # This option goes away with ASACORE-1838
+    src_env['srcs'] += Glob('crypto/aj_sw_crypto.c')
 if src_env['external_sha2']:
     src_env['srcs'] += Glob('external/sha2/*.c')
     src_env.Append(CPPPATH = [ 'external/sha2' ])
