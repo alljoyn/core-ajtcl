@@ -126,7 +126,7 @@ Help(vars.GenerateHelpText(env))
 env['connectivity'] = [ opt.upper() for opt in env['connectivity_options'] if opt in env['CONNECTIVITY'].lower() ]
 
 if len(env['connectivity']) == 0 and not GetOption('help'):
-    print '*** Must enable at least one of ' + env['connectivity_options']
+    print '*** Must enable at least one of %s' % ', '.join(env['connectivity_options'])
     Exit(1)
 
 #######################################################
