@@ -64,7 +64,6 @@ uint8_t dbgPEER = 0;
 #define SEND_MEMBERSHIPS_NONE  0
 #define SEND_MEMBERSHIPS_MORE  1
 #define SEND_MEMBERSHIPS_LAST  2
-#define SEND_MEMBERSHIPS_STOP  3
 
 static AJ_Status SaveMasterSecret(const AJ_GUID* peerGuid, uint32_t expiration);
 static AJ_Status SaveECDSAContext(const AJ_GUID* peerGuid, uint32_t expiration);
