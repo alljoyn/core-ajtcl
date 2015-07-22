@@ -3,33 +3,36 @@ import platform
 
 Import('env')
 
-if platform.system() == 'Linux' and os.path.exists('/usr/src/gtest'):
-    # Use the googletest from the system package as a default if it is installed.
-    default_gtest_dir = '/usr'
-else:
-    default_gtest_dir = None
-
 vars = Variables()
-vars.Add(PathVariable('GTEST_DIR', 'The path to googletest sources', os.environ.get('GTEST_DIR', default_gtest_dir), PathVariable.PathIsDir))
+vars.Add(PathVariable('GTEST_DIR', 'The path to googletest sources', os.environ.get('GTEST_DIR'), PathVariable.PathIsDir))
 vars.Update(env)
 Help(vars.GenerateHelpText(env))
 
-if env.has_key('GTEST_DIR') and os.path.exists(os.path.join(env['GTEST_DIR'], 'include', 'gtest', 'gtest.h')) and env['build_unit_tests']:
-    gtest_env = env.Clone();
-    gtest_dir = gtest_env['GTEST_DIR']
-    vars = Variables();
-    vars.AddVariables(('GTEST_HOME', '', gtest_dir))
-    vars.Update(gtest_env)
 
-    if gtest_dir == '/usr':
-        gtest_src_base = os.path.join(gtest_dir, 'src', 'gtest')
-    else:
-        gtest_src_base = gtest_dir
+config = Configure(env)
+system_gtest = config.CheckHeader('gtest/gtest.h', '<>', 'c++')
+if env.get('GTEST_DIR'):
+    prevCPPPATH = list(env.get('CPPPATH', []))
+    env.Prepend(CPPPATH = [ env.Dir('$GTEST_DIR/include') ])
+    custom_gtest = config.CheckHeader(env.subst('$GTEST_DIR/include/gtest/gtest.h'), '<>', 'c++')
+    env.Replace(CPPPATH = prevCPPPATH)
+else:
+    custom_gtest = False
+env = config.Finish()
+
+if custom_gtest:
+    gtest_all_path = env.File('$GTEST_DIR/src/gtest-all.cc')
+elif env['TARG'] in ['linux', 'darwin']:
+    gtest_all_path = env.File(env.FindFile('gtest/src/gtest-all.cc', [ '/usr/src', '/usr/local/src' ]))
+
+if (system_gtest or custom_gtest) and os.path.exists(str(gtest_all_path)):
+    gtest_env = env.Clone()
 
     if env['TARG'] == 'win32':
         # gTest needs different CPPDEFINES as compared to AllJoyn TCL.
         gtest_env.Append(CPPDEFINES = ['WIN32', '_LIB'])
         gtest_env.Append(CXXFLAGS = ['/wd4355', '/vmm', '/vmg', '/MDd', '/Od', '/Gd', '/Ob1', '/EHsc'])
+        gtest_env.Append(CFLAGS = ['/wd4355', '/vmm', '/vmg', '/MDd', '/Od', '/Gd', '/Ob1', '/EHsc'])
 
         # Microsoft Visual Studio 2012 has a different _VARIADIC_MAX default value.
         # See: http://blogs.msdn.com/b/vcblog/archive/2011/09/12/10209291.aspx
@@ -40,39 +43,28 @@ if env.has_key('GTEST_DIR') and os.path.exists(os.path.join(env['GTEST_DIR'], 'i
     gtest_env.Append(CPPDEFINES = { 'GTEST_HAS_RTTI': '0',
                                     'GTEST_HAS_EXCEPTIONS': '0',
                                     'GTEST_HAS_PTHREAD': '0' })
-    # we replace AllJoyn's include CPPPATH options.
-    gtest_env.Replace(CPPPATH = [ gtest_src_base ])
-    if gtest_dir != '/usr':
-        gtest_env.Append(CPPPATH = [ gtest_env.Dir('$GTEST_DIR/include') ])
 
-    gtest_obj = gtest_env.StaticObject(target = 'gtest-all', source = [ '%s/src/gtest-all.cc' % gtest_src_base ])
+    if custom_gtest:
+        gtest_env.Prepend(CPPPATH = [ gtest_env.Dir('$GTEST_DIR/include') ])
+
+    gtest_env.Prepend(CPPPATH = [ os.path.join(gtest_all_path.path, '../..') ])
+    
+    gtest_obj = gtest_env.StaticObject(target = 'gtest-all', source = [ gtest_all_path ])
     gtest_lib = gtest_env.StaticLibrary(target = 'gtest', source = gtest_obj)
 
-    test_src = env.Glob('*.cc')
-
-    unittest_env = env.Clone()
+    unittest_env = gtest_env.Clone()
     unittest_env.Append(LIBPATH = "#dist/lib")
     unittest_env.Append(LIBS = "ajtcl")
 
-    gtest_dir = unittest_env['GTEST_DIR']
-    if gtest_dir != '/usr':
-        unittest_env.Append(CPPPATH = [gtest_dir + '/include'])
-
-    unittest_env.Append(CPPDEFINES = { 'GTEST_HAS_RTTI': '0',
-                                       'GTEST_HAS_EXCEPTIONS': '0',
-                                       'GTEST_HAS_PTHREAD': '0' })
-
-    #gtest library file is placed in the same directory
-    unittest_env.Append(LIBPATH = [ Dir('.') ])
+    # gtest library file is placed in the same directory
+    #unittest_env.Append(LIBPATH = [ gtest_lib.path() ])
     unittest_env.Prepend(LIBS = [ gtest_lib ])
 
-    objs = [ unittest_env.Object(test_src) ]
+    objs = [ unittest_env.Object(env.Glob('*.cc')) ]
 
     if env['TARG'] == 'win32':
-        unittest_env.Append(CXXFLAGS = ['/wd4355', '/vmm', '/vmg', '/MDd', '/Od', '/Gd', '/Ob1', '/EHsc'])
         unittest_env.Append(LFLAGS=['/NODEFAULTLIB:msvcrt.lib'])
         unittest_env.Append(LINKFLAGS=['/NODEFAULTLIB:msvcrt.lib'])
-        unittest_env.Append(CXXFLAGS = ['/wd4355', '/vmm', '/vmg', '/MDd', '/Od', '/Gd', '/Ob1', '/EHsc'])
 
     unittest_prog = unittest_env.Program('ajtcltest', objs)
     unittest_env.Install('#dist/test', unittest_prog)
