@@ -175,19 +175,6 @@ if env['build']:
     env.SConscript('test/SConscript',      variant_dir='#build/$VARIANT/test',      duplicate = 0)
     env.SConscript('unit_test/SConscript', variant_dir='#build/$VARIANT/unit_test', duplicate = 0)
 
-
-#######################################################
-# Distclean target
-#######################################################
-Clean('distclean',
-          [ 'dist',
-            'build',
-            'config.log',
-            #'.sconsign.dblite',  # Can't delete .sconsign.dblite because it doesn't exist until SCons completes
-            '.sconf_temp',
-            '.whitespace.db'
-        ])
-
 #######################################################
 # Run the whitespace checker
 #######################################################
