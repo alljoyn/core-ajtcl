@@ -32,6 +32,7 @@
 #include <ajtcl/aj_auth_listener.h>
 #include <ajtcl/aj_crypto.h>
 #include <ajtcl/aj_msg_priv.h>
+#include <ajtcl/aj_security.h>
 
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
@@ -119,16 +120,28 @@ static AJ_Status ECDHEMarshalV1(AJ_AuthenticationContext* ctx, AJ_Message* msg)
     return status;
 }
 
-static AJ_Status ECDHEMarshalV2(AJ_AuthenticationContext* ctx, AJ_Message* msg)
+static AJ_Status ECDHEMarshalV3(AJ_AuthenticationContext* ctx, AJ_Message* msg)
 {
     AJ_Status status;
 
-    AJ_InfoPrintf(("ECDHEMarshalV2(ctx=%p, msg=%p)\n", ctx, msg));
+    AJ_InfoPrintf(("ECDHEMarshalV3(ctx=%p, msg=%p)\n", ctx, msg));
 
     // Marshal the encoded key
     status = AJ_MarshalArgs(msg, "v", "(yay)", ctx->kectx.pub.crv, ctx->kectx.pub.x, KEY_ECC_PUB_SZ);
     AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, &ctx->kectx.pub.crv, sizeof (ctx->kectx.pub.crv));
     AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, ctx->kectx.pub.x, KEY_ECC_PUB_SZ);
+
+    return status;
+}
+
+static AJ_Status ECDHEMarshalV4(AJ_AuthenticationContext* ctx, AJ_Message* msg)
+{
+    AJ_Status status;
+
+    AJ_InfoPrintf(("ECDHEMarshalV4(ctx=%p, msg=%p)\n", ctx, msg));
+
+    // Marshal the encoded key
+    status = AJ_MarshalArgs(msg, "v", "(yyayay)", ctx->kectx.pub.alg, ctx->kectx.pub.crv, ctx->kectx.pub.x, KEY_ECC_SZ, ctx->kectx.pub.y, KEY_ECC_SZ);
 
     return status;
 }
@@ -148,10 +161,23 @@ static AJ_Status ECDHEMarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
         }
     }
 
-    if ((ctx->version >> 16) < 3) {
+    switch (ctx->version >> 16) {
+    case 1:
+    case 2:
         status = ECDHEMarshalV1(ctx, msg);
-    } else {
-        status = ECDHEMarshalV2(ctx, msg);
+        break;
+
+    case 3:
+        status = ECDHEMarshalV3(ctx, msg);
+        break;
+
+    case 4:
+        status = ECDHEMarshalV4(ctx, msg);
+        break;
+
+    default:
+        status = AJ_ERR_INVALID;
+        break;
     }
 
     return status;
@@ -206,45 +232,20 @@ static AJ_Status ECDHEUnmarshalV1(AJ_AuthenticationContext* ctx, AJ_Message* msg
     return status;
 }
 
-static AJ_Status ECDHEUnmarshalV2(AJ_AuthenticationContext* ctx, AJ_Message* msg)
+static AJ_Status GenerateShareSecret(AJ_AuthenticationContext* ctx, AJ_ECCPublicKey* pub, AJ_ECCPrivateKey* prv)
 {
     AJ_Status status;
-    uint8_t* data;
-    size_t size;
-    AJ_ECCPublicKey pub;
     AJ_ECCSecret sec;
     AJ_SHA256_Context sha;
-
-    AJ_InfoPrintf(("ECDHEUnmarshalV2(ctx=%p, msg=%p)\n", ctx, msg));
-
-    // Unmarshal the encoded key
-    status = AJ_UnmarshalArgs(msg, "v", "(yay)", &pub.crv, &data, &size);
-    if (AJ_OK != status) {
-        AJ_InfoPrintf(("ECDHEUnmarshalV2(ctx=%p, msg=%p): Unmarshal error\n", ctx, msg));
-        return status;
-    }
-    if (KEY_CRV_NISTP256 != pub.crv) {
-        AJ_InfoPrintf(("ECDHEUnmarshalV2(ctx=%p, msg=%p): Invalid curve\n", ctx, msg));
-        return AJ_ERR_SECURITY;
-    }
-    if (KEY_ECC_PUB_SZ != size) {
-        AJ_InfoPrintf(("ECDHEUnmarshalV2(ctx=%p, msg=%p): Invalid key material\n", ctx, msg));
-        return AJ_ERR_SECURITY;
-    }
-    // Copy the public key
-    memcpy(pub.x, data, KEY_ECC_SZ);
-    memcpy(pub.y, data + KEY_ECC_SZ, KEY_ECC_SZ);
-    AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, &pub.crv, sizeof (pub.crv));
-    AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, data, size);
+    uint8_t* data;
+    size_t size;
 
     // Generate shared secret
-    status = AJ_GenerateShareSecret(&pub, &ctx->kectx.prv, &sec);
+    status = AJ_GenerateShareSecret(pub, prv, &sec);
     if (AJ_OK != status) {
-        AJ_InfoPrintf(("ECDHEUnmarshalV2(ctx=%p, msg=%p): Generate secret error\n", ctx, msg));
         return status;
     }
 
-    // Encode the shared secret
     size = AJ_SHA256_DIGEST_LENGTH;
     data = (uint8_t*) AJ_Malloc(size);
     if (NULL == data) {
@@ -255,6 +256,65 @@ static AJ_Status ECDHEUnmarshalV2(AJ_AuthenticationContext* ctx, AJ_Message* msg
     AJ_SHA256_Final(&sha, data);
     status = ComputeMasterSecret(ctx, data, size);
     AJ_Free(data);
+
+    return status;
+}
+
+static AJ_Status ECDHEUnmarshalV3(AJ_AuthenticationContext* ctx, AJ_Message* msg)
+{
+    AJ_Status status;
+    uint8_t* data;
+    size_t size;
+    AJ_ECCPublicKey pub;
+
+    AJ_InfoPrintf(("ECDHEUnmarshalV3(ctx=%p, msg=%p)\n", ctx, msg));
+
+    // Unmarshal the encoded key
+    status = AJ_UnmarshalArgs(msg, "v", "(yay)", &pub.crv, &data, &size);
+    if (AJ_OK != status) {
+        AJ_InfoPrintf(("ECDHEUnmarshalV3(ctx=%p, msg=%p): Unmarshal error\n", ctx, msg));
+        return status;
+    }
+    if (KEY_CRV_NISTP256 != pub.crv) {
+        AJ_InfoPrintf(("ECDHEUnmarshalV3(ctx=%p, msg=%p): Invalid curve\n", ctx, msg));
+        return AJ_ERR_SECURITY;
+    }
+    if (KEY_ECC_PUB_SZ != size) {
+        AJ_InfoPrintf(("ECDHEUnmarshalV3(ctx=%p, msg=%p): Invalid key material\n", ctx, msg));
+        return AJ_ERR_SECURITY;
+    }
+    // Copy the public key
+    memcpy(pub.x, data, KEY_ECC_SZ);
+    memcpy(pub.y, data + KEY_ECC_SZ, KEY_ECC_SZ);
+    AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, &pub.crv, sizeof (pub.crv));
+    AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, data, size);
+
+    status = GenerateShareSecret(ctx, &pub, &ctx->kectx.prv);
+
+    return status;
+}
+
+static AJ_Status ECDHEUnmarshalV4(AJ_AuthenticationContext* ctx, AJ_Message* msg)
+{
+    AJ_Status status;
+    const char* variant;
+    AJ_ECCPublicKey pub;
+
+    AJ_InfoPrintf(("ECDHEUnmarshalV4(ctx=%p, msg=%p)\n", ctx, msg));
+
+    // Unmarshal the encoded key
+    status = AJ_UnmarshalVariant(msg, &variant);
+    if (AJ_OK != status) {
+        AJ_InfoPrintf(("ECDHEUnmarshalV4(ctx=%p, msg=%p): Unmarshal error\n", ctx, msg));
+        return status;
+    }
+    status = AJ_UnmarshalECCPublicKey(msg, &pub);
+    if (AJ_OK != status) {
+        AJ_InfoPrintf(("ECDHEUnmarshalV4(ctx=%p, msg=%p): Unmarshal error\n", ctx, msg));
+        return status;
+    }
+
+    status = GenerateShareSecret(ctx, &pub, &ctx->kectx.prv);
 
     return status;
 }
@@ -274,10 +334,23 @@ static AJ_Status ECDHEUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
         }
     }
 
-    if ((ctx->version >> 16) < 3) {
+    switch (ctx->version >> 16) {
+    case 1:
+    case 2:
         status = ECDHEUnmarshalV1(ctx, msg);
-    } else {
-        status = ECDHEUnmarshalV2(ctx, msg);
+        break;
+
+    case 3:
+        status = ECDHEUnmarshalV3(ctx, msg);
+        break;
+
+    case 4:
+        status = ECDHEUnmarshalV4(ctx, msg);
+        break;
+
+    default:
+        status = AJ_ERR_INVALID;
+        break;
     }
 
     return status;
@@ -538,51 +611,36 @@ static AJ_Status PSKUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
 }
 
 /*
- * Store certificate chain is a(yay)
  * KeyAuthentication call expects yv = ya(ay)
- * Need to convert from a(yay) to a(ay)
  */
-static AJ_Status MarshalCertificates(AJ_AuthenticationContext* ctx, AJ_Message* msg, AJ_CredField* field)
+static AJ_Status MarshalCertificates(AJ_AuthenticationContext* ctx, X509CertificateChain* head, AJ_Message* msg)
 {
     AJ_Status status;
-    AJ_BusAttachment bus;
-    AJ_MsgHeader hdr;
-    AJ_Message tmp;
-    AJ_Arg container1;
-    AJ_Arg container2;
-    uint8_t fmt;
-    uint8_t* data;
-    size_t size;
+    AJ_Arg container;
+    uint8_t fmt = CERT_FMT_X509_DER;
 
-    AJ_LocalMsg(&bus, &hdr, &tmp, "a(yay)", field->data, field->size);
-
-    status = AJ_UnmarshalContainer(&tmp, &container1, AJ_ARG_ARRAY);
+    AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, &fmt, sizeof(fmt));
+    status = AJ_MarshalArgs(msg, "y", fmt);
     if (AJ_OK != status) {
         goto Exit;
     }
-    status = AJ_MarshalContainer(msg, &container2, AJ_ARG_ARRAY);
+    status = AJ_MarshalVariant(msg, "a(ay)");
     if (AJ_OK != status) {
         goto Exit;
     }
-    while (AJ_OK == status) {
-        status = AJ_UnmarshalArgs(&tmp, "(yay)", &fmt, &data, &size);
-        if (AJ_OK != status) {
-            break;
-        }
-        status = AJ_MarshalArgs(msg, "(ay)", data, size);
+    status = AJ_MarshalContainer(msg, &container, AJ_ARG_ARRAY);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+    while (head) {
+        status = AJ_MarshalArgs(msg, "(ay)", head->certificate.der.data, head->certificate.der.size);
         if (AJ_OK != status) {
             goto Exit;
         }
-        AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, data, size);
+        AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, head->certificate.der.data, head->certificate.der.size);
+        head = head->next;
     }
-    if (AJ_ERR_NO_MORE != status) {
-        return status;
-    }
-    status = AJ_MarshalCloseContainer(msg, &container2);
-    if (AJ_OK != status) {
-        goto Exit;
-    }
-    status = AJ_UnmarshalCloseContainer(&tmp, &container1);
+    status = AJ_MarshalCloseContainer(msg, &container);
 
 Exit:
     return status;
@@ -595,7 +653,7 @@ static AJ_Status ECDSAMarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
     AJ_ECCPrivateKey prv;
     AJ_ECCSignature sig;
     uint8_t verifier[AJ_SHA256_DIGEST_LENGTH];
-    uint8_t fmt;
+    X509CertificateChain* chain = NULL;
     AJ_CredField field;
 
     AJ_InfoPrintf(("AJ_ECDSA_Marshal(ctx=%p, msg=%p)\n", ctx, msg));
@@ -651,17 +709,11 @@ static AJ_Status ECDSAMarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
     }
 
     /* Marshal certificate chain */
-    fmt = CERT_FMT_X509_DER;
-    AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, &fmt, sizeof(fmt));
-    status = AJ_MarshalArgs(msg, "y", fmt);
+    status = AJ_X509ChainFromBuffer(&chain, &field);
     if (AJ_OK != status) {
         goto Exit;
     }
-    status = AJ_MarshalVariant(msg, "a(ay)");
-    if (AJ_OK != status) {
-        goto Exit;
-    }
-    status = MarshalCertificates(ctx, msg, &field);
+    status = MarshalCertificates(ctx, chain, msg);
     if (AJ_OK != status) {
         AJ_WarnPrintf(("AJ_ECDSA_Marshal(msg=%p): Marshal certificate chain error\n", msg));
         goto Exit;
@@ -669,6 +721,7 @@ static AJ_Status ECDSAMarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
     status = AJ_MarshalCloseContainer(msg, &container);
 
 Exit:
+    AJ_X509ChainFree(chain);
     AJ_CredFieldFree(&field);
     return status;
 }
