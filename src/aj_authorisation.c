@@ -297,12 +297,6 @@ static void AJ_PermissionPeerFree(AJ_PermissionPeer* head)
     while (head) {
         node = head;
         head = head->next;
-        if (node->pub) {
-            AJ_Free(node->pub);
-        }
-        if (node->group) {
-            AJ_Free(node->group);
-        }
         AJ_Free(node);
     }
 }
@@ -403,33 +397,32 @@ AJ_Status AJ_ManifestTemplateMarshal(AJ_Message* msg)
     return AJ_ManifestMarshal(g_manifest, msg);
 }
 
-AJ_Status AJ_MarshalDefaultPolicy(AJ_Message* msg, AJ_ECCPublicKey* pub, DER_Element* group)
+AJ_Status AJ_MarshalDefaultPolicy(AJ_CredField* field, AJ_PermissionPeer* peer_ca, AJ_PermissionPeer* peer_admin)
 {
     AJ_Status status;
 
     /* All allowed */
-    AJ_PermissionMember member0_0 = { "*", AJ_MEMBER_TYPE_ANY, AJ_ACTION_PROVIDE | AJ_ACTION_OBSERVE | AJ_ACTION_MODIFY, NULL };
+    AJ_PermissionMember member_admin = { "*", AJ_MEMBER_TYPE_ANY, AJ_ACTION_PROVIDE | AJ_ACTION_OBSERVE | AJ_ACTION_MODIFY, NULL };
     /* Outgoing allowed, incoming signal allowed */
-    AJ_PermissionMember member1_0 = { "*", AJ_MEMBER_TYPE_ANY, AJ_ACTION_PROVIDE, NULL };
-    AJ_PermissionMember member1_1 = { "*", AJ_MEMBER_TYPE_SIGNAL, AJ_ACTION_OBSERVE, &member1_0 };
+    AJ_PermissionMember member_any0 = { "*", AJ_MEMBER_TYPE_ANY, AJ_ACTION_PROVIDE, NULL };
+    AJ_PermissionMember member_any1 = { "*", AJ_MEMBER_TYPE_SIGNAL, AJ_ACTION_OBSERVE, &member_any0 };
 
-    AJ_PermissionRule rule0 = { "*", "*", &member0_0, NULL };
-    AJ_PermissionRule rule1 = { "*", "*", &member1_1, NULL };
+    AJ_PermissionRule rule_admin = { "*", "*", &member_admin, NULL };
+    AJ_PermissionRule rule_any = { "*", "*", &member_any1, NULL };
 
-    /* Admin group */
-    AJ_PermissionPeer peer0 = { AJ_PEER_TYPE_WITH_MEMBERSHIP, pub, group, NULL };
     /* Any authenticated peer */
-    AJ_PermissionPeer peer1 = { AJ_PEER_TYPE_ANY_TRUSTED, NULL, NULL, NULL };
+    AJ_PermissionPeer peer_any;
+    peer_any.type = AJ_PEER_TYPE_ANY_TRUSTED;
+    peer_any.next = NULL;
 
-    /* Admin group gets all allowed */
-    AJ_PermissionACL acl0 = { &peer0, &rule0, NULL };
-    /* Any authenticated peer gets outgoing allowed, incoming signal allowed */
-    AJ_PermissionACL acl1 = { &peer1, &rule1, &acl0 };
+    AJ_PermissionACL acl_ca = { peer_ca, NULL, NULL };
+    AJ_PermissionACL acl_admin = { peer_admin, &rule_admin, &acl_ca };
+    AJ_PermissionACL acl_any = { &peer_any, &rule_any, &acl_admin };
 
-    AJ_Policy policy = { POLICY_SPECIFICATION_VERSION, 1, &acl1 };
+    AJ_Policy policy = { POLICY_SPECIFICATION_VERSION, 1, &acl_any };
 
     /* Marshal the policy */
-    status = AJ_PolicyMarshal(&policy, msg);
+    status = AJ_PolicyToBuffer(&policy, field);
 
     return status;
 }
@@ -463,11 +456,15 @@ static AJ_Status AJ_PermissionPeerMarshal(const AJ_PermissionPeer* head, AJ_Mess
         if (AJ_OK != status) {
             return status;
         }
-        if (head->pub) {
-            status = AJ_MarshalArgs(msg, "(yyayay)", head->pub->alg, head->pub->crv, head->pub->x, KEY_ECC_SZ, head->pub->y, KEY_ECC_SZ);
+        switch (head->type) {
+        case AJ_PEER_TYPE_FROM_CA:
+        case AJ_PEER_TYPE_WITH_PUBLIC_KEY:
+        case AJ_PEER_TYPE_WITH_MEMBERSHIP:
+            status = AJ_MarshalArgs(msg, "(yyayayay)", head->pub.alg, head->pub.crv, head->kid.data, head->kid.size, head->pub.x, KEY_ECC_SZ, head->pub.y, KEY_ECC_SZ);
             if (AJ_OK != status) {
                 return status;
             }
+            break;
         }
         status = AJ_MarshalCloseContainer(msg, &container3);
         if (AJ_OK != status) {
@@ -475,10 +472,10 @@ static AJ_Status AJ_PermissionPeerMarshal(const AJ_PermissionPeer* head, AJ_Mess
         }
 
         // Marshal group (optional)
-        if (head->group) {
-            status = AJ_MarshalArgs(msg, "ay", head->group->data, head->group->size);
+        if (AJ_PEER_TYPE_WITH_MEMBERSHIP == head->type) {
+            status = AJ_MarshalArgs(msg, "ay", head->group.data, head->group.size);
         } else {
-            status = AJ_MarshalArgs(msg, "ay", head->group, 0);
+            status = AJ_MarshalArgs(msg, "ay", head->group.data, 0);
         }
         if (AJ_OK != status) {
             return status;
@@ -689,7 +686,7 @@ Exit:
     return AJ_ERR_INVALID;
 }
 
-//SIG = a(ya(yyayay)ay)
+//SIG = a(ya(yyayayay)ay)
 static AJ_Status AJ_PermissionPeerUnmarshal(AJ_PermissionPeer** head, AJ_Message* msg)
 {
     AJ_Status status;
@@ -697,8 +694,6 @@ static AJ_Status AJ_PermissionPeerUnmarshal(AJ_PermissionPeer** head, AJ_Message
     AJ_Arg container2;
     AJ_Arg container3;
     AJ_PermissionPeer* node;
-    uint8_t* data;
-    size_t size;
 
     AJ_InfoPrintf(("AJ_PermissionPeerUnmarshal(head=%p, msg=%p)\n", head, msg));
 
@@ -716,8 +711,6 @@ static AJ_Status AJ_PermissionPeerUnmarshal(AJ_PermissionPeer** head, AJ_Message
             status = AJ_ERR_RESOURCES;
             goto Exit;
         }
-        node->pub = NULL;
-        node->group = NULL;
         node->next = *head;
         *head = node;
         status = AJ_UnmarshalArgs(msg, "y", &node->type);
@@ -734,11 +727,7 @@ static AJ_Status AJ_PermissionPeerUnmarshal(AJ_PermissionPeer** head, AJ_Message
         case AJ_PEER_TYPE_FROM_CA:
         case AJ_PEER_TYPE_WITH_PUBLIC_KEY:
         case AJ_PEER_TYPE_WITH_MEMBERSHIP:
-            node->pub = (AJ_ECCPublicKey*) AJ_Malloc(sizeof (AJ_ECCPublicKey));
-            if (NULL == node->pub) {
-                goto Exit;
-            }
-            status = AJ_UnmarshalECCPublicKey(msg, node->pub);
+            status = AJ_UnmarshalECCPublicKey(msg, &node->pub, &node->kid);
             if (AJ_OK != status) {
                 goto Exit;
             }
@@ -750,21 +739,10 @@ static AJ_Status AJ_PermissionPeerUnmarshal(AJ_PermissionPeer** head, AJ_Message
         }
 
         // Unmarshal group (optional)
-        status = AJ_UnmarshalArgs(msg, "ay", &data, &size);
+        status = AJ_UnmarshalArgs(msg, "ay", &node->group.data, &node->group.size);
         if (AJ_OK != status) {
             goto Exit;
         }
-        switch (node->type) {
-        case AJ_PEER_TYPE_WITH_MEMBERSHIP:
-            node->group = (DER_Element*) AJ_Malloc(sizeof (DER_Element));
-            if (NULL == node->group) {
-                goto Exit;
-            }
-            node->group->data = data;
-            node->group->size = size;
-            break;
-        }
-
         status = AJ_UnmarshalCloseContainer(msg, &container2);
     }
     if (AJ_ERR_NO_MORE != status) {
@@ -784,7 +762,7 @@ Exit:
     return AJ_ERR_INVALID;
 }
 
-//SIG = a(a(ya(yyayay)ay)a(ssa(syy)))
+//SIG = a(a(ya(yyayayay)ay)a(ssa(syy)))
 static AJ_Status AJ_PermissionACLUnmarshal(AJ_PermissionACL** head, AJ_Message* msg)
 {
     AJ_Status status;
@@ -838,7 +816,7 @@ Exit:
     return AJ_ERR_INVALID;
 }
 
-//SIG = (qua(a(ya(yyayay)ay)a(ssa(syy))))
+//SIG = (qua(a(ya(yyayayay)ay)a(ssa(syy))))
 AJ_Status AJ_PolicyUnmarshal(AJ_Policy** policy, AJ_Message* msg)
 {
     AJ_Status status;
@@ -909,10 +887,15 @@ static AJ_Status PolicyLoad(Policy* policy)
     policy->buffer.size = 0;
     policy->policy = NULL;
 
-    /* Read the policy from NVRAM */
-    status = AJ_CredentialGet(AJ_CRED_TYPE_POLICY, NULL, NULL, &policy->buffer);
+    /* Read the installed policy from NVRAM */
+    status = AJ_CredentialGet(AJ_POLICY_INSTALLED | AJ_CRED_TYPE_POLICY, NULL, NULL, &policy->buffer);
     if (AJ_OK != status) {
-        AJ_InfoPrintf(("PolicyLoad(policy=%p): No stored policy\n", policy));
+        AJ_InfoPrintf(("PolicyLoad(policy=%p): No installed policy\n", policy));
+        /* Read the default policy from NVRAM */
+        status = AJ_CredentialGet(AJ_POLICY_DEFAULT | AJ_CRED_TYPE_POLICY, NULL, NULL, &policy->buffer);
+    }
+    if (AJ_OK != status) {
+        AJ_InfoPrintf(("PolicyLoad(policy=%p): No default policy\n", policy));
         goto Exit;
     }
 
@@ -946,6 +929,10 @@ static uint8_t CommonPath(const char* name, const char* desc)
 {
     if (!name || !desc) {
         return 0;
+    }
+    /* Allow empty (unspecified) name */
+    if ('\0' == *name) {
+        return 1;
     }
     /* Skip past common characters, or until a wildcard is hit */
     while (*name && *desc) {
@@ -1090,12 +1077,10 @@ static uint8_t PermissionPeerFind(AJ_PermissionPeer* head, uint8_t type, AJ_ECCP
             } else {
                 /* Type is FROM_CA or WITH_PUBLIC_KEY or WITH_MEMBERSHIP */
                 AJ_ASSERT(pub);
-                AJ_ASSERT(head->pub);
-                if (0 == memcmp((uint8_t*) pub, (uint8_t*) head->pub, sizeof (AJ_ECCPublicKey))) {
+                if (0 == memcmp((uint8_t*) pub, (uint8_t*) &head->pub, sizeof (AJ_ECCPublicKey))) {
                     if (AJ_PEER_TYPE_WITH_MEMBERSHIP == type) {
                         AJ_ASSERT(group);
-                        AJ_ASSERT(head->group);
-                        if ((group->size == head->group->size) && (0 == memcmp(group->data, head->group->data, group->size))) {
+                        if ((group->size == head->group.size) && (0 == memcmp(group->data, head->group.data, group->size))) {
                             return 1;
                         }
                     } else {
@@ -1328,6 +1313,38 @@ AJ_Status AJ_PolicyVersion(uint32_t* version)
     return AJ_OK;
 }
 
+AJ_Status AJ_PolicyGetCAPublicKey(uint8_t type, DER_Element* kid, AJ_ECCPublicKey* pub)
+{
+    AJ_Status status;
+    Policy policy;
+    AJ_PermissionACL* acl;
+    AJ_PermissionPeer* peer;
+
+    status = PolicyLoad(&policy);
+    if (AJ_OK != status) {
+        AJ_InfoPrintf(("AJ_PolicyGetCAPublicKey(kid=%p, pub=%p): Policy not loaded\n", kid, pub));
+        return AJ_ERR_INVALID;
+    }
+    status = AJ_ERR_UNKNOWN;
+    acl = policy.policy->acls;
+    while (acl) {
+        peer = acl->peers;
+        while (peer) {
+            if (type == peer->type) {
+                if ((kid->size == peer->kid.size) && (0 == memcmp(kid->data, peer->kid.data, kid->size))) {
+                    status = AJ_OK;
+                    memcpy((uint8_t*) pub, (uint8_t*) &peer->pub, sizeof (AJ_ECCPublicKey));
+                }
+            }
+            peer = peer->next;
+        }
+        acl = acl->next;
+    }
+    PolicyUnload(&policy);
+
+    return status;
+}
+
 AJ_Status AJ_ManifestToBuffer(AJ_Manifest* manifest, AJ_CredField* field)
 {
     AJ_Status status;
@@ -1362,7 +1379,7 @@ AJ_Status AJ_PolicyToBuffer(AJ_Policy* policy, AJ_CredField* field)
     AJ_MsgHeader hdr;
     AJ_Message msg;
 
-    AJ_LocalMsg(&bus, &hdr, &msg, "(qua(a(ya(yyayay)ay)a(ssa(syy))))", field->data, field->size);
+    AJ_LocalMsg(&bus, &hdr, &msg, "(qua(a(ya(yyayayay)ay)a(ssa(syy))))", field->data, field->size);
     status = AJ_PolicyMarshal(policy, &msg);
     field->size = bus.sock.tx.writePtr - field->data;
 
@@ -1376,7 +1393,7 @@ AJ_Status AJ_PolicyFromBuffer(AJ_Policy** policy, AJ_CredField* field)
     AJ_MsgHeader hdr;
     AJ_Message msg;
 
-    AJ_LocalMsg(&bus, &hdr, &msg, "(qua(a(ya(yyayay)ay)a(ssa(syy))))", field->data, field->size);
+    AJ_LocalMsg(&bus, &hdr, &msg, "(qua(a(ya(yyayayay)ay)a(ssa(syy))))", field->data, field->size);
     status = AJ_PolicyUnmarshal(policy, &msg);
 
     return status;

@@ -45,15 +45,15 @@ extern "C" {
 #define AJ_ACTION_OBSERVE            0x2
 #define AJ_ACTION_MODIFY             0x4
 typedef struct _AJ_PermissionMember {
-    char* mbr;                         /**< Member name */
+    const char* mbr;                   /**< Member name */
     uint8_t type;                      /**< Member type (METHOD, SIGNAL, etc.) */
     uint8_t action;                    /**< Action (PROVIDE, OBSERVE, etc.) */
     struct _AJ_PermissionMember* next;
 } AJ_PermissionMember;
 
 typedef struct _AJ_PermissionRule {
-    char* obj;                         /**< Object name */
-    char* ifn;                         /**< Interface name */
+    const char* obj;                   /**< Object name */
+    const char* ifn;                   /**< Interface name */
     AJ_PermissionMember* members;      /**< Members */
     struct _AJ_PermissionRule* next;
 } AJ_PermissionRule;
@@ -69,8 +69,9 @@ typedef struct _AJ_Manifest {
 #define AJ_PEER_TYPE_WITH_MEMBERSHIP   4
 typedef struct _AJ_PermissionPeer {
     uint8_t type;                      /**< Peer type */
-    AJ_ECCPublicKey* pub;              /**< ECC public key (optional) */
-    DER_Element* group;                /**< Group identifier (optional) */
+    DER_Element kid;                   /**< Key identifier (optional) */
+    AJ_ECCPublicKey pub;               /**< ECC public key (optional) */
+    DER_Element group;                 /**< Group identifier (optional) */
     struct _AJ_PermissionPeer* next;
 } AJ_PermissionPeer;
 
@@ -195,15 +196,15 @@ void AJ_PolicyFree(AJ_Policy* policy);
 /**
  * Marshal the default policy
  *
- * @param msg          The outgoing message
- * @param pub          The security group CA public key
- * @param group        The security group
+ * @param field        The local buffer.
+ * @param ca           The CA peer
+ * @param admin        The Admin group peer
  *
  * @return
  *          - AJ_OK on success
  *          - AJ_ERR_INVALID otherwise
  */
-AJ_Status AJ_MarshalDefaultPolicy(AJ_Message* msg, AJ_ECCPublicKey* pub, DER_Element* group);
+AJ_Status AJ_MarshalDefaultPolicy(AJ_CredField* field, AJ_PermissionPeer* peer_ca, AJ_PermissionPeer* peer_admin);
 
 /**
  * Apply the manifest access rules
@@ -252,6 +253,19 @@ AJ_Status AJ_MembershipApply(AJ_ECCPublicKey* issuer, DER_Element* group, const 
  *          - AJ_ERR_INVALID otherwise
  */
 AJ_Status AJ_PolicyVersion(uint32_t* version);
+
+/**
+ * Search for a public key in the policy
+ *
+ * @param type         The peer type
+ * @param kid          The key identifier
+ * @param pub          The output public key
+ *
+ * @return
+ *          - AJ_OK on success
+ *          - AJ_ERR_UNKNOWN otherwise
+ */
+AJ_Status AJ_PolicyGetCAPublicKey(uint8_t type, DER_Element* kid, AJ_ECCPublicKey* pub);
 
 /**
  * Access control check for message

@@ -52,11 +52,11 @@ extern "C" {
 #define AJ_GENERIC_ECDSA_MANIFEST   0x0100 /**< Manifest digest from ECDSA authentication */
 #define AJ_GENERIC_ECDSA_KEYS       0x0200 /**< Public keys from ECDSA authentication */
 #define AJ_ECC_SIG                  0x0000 /**< ECC key for communication */
-#define AJ_ECC_CA                   0x0100 /**< ECC key for certificate */
-#define AJ_ECC_CA_ADMIN             0x0200 /**< ECC key for admin certificate */
 #define AJ_CERTIFICATE_OEM_X509     0x0000 /**< Manufacturer certificate */
 #define AJ_CERTIFICATE_IDN_X509     0x0100 /**< Identity certificate */
 #define AJ_CERTIFICATE_MBR_X509     0x0200 /**< Membership certificate */
+#define AJ_POLICY_DEFAULT           0x0000 /**< Default policy */
+#define AJ_POLICY_INSTALLED         0x0100 /**< Installed policy */
 #define AJ_CONFIG_CLAIMSTATE        0x0000 /**< Claim state */
 #define AJ_CONFIG_ADMIN_GROUP       0x0100 /**< Admin group identifier */
 

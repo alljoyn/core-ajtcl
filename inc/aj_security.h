@@ -206,17 +206,18 @@ AJ_Status AJ_SecurityRemoveMembershipMethod(AJ_Message* msg, AJ_Message* reply);
  *
  * @param msg          The message
  * @param pub          The ECCPublicKey object
+ * @param kid          The key identifier (optional)
  *
  * @return  Return AJ_Status
  *          - AJ_OK on success
  *          - AJ_ERR_INVALID on all failures
  */
-AJ_Status AJ_UnmarshalECCPublicKey(AJ_Message* msg, AJ_ECCPublicKey* pub);
+AJ_Status AJ_UnmarshalECCPublicKey(AJ_Message* msg, AJ_ECCPublicKey* pub, DER_Element* kid);
 
 /**
  * Unmarshal a certificate chain field and generate the id
  *
- * @param type         The certificate type
+ * @param type         The peer type
  * @param chain        The certificate chain
  * @param id           The certificate id
  *
@@ -224,7 +225,7 @@ AJ_Status AJ_UnmarshalECCPublicKey(AJ_Message* msg, AJ_ECCPublicKey* pub);
  *          - AJ_OK on success
  *          - AJ_ERR_INVALID on all failures
  */
-AJ_Status AJ_GetCertificateId(uint16_t type, X509CertificateChain* chain, AJ_CertificateId* id);
+AJ_Status AJ_GetCertificateId(uint8_t type, X509CertificateChain* chain, AJ_CertificateId* id);
 
 #ifdef __cplusplus
 }

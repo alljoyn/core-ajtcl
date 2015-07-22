@@ -1424,7 +1424,7 @@ AJ_Status AJ_UnmarshalArg(AJ_Message* msg, AJ_Arg* arg)
              */
             if (len == container->len) {
                 memset(arg, 0, sizeof(AJ_Arg));
-                AJ_ErrPrintf(("AJ_UnmarshalMsg(): AJ_ERR_NO_MORE\n"));
+                AJ_InfoPrintf(("AJ_UnmarshalMsg(): AJ_ERR_NO_MORE\n"));
                 status = AJ_ERR_NO_MORE;
             } else {
                 status = Unmarshal(msg, &sig, arg);

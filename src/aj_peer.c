@@ -1690,7 +1690,7 @@ static AJ_Status CommonIssuer(AJ_CredField* data)
     if (AJ_OK != status) {
         goto Exit;
     }
-    status = AJ_GetCertificateId(AJ_ECC_CA_ADMIN, chain, &id);
+    status = AJ_GetCertificateId(AJ_PEER_TYPE_WITH_MEMBERSHIP, chain, &id);
     if (AJ_OK != status) {
         goto Exit;
     }
@@ -1825,7 +1825,6 @@ static AJ_Status UnmarshalCertificates(AJ_Message* msg)
     DER_Element der;
     X509CertificateChain* head = NULL;
     X509CertificateChain* node = NULL;
-    AJ_CredField id;
     AJ_ECCPublicKey pub;
     DER_Element* group;
 
@@ -1881,9 +1880,7 @@ static AJ_Status UnmarshalCertificates(AJ_Message* msg)
     }
 
     /* Lookup certificate authority public key */
-    id.size = head->certificate.tbs.extensions.aki.size;
-    id.data = head->certificate.tbs.extensions.aki.data;
-    status = AJ_CredentialGetECCPublicKey(AJ_ECC_CA, &id, NULL, &pub);
+    status = AJ_PolicyGetCAPublicKey(AJ_PEER_TYPE_WITH_MEMBERSHIP, &head->certificate.tbs.extensions.aki, &pub);
     if (AJ_OK != status) {
         AJ_InfoPrintf(("UnmarshalCertificates(msg=%p): Certificate authority unknown\n", msg));
         goto Exit;
@@ -1933,6 +1930,9 @@ AJ_Status AJ_PeerHandleSendMemberships(AJ_Message* msg, AJ_Message* reply)
         status = UnmarshalCertificates(msg);
         if (AJ_OK != status) {
             goto Exit;
+        }
+        if (SEND_MEMBERSHIPS_LAST == code) {
+            code = SEND_MEMBERSHIPS_NONE;
         }
     }
 

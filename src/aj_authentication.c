@@ -26,6 +26,7 @@
 #include <ajtcl/aj_target.h>
 #include <ajtcl/aj_debug.h>
 #include <ajtcl/aj_authentication.h>
+#include <ajtcl/aj_authorisation.h>
 #include <ajtcl/aj_cert.h>
 #include <ajtcl/aj_peer.h>
 #include <ajtcl/aj_creds.h>
@@ -325,7 +326,7 @@ static AJ_Status ECDHEUnmarshalV4(AJ_AuthenticationContext* ctx, AJ_Message* msg
         AJ_InfoPrintf(("ECDHEUnmarshalV4(ctx=%p, msg=%p): Unmarshal error\n", ctx, msg));
         return status;
     }
-    status = AJ_UnmarshalECCPublicKey(msg, &pub);
+    status = AJ_UnmarshalECCPublicKey(msg, &pub, NULL);
     if (AJ_OK != status) {
         AJ_InfoPrintf(("ECDHEUnmarshalV4(ctx=%p, msg=%p): Unmarshal error\n", ctx, msg));
         return status;
@@ -752,7 +753,6 @@ static AJ_Status ECDSAUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
     const char* variant;
     uint8_t fmt;
     DER_Element der;
-    AJ_CredField id;
     AJ_ECCSignature sig;
     uint8_t* sig_r;
     uint8_t* sig_s;
@@ -897,9 +897,6 @@ static AJ_Status ECDSAUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
         goto Exit;
     }
 
-    /* Lookup certificate authority public key */
-    id.size = head->certificate.tbs.extensions.aki.size;
-    id.data = head->certificate.tbs.extensions.aki.data;
     /* Copy the public key (issuer) */
     ctx->kactx.ecdsa.num++;
     ctx->kactx.ecdsa.key = (AJ_ECCPublicKey*) AJ_Realloc(ctx->kactx.ecdsa.key, ctx->kactx.ecdsa.num * sizeof (AJ_ECCPublicKey));
@@ -907,7 +904,7 @@ static AJ_Status ECDSAUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
         status = AJ_ERR_RESOURCES;
         goto Exit;
     }
-    status = AJ_CredentialGetECCPublicKey(AJ_ECC_CA, &id, NULL, &ctx->kactx.ecdsa.key[ctx->kactx.ecdsa.num - 1]);
+    status = AJ_PolicyGetCAPublicKey(AJ_PEER_TYPE_FROM_CA, &head->certificate.tbs.extensions.aki, &ctx->kactx.ecdsa.key[ctx->kactx.ecdsa.num - 1]);
     if (AJ_OK != status) {
         AJ_InfoPrintf(("AJ_ECDSA_Unmarshal(msg=%p): Certificate authority unknown\n", msg));
         goto Exit;
