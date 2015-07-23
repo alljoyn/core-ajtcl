@@ -180,7 +180,6 @@ FLAGS = 	-mthumb \
 			-c \
 			-pipe \
 			-fno-strict-aliasing \
-			-Wmissing-prototypes \
 			-Wpointer-arith \
 			-std=gnu99 \
 			-Wchar-subscripts \
