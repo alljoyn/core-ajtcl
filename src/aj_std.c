@@ -62,9 +62,8 @@ static const char AboutIconInterface[] = "org.alljoyn.Icon";
 
 const char AllSeenIntrospectableInterface[] = "#org.allseen.Introspectable";
 
-static const char ApplicationObjectPath[] = "/org/alljoyn/Bus/Application";
-static const char ApplicationInterface[] = "org.alljoyn.Bus.Application";
 static const char SecurityObjectPath[] = "/org/alljoyn/Bus/Security";
+static const char ApplicationInterface[] = "org.alljoyn.Bus.Application";
 static const char SecurityApplicationInterface[] = "$org.alljoyn.Bus.Security.Application";
 static const char SecurityClaimableApplicationInterface[] = "$org.alljoyn.Bus.Security.ClaimableApplication";
 static const char SecurityManagedApplicationInterface[] = "$org.alljoyn.Bus.Security.ManagedApplication";
@@ -251,14 +250,9 @@ static const AJ_InterfaceDescription BusIfaces[] = {
     NULL
 };
 
-static const AJ_InterfaceDescription ApplicationIfaces[] = {
-    AJ_PropertiesIface,
-    ApplicationIface,
-    NULL
-};
-
 static const AJ_InterfaceDescription SecurityIfaces[] = {
     AJ_PropertiesIface,
+    ApplicationIface,
     SecurityApplicationIface,
     SecurityClaimableApplicationIface,
     SecurityManagedApplicationIface,
@@ -303,7 +297,6 @@ const AJ_Object AJ_StandardObjects[] = {
     { DaemonObjectPath,      DaemonIfaces,      AJ_OBJ_FLAG_IS_PROXY,  NULL },
     { AboutObjectPath,       AboutIfaces,       AJ_OBJ_FLAG_ANNOUNCED, NULL },
     { AboutIconObjectPath,   AboutIconIfaces,   AJ_OBJ_FLAG_ANNOUNCED, NULL },
-    { ApplicationObjectPath, ApplicationIfaces, 0,                     NULL },
     { SecurityObjectPath,    SecurityIfaces,    AJ_OBJ_FLAG_SECURE,    NULL },
     { NULL,                  NULL,              0,                     NULL }
 };

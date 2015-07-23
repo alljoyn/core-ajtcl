@@ -326,31 +326,6 @@ Exit:
     return status;
 }
 
-/*
- * org.alljoyn.Bus.Application implementation
- */
-static AJ_Status ApplicationGetProperty(AJ_Message* reply, uint32_t id, void* context)
-{
-    AJ_Status status = AJ_ERR_UNEXPECTED;
-
-    switch (id) {
-    case AJ_PROPERTY_APPLICATION_VERSION:
-        status = AJ_MarshalArgs(reply, "q", (uint16_t) APPLICATION_VERSION);
-        break;
-
-    default:
-        status = AJ_ERR_UNEXPECTED;
-        break;
-    }
-
-    return status;
-}
-
-AJ_Status AJ_ApplicationGetProperty(AJ_Message* msg)
-{
-    return AJ_BusPropGet(msg, ApplicationGetProperty, NULL);
-}
-
 AJ_Status AJ_ApplicationStateSignalEmit(AJ_BusAttachment* bus)
 {
     emit = TRUE;
@@ -407,7 +382,13 @@ static AJ_Status SecurityGetProperty(AJ_Message* reply, uint32_t id, void* conte
     AJ_CertificateId certificate;
     X509CertificateChain* chain = NULL;
 
+    AJ_InfoPrintf(("SecurityGetProperty(reply=%p, id=%x, context=%p)\n", reply, id, context));
+
     switch (id) {
+    case AJ_PROPERTY_APPLICATION_VERSION:
+        status = AJ_MarshalArgs(reply, "q", (uint16_t) APPLICATION_VERSION);
+        break;
+
     case AJ_PROPERTY_SEC_VERSION:
         status = AJ_MarshalArgs(reply, "q", (uint16_t) SECURITY_APPLICATION_VERSION);
         break;
