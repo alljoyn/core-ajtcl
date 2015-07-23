@@ -234,7 +234,7 @@ void AJ_ConversationHash_Update_Message(AJ_AuthenticationContext* ctx, uint32_t 
  * Get the conversation hash
  *
  * @param ctx           The authentication context
- * @param digest        The buffer to receive the digest. Must be of SHA256_DIGEST_LENGTH
+ * @param digest        The buffer to receive the digest. Must be of AJ_SHA256_DIGEST_LENGTH
  * @param keepAlive     Whether or not to keep the digest alive for continuing digest
  *
  * @return

@@ -56,7 +56,7 @@ void AJ_SHA256_Update(AJ_SHA256_Context* context, const uint8_t* buf, size_t buf
 /**
  * Retrieve the digest but keep the hash active for further updates.
  * @param context the hash context
- * @param digest the buffer to hold the digest.  Must be of size SHA256_DIGEST_LENGTH
+ * @param digest the buffer to hold the digest.  Must be of size AJ_SHA256_DIGEST_LENGTH
  * @return AJ_OK if successful, otherwise error.
  */
 AJ_Status AJ_SHA256_GetDigest(AJ_SHA256_Context* context, uint8_t* digest);
@@ -65,7 +65,7 @@ AJ_Status AJ_SHA256_GetDigest(AJ_SHA256_Context* context, uint8_t* digest);
  * Finish the hash calculation and free resources.
  * @param context the hash context
  * @param digest - the buffer to hold the digest.
- *        Must be NULL or of size SHA256_DIGEST_LENGTH.
+ *        Must be NULL or of size AJ_SHA256_DIGEST_LENGTH.
  *        If the value is NULL, resources are freed but the digest
  *        is not calculated.
  * @return AJ_OK if successful, otherwise error.
