@@ -40,6 +40,10 @@
 uint8_t dbgCRYPTO_SHA2 = 0;
 #endif
 
+#if AJ_SHA256_DIGEST_LENGTH != SHA256_DIGEST_LENGTH
+#error Digest length mismatch
+#endif
+
 #define HMAC_SHA256_DIGEST_LENGTH SHA256_DIGEST_LENGTH
 #define HMAC_SHA256_BLOCK_LENGTH  64
 
@@ -121,7 +125,7 @@ static AJ_Status getDigest(AJ_SHA256_Context* context, uint8_t* digest,
 /**
  * Retrieve the digest but keep the hash active for further updates.
  * @param context the hash context
- * @param digest the buffer to hold the digest.  Must be of size SHA256_DIGEST_LENGTH
+ * @param digest the buffer to hold the digest.  Must be of size AJ_SHA256_DIGEST_LENGTH
  * @return AJ_OK if successful, otherwise error.
  */
 AJ_Status AJ_SHA256_GetDigest(AJ_SHA256_Context* context, uint8_t* digest)
@@ -133,7 +137,7 @@ AJ_Status AJ_SHA256_GetDigest(AJ_SHA256_Context* context, uint8_t* digest)
  * Finish the hash calculation and free resources.
  * @param context the hash context
  * @param digest - the buffer to hold the digest.
- *        Must be NULL or of size SHA256_DIGEST_LENGTH.
+ *        Must be NULL or of size AJ_SHA256_DIGEST_LENGTH.
  *        If the value is NULL, resources are freed but the digest
  *        is not calculated.
  * @return AJ_OK if successful, otherwise error.
@@ -179,7 +183,7 @@ static AJ_Status AJ_HMAC_SHA256_Init(AJ_HMAC_SHA256_CTX* ctx, const uint8_t* key
         if (status != AJ_OK) {
             return status;
         }
-        keyLen = SHA256_DIGEST_LENGTH;
+        keyLen = AJ_SHA256_DIGEST_LENGTH;
         memcpy(ctx->ipad, digest, AJ_SHA256_DIGEST_LENGTH);
         memcpy(ctx->opad, digest, AJ_SHA256_DIGEST_LENGTH);
     } else {
@@ -231,7 +235,7 @@ static void AJ_HMAC_SHA256_Update(AJ_HMAC_SHA256_CTX* ctx, const uint8_t* data, 
 /**
  * Retrieve the final digest for the HMAC
  * @param ctx the HMAC context
- * @param digest the buffer to hold the digest.  Must be of size SHA256_DIGEST_LENGTH
+ * @param digest the buffer to hold the digest.  Must be of size AJ_SHA256_DIGEST_LENGTH
  */
 static AJ_Status AJ_HMAC_SHA256_Final(AJ_HMAC_SHA256_CTX* ctx, uint8_t* digest)
 {
