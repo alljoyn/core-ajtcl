@@ -238,10 +238,10 @@ void AJ_AES_CTR_128(const uint8_t* key, const uint8_t* in, uint8_t* out, uint32_
          * A big-endian increment of a 32 bit counter on a little-endian CPU.
          * Only supports counter values up to 2^16 because that is all we need
          */
-        if (counter[3] == 0xFF000000) {
-            counter[3] += 0x00010000;
+        if ((counter[3] & (uint32_t)0xFF000000) == (uint32_t)0xFF000000) {
+            counter[3] += (uint32_t)0x00010000;
         }
-        counter[3] += 0x01000000;
+        counter[3] += (uint32_t)0x01000000;
 #else
         counter[3] += 1;
 #endif
