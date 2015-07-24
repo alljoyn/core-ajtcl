@@ -111,7 +111,12 @@ void AJ_Main(void)
         AJ_RandBytes(&currentContext, sizeof(currentContext));
 
         uint8_t currentMaxAps = 0;
+        /* ask for a random number of access points (between 1 and 255) when scanning */
         AJ_RandBytes(&currentMaxAps, sizeof(currentMaxAps));
+        if (currentMaxAps == 0) {
+            currentMaxAps = 1;
+        }
+
 
         /* Reset numValidScanEntries, before every scan attempt. */
         numValidScanEntries = 0;
@@ -145,9 +150,9 @@ void AJ_Main(void)
             }
         }
 
-        /* numValidScanEntries is an index into the array. Hence +1. */
-        if (currentMaxAps < numValidScanEntries + 1) {
-            AJ_Printf("WARN: Scan returned more results (%u) than requested (%u).\n", numValidScanEntries + 1, currentMaxAps);
+        /* numValidScanEntries is an index into the array. */
+        if (currentMaxAps < numValidScanEntries) {
+            AJ_Printf("WARN: Scan returned more results (%u) than requested (%u).\n", numValidScanEntries, currentMaxAps);
         } else {
             AJ_Printf("Wifi scan successful (got %u results).\n", numValidScanEntries);
         }
