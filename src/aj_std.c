@@ -297,6 +297,6 @@ const AJ_Object AJ_StandardObjects[] = {
     { DaemonObjectPath,      DaemonIfaces,      AJ_OBJ_FLAG_IS_PROXY,  NULL },
     { AboutObjectPath,       AboutIfaces,       AJ_OBJ_FLAG_ANNOUNCED, NULL },
     { AboutIconObjectPath,   AboutIconIfaces,   AJ_OBJ_FLAG_ANNOUNCED, NULL },
-    { SecurityObjectPath,    SecurityIfaces,    AJ_OBJ_FLAG_SECURE,    NULL },
+    { SecurityObjectPath,    SecurityIfaces,    0,                     NULL },
     { NULL,                  NULL,              0,                     NULL }
 };
