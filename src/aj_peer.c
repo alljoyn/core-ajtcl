@@ -166,7 +166,9 @@ void AJ_ClearAuthContext()
 {
     /* Free issuers and hash */
     AJ_Free(authContext.kactx.ecdsa.key);
-    AJ_SHA256_Final(authContext.hash, NULL);
+    if (authContext.hash) {
+        AJ_SHA256_Final(authContext.hash, NULL);
+    }
 
     memset(&peerContext, 0, sizeof (PeerContext));
     memset(&authContext, 0, sizeof (AJ_AuthenticationContext));
