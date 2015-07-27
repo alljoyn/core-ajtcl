@@ -1032,7 +1032,6 @@ static AJ_Status ARDP_Send(uint8_t* txBuf, uint16_t len)
         uint16_t dataLen;
         size_t sent;
         uint32_t timeout;
-        AJ_Status status;
 
         /* Check whether the current buffer is not in a process of being populated with fragmented data */
         dataLen = (len <= (ARDP_MAX_DLEN - offset)) ? offset + len : ARDP_MAX_DLEN;
@@ -1248,7 +1247,6 @@ AJ_Status AJ_ARDP_Recv(AJ_IOBuffer* rxBuf, uint32_t len, uint32_t timeout)
 {
     AJ_Status status = AJ_ERR_TIMEOUT;
     AJ_Status localStatus;
-    AJ_Status timerStatus = AJ_OK;
     uint32_t timeout2 = min(timeout, UDP_MINIMUM_TIMEOUT);
     AJ_Time now, end;
 
@@ -1273,11 +1271,11 @@ AJ_Status AJ_ARDP_Recv(AJ_IOBuffer* rxBuf, uint32_t len, uint32_t timeout)
 
         localStatus = CheckTimers();
 
-        if (localStatus == AJ_ERR_ARDP_PROBE_TIMEOUT) {
+        if (localStatus == AJ_ERR_CONNECT) {
+            return AJ_ERR_CONNECT;
+        } else if (localStatus != AJ_OK) {
+            AJ_InfoPrintf(("AJ_ARDP_Recv CheckTimers status %s\n", AJ_StatusText(localStatus)));
             return AJ_ERR_READ;
-        }
-        if (localStatus != AJ_OK) {
-            timerStatus = localStatus;
         }
 
         switch (status) {
@@ -1335,11 +1333,6 @@ UPDATE_READ:
         if (conn->ackTimer.retry == 0) {
             InitTimer(&conn->ackTimer, ARDP_MIN_DELAYED_ACK_TIMEOUT, 1);
         }
-    }
-
-    if (timerStatus != AJ_OK) {
-        AJ_InfoPrintf(("AJ_ARDP_Recv CheckTimers status %s\n", AJ_StatusText(localStatus)));
-        status = localStatus;
     }
 
     AJ_InfoPrintf(("AJ_ARDP_Recv exit with %s\n", AJ_StatusText(status)));
