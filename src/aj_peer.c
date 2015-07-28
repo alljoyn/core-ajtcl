@@ -164,10 +164,12 @@ static AJ_Status KeyGen(const char* peerName, uint8_t role, const char* nonce1, 
 
 void AJ_ClearAuthContext()
 {
-    /* Free issuers */
-    if (authContext.kactx.ecdsa.key) {
-        AJ_Free(authContext.kactx.ecdsa.key);
+    /* Free issuers and hash */
+    AJ_Free(authContext.kactx.ecdsa.key);
+    if (authContext.hash) {
+        AJ_SHA256_Final(authContext.hash, NULL);
     }
+
     memset(&peerContext, 0, sizeof (PeerContext));
     memset(&authContext, 0, sizeof (AJ_AuthenticationContext));
 }
@@ -397,15 +399,19 @@ AJ_Status AJ_PeerAuthenticate(AJ_BusAttachment* bus, const char* peerName, AJ_Pe
     AJ_InitTimer(&peerContext.timer);
     authContext.bus = bus;
     authContext.role = AUTH_CLIENT;
-    AJ_ConversationHash_Initialize(&authContext);
-    if (bus->pwdCallback) {
-        AJ_EnableSuite(bus, AUTH_SUITE_ECDHE_PSK);
+
+    status = AJ_ConversationHash_Initialize(&authContext);
+    if (AJ_OK == status) {
+        if (bus->pwdCallback) {
+            AJ_EnableSuite(bus, AUTH_SUITE_ECDHE_PSK);
+        }
+
+        /*
+         * Kick off authentication with an ExchangeGUIDS method call
+         */
+        status = AJ_MarshalMethodCall(bus, &msg, AJ_METHOD_EXCHANGE_GUIDS, peerName, 0, AJ_NO_FLAGS, AJ_CALL_TIMEOUT);
     }
 
-    /*
-     * Kick off authentication with an ExchangeGUIDS method call
-     */
-    status = AJ_MarshalMethodCall(bus, &msg, AJ_METHOD_EXCHANGE_GUIDS, peerName, 0, AJ_NO_FLAGS, AJ_CALL_TIMEOUT);
     if (AJ_OK != status) {
         return status;
     }
@@ -459,12 +465,16 @@ AJ_Status AJ_PeerHandleExchangeGUIDs(AJ_Message* msg, AJ_Message* reply)
     AJ_InitTimer(&peerContext.timer);
     authContext.bus = msg->bus;
     authContext.role = AUTH_SERVER;
-    AJ_ConversationHash_Initialize(&authContext);
-    if (msg->bus->pwdCallback) {
-        AJ_EnableSuite(msg->bus, AUTH_SUITE_ECDHE_PSK);
+
+    status = AJ_ConversationHash_Initialize(&authContext);
+    if (AJ_OK == status) {
+        if (msg->bus->pwdCallback) {
+            AJ_EnableSuite(msg->bus, AUTH_SUITE_ECDHE_PSK);
+        }
+
+        status = AJ_UnmarshalArgs(msg, "su", &str, &authContext.version);
     }
 
-    status = AJ_UnmarshalArgs(msg, "su", &str, &authContext.version);
     if (AJ_OK != status) {
         AJ_InfoPrintf(("AJ_PeerHandleExchangeGuids(msg=%p, reply=%p): Unmarshal error\n", msg, reply));
         HandshakeComplete(AJ_ERR_SECURITY);
@@ -609,7 +619,11 @@ AJ_Status AJ_PeerHandleExchangeGUIDsReply(AJ_Message* msg)
      * into the hash in AJ_PeerAuthenticate, so reset it.
      */
     if ((authContext.version >> 16) < CONVERSATION_V4) {
-        AJ_ConversationHash_Initialize(&authContext);
+        status = AJ_ConversationHash_Reset(&authContext);
+        if (AJ_OK != status) {
+            AJ_WarnPrintf(("AJ_PeerHandleExchangeGUIDsReply(msg=%p): SHA256 error\n", msg));
+            goto Exit;
+        }
     } else {
         AJ_ConversationHash_Update_Message(&authContext, CONVERSATION_V4, msg, 0);
     }
@@ -1502,7 +1516,10 @@ AJ_Status AJ_PeerHandleSendManifest(AJ_Message* msg, AJ_Message* reply)
         goto Exit;
     }
     field.size = msg->bus->sock.rx.readPtr - field.data;
-    AJ_ManifestDigest(&field, digest);
+    status = AJ_ManifestDigest(&field, digest);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
     field.data = NULL;
     field.size = 0;
     /* Compare with digest from certificate */

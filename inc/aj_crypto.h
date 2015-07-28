@@ -113,91 +113,6 @@ void AJ_AES_Enable(const uint8_t* key);
 void AJ_AES_Disable(void);
 
 /**
- * AES counter mode encryption/decryption. Note that in CTR mode encrytion is its own inverse.
- *
- * @param key  The AES encryption key
- * @param in   The data to encrypt
- * @param out  The encrypted data
- * @param len  The length of the input data, must be multiple of 16
- * @param ctr  Pointer to a 16 byte counter block
- */
-void AJ_AES_CTR_128(const uint8_t* key, const uint8_t* in, uint8_t* out, uint32_t len, uint8_t* ctr);
-
-/**
- * AES CCM mode encryption
- *
- * @param key  The AES encryption key
- * @param in   The data to encrypt
- * @param out  The encrypted data
- * @param len  The length of the input data, must be multiple of 16
- * @param iv   Pointer to a 16 byte initialization vector
- */
-void AJ_AES_CBC_128_ENCRYPT(const uint8_t* key, const uint8_t* in, uint8_t* out, uint32_t len, uint8_t* iv);
-
-
-/**
- * Encrypt a single 16 byte block using AES in ECB mode
- *
- * @param key  The AES encryption key
- * @param in   The data to encrypt
- * @param out  The encrypted data
- */
-void AJ_AES_ECB_128_ENCRYPT(const uint8_t* key, const uint8_t* in, uint8_t* out);
-
-/**
- * AES-128 CTR DRBG constants
- */
-#define OUTLEN 16
-#define KEYLEN 16
-#define SEEDLEN OUTLEN + KEYLEN
-
-/**
- * Context for AES-128 CTR DRBG
- */
-typedef struct _CTR_DRBG_CTX {
-    uint8_t df;        /**< Use DF or not */
-    uint8_t v[OUTLEN]; /**< Internal working state */
-    uint8_t k[KEYLEN]; /**< Key working state */
-    uint32_t c;        /**< Reseed counter */
-} CTR_DRBG_CTX;
-
-/**
- * AES-128 CTR DRBG instantiate function
- * This takes a seed value: entropy || nonce || personalization
- *
- * @param ctx          The context
- * @param seed         Input seed material
- * @param size         Input seed material size
- * @param df           Use DF or not
- */
-void AES_CTR_DRBG_Instantiate(CTR_DRBG_CTX* ctx, uint8_t* seed, size_t size, uint8_t df);
-
-/**
- * AES-128 CTR DRBG reseed function
- * This takes a seed value: entropy || additional
- *
- * @param ctx          The context
- * @param seed         Input seed material
- * @param size         Input seed material size
- */
-void AES_CTR_DRBG_Reseed(CTR_DRBG_CTX* ctx, uint8_t* seed, size_t size);
-
-/**
- * AES-128 CTR DRBG generate function
- * This implementation does not take additional input
- *
- * @param ctx          The context
- * @param rand         Output rand material
- * @param size         Required output rand material size
- *
- * @return             Return AJ_Status
- *                     - AJ_OK on success
- *                     - AJ_ERR_SECURITY if reseed required
- */
-AJ_Status AES_CTR_DRBG_Generate(CTR_DRBG_CTX* ctx, uint8_t* rand, size_t size);
-
-
-/**
  * Compare two buffers in constant time. For any two inputs buf1 and buf2, and
  * fixed count, the function will use the same number of cycles.
  *
@@ -208,7 +123,7 @@ AJ_Status AES_CTR_DRBG_Generate(CTR_DRBG_CTX* ctx, uint8_t* rand, size_t size);
  * @return 0  if the first count bytes of buf1 and buf2 are equal, nonzero otherwise.
  *
  */
-int Crypto_Compare(const void* buf1, const void* buf2, size_t count);
+int AJ_Crypto_Compare(const void* buf1, const void* buf2, size_t count);
 
 #ifdef __cplusplus
 }

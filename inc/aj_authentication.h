@@ -95,7 +95,7 @@ typedef struct _AJ_AuthenticationContext {
     uint8_t role;                                  /**< Role (client or server) */
     uint32_t suite;                                /**< Authentication suite */
     uint32_t version;                              /**< Protocol version */
-    AJ_SHA256_Context hash;                        /**< Running hash of exchanged messages */
+    AJ_SHA256_Context* hash;                       /**< Running hash of exchanged messages */
     KeyExchangeContext kectx;                      /**< Context for key exchange step */
     KeyAuthenticationContext kactx;                /**< Context for key authentication step */
     uint8_t mastersecret[AJ_MASTER_SECRET_LEN];    /**< Master secret */
@@ -177,8 +177,11 @@ void AJ_EnableSuite(AJ_BusAttachment* bus, uint32_t suite);
  *
  * @param ctx          The authentication context
  *
+ * @return
+ *         - AJ_OK on success
+ *         - An error status otherwise
  */
-void AJ_ConversationHash_Initialize(AJ_AuthenticationContext* ctx);
+AJ_Status AJ_ConversationHash_Initialize(AJ_AuthenticationContext* ctx);
 
 /**
  * Update the conversation hash with a uint8_t
@@ -231,10 +234,25 @@ void AJ_ConversationHash_Update_Message(AJ_AuthenticationContext* ctx, uint32_t 
  * Get the conversation hash
  *
  * @param ctx           The authentication context
- * @param digest        The buffer to receive the digest. Must be of SHA256_DIGEST_LENGTH
+ * @param digest        The buffer to receive the digest. Must be of AJ_SHA256_DIGEST_LENGTH
  * @param keepAlive     Whether or not to keep the digest alive for continuing digest
+ *
+ * @return
+ *         - AJ_OK on success
+ *         - An error status otherwise
  */
-void AJ_ConversationHash_GetDigest(AJ_AuthenticationContext* ctx, uint8_t* digest, const uint8_t keepAlive);
+AJ_Status AJ_ConversationHash_GetDigest(AJ_AuthenticationContext* ctx, uint8_t* digest);
+
+/**
+ * Reset the conversation hash
+ *
+ * @param ctx           The authentication context
+ *
+ * @return
+ *         - AJ_OK on success
+ *         - An error status otherwise
+ */
+AJ_Status AJ_ConversationHash_Reset(AJ_AuthenticationContext* ctx);
 
 #ifdef __cplusplus
 }

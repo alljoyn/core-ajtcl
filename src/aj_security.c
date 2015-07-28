@@ -402,7 +402,10 @@ static AJ_Status SecurityGetProperty(AJ_Message* reply, uint32_t id, void* conte
         if (AJ_OK != status) {
             break;
         }
-        AJ_ManifestDigest(&field, digest);
+        status = AJ_ManifestDigest(&field, digest);
+        if (AJ_OK != status) {
+            break;
+        }
         status = AJ_MarshalArgs(reply, "(yay)", DIGEST_ALG_SHA256, digest, AJ_SHA256_DIGEST_LENGTH);
         break;
 

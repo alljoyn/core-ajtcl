@@ -65,8 +65,12 @@ static AJ_Status ComputeVerifier(AJ_AuthenticationContext* ctx, const char* labe
     const uint8_t* data[3];
     uint8_t lens[3];
     uint8_t digest[AJ_SHA256_DIGEST_LENGTH];
+    AJ_Status status;
 
-    AJ_ConversationHash_GetDigest(ctx, digest, 1);
+    status = AJ_ConversationHash_GetDigest(ctx, digest);
+    if (AJ_OK != status) {
+        return status;
+    }
 
     data[0] = ctx->mastersecret;
     lens[0] = AJ_MASTER_SECRET_LEN;
@@ -83,8 +87,12 @@ static AJ_Status ComputePSKVerifier(AJ_AuthenticationContext* ctx, const char* l
     const uint8_t* data[5];
     uint8_t lens[5];
     uint8_t digest[AJ_SHA256_DIGEST_LENGTH];
+    AJ_Status status;
 
-    AJ_ConversationHash_GetDigest(ctx, digest, 1);
+    status = AJ_ConversationHash_GetDigest(ctx, digest);
+    if (status != AJ_OK) {
+        return status;
+    }
 
     data[0] = ctx->mastersecret;
     lens[0] = AJ_MASTER_SECRET_LEN;
@@ -236,7 +244,7 @@ static AJ_Status GenerateShareSecret(AJ_AuthenticationContext* ctx, AJ_ECCPublic
 {
     AJ_Status status;
     AJ_ECCSecret sec;
-    AJ_SHA256_Context sha;
+    AJ_SHA256_Context* sha;
     uint8_t* data;
     size_t size;
 
@@ -251,10 +259,19 @@ static AJ_Status GenerateShareSecret(AJ_AuthenticationContext* ctx, AJ_ECCPublic
     if (NULL == data) {
         return AJ_ERR_RESOURCES;
     }
-    AJ_SHA256_Init(&sha);
-    AJ_SHA256_Update(&sha, sec.x, KEY_ECC_SZ);
-    AJ_SHA256_Final(&sha, data);
+    sha = AJ_SHA256_Init();
+    if (!sha) {
+        status = AJ_ERR_RESOURCES;
+        goto Exit;
+    }
+    AJ_SHA256_Update(sha, sec.x, KEY_ECC_SZ);
+    status = AJ_SHA256_Final(sha, data);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
     status = ComputeMasterSecret(ctx, data, size);
+
+Exit:
     AJ_Free(data);
 
     return status;
@@ -435,7 +452,7 @@ static AJ_Status NULLUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
         AJ_InfoPrintf(("NULLUnmarshal(ctx=%p, msg=%p): Invalid signature size\n", ctx, msg));
         return AJ_ERR_SECURITY;
     }
-    if (0 != Crypto_Compare(local, remote, AUTH_VERIFIER_LEN)) {
+    if (0 != AJ_Crypto_Compare(local, remote, AUTH_VERIFIER_LEN)) {
         AJ_InfoPrintf(("NULLUnmarshal(ctx=%p, msg=%p): Invalid verifier\n", ctx, msg));
         return AJ_ERR_SECURITY;
     }
@@ -602,7 +619,7 @@ static AJ_Status PSKUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
         return AJ_ERR_SECURITY;
     }
 
-    if (0 != Crypto_Compare(verifier, data, AUTH_VERIFIER_LEN)) {
+    if (0 != AJ_Crypto_Compare(verifier, data, AUTH_VERIFIER_LEN)) {
         AJ_InfoPrintf(("PSKUnmarshal(ctx=%p, msg=%p): Invalid verifier\n", ctx, msg));
         return AJ_ERR_SECURITY;
     }
@@ -998,9 +1015,16 @@ void AJ_EnableSuite(AJ_BusAttachment* bus, uint32_t suite)
     }
 }
 
-void AJ_ConversationHash_Initialize(AJ_AuthenticationContext* ctx)
+AJ_Status AJ_ConversationHash_Initialize(AJ_AuthenticationContext* ctx)
 {
-    AJ_SHA256_Init(&ctx->hash);
+    ctx->hash = AJ_SHA256_Init();
+
+    if (ctx->hash) {
+        return AJ_OK;
+    } else {
+        AJ_ErrPrintf(("AJ_ConversationHash_Initialize() failed\n"));
+        return AJ_ERR_RESOURCES;
+    }
 }
 
 static inline int ConversationVersionDoesNotApply(uint32_t conversationVersion, uint32_t currentAuthVersion)
@@ -1022,7 +1046,7 @@ void AJ_ConversationHash_Update_UInt8(AJ_AuthenticationContext* ctx, uint32_t co
     if (ConversationVersionDoesNotApply(conversationVersion, ctx->version)) {
         return;
     }
-    AJ_SHA256_Update(&ctx->hash, &byte, sizeof(byte));
+    AJ_SHA256_Update(ctx->hash, &byte, sizeof(byte));
 }
 
 void AJ_ConversationHash_Update_UInt8Array(AJ_AuthenticationContext* ctx, uint32_t conversationVersion, const uint8_t* buf, size_t bufSize)
@@ -1035,9 +1059,9 @@ void AJ_ConversationHash_Update_UInt8Array(AJ_AuthenticationContext* ctx, uint32
         AJ_ASSERT(bufSize <= 0xFFFFFFFF);
         uint32_t bufSizeU32 = (uint32_t)bufSize;
         HostU32ToLittleEndianU8(&bufSizeU32, sizeof(bufSizeU32), v_uintLE);
-        AJ_SHA256_Update(&ctx->hash, v_uintLE, sizeof(v_uintLE));
+        AJ_SHA256_Update(ctx->hash, v_uintLE, sizeof(v_uintLE));
     }
-    AJ_SHA256_Update(&ctx->hash, buf, bufSize);
+    AJ_SHA256_Update(ctx->hash, buf, bufSize);
 }
 
 void AJ_ConversationHash_Update_String(AJ_AuthenticationContext* ctx, uint32_t conversationVersion, const char* str, size_t strSize)
@@ -1081,7 +1105,20 @@ void AJ_ConversationHash_Update_Message(AJ_AuthenticationContext* ctx, uint32_t 
 
 }
 
-void AJ_ConversationHash_GetDigest(AJ_AuthenticationContext* ctx, uint8_t* digest, const uint8_t keepAlive)
+AJ_Status AJ_ConversationHash_GetDigest(AJ_AuthenticationContext* ctx, uint8_t* digest)
 {
-    AJ_SHA256_GetDigest(&ctx->hash, digest, keepAlive);
+    return AJ_SHA256_GetDigest(ctx->hash, digest);
+}
+
+AJ_Status AJ_ConversationHash_Reset(AJ_AuthenticationContext* ctx)
+{
+    AJ_Status status;
+
+    status = AJ_SHA256_Final(ctx->hash, NULL);
+
+    if (status == AJ_OK) {
+        status = AJ_ConversationHash_Initialize(ctx);
+    }
+
+    return status;
 }
