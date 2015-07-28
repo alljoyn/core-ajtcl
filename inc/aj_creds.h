@@ -55,6 +55,8 @@ extern "C" {
 #define AJ_CERTIFICATE_OEM_X509     0x0000 /**< Manufacturer certificate */
 #define AJ_CERTIFICATE_IDN_X509     0x0100 /**< Identity certificate */
 #define AJ_CERTIFICATE_MBR_X509     0x0200 /**< Membership certificate */
+#define AJ_CERTIFICATE_UNR_X509     (AJ_CERTIFICATE_IDN_X509 | AJ_CERTIFICATE_MBR_X509) /**< Unrestricted certificate */
+#define AJ_CERTIFICATE_INV_X509     0x0400 /**< Invalid certificate (EKUs present but no AllJoyn EKUs) */
 #define AJ_POLICY_DEFAULT           0x0000 /**< Default policy */
 #define AJ_POLICY_INSTALLED         0x0100 /**< Installed policy */
 #define AJ_CONFIG_CLAIMSTATE        0x0000 /**< Claim state */

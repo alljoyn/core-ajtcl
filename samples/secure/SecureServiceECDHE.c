@@ -200,12 +200,7 @@ static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, 
             switch (cred->direction) {
             case AJ_CRED_REQUEST:
                 // Free previous certificate chain
-                while (chain) {
-                    node = chain;
-                    chain = chain->next;
-                    AJ_Free(node->certificate.der.data);
-                    AJ_Free(node);
-                }
+                AJ_X509FreeDecodedCertificateChain(chain);
                 chain = AJ_X509DecodeCertificateChainPEM(pem_x509);
                 if (NULL == chain) {
                     return AJ_ERR_INVALID;
@@ -336,13 +331,7 @@ int AJ_Main(int argc, char** argv)
     AJ_Printf("Secure service exiting with status 0x%04x.\n", status);
 
     // Clean up certificate chain
-    while (chain) {
-        node = chain;
-        chain = chain->next;
-        AJ_Free(node->certificate.der.data);
-        AJ_Free(node);
-    }
-
+    AJ_X509FreeDecodedCertificateChain(chain);
     return status;
 }
 
