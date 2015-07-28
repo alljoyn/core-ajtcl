@@ -43,10 +43,11 @@ extern const uint8_t OID_SKI[3];
 extern const uint8_t OID_AKI[3];
 extern const uint8_t OID_SUB_ALTNAME[3];
 extern const uint8_t OID_HASH_SHA256[9];
-extern const uint8_t OID_CUSTOM_TYPE[10];
+extern const uint8_t OID_CUSTOM_EKU_IDENTITY[10];
 extern const uint8_t OID_CUSTOM_DIGEST[10];
 extern const uint8_t OID_CUSTOM_GROUP[10];
 extern const uint8_t OID_CUSTOM_ALIAS[10];
+extern const uint8_t OID_CUSTOM_EKU_MEMBERSHIP[10];
 
 /**
  * Structure for a DER encoded element.
@@ -178,11 +179,22 @@ AJ_Status AJ_X509DecodeCertificatePEM(X509Certificate* certificate, const char* 
  * This puts the child first, then parents follow.
  * That is the same order that should be in the pem.
  *
+ * On success, caller must later free the chain with a call
+ * to AJ_X509FreeDecodedCertificateChain.
+ *
  * @param pem         The input PEM.
  *
  * @return  Return chain on success, NULL on failure
  */
 X509CertificateChain* AJ_X509DecodeCertificateChainPEM(const char* pem);
+
+/**
+ * Free the memory allocated to an X509CertificateChain* as returned
+ * by AJ_X509DecodeCertificateChainPEM.
+ *
+ * @param head       Head of the certificate chain. If this is NULL, this function does nothing.
+ */
+void AJ_X509FreeDecodedCertificateChain(X509CertificateChain* head);
 
 /**
  * Verify a self-signed X.509 certificate.
