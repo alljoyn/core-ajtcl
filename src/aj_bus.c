@@ -788,6 +788,8 @@ AJ_Status AJ_BusEnableSecurity(AJ_BusAttachment* bus, const uint32_t* suites, si
 
     AJ_InfoPrintf(("AJ_BusEnableSecurity(bus=0x%p, suites=0x%p)\n", bus, suites));
 
+    /* Disable all first to undo any previous calls */
+    memset((uint8_t*) bus->suites, 0, sizeof (bus->suites));
     for (i = 0; i < numsuites; i++) {
         AJ_EnableSuite(bus, suites[i]);
     }
