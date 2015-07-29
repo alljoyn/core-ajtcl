@@ -1442,7 +1442,7 @@ AJ_Status AJ_PeerHandleExchangeGroupKeysReply(AJ_Message* msg)
     if (AUTH_SUITE_ECDHE_ECDSA == authContext.suite) {
         status = SendManifest(msg);
     } else {
-        AJ_PolicyApply(&authContext, msg->sender);
+        status = AJ_PolicyApply(&authContext, msg->sender);
         HandshakeComplete(status);
     }
 
@@ -1926,10 +1926,13 @@ AJ_Status AJ_PeerHandleSendMemberships(AJ_Message* msg, AJ_Message* reply)
     AJ_InfoPrintf(("AJ_PeerHandleSendMemberships(msg=%p, reply=%p): Received code %d\n", msg, reply, code));
 
     if (SEND_MEMBERSHIPS_NONE != code) {
-        /* Check chain */
-        status = UnmarshalCertificates(msg);
-        if (AJ_OK != status) {
-            goto Exit;
+        /*
+         * Unmarshal certificate chain, verify and apply membership rules
+         * If failure occured (eg. false certificate), the rules will not be applied. Do not fail here.
+         */
+        UnmarshalCertificates(msg);
+        if (SEND_MEMBERSHIPS_LAST == code) {
+            code = SEND_MEMBERSHIPS_NONE;
         }
         if (SEND_MEMBERSHIPS_LAST == code) {
             code = SEND_MEMBERSHIPS_NONE;
@@ -1982,11 +1985,11 @@ AJ_Status AJ_PeerHandleSendMembershipsReply(AJ_Message* msg)
     }
 
     if (SEND_MEMBERSHIPS_NONE != code) {
-        /* Check chain */
-        status = UnmarshalCertificates(msg);
-        if (AJ_OK != status) {
-            goto Exit;
-        }
+        /*
+         * Unmarshal certificate chain, verify and apply membership rules
+         * If failure occured (eg. false certificate), the rules will not be applied. Do not fail here.
+         */
+        UnmarshalCertificates(msg);
         if (SEND_MEMBERSHIPS_LAST == code) {
             code = SEND_MEMBERSHIPS_NONE;
         }
