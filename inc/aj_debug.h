@@ -256,6 +256,22 @@ int _AJ_DbgHeader(AJ_DebugLevel level, const char* file, int line);
 #define CONCAT(x, y) x ## y
 #define MKVAR(x, y) CONCAT(x, y)
 
+/**
+ * Print a message in a fashion similar to other conditional log outputs and
+ * include time stamp, file and line number (unless NDEBUG is defined).
+ * When NDEBUG is defined, the behavior is identical to AJ_AlwaysPrintf.
+ * This macro is intended for use in test application code where the timing of
+ * events needs to be recorded in an optimized build (release mode) even when
+ * other debug prints have been suppressed.
+ *
+ * @param msg  A format string and arguments
+ */
+#define AJ_AlwaysHdrPrintf(msg) \
+    do { \
+        _AJ_DbgHeader(AJ_DEBUG_OFF, __FILE__, __LINE__); \
+        AJ_Printf msg; \
+    } while (0)
+
 #if AJ_DEBUG_RESTRICT >= AJ_DEBUG_ERROR
 /**
  * Print an error message.  Error messages may be suppressed by AJ_DEBUG_RESTRICT
@@ -342,6 +358,7 @@ int _AJ_DbgHeader(AJ_DebugLevel level, const char* file, int line);
 #define AJ_ErrPrintf(_msg)
 #define AJ_WarnPrintf(_msg)
 #define AJ_InfoPrintf(_msg)
+#define AJ_AlwaysHdrPrintf AJ_AlwaysPrintf
 
 #endif
 

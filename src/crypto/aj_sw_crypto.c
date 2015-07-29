@@ -231,17 +231,10 @@ void AJ_AES_CTR_128(const uint8_t* key, const uint8_t* in, uint8_t* out, uint32_
             *out++ = *p++ ^ *in++;
         }
         /*
-         * The counter field is big-endian (dumb idea given everything else is processed little endian)
+         * The counter field is big-endian
          */
 #if HOST_IS_LITTLE_ENDIAN
-        /*
-         * A big-endian increment of a 32 bit counter on a little-endian CPU.
-         * Only supports counter values up to 2^16 because that is all we need
-         */
-        if (counter[3] == 0xFF000000) {
-            counter[3] += 0x00010000;
-        }
-        counter[3] += 0x01000000;
+        counter[3] = AJ_ByteSwap32(1 + AJ_ByteSwap32(counter[3]));
 #else
         counter[3] += 1;
 #endif

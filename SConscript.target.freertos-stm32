@@ -70,7 +70,6 @@ env.Append(CFLAGS = [
     '-Wlong-long',
     '-Wmissing-declarations',
     '-Wmissing-format-attribute',
-    '-Wmissing-prototypes',
     '-Wno-deprecated-declarations',
     '-Wpacked',
     '-Wpointer-arith',

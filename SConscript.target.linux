@@ -15,11 +15,15 @@ env.Append(LIBS = ['rt', 'pthread'])
 
 # Cross compile setup
 if os.environ.has_key('CROSS_PREFIX'):
-    env.Replace(CC = os.environ['CROSS_PREFIX'] + env['CC'])
-    env.Replace(CXX = os.environ['CROSS_PREFIX'] + env['CXX'])
-    env.Replace(LINK = env['CC'])
-    env.Replace(AR = os.environ['CROSS_PREFIX'] + 'ar')
-    env.Replace(RANLIB = os.environ['CROSS_PREFIX'] + 'ranlib')
+    cc = env['CC']
+    cxx = env['CXX']
+    ar = env['AR']
+    ranlib = env['RANLIB']
+    env.Replace(CC = os.environ['CROSS_PREFIX'] + cc)
+    env.Replace(CXX = os.environ['CROSS_PREFIX'] + cxx)
+    env.Replace(LINK = os.environ['CROSS_PREFIX'] + cc)
+    env.Replace(AR = os.environ['CROSS_PREFIX'] + ar)
+    env.Replace(RANLIB = os.environ['CROSS_PREFIX'] + ranlib)
     env['ENV']['STAGING_DIR'] = os.environ.get('STAGING_DIR', '')
 if os.environ.has_key('CROSS_PATH'):
     env['ENV']['PATH'] = ':'.join([ os.environ['CROSS_PATH'], env['ENV']['PATH'] ] )
@@ -59,7 +63,6 @@ env.Append(CFLAGS = [
     '-Wlong-long',
     '-Wmissing-declarations',
     '-Wmissing-format-attribute',
-    '-Wmissing-prototypes',
     '-Wno-deprecated-declarations',
     '-Wpacked',
     '-Wpointer-arith',

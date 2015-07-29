@@ -88,6 +88,7 @@ vars.Add(EnumVariable('VARIANT',        'Build variant',               os.enviro
 vars.Add(EnumVariable('DEBUG_RESTRICT', 'Set compiled in debug level', os.environ.get('AJ_DEBUG_RESTRICT'),       allowed_values = debug_restrict_options))
 vars.Add('CC',  'C Compiler override')
 vars.Add('CXX', 'C++ Compiler override')
+vars.Add(EnumVariable('NDEBUG', 'Override NDEBUG default for release variant', 'defined', allowed_values=('defined', 'undefined')))
 vars.Update(env)
 Help(vars.GenerateHelpText(env))
 
@@ -126,7 +127,7 @@ Help(vars.GenerateHelpText(env))
 env['connectivity'] = [ opt.upper() for opt in env['connectivity_options'] if opt in env['CONNECTIVITY'].lower() ]
 
 if len(env['connectivity']) == 0 and not GetOption('help'):
-    print '*** Must enable at least one of ' + env['connectivity_options']
+    print '*** Must enable at least one of %s' % ', '.join(env['connectivity_options'])
     Exit(1)
 
 #######################################################
@@ -142,7 +143,7 @@ env = config.Finish()
 #######################################################
 if env.has_key('DEBUG_RESTRICT'):
     env.Append(CPPDEFINES = { 'AJ_DEBUG_RESTRICT' : env['DEBUG_RESTRICT'] })
-if env['VARIANT'] == 'release':
+if env['VARIANT'] == 'release' and env['NDEBUG'] == 'defined':
     env.Append(CPPDEFINES = [ 'NDEBUG' ])
 
 env.Append(CPPDEFINES = [ 'AJ_' + conn for conn in env['connectivity'] ])
@@ -174,19 +175,6 @@ if env['build']:
     env.SConscript('samples/SConscript',   variant_dir='#build/$VARIANT/samples',   duplicate = 0)
     env.SConscript('test/SConscript',      variant_dir='#build/$VARIANT/test',      duplicate = 0)
     env.SConscript('unit_test/SConscript', variant_dir='#build/$VARIANT/unit_test', duplicate = 0)
-
-
-#######################################################
-# Distclean target
-#######################################################
-Clean('distclean',
-          [ 'dist',
-            'build',
-            'config.log',
-            #'.sconsign.dblite',  # Can't delete .sconsign.dblite because it doesn't exist until SCons completes
-            '.sconf_temp',
-            '.whitespace.db'
-        ])
 
 #######################################################
 # Run the whitespace checker

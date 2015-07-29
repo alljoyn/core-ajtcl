@@ -526,7 +526,7 @@ static AJ_Status CheckTimers()
     /* Check probe timer, it's always turned on */
     delta = AJ_GetElapsedTime(&conn->probeTimer.tStart, TRUE);
     if (delta >= conn->probeTimer.delta) {
-        if (conn->probeTimer.retry == 1) {
+        if (conn->probeTimer.retry == 0) {
             AJ_ErrPrintf(("CheckTimers: link timeout\n"));
             return AJ_ERR_ARDP_PROBE_TIMEOUT;
         }
@@ -629,11 +629,10 @@ static AJ_Status RecvValidateSegment(uint8_t* rxbuf, uint16_t len, struct ArdpSe
     }
 
     /*
-     * SEQ and ACKNXT must fall within receive window. In case of segment with no payload,
-     * allow one extra.
+     * SEQ and ACKNXT must fall within receive window.
      */
-    if (((seg->SEQ - seg->ACKNXT) > UDP_SEGMAX) || (SEQ32_LT(seg->SEQ, seg->ACKNXT)) ||
-        ((seg->DLEN != 0) && ((seg->SEQ - seg->ACKNXT) == UDP_SEGMAX))) {
+    if ((SEQ32_LT(seg->SEQ, seg->ACKNXT)) ||
+        ((seg->DLEN != 0) && ((seg->SEQ - seg->ACKNXT) >= UDP_SEGMAX))) {
         AJ_ErrPrintf(("Receive: incorrect sequence numbers seg->seq = %u, seg->acknxt = %u\n",
                       seg->SEQ, seg->ACKNXT));
         return AJ_ERR_INVALID;
@@ -743,7 +742,7 @@ static void FlushExpiredRcvMessages(uint32_t seq, uint32_t ackNXT)
 
     AJ_InfoPrintf(("FlushExpiredRcvMessages: seq = %u, expected %u got %u\n",
                    seq, conn->rcv.CUR + 1, ackNXT));
-    while (SEQ32_LT(conn->rcv.CUR, ackNXT)) {
+    while (SEQ32_LT(conn->rcv.CUR + 1, ackNXT)) {
         rBuf->fcnt = 0;
         rBuf->dataLen = 0;
         rBuf = rBuf->next;
@@ -814,16 +813,16 @@ static AJ_Status ArdpMachine(struct ArdpSeg* seg, uint8_t* rxBuf, uint16_t len)
                          */
                         status = SendHeader(ARDP_FLAG_ACK | ARDP_FLAG_VER);
 
+                        if (status == AJ_OK) {
+                            AddRcvBuffer(seg, rxBuf, ARDP_SYN_HEADER_SIZE);
+                        }
                     }
                 }
-            }
 
-            if (status == AJ_OK) {
-                AddRcvBuffer(seg, rxBuf, ARDP_SYN_HEADER_SIZE);
-            }
+                /* Stop connect retry timer */
+                conn->connectTimer.retry = 0;
 
-            /* Stop connect retry timer */
-            conn->connectTimer.retry = 0;
+            }
 
             break;
         }
@@ -1033,7 +1032,6 @@ static AJ_Status ARDP_Send(uint8_t* txBuf, uint16_t len)
         uint16_t dataLen;
         size_t sent;
         uint32_t timeout;
-        AJ_Status status;
 
         /* Check whether the current buffer is not in a process of being populated with fragmented data */
         dataLen = (len <= (ARDP_MAX_DLEN - offset)) ? offset + len : ARDP_MAX_DLEN;
@@ -1249,7 +1247,6 @@ AJ_Status AJ_ARDP_Recv(AJ_IOBuffer* rxBuf, uint32_t len, uint32_t timeout)
 {
     AJ_Status status = AJ_ERR_TIMEOUT;
     AJ_Status localStatus;
-    AJ_Status timerStatus = AJ_OK;
     uint32_t timeout2 = min(timeout, UDP_MINIMUM_TIMEOUT);
     AJ_Time now, end;
 
@@ -1274,11 +1271,11 @@ AJ_Status AJ_ARDP_Recv(AJ_IOBuffer* rxBuf, uint32_t len, uint32_t timeout)
 
         localStatus = CheckTimers();
 
-        if (localStatus == AJ_ERR_ARDP_PROBE_TIMEOUT) {
+        if (localStatus == AJ_ERR_CONNECT) {
+            return AJ_ERR_CONNECT;
+        } else if (localStatus != AJ_OK) {
+            AJ_InfoPrintf(("AJ_ARDP_Recv CheckTimers status %s\n", AJ_StatusText(localStatus)));
             return AJ_ERR_READ;
-        }
-        if (localStatus != AJ_OK) {
-            timerStatus = localStatus;
         }
 
         switch (status) {
@@ -1333,11 +1330,9 @@ UPDATE_READ:
          */
         AJ_WarnPrintf(("AJ_ARDP_Recv: Expired message, LCS %u\n", conn->rcv.LCS));
         conn->rcv.LCS = conn->rcv.CUR;
-    }
-
-    if (timerStatus != AJ_OK) {
-        AJ_InfoPrintf(("AJ_ARDP_Recv CheckTimers status %s\n", AJ_StatusText(localStatus)));
-        status = localStatus;
+        if (conn->ackTimer.retry == 0) {
+            InitTimer(&conn->ackTimer, ARDP_MIN_DELAYED_ACK_TIMEOUT, 1);
+        }
     }
 
     AJ_InfoPrintf(("AJ_ARDP_Recv exit with %s\n", AJ_StatusText(status)));
