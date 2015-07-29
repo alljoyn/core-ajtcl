@@ -52,7 +52,7 @@ static const char DaemonInterface[] = "org.alljoyn.Daemon";
 
 static const char PeerObjectPath[] = "/org/alljoyn/Bus/Peer";
 static const char PeerSessionInterface[] = "org.alljoyn.Bus.Peer.Session";
-static const char PeerAuthInterface[] = "org.alljoyn.Bus.Peer.Authentication";
+const char PeerAuthInterface[] = "org.alljoyn.Bus.Peer.Authentication";
 
 static const char AboutObjectPath[] = "/About";
 static const char AboutInterface[] = "org.alljoyn.About";

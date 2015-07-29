@@ -234,6 +234,11 @@ extern const char* const AJ_PropertiesIface[5];
  */
 extern const char DBusPeerInterface[27];
 
+/**
+ * The AllJoyn Peer Authentication interface name
+ */
+extern const char PeerAuthInterface[36];
+
 /*
  * Constants for the various property method indices in the properties interface
  */

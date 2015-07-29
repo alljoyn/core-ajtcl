@@ -94,12 +94,12 @@ typedef struct _AJ_Policy {
  *          - AJ_OK on success
  *          - AJ_ERR_INVALID otherwise
  */
-AJ_Status AJ_AuthorisationInit();
+AJ_Status AJ_AuthorisationInit(void);
 
 /**
  * Cleanup access control memory
  */
-void AJ_AuthorisationClose();
+void AJ_AuthorisationClose(void);
 
 /**
  * Set the manifest template, called by the application
@@ -270,7 +270,7 @@ AJ_Status AJ_PolicyGetCAPublicKey(uint8_t type, DER_Element* kid, AJ_ECCPublicKe
 /**
  * Access control check for message
  *
- * @param id           The message id
+ * @param msg          The message
  * @param name         The peer's name
  * @param direction    The message direction (incoming/outgoing)
  *
@@ -278,7 +278,20 @@ AJ_Status AJ_PolicyGetCAPublicKey(uint8_t type, DER_Element* kid, AJ_ECCPublicKe
  *          - AJ_OK on success
  *          - AJ_ERR_ACCESS on all failures
  */
-AJ_Status AJ_AccessControlCheck(uint32_t id, const char* name, uint8_t direction);
+AJ_Status AJ_AccessControlCheckMessage(AJ_Message* msg, const char* name, uint8_t direction);
+
+/**
+ * Access control check for a property
+ *
+ * @param id           The property id
+ * @param name         The peer's name
+ * @param direction    The message direction (incoming/outgoing)
+ *
+ * @return  Return AJ_Status
+ *          - AJ_OK on success
+ *          - AJ_ERR_ACCESS on all failures
+ */
+AJ_Status AJ_AccessControlCheckProperty(uint32_t id, const char* name, uint8_t direction);
 
 /**
  * Reset access control list for a peer
@@ -338,6 +351,20 @@ AJ_Status AJ_PolicyToBuffer(AJ_Policy* policy, AJ_CredField* field);
  *          - AJ_ERR_SECURITY on failure
  */
 AJ_Status AJ_PolicyFromBuffer(AJ_Policy** policy, AJ_CredField* field);
+
+/**
+ * Checks if name is a substring of a description,
+ * also allows wildcard matching.
+ *
+ * @param name         The name of access control element
+ * @param desc         The description (object, interface, member)
+ * @param type         The description type (SIGNAL, METHOD, PROPERTY)
+ *
+ * @return  Return uint8_t
+ *          - 1 on success
+ *          - 0 on failure
+ */
+uint8_t AJ_CommonPath(const char* name, const char* desc, uint8_t type);
 
 #ifdef __cplusplus
 }

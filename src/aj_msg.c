@@ -1291,11 +1291,13 @@ AJ_Status AJ_UnmarshalMsg(AJ_BusAttachment* bus, AJ_Message* msg, uint32_t timeo
          */
         if ((AJ_OK == status) && (msg->hdr) && (msg->hdr->flags & AJ_FLAG_ENCRYPTED)) {
             if ((msg->hdr->msgType == AJ_MSG_METHOD_CALL) || (msg->hdr->msgType == AJ_MSG_SIGNAL)) {
-                status = AJ_AccessControlCheck(msg->msgId, msg->sender, AJ_ACCESS_INCOMING);
+                status = AJ_AccessControlCheckMessage(msg, msg->sender, AJ_ACCESS_INCOMING);
                 if (AJ_OK != status) {
-                    AJ_Message reply;
-                    AJ_MarshalStatusMsg(msg, &reply, status);
-                    AJ_DeliverMsg(&reply);
+                    if (msg->hdr->msgType == AJ_MSG_METHOD_CALL) {
+                        AJ_Message reply;
+                        AJ_MarshalStatusMsg(msg, &reply, status);
+                        AJ_DeliverMsg(&reply);
+                    }
                     return status;
                 }
             }
@@ -1888,7 +1890,7 @@ static AJ_Status MarshalMsg(AJ_Message* msg, uint8_t msgType, uint32_t msgId, ui
         if ((msgType == AJ_MSG_METHOD_CALL) || (msgType == AJ_MSG_SIGNAL)) {
             if (msg->destination) {
                 /* Method or session based signal */
-                status = AJ_AccessControlCheck(msg->msgId, msg->destination, AJ_ACCESS_OUTGOING);
+                status = AJ_AccessControlCheckMessage(msg, msg->destination, AJ_ACCESS_OUTGOING);
                 if (AJ_OK != status) {
                     return status;
                 }

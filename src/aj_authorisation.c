@@ -81,7 +81,7 @@ typedef struct _AccessControlMember {
 static AJ_Manifest* g_manifest = NULL;
 static AccessControlMember* g_access = NULL;
 
-static void AccessControlClose()
+static void AccessControlClose(void)
 {
     AccessControlMember* member;
 
@@ -100,7 +100,7 @@ static void AccessControlClose()
  * The member id is used when applying access control
  * for each incoming or outgoing message.
  */
-static AJ_Status AccessControlInit()
+static AJ_Status AccessControlInit(void)
 {
     AJ_ObjectIterator iter;
     const AJ_Object* obj;
@@ -126,6 +126,7 @@ static AJ_Status AccessControlInit()
             ifn = *iface++;
             AJ_ASSERT(ifn);
             secure |= (SECURE_TRUE == *ifn);
+            secure &= ~(SECURE_OFF == *ifn);
             /* Only access control secure objects/interfaces */
             if (secure) {
                 m = 0;
@@ -158,11 +159,10 @@ Exit:
 }
 
 /*
- * For a given message id, checks the access control
- * table for that peer.
+ * For a given message id, checks the access control table for that peer.
  * Incoming and outgoing messages have their own entry.
  */
-AJ_Status AJ_AccessControlCheck(uint32_t id, const char* name, uint8_t direction)
+static AJ_Status AccessControlCheck(uint32_t id, const char* name, uint8_t direction)
 {
     AJ_Status status;
     AccessControlMember* mbr;
@@ -172,13 +172,13 @@ AJ_Status AJ_AccessControlCheck(uint32_t id, const char* name, uint8_t direction
     AJ_InfoPrintf(("AJ_AccessControlCheck(id=0x%08X, name=%s, direction=%x)\n", id, name, direction));
 
     if (!g_access) {
-        AJ_WarnPrintf(("AJ_AccessControlCheck(id=0x%08X, name=%s, direction=%x): Access table not initialised\n", id, name, direction));
+        AJ_WarnPrintf(("AccessControlCheck(id=0x%08X, name=%s, direction=%x): Access table not initialised\n", id, name, direction));
         return AJ_ERR_ACCESS;
     }
 
     status = AJ_GetPeerIndex(name, &peer);
     if (AJ_OK != status) {
-        AJ_WarnPrintf(("AJ_AccessControlCheck(id=0x%08X, name=%s, direction=%x): Peer not in table\n", id, name, direction));
+        AJ_WarnPrintf(("AccessControlCheck(id=0x%08X, name=%s, direction=%x): Peer not in table\n", id, name, direction));
         return AJ_ERR_ACCESS;
     }
 
@@ -189,27 +189,8 @@ AJ_Status AJ_AccessControlCheck(uint32_t id, const char* name, uint8_t direction
     }
 
     if (NULL == mbr) {
-        /*
-         * We may end up here because a message was encrypted on
-         * an unsecured interface (eg. ExchangeGroupKeys)
-         * That means we don't have that member in our access control table.
-         * This is a white list of allowed messages.
-         */
-        switch (id) {
-        case AJ_METHOD_EXCHANGE_GROUP_KEYS:
-        case AJ_METHOD_SEND_MANIFEST:
-        case AJ_METHOD_SEND_MEMBERSHIPS:
-        case AJ_METHOD_SECURITY_GET_PROP:
-        case AJ_PROPERTY_APPLICATION_VERSION:
-            status = AJ_OK;
-            break;
-
-        default:
-            status = AJ_ERR_ACCESS;
-            break;
-        }
-        AJ_WarnPrintf(("AJ_AccessControlCheck(id=0x%08X, name=%s, direction=%x): Member not in table %s\n", id, name, direction, AJ_StatusText(status)));
-        return status;
+        AJ_WarnPrintf(("AccessControlCheck(id=0x%08X, name=%s, direction=%x): Member not in table AJ_ERR_ACCESS\n", id, name, direction));
+        return AJ_ERR_ACCESS;
     }
 
     status = AJ_ERR_ACCESS;
@@ -227,9 +208,45 @@ AJ_Status AJ_AccessControlCheck(uint32_t id, const char* name, uint8_t direction
         }
         break;
     }
-    AJ_InfoPrintf(("AJ_AccessControlCheck(id=0x%08X, name=%s, direction=%x): %s\n", id, name, direction, AJ_StatusText(status)));
+    AJ_InfoPrintf(("AccessControlCheck(id=0x%08X, name=%s, direction=%x): %s\n", id, name, direction, AJ_StatusText(status)));
 
     return status;
+}
+
+AJ_Status AJ_AccessControlCheckMessage(AJ_Message* msg, const char* name, uint8_t direction)
+{
+    size_t i;
+    const char* ifn;
+    const char* allowed[] = {
+        AJ_PropertiesIface[0],
+        PeerAuthInterface,
+    };
+
+    AJ_InfoPrintf(("AJ_AccessControlCheckMessage(msg=%p, name=%s, direction=%x): Interface %s\n", msg, name, direction, msg->iface));
+
+    /*
+     * We may get encrypted messages on "unsecured" interfaces:
+     * org.freedesktop.DBus.Properties (this is annotated using '#')
+     * org.alljoyn.Bus.Peer.Authentication
+     */
+    for (i = 0; i < ArraySize(allowed); i++) {
+        ifn = allowed[i];
+        if (SECURE_OFF == *ifn) {
+            ifn++;
+        }
+        if (0 == strncmp(ifn, msg->iface, strlen(ifn))) {
+            AJ_InfoPrintf(("AJ_AccessControlCheckMessage(msg=%p, name=%s, direction=%x): %s AJ_OK\n", msg, name, direction, ifn));
+            return AJ_OK;
+        }
+    }
+
+    return AccessControlCheck(msg->msgId, name, direction);
+}
+
+AJ_Status AJ_AccessControlCheckProperty(uint32_t id, const char* name, uint8_t direction)
+{
+    AJ_InfoPrintf(("AJ_AccessControlCheckProperty(id=0x%08X, name=%s, direction=%x)\n", id, name, direction));
+    return AccessControlCheck(id, name, direction);
 }
 
 /*
@@ -913,19 +930,19 @@ Exit:
     return AJ_ERR_INVALID;
 }
 
-AJ_Status AJ_AuthorisationInit()
+AJ_Status AJ_AuthorisationInit(void)
 {
     /* Init access control list */
     return AccessControlInit();
 }
 
-void AJ_AuthorisationClose()
+void AJ_AuthorisationClose(void)
 {
     /* Unload access control list */
     AccessControlClose();
 }
 
-static uint8_t CommonPath(const char* name, const char* desc)
+uint8_t AJ_CommonPath(const char* name, const char* desc, uint8_t type)
 {
     if (!name || !desc) {
         return 0;
@@ -935,7 +952,7 @@ static uint8_t CommonPath(const char* name, const char* desc)
         return 1;
     }
     /* Skip past common characters, or until a wildcard is hit */
-    while (*name && *desc) {
+    while (*name) {
         if ('*' == *name) {
             return 1;
         }
@@ -943,8 +960,15 @@ static uint8_t CommonPath(const char* name, const char* desc)
             return 0;
         }
     }
-    /* If description complete or up to space */
-    return (('\0' == *desc) || (' ' == *desc));
+    /*
+     * Property annotation has read/write value directly after the name.
+     * Methods and signals have a space before arguments or null if no arguments.
+     */
+    if (PROPERTY == type) {
+        return ((WRITE_ONLY == *desc) || (READ_WRITE == *desc) || (READ_ONLY == *desc));
+    } else {
+        return (('\0' == *desc) || (' ' == *desc));
+    }
 }
 
 /* 3 message types: SIGNAL, METHOD, PROPERTY */
@@ -953,11 +977,6 @@ static uint8_t access_outgoing[3] = { AJ_ACTION_OBSERVE, AJ_ACTION_PROVIDE, AJ_A
 static uint8_t PermissionMemberAccess(uint8_t type, uint8_t action)
 {
     uint8_t access = 0;
-
-    if (0 == action) {
-        /* Explicit deny both directions */
-        access = ACCESS_DENY;
-    }
 
     AJ_ASSERT(type < 3);
     if (access_incoming[type] & action) {
@@ -988,7 +1007,7 @@ static uint8_t MemberType(uint8_t a, uint8_t b)
     return 0;
 }
 
-static uint8_t PermissionRuleAccess(AJ_PermissionRule* rule, AccessControlMember* acm)
+static uint8_t PermissionRuleAccess(AJ_PermissionRule* rule, AccessControlMember* acm, uint8_t with_public_key)
 {
     AJ_PermissionMember* member;
     uint8_t type;
@@ -1012,12 +1031,17 @@ static uint8_t PermissionRuleAccess(AJ_PermissionRule* rule, AccessControlMember
     }
 
     while (rule) {
-        if (CommonPath(rule->obj, obj) && CommonPath(rule->ifn, ifn)) {
+        if (AJ_CommonPath(rule->obj, obj, 0) && AJ_CommonPath(rule->ifn, ifn, 0)) {
             member = rule->members;
             while (member) {
-                if (CommonPath(member->mbr, mbr) && MemberType(member->type, type)) {
+                if (AJ_CommonPath(member->mbr, mbr, type) && MemberType(member->type, type)) {
                     /* Access is the union of all rules */
                     access |= PermissionMemberAccess(type, member->action);
+                    /* Only apply DENY if WITH_PUBLIC_KEY and rule is all wildcard */
+                    if (with_public_key && ('*' == rule->obj[0]) && ('*' == rule->ifn[0]) && ('*' == member->mbr[0]) && (0 == member->action)) {
+                        /* Explicit deny both directions */
+                        access = ACCESS_DENY;
+                    }
                 }
                 member = member->next;
             }
@@ -1045,9 +1069,8 @@ AJ_Status AJ_ManifestApply(AJ_Manifest* manifest, const char* name)
 
     acm = g_access;
     while (acm) {
-        access = PermissionRuleAccess(manifest->rules, acm);
-        /* Deny rules do not apply here */
-        acm->access[peer] |= (MANIFEST_ACCESS(access) & ~ACCESS_DENY);
+        access = PermissionRuleAccess(manifest->rules, acm, FALSE);
+        acm->access[peer] |= MANIFEST_ACCESS(access);
 #ifndef NDEBUG
         if (ACCESS_MANIFEST_INCOMING & acm->access[peer]) {
             AJ_InfoPrintf(("INCOMING MANIFEST: %s %s %s\n", acm->obj, acm->ifn, acm->mbr));
@@ -1141,15 +1164,11 @@ AJ_Status AJ_PolicyApply(AJ_AuthenticationContext* ctx, const char* name)
                     }
                 }
                 if (found) {
-                    access = PermissionRuleAccess(acl->rules, acm);
+                    access = PermissionRuleAccess(acl->rules, acm, found >> 1);
                     acm->access[peer] |= POLICY_ACCESS(access);
                     if (AUTH_SUITE_ECDHE_ECDSA != ctx->suite) {
                         /* We don't receive a manifest, so switch those bits on too */
                         acm->access[peer] |= MANIFEST_ACCESS(access);
-                    }
-                    if (0 == (0x2 & found)) {
-                        /* Not with public key type, deny does not apply */
-                        acm->access[peer] &= ~ACCESS_DENY;
                     }
 #ifndef NDEBUG
                     if (ACCESS_DENY & acm->access[peer]) {
@@ -1269,9 +1288,8 @@ AJ_Status AJ_MembershipApply(AJ_ECCPublicKey* issuer, DER_Element* group, const 
                 /* Look for a match in the peer list */
                 found = PermissionPeerFind(acl->peers, AJ_PEER_TYPE_WITH_MEMBERSHIP, issuer, group);
                 if (found) {
-                    access = PermissionRuleAccess(acl->rules, acm);
-                    /* Deny rules do not apply here */
-                    acm->access[peer] |= (POLICY_ACCESS(access) & ~ACCESS_DENY);
+                    access = PermissionRuleAccess(acl->rules, acm, FALSE);
+                    acm->access[peer] |= POLICY_ACCESS(access);
 #ifndef NDEBUG
                     if (ACCESS_POLICY_INCOMING & acm->access[peer]) {
                         AJ_InfoPrintf(("INCOMING POLICY  : %s %s %s\n", acm->obj, acm->ifn, acm->mbr));

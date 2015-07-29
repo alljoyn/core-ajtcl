@@ -87,10 +87,6 @@ static AJ_DescriptionLookupFunc descriptionLookups[AJ_MAX_OBJECT_LISTS] = { NULL
 #define IN_ARG     '<'  /* 0x3C */
 #define OUT_ARG    '>'  /* 0x3E */
 
-#define WRITE_ONLY '<'  /* 0x3C */
-#define READ_WRITE '='  /* 0x3D */
-#define READ_ONLY  '>'  /* 0x3E */
-
 #define SEPARATOR  ' '
 
 #define IS_DIRECTION(c) (((c) >= IN_ARG) && ((c) <= OUT_ARG))
@@ -1051,7 +1047,7 @@ AJ_Status AJ_MarshalPropertyArgs(AJ_Message* msg, uint32_t propId)
         /*
          * Check outgoing access policy
          */
-        status = AJ_AccessControlCheck(propId, msg->destination, AJ_ACCESS_OUTGOING);
+        status = AJ_AccessControlCheckProperty(propId, msg->destination, AJ_ACCESS_OUTGOING);
         if (AJ_OK != status) {
             return status;
         }
@@ -1280,7 +1276,7 @@ AJ_Status AJ_UnmarshalPropertyArgs(AJ_Message* msg, uint32_t* propId, const char
             /*
              * Check incoming access policy
              */
-            status = AJ_AccessControlCheck(*propId, msg->sender, AJ_ACCESS_INCOMING);
+            status = AJ_AccessControlCheckProperty(*propId, msg->sender, AJ_ACCESS_INCOMING);
         }
     }
     return status;
@@ -1343,7 +1339,7 @@ AJ_Status AJ_MarshalAllPropertiesArgs(AJ_Message* replyMsg, const char* iface, A
             /*
              * Check outgoing access policy
              */
-            status = AJ_AccessControlCheck(propId, replyMsg->destination, AJ_ACCESS_OUTGOING);
+            status = AJ_AccessControlCheckProperty(propId, replyMsg->destination, AJ_ACCESS_OUTGOING);
             if (AJ_OK != status) {
                 goto Exit;
             }

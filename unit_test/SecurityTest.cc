@@ -26,6 +26,7 @@ extern "C" {
 #include <ajtcl/alljoyn.h>
 #include <ajtcl/aj_auth_listener.h>
 #include <ajtcl/aj_authentication.h>
+#include <ajtcl/aj_authorisation.h>
 #include <ajtcl/aj_cert.h>
 #include <ajtcl/aj_config.h>
 #include <ajtcl/aj_creds.h>
@@ -392,4 +393,75 @@ TEST_F(SecurityTest, Test3)
     AJ_ClearCredentials(AJ_CRED_TYPE_GENERIC);
     ASSERT_EQ(AJ_OK, status) << "AJ_ClearCredentials returned status. " << AJ_StatusText(status);
     AJ_Disconnect(&testBus);
+}
+
+class CommonPathTest : public testing::Test {
+  public:
+    CommonPathTest() { }
+};
+
+TEST_F(CommonPathTest, Test1)
+{
+    EXPECT_FALSE(AJ_CommonPath("Signal", "Signal1", SIGNAL));
+    EXPECT_FALSE(AJ_CommonPath("Method", "Method1", METHOD));
+    EXPECT_FALSE(AJ_CommonPath("Property", "Property1", PROPERTY));
+
+    EXPECT_TRUE(AJ_CommonPath("Signal1", "Signal1", SIGNAL));
+    EXPECT_TRUE(AJ_CommonPath("Method1", "Method1", METHOD));
+    EXPECT_FALSE(AJ_CommonPath("Property1", "Property1", PROPERTY));
+    EXPECT_TRUE(AJ_CommonPath("Signal1", "Signal1 ", SIGNAL));
+    EXPECT_TRUE(AJ_CommonPath("Method1", "Method1 ", METHOD));
+    EXPECT_FALSE(AJ_CommonPath("Property1", "Property1 ", PROPERTY));
+    EXPECT_TRUE(AJ_CommonPath("Signal1", "Signal1 >s", SIGNAL));
+    EXPECT_TRUE(AJ_CommonPath("Method1", "Method1 >s", METHOD));
+    EXPECT_TRUE(AJ_CommonPath("Method1", "Method1 <s", METHOD));
+    EXPECT_FALSE(AJ_CommonPath("Property1", "Property1 >s", PROPERTY));
+    EXPECT_FALSE(AJ_CommonPath("Property1", "Property1 <s", PROPERTY));
+    EXPECT_FALSE(AJ_CommonPath("Property1", "Property1 =s", PROPERTY));
+
+    EXPECT_FALSE(AJ_CommonPath("Signal1", "Signal1>s", SIGNAL));
+    EXPECT_FALSE(AJ_CommonPath("Method1", "Method1>s", METHOD));
+    EXPECT_FALSE(AJ_CommonPath("Method1", "Method1<s", METHOD));
+    EXPECT_TRUE(AJ_CommonPath("Property1", "Property1>s", PROPERTY));
+    EXPECT_TRUE(AJ_CommonPath("Property1", "Property1<s", PROPERTY));
+    EXPECT_TRUE(AJ_CommonPath("Property1", "Property1=s", PROPERTY));
+
+    EXPECT_FALSE(AJ_CommonPath("Signal1", "Signal", SIGNAL));
+    EXPECT_FALSE(AJ_CommonPath("Method1", "Method", METHOD));
+    EXPECT_FALSE(AJ_CommonPath("Property1", "Property", PROPERTY));
+    EXPECT_FALSE(AJ_CommonPath("Signal1", "Signal ", SIGNAL));
+    EXPECT_FALSE(AJ_CommonPath("Method1", "Method ", METHOD));
+    EXPECT_FALSE(AJ_CommonPath("Property1", "Property ", PROPERTY));
+    EXPECT_FALSE(AJ_CommonPath("Signal1", "Signal>s", SIGNAL));
+    EXPECT_FALSE(AJ_CommonPath("Method1", "Method>s", METHOD));
+    EXPECT_FALSE(AJ_CommonPath("Method1", "Method<s", METHOD));
+    EXPECT_FALSE(AJ_CommonPath("Property1", "Property>s", PROPERTY));
+    EXPECT_FALSE(AJ_CommonPath("Property1", "Property<s", PROPERTY));
+    EXPECT_FALSE(AJ_CommonPath("Property1", "Property=s", PROPERTY));
+    EXPECT_FALSE(AJ_CommonPath("Signal1", "Signal2", SIGNAL));
+    EXPECT_FALSE(AJ_CommonPath("Method1", "Method2", METHOD));
+    EXPECT_FALSE(AJ_CommonPath("Property1", "Property2", PROPERTY));
+    EXPECT_FALSE(AJ_CommonPath("Property1", "Property2>s", PROPERTY));
+    EXPECT_FALSE(AJ_CommonPath("Property1", "Property2<s", PROPERTY));
+    EXPECT_FALSE(AJ_CommonPath("Property1", "Property2=s", PROPERTY));
+
+    EXPECT_TRUE(AJ_CommonPath("Signal*", "Signal", SIGNAL));
+    EXPECT_TRUE(AJ_CommonPath("Method*", "Method", METHOD));
+    EXPECT_TRUE(AJ_CommonPath("Property*", "Property", PROPERTY));
+    EXPECT_TRUE(AJ_CommonPath("Signal*", "Signal ", SIGNAL));
+    EXPECT_TRUE(AJ_CommonPath("Method*", "Method ", METHOD));
+    EXPECT_TRUE(AJ_CommonPath("Property*", "Property ", PROPERTY));
+    EXPECT_TRUE(AJ_CommonPath("Signal*", "Signal1", SIGNAL));
+    EXPECT_TRUE(AJ_CommonPath("Method*", "Method1", METHOD));
+    EXPECT_TRUE(AJ_CommonPath("Property*", "Property1", PROPERTY));
+    EXPECT_TRUE(AJ_CommonPath("Property*", "Property1>s", PROPERTY));
+    EXPECT_TRUE(AJ_CommonPath("Property*", "Property1<s", PROPERTY));
+    EXPECT_TRUE(AJ_CommonPath("Property*", "Property1=s", PROPERTY));
+
+    EXPECT_FALSE(AJ_CommonPath("Signal1*", "Signal", SIGNAL));
+    EXPECT_FALSE(AJ_CommonPath("Method1*", "Method", METHOD));
+    EXPECT_FALSE(AJ_CommonPath("Property1*", "Property", PROPERTY));
+    EXPECT_FALSE(AJ_CommonPath("Property1*", "Property>s", PROPERTY));
+    EXPECT_FALSE(AJ_CommonPath("Property1*", "Property<s", PROPERTY));
+    EXPECT_FALSE(AJ_CommonPath("Property1*", "Property=s", PROPERTY));
 }
