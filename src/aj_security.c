@@ -53,6 +53,7 @@ uint8_t dbgSECURITY = 0;
 #define DIGEST_ALG_SHA256                      0
 
 static uint8_t emit = FALSE;
+static uint8_t clear = FALSE;
 static uint16_t claimState = APP_STATE_NOT_CLAIMABLE;
 static uint16_t claimCapabilities = 0;
 static uint16_t claimInfo = 0;
@@ -62,9 +63,21 @@ static AJ_Status SetClaimState(uint16_t state)
     AJ_Status status;
     AJ_CredField data;
 
+    /* If app not claimed and manifest template changes, do not update */
+    if ((APP_STATE_CLAIMED != claimState) && (APP_STATE_NEED_UPDATE == state)) {
+        return AJ_OK;
+    }
+
     data.size = sizeof (uint16_t);
     data.data = (uint8_t*) &state;
     status = AJ_CredentialSet(AJ_CONFIG_CLAIMSTATE | AJ_CRED_TYPE_CONFIG, NULL, 0xFFFFFFFF, &data);
+
+    if (AJ_OK == status) {
+        /* Set in memory state */
+        claimState = state;
+        /* State changed, emit signal */
+        emit = TRUE;
+    }
 
     return status;
 }
@@ -83,12 +96,9 @@ static AJ_Status GetClaimState(uint16_t* state)
 
 void AJ_SecuritySetClaimConfig(AJ_BusAttachment* bus, uint16_t state, uint16_t capabilities, uint16_t info)
 {
-    claimState = state;
     claimCapabilities = capabilities;
     claimInfo = info;
     SetClaimState(state);
-    /* Claiming state changed, emit signal */
-    emit = TRUE;
     AJ_ApplicationStateSignal(bus);
 }
 
@@ -334,6 +344,12 @@ AJ_Status AJ_ApplicationStateSignal(AJ_BusAttachment* bus)
     AJ_Message msg;
     AJ_ECCPublicKey pub;
 
+    /* Clear session keys if required */
+    if (clear) {
+        AJ_InfoPrintf(("AJ_ApplicationStateSignal(bus=%p): Clear session keys\n", bus));
+        AJ_GUID_ClearNameMap();
+        clear = FALSE;
+    }
     if (!emit) {
         return AJ_OK;
     }
@@ -731,19 +747,11 @@ AJ_Status AJ_SecurityClaimMethod(AJ_Message* msg, AJ_Message* reply)
     if (AJ_OK != status) {
         goto Exit;
     }
-    /* Cannot clear session keys because we are currently in one */
-
-    status = AJ_MarshalReplyMsg(msg, reply);
-    if (AJ_OK != status) {
-        goto Exit;
-    }
+    /* Clear session keys, can't do it now because we need to reply */
+    clear = TRUE;
 
     /* Set claim state and save to nvram */
-    claimState = APP_STATE_CLAIMED;
     status = SetClaimState(APP_STATE_CLAIMED);
-
-    /* Claim state changed, emit signal */
-    emit = TRUE;
 
 Exit:
     AJ_X509ChainFree(identity);
@@ -775,8 +783,9 @@ AJ_Status AJ_SecurityResetMethod(AJ_Message* msg, AJ_Message* reply)
 
     if (AJ_OK == status) {
         /* Set claim state and emit signal*/
-        claimState = APP_STATE_CLAIMABLE;
-        emit = TRUE;
+        SetClaimState(APP_STATE_CLAIMABLE);
+        /* Clear session keys, can't do it now because we need to reply */
+        clear = TRUE;
         return AJ_MarshalReplyMsg(msg, reply);
     } else {
         return AJ_MarshalErrorMsg(msg, reply, AJ_ErrSecurityViolation);
@@ -906,9 +915,8 @@ AJ_Status AJ_SecurityUpdatePolicyMethod(AJ_Message* msg, AJ_Message* reply)
     if (AJ_OK != status) {
         goto Exit;
     }
-
-    /* Clear session keys */
-    AJ_GUID_ClearNameMap();
+    /* Clear session keys, can't do it now because we need to reply */
+    clear = TRUE;
 
 Exit:
     AJ_PolicyFree(policy);
@@ -944,8 +952,8 @@ AJ_Status AJ_SecurityResetPolicyMethod(AJ_Message* msg, AJ_Message* reply)
     if (AJ_OK != status) {
         goto Exit;
     }
-    /* Clear session keys */
-    AJ_GUID_ClearNameMap();
+    /* Clear session keys, can't do it now because we need to reply */
+    clear = TRUE;
 
 Exit:
     if (AJ_OK == status) {
