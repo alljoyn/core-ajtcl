@@ -23,7 +23,8 @@
 #include <ajtcl/aj_crypto.h>
 #include <ajtcl/aj_crypto_ecc.h>
 #include <ajtcl/aj_crypto_sha2.h>
-
+#include <ajtcl/aj_crypto_fp.h>
+#include <ajtcl/aj_crypto_ec_p256.h>
 
 /* P256 is tested directly with known answer tests from example in
    ANSI X9.62 Annex L.4.2.  (See item in pt_mpy_testcases below.)
@@ -147,7 +148,7 @@ typedef struct {
 
 /* These values describe why the verify failed.  This simplifies testing. */
 typedef enum {V_SUCCESS = 0, V_R_ZERO, V_R_BIG, V_S_ZERO, V_S_BIG,
-              V_INFINITY, V_UNEQUAL} verify_res_t;
+              V_INFINITY, V_UNEQUAL, V_INTERNAL} verify_res_t;
 
 typedef enum {MOD_MODULUS = 0, MOD_ORDER} modulus_val_t;
 
@@ -784,16 +785,6 @@ COND_STATIC void big_add(bigval_t* tgt, bigval_t const* a, bigval_t const* b)
     }
 }
 
-/*
- * modulo modulusP addition with approximate reduction.
- */
-static void big_addP(bigval_t* tgt, bigval_t const* a, bigval_t const* b)
-{
-    big_add(tgt, a, b);
-    big_approx_reduceP(tgt, tgt);
-}
-
-
 /* 2's complement subtraction */
 static void big_sub(bigval_t* tgt, bigval_t const* a, bigval_t const* b)
 {
@@ -919,25 +910,6 @@ static void big_halve(bigval_t* tgt, bigval_t const* a)
     }
 }
 
-/*
- * computes tgt, such that 2 * tgt === a, (mod modulusP).  NOTE WELL:
- * arg a must be precisely reduced.  This function could do that, but
- * in some cases, arg a is known to already be reduced and we don't
- * want to waste cycles.  The code could be written more cleverly to
- * avoid passing over the data twice in the case of an odd value.
- */
-static void big_halveP(bigval_t* tgt, bigval_t const* a)
-{
-    if (a->data[0] & 1) {
-        /* odd */
-        big_adjustP(tgt, a, 1);
-        big_halve(tgt, tgt);
-    } else {
-        /* even */
-        big_halve(tgt, a);
-    }
-}
-
 /* returns B_TRUE if a is zero */
 boolean_t big_is_zero(bigval_t const* a)
 {
@@ -1021,393 +993,155 @@ static void big_divide(bigval_t* tgt, bigval_t const* num, bigval_t const* den,
     }
 }
 
-
-static void big_triple(bigval_t* tgt, bigval_t const* a)
-{
-    int i;
-    uint64_t accum = 0;
-
-    /* technically, the lower significance words should be treated as
-       unsigned and the most significant word treated as signed
-       (arithmetic right shift instead of logical right shift), but
-       accum can never get negative during processing the lower
-       significance words, and the most significant word is the last
-       word processed, so what is left in the accum after the final
-       shift does not matter.
-     */
-
-    for (i = 0; i < BIGLEN; ++i) {
-        accum += a->data[i];
-        accum += a->data[i];
-        accum += a->data[i];
-        tgt->data[i] = (uint32_t)accum;
-        accum >>= 32;
-    }
-}
-
-
-
 /*
- * The point add and point double algorithms use mixed Jacobian
- * and affine coordinates.  The affine point (x,y) corresponds
- * to the Jacobian point (X, Y, Z), for any non-zero Z, with X = Z^2 * x
- * and Y = Z^3 * y.  The infinite point is represented in Jacobian
- * coordinates as (1, 1, 0).
+ * Convert a digit256_t (internal representation of field elements) to a
+ * bigval_t. Note: dst must have space for sizeof(digit256_t) + 4 bytes.
  */
-
-#define jacobian_point_is_infinity(P) (big_is_zero(&(P)->Z))
-
-static void toJacobian(jacobian_point_t* tgt, affine_point_t const* a) {
-    tgt->X = a->x;
-    tgt->Y = a->y;
-    tgt->Z = big_one;
-}
-
-/* a->Z must be precisely reduced */
-static void toAffine(affine_point_t* tgt, jacobian_point_t const* a)
+void digit256_to_bigval(digit256_tc src, bigval_t* dst)
 {
-    bigval_t zinv, zinvpwr;
+    AJ_ASSERT((BIGLEN - 1) * sizeof(uint32_t) == sizeof(digit256_t));
 
-    if (big_is_zero(&a->Z)) {
-        *tgt = affine_infinity;
-        return;
+    memcpy(dst->data, src, sizeof(digit256_t));
+    dst->data[BIGLEN - 1] = 0;
+
+#if HOST_IS_BIG_ENDIAN
+    int i;
+    for (i = 0; i < (BIGLEN - 1); i += 2) {    /* Swap adjacent 32-bit words */
+        SWAP(dst->data[i], dst->data[i + 1]);
     }
-    big_divide(&zinv, &big_one, &a->Z, &modulusP);
-    big_sqrP(&zinvpwr, &zinv);  /* Zinv^2 */
-    big_mpyP(&tgt->x, &a->X, &zinvpwr, MOD_MODULUS);
-    big_mpyP(&zinvpwr, &zinvpwr, &zinv, MOD_MODULUS); /* Zinv^3 */
-    big_mpyP(&tgt->y, &a->Y, &zinvpwr, MOD_MODULUS);
-    big_precise_reduce(&tgt->x, &tgt->x, &modulusP);
-    big_precise_reduce(&tgt->y, &tgt->y, &modulusP);
-    tgt->infinity = B_FALSE;
+#endif
+
 }
 
 /*
- * From [HMV] Algorithm 3.21.
+ * Convert a bigval_t to a digit256_t.  Return TRUE if src was
+ * successfully converted, FALSE otherwise.
  */
-
-/* tgt = 2 * P.  P->Z must be precisely reduced and
-   tgt->Z will be precisely reduced */
-static void pointDouble(jacobian_point_t* tgt, jacobian_point_t const* P)
+boolean_t bigval_to_digit256(const bigval_t* src, digit256_t dst)
 {
-    bigval_t x3loc, y3loc, z3loc, t1, t2, t3;
+    AJ_ASSERT((BIGLEN - 1) * sizeof(uint32_t) == sizeof(digit256_t));
 
-#define x1 (&P->X)
-#define y1 (&P->Y)
-#define z1 (&P->Z)
-#define x3 (&x3loc)
-#define y3 (&y3loc)
-#define z3 (&z3loc)
-
-    /* This requires P->Z be precisely reduced */
-    if (jacobian_point_is_infinity(P)) {
-        *tgt = jacobian_infinity;
-        return;
+    /* Fail on negative inputs, since any negative value received in the
+     * bigval_t format is invalid. */
+    if (big_is_negative(src)) {
+        return B_FALSE;
     }
 
-    big_sqrP(&t1, z1);
-    big_subP(&t2, x1, &t1);
-    big_addP(&t1, x1, &t1);
-    big_mpyP(&t2, &t2, &t1, MOD_MODULUS);
-    big_triple(&t2, &t2);
-    big_addP(y3, y1, y1);
-    big_mpyP(z3, y3, z1, MOD_MODULUS);
-    big_sqrP(y3, y3);
-    big_mpyP(&t3, y3, x1, MOD_MODULUS);
-    big_sqrP(y3, y3);
-    big_halveP(y3, y3);
-    big_sqrP(x3, &t2);
-    big_addP(&t1, &t3, &t3);
-    /* x1 not used after this point.  Safe to store to tgt, even if aliased */
-    big_subP(&tgt->X /* x3 */, x3, &t1);
-#undef  x3
-#define x3 (&tgt->X)
-    big_subP(&t1, &t3, x3);
-    big_mpyP(&t1, &t1, &t2, MOD_MODULUS);
-    big_subP(&tgt->Y, &t1, y3);
+    memcpy(dst, src->data, sizeof(digit256_t));
 
-    /* Z components of returned Jacobian points must
-       be precisely reduced */
-    big_precise_reduce(&tgt->Z, z3, &modulusP);
-#undef x1
-#undef y1
-#undef z1
-#undef x3
-#undef y3
-#undef z3
-}
-
-
-/* From [HMV] Algorithm 3.22 */
-
-/* tgt = P + Q.  P->Z must be precisely reduced.
-   tgt->Z will be precisely reduced.  tgt and P can be aliased.
- */
-static void pointAdd(jacobian_point_t* tgt, jacobian_point_t const* P,
-                     affine_point_t const* Q)
-{
-    bigval_t t1, t2, t3, t4, x3loc;
-
-    if (Q->infinity) {
-        if (tgt != P) {
-            *tgt = *P;
-        }
-        return;
-    }
-
-    /* This requires that P->Z be precisely reduced */
-    if (jacobian_point_is_infinity(P)) {
-        toJacobian(tgt, Q);
-        return;
-    }
-
-
-#define x1 (&P->X)
-#define y1 (&P->Y)
-#define z1 (&P->Z)
-#define x2 (&Q->x)
-#define y2 (&Q->y)
-#define x3 (&x3loc)
-#define y3 (&y3loc)
-#define z3 (&tgt->Z)
-
-    big_sqrP(&t1, z1);
-    big_mpyP(&t2, &t1, z1, MOD_MODULUS);
-    big_mpyP(&t1, &t1, x2, MOD_MODULUS);
-    big_mpyP(&t2, &t2, y2, MOD_MODULUS);
-    big_subP(&t1, &t1, x1);
-    big_subP(&t2, &t2, y1);
-    /* big_is_zero requires precisely reduced arg */
-    big_precise_reduce(&t1, &t1, &modulusP);
-    if (big_is_zero(&t1)) {
-        big_precise_reduce(&t2, &t2, &modulusP);
-        if (big_is_zero(&t2)) {
-            toJacobian(tgt, Q);
-            pointDouble(tgt, tgt);
-        } else {
-            *tgt = jacobian_infinity;
-        }
-        return;
-    }
-    /* store into target.  okay, even if tgt is aliased with P,
-       as z1 is not subsequently used */
-    big_mpyP(z3, z1, &t1, MOD_MODULUS);
-    /* z coordinates of returned jacobians must be precisely reduced. */
-    big_precise_reduce(z3, z3, &modulusP);
-    big_sqrP(&t3, &t1);
-    big_mpyP(&t4, &t3, &t1, MOD_MODULUS);
-    big_mpyP(&t3, &t3, x1, MOD_MODULUS);
-    big_addP(&t1, &t3, &t3);
-    big_sqrP(x3, &t2);
-    big_subP(x3, x3, &t1);
-    big_subP(&tgt->X /* x3 */, x3, &t4);
-    /* switch x3 to tgt */
-#undef x3
-#define x3 (&tgt->X)
-    big_subP(&t3, &t3, x3);
-    big_mpyP(&t3, &t3, &t2, MOD_MODULUS);
-    big_mpyP(&t4, &t4, y1, MOD_MODULUS);
-    /* switch y3 to tgt */
-#undef y3
-#define y3 (&tgt->Y)
-    big_subP(y3, &t3, &t4);
-#undef  x1
-#undef  y1
-#undef  z1
-#undef  x2
-#undef  y2
-#undef  x3
-#undef  y3
-#undef  z3
-
-}
-
-/* pointMpyP uses a left-to-right binary double-and-add method, which
- * is an exact analogy to the left-to-right binary meethod for
- * exponentiation described in [KnuthV2] Section 4.6.3.
- */
-
-/* returns bit i of bignum n.  LSB of n is bit 0. */
-#define big_get_bit(n, i) (((n)->data[(i) / 32] >> ((i) % 32)) & 1)
-/* returns bits i+1 and i of bignum n.  LSB of n is bit 0; i <= 30 */
-#define big_get_2bits(n, i) (((n)->data[(i) / 32] >> ((i) % 32)) & 3)
-
-/* k must be non-negative.  Negative values (incorrectly)
-   return the infinite point */
-
-static void pointMpyP(affine_point_t* tgt, bigval_t const* k, affine_point_t const* P)
-{
+#if HOST_IS_BIG_ENDIAN
     int i;
-    jacobian_point_t Q;
-#ifdef MPY2BITS
-    affine_point_t const* mpyset[4];
-    affine_point_t twoP, threeP;
-#endif /* MPY2BITS */
-
-    if (big_is_negative(k)) {
-        /* This should never happen.*/
-        *tgt = affine_infinity;
-        return;
+    uint32_t* data = (uint32_t*)dst;
+    for (i = 0; i < (BIGLEN - 1); i += 2) {    /* Swap adjacent 32-bit words */
+        SWAP(data[i], data[i + 1]);
     }
+#endif
 
-    Q = jacobian_infinity;
-
-    /* faster */
-    if (big_is_zero(k) || big_is_negative(k)) {
-        *tgt = affine_infinity;
-        return;
-    }
-
-#ifndef MPY2BITS
-    /* Classical high-to-low method */
-    /* discard high order zeros */
-    for (i = BIGLEN * 32 - 1; i >= 0; --i) {
-        if (big_get_bit(k, i)) {
-            break;
-        }
-    }
-    /* Can't fall through since k is non-zero.  We get here only via the break */
-    /* discard highest order 1 bit */
-    --i;
-
-    toJacobian(&Q, P);
-    for (; i >= 0; --i) {
-        pointDouble(&Q, &Q);
-        if (big_get_bit(k, i)) {
-            pointAdd(&Q, &Q, P);
-        }
-    }
-#else /* MPY2BITS defined */
-      /* multiply 2 bits at a time */
-      /* precompute 1P, 2P, and 3P */
-    mpyset[0] = (affine_point_t*)0;
-    mpyset[1] = P;
-    toJacobian(&Q, P);  /* Q = P */
-    pointDouble(&Q, &Q); /* now Q = 2P */
-    toAffine(&twoP, &Q);
-    mpyset[2] = &twoP;
-    pointAdd(&Q, &Q, P); /* now Q = 3P */
-    toAffine(&threeP, &Q);
-    mpyset[3] = &threeP;
-
-    /* discard high order zeros (in pairs) */
-    for (i = BIGLEN * 32 - 2; i >= 0; i -= 2) {
-        if (big_get_2bits(k, i)) {
-            break;
-        }
-    }
-
-    Q = jacobian_infinity;
-
-    for (; i >= 0; i -= 2) {
-        int mbits = big_get_2bits(k, i);
-        pointDouble(&Q, &Q);
-        pointDouble(&Q, &Q);
-        if (mpyset[mbits] != (affine_point_t*)0) {
-            pointAdd(&Q, &Q, mpyset[mbits]);
-        }
-    }
-
-#endif /* MPY2BITS */
-
-    toAffine(tgt, &Q);
+    return B_TRUE;
 }
 
 COND_STATIC boolean_t in_curveP(affine_point_t const* P)
 {
-    bigval_t sum, product;
+    ecpoint_t Pt;
+    ec_t curve;
 
-    if (P->infinity) {
-        return (B_TRUE);
+    boolean_t fInfinity;
+    boolean_t fValid;
+
+    AJ_Status status;
+
+    status = ec_getcurve(&curve, NISTP256r1);
+    if (status != AJ_OK) {
+        return B_FALSE;
     }
 
-    big_sqrP(&product, &P->x);
-    big_mpyP(&sum, &product, &P->x, MOD_MODULUS); /* x^3 */
-    big_triple(&product, &P->x); /* 3 x */
-    big_subP(&sum, &sum, &product); /* x^3 -3x */
-    big_addP(&sum, &sum, &curve_b); /* x^3 -3x + b */
-    big_sqrP(&product, &P->y); /* y^2 */
-    big_subP(&sum, &sum, &product); /* -y^2 + x^3 -3x + b */
-    big_precise_reduce(&sum, &sum, &modulusP);
+    fInfinity = P->infinity;
 
-    return(big_is_zero(&sum));
+    bigval_to_digit256(&P->x, Pt.x);
+    bigval_to_digit256(&P->y, Pt.y);
+
+    fValid = (boolean_t)ecpoint_validation(&Pt, &curve);
+
+    return(fInfinity | fValid);
 
 }
 
-/* returns a bigval between 0 or 1 (depending on allow_zero)
-   and order-1, inclusive.  Returns 0 on success, -1 otherwise */
-COND_STATIC int big_get_random_n(bigval_t* tgt, boolean_t allow_zero)
-{
-    int rv;
-
-    tgt->data[BIGLEN - 1] = 0;
-    do {
-        rv = get_random_bytes((uint8_t*) tgt, sizeof (uint32_t) * (BIGLEN - 1));
-        if (rv < 0) {
-            return (-1);
-        }
-    } while ((!allow_zero && big_is_zero(tgt)) ||
-             (big_cmp(tgt, &orderP) >= 0));
-
-    return (0);
-}
-
-/*
- * computes a secret value, k, and a point, P1, to send to the other
- * party.  Returns 0 on success, -1 on failure (of the RNG).
- */
 int ECDH_generate(affine_point_t* P1, bigval_t* k)
 {
-    int rv;
+    /* Compute a key pair (r, Q) then re-encode and ouput as (k, P1). */
+    digit256_t r;
+    ecpoint_t g, Q;
+    ec_t curve;
+    AJ_Status status;
 
-    rv = big_get_random_n(k, B_FALSE);
-    if (rv < 0) {
-        return (-1);
+    status = ec_getcurve(&curve, NISTP256r1);
+    if (status != AJ_OK) {
+        goto Exit;
     }
-    pointMpyP(P1, k, &base_point);
 
-    return (0);
+    /* Choose random r in [0, curve order - 1]*/
+    do {
+        AJ_RandBytes((uint8_t*)r, sizeof(digit256_t));
+    } while (!validate_256(r, curve.order));
+
+    ec_get_generator(&g, &curve);
+    ec_scalarmul(&g, r, &Q, &curve);        /* Q = g^r */
+
+    /* Convert out of internal representation. */
+    digit256_to_bigval(r, k);
+    digit256_to_bigval(Q.x, &(P1->x));
+    digit256_to_bigval(Q.y, &(P1->y));
+    P1->infinity = B_FALSE;
+
+Exit:
+    fpzero_p256(r);
+    fpzero_p256(Q.x);
+    fpzero_p256(Q.y);
+    return status;
 }
 
-/* takes the point sent by the other party, and verifies that it is a
-   valid point.  If 1 <= k < orderP and the point is valid, it stores
-   the resuling point *tgt and returns B_TRUE.  If the point is invalid it
-   returns B_FALSE.  The behavior with k out of range is unspecified,
-   but safe. */
-
+/* Compute tgt = Q^k.  Q is validated. */
 COND_STATIC boolean_t ECDH_derive_pt(affine_point_t* tgt, bigval_t const* k, affine_point_t const* Q)
 {
-    if (Q->infinity) {
-        return (B_FALSE);
-    }
-    if (big_is_negative(&Q->x)) {
-        return (B_FALSE);
-    }
-    if (big_cmp(&Q->x, &modulusP) >= 0) {
-        return (B_FALSE);
-    }
-    if (big_is_negative(&Q->y)) {
-        return (B_FALSE);
-    }
-    if (big_cmp(&Q->y, &modulusP) >= 0) {
-        return (B_FALSE);
-    }
-    if (!in_curveP(Q)) {
-        return (B_FALSE);
+    boolean_t status;
+    AJ_Status ajstatus;
+    ecpoint_t theirPublic;      /* internal representation of Q */
+    ecpoint_t sharedSecret;
+    digit256_t ourPrivate;      /* internal representation of k */
+    ec_t curve;
+
+    ajstatus = ec_getcurve(&curve, NISTP256r1);
+    if (ajstatus != AJ_OK) {
+        status = B_FALSE;
+        goto Exit;
     }
 
-    /* [HMV] Section 4.3 states that the above steps, combined with the
-     * fact the h=1 for the curves used here, implies that order*Q =
-     * Infinity, which is required by ANSI X9.63.
-     */
-
-    pointMpyP(tgt, k, Q);
-    /* Q2 can't be infinity if 1 <= k < orderP, which is supposed to be
-       the case, but the test is so cheap, we just do it. */
-    if (tgt->infinity) {
-        return (B_FALSE);
+    /* Convert to internal representation */
+    status = bigval_to_digit256(k, ourPrivate);
+    status = status && bigval_to_digit256(&(Q->x), theirPublic.x);
+    status = status && bigval_to_digit256(&(Q->y), theirPublic.y);
+    if (!status) {
+        goto Exit;
     }
-    return (B_TRUE);
+
+    if (!ecpoint_validation(&theirPublic, &curve)) {
+        status = B_FALSE;
+        goto Exit;
+    }
+
+    /* Compute sharedSecret = theirPublic^ourPrivate */
+    ec_scalarmul(&theirPublic, ourPrivate, &sharedSecret, &curve);
+
+    /* Copy sharedSecret to tgt */
+    digit256_to_bigval(sharedSecret.x, &(tgt->x));
+    digit256_to_bigval(sharedSecret.y, &(tgt->y));
+
+Exit:
+    /* Clean up local copies. */
+    fpzero_p256(sharedSecret.x);
+    fpzero_p256(sharedSecret.y);
+    fpzero_p256(ourPrivate);
+    return status;
 }
 
 void AJ_BigvalEncode(const bigval_t* src, uint8_t* tgt, size_t tgtlen)
@@ -1497,15 +1231,36 @@ static verify_res_t ECDSA_verify_inner(bigval_t const* msgdgst,
        unions between the affine and jacobian versions of points. But
        check that out before doing it. */
 
+
     bigval_t v;
     bigval_t w;
     bigval_t u1;
     bigval_t u2;
-    affine_point_t P1;
-    affine_point_t P2;
-    affine_point_t X;
-    jacobian_point_t P2Jacobian;
-    jacobian_point_t XJacobian;
+    digit256_t digU1;
+    digit256_t digU2;
+    ecpoint_t Q;
+    ecpoint_t P1;
+    ecpoint_t P2;
+    ecpoint_t G;
+    ecpoint_t X;
+    ec_t curve;
+
+    boolean_t status;
+    AJ_Status ajstatus;
+
+    ajstatus = ec_getcurve(&curve, NISTP256r1);
+    if (ajstatus != AJ_OK) {
+        return (V_INTERNAL);
+    }
+
+    ec_get_generator(&G, &curve);
+
+    status = bigval_to_digit256(&(pubkey->x), Q.x);
+    status = status && bigval_to_digit256(&(pubkey->y), Q.y);
+    status = status && ecpoint_validation(&Q, &curve);
+    if (!status) {
+        return (V_INTERNAL);
+    }
 
     if (big_cmp(&sig->r, &big_one) < 0) {
         return (V_R_ZERO);
@@ -1525,15 +1280,27 @@ static verify_res_t ECDSA_verify_inner(bigval_t const* msgdgst,
     big_precise_reduce(&u1, &u1, &orderP);
     big_mpyP(&u2, &sig->r, &w, MOD_ORDER);
     big_precise_reduce(&u2, &u2, &orderP);
-    pointMpyP(&P1, &u1, &base_point);
-    pointMpyP(&P2, &u2, pubkey);
-    toJacobian(&P2Jacobian, &P2);
-    pointAdd(&XJacobian, &P2Jacobian, &P1);
-    toAffine(&X, &XJacobian);
-    if (X.infinity) {
+
+    status = bigval_to_digit256(&u1, digU1);
+    status = status && bigval_to_digit256(&u2, digU2);
+    if (!status) {
+        return (V_INTERNAL);
+    }
+
+    ec_scalarmul(&(curve.generator), digU1, &P1, &curve);
+    ec_scalarmul(&Q, digU2, &P2, &curve);
+
+    // copy P1 point over
+    memcpy(X.x, P1.x, sizeof(digit256_t));
+    memcpy(X.y, P1.y, sizeof(digit256_t));
+
+    ec_add(&X, &P2, &curve);
+
+    if (ec_is_infinity(&X, &curve)) {
         return (V_INFINITY);
     }
-    big_precise_reduce(&v, &X.x, &orderP);
+
+    digit256_to_bigval(X.x, &v);
     if (big_cmp(&v, &sig->r) != 0) {
         return (V_UNEQUAL);
     }
