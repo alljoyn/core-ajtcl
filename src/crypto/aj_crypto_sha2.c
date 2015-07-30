@@ -112,7 +112,7 @@ static AJ_Status getDigest(AJ_SHA256_Context* context, uint8_t* digest,
         finalCtx = context;
     }
 
-    SHA256_Final(digest, finalCtx);
+    SHA256_Final(digest, &finalCtx->internal);
     AJ_MemZeroSecure(finalCtx, sizeof(*finalCtx));
 
     if (!keepAlive) {
