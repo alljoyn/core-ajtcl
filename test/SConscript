@@ -24,7 +24,8 @@ progs.extend([
             test_env.Program('base64', ['base64.c']),
             test_env.Program('codisco', ['codisco.c']),
             test_env.Program('sigtest', ['sigtest.c']),
-            test_env.Program('ctrdrbg', ['ctrdrbg.c'])
+            test_env.Program('ctrdrbg', ['ctrdrbg.c']),
+            test_env.Program('ecctest', ['ecctest.c'])
 
         ])
 
