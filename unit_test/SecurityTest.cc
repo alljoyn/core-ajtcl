@@ -399,6 +399,14 @@ class CommonPathTest : public testing::Test {
 
 TEST_F(CommonPathTest, Test1)
 {
+    EXPECT_FALSE(AJ_CommonPath("", "Signal1", SIGNAL));
+    EXPECT_FALSE(AJ_CommonPath("", "Method1", METHOD));
+    EXPECT_FALSE(AJ_CommonPath("", "Property1", PROPERTY));
+
+    EXPECT_TRUE(AJ_CommonPath("*", "Signal1", SIGNAL));
+    EXPECT_TRUE(AJ_CommonPath("*", "Method1", METHOD));
+    EXPECT_TRUE(AJ_CommonPath("*", "Property1", PROPERTY));
+
     EXPECT_FALSE(AJ_CommonPath("Signal", "Signal1", SIGNAL));
     EXPECT_FALSE(AJ_CommonPath("Method", "Method1", METHOD));
     EXPECT_FALSE(AJ_CommonPath("Property", "Property1", PROPERTY));
