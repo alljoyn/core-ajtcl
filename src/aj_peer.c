@@ -179,12 +179,13 @@ static void HandshakeComplete(AJ_Status status)
     AJ_InfoPrintf(("HandshakeComplete(status=%d.)\n", status));
 
     /* If ECDSA/PSK failed, try NULL */
-    if ((AJ_OK != status) && (AUTH_SUITE_ECDHE_NULL != authContext.suite)) {
-        if (AUTH_CLIENT == authContext.role) {
-            authContext.suite = AUTH_SUITE_ECDHE_NULL;
-            KeyExchange(authContext.bus);
-            return;
-        }
+    if ((AJ_OK != status) &&
+        (AUTH_SUITE_ECDHE_NULL != authContext.suite) &&
+        (AUTH_CLIENT == authContext.role) &&
+        AJ_IsSuiteEnabled(authContext.bus, AUTH_SUITE_ECDHE_NULL, authContext.version >> 16)) {
+        authContext.suite = AUTH_SUITE_ECDHE_NULL;
+        KeyExchange(authContext.bus);
+        return;
     }
 
     if ((AJ_OK == status) && authContext.expiration) {
@@ -265,8 +266,8 @@ static AJ_Status SaveECDSAContext(const AJ_GUID* peerGuid, uint32_t expiration)
         return AJ_ERR_SECURITY;
     }
 
-    if (AJ_AUTH_SUCCESS == peerContext.state) {
-        status = AJ_CredentialSetPeer(AJ_GENERIC_ECDSA_MANIFEST, peerGuid, expiration, authContext.kactx.ecdsa.manifest, AJ_SHA256_DIGEST_LENGTH);
+    if ((AJ_AUTH_SUCCESS == peerContext.state) && authContext.kactx.ecdsa.size) {
+        status = AJ_CredentialSetPeer(AJ_GENERIC_ECDSA_MANIFEST, peerGuid, expiration, authContext.kactx.ecdsa.manifest, authContext.kactx.ecdsa.size);
         if (AJ_OK != status) {
             return status;
         }
@@ -290,8 +291,9 @@ static AJ_Status LoadECDSAContext(const AJ_GUID* peerGuid)
     data.size = AJ_SHA256_DIGEST_LENGTH;
     data.data = authContext.kactx.ecdsa.manifest;
     status = AJ_CredentialGetPeer(AJ_GENERIC_ECDSA_MANIFEST, peerGuid, NULL, &data);
-    if (AJ_OK != status) {
-        /* If its missing, we didn't use ECDSA */
+    if (AJ_OK == status) {
+        authContext.kactx.ecdsa.size = data.size;
+    } else {
         peerContext.state = AJ_AUTH_SUCCESS;
         return AJ_OK;
     }
@@ -1398,8 +1400,8 @@ AJ_Status AJ_PeerHandleExchangeGroupKeys(AJ_Message* msg, AJ_Message* reply)
     if (AJ_OK != status) {
         goto Exit;
     }
+    status = AJ_PolicyApply(&authContext, msg->sender);
     if (AUTH_SUITE_ECDHE_ECDSA != authContext.suite) {
-        status = AJ_PolicyApply(&authContext, msg->sender);
         HandshakeComplete(status);
     }
 
@@ -1439,10 +1441,13 @@ AJ_Status AJ_PeerHandleExchangeGroupKeysReply(AJ_Message* msg)
         goto Exit;
     }
 
+    status = AJ_PolicyApply(&authContext, msg->sender);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
     if (AUTH_SUITE_ECDHE_ECDSA == authContext.suite) {
         status = SendManifest(msg);
     } else {
-        status = AJ_PolicyApply(&authContext, msg->sender);
         HandshakeComplete(status);
     }
 
@@ -1467,14 +1472,16 @@ static AJ_Status SendManifest(AJ_Message* msg)
         goto Exit;
     }
     status = AJ_CredentialGet(AJ_CRED_TYPE_MANIFEST, NULL, NULL, &field);
-    if (AJ_OK != status) {
-        AJ_InfoPrintf(("SendManifest(msg=%p): No stored manifest\n", msg));
-        goto Exit;
-    }
-    status = AJ_ManifestFromBuffer(&manifest, &field);
-    if (AJ_OK != status) {
-        AJ_InfoPrintf(("SendManifest(msg=%p): Manifest buffer failed\n", msg));
-        goto Exit;
+    if (AJ_OK == status) {
+        status = AJ_ManifestFromBuffer(&manifest, &field);
+        if (AJ_OK != status) {
+            AJ_InfoPrintf(("SendManifest(msg=%p): Manifest buffer failed\n", msg));
+            goto Exit;
+        }
+    } else {
+        /* Create empty manifest */
+        manifest = (AJ_Manifest*) AJ_Malloc(sizeof (AJ_Manifest));
+        manifest->rules = NULL;
     }
     status = AJ_ManifestMarshal(manifest, &call);
     if (AJ_OK != status) {
@@ -1517,26 +1524,18 @@ AJ_Status AJ_PeerHandleSendManifest(AJ_Message* msg, AJ_Message* reply)
     }
     field.size = msg->bus->sock.rx.readPtr - field.data;
     status = AJ_ManifestDigest(&field, digest);
-    if (AJ_OK != status) {
-        goto Exit;
-    }
     field.data = NULL;
     field.size = 0;
+    if (AJ_OK != status) {
+        goto Exit;
+    }
     /* Compare with digest from certificate */
-    if (0 != memcmp(digest, authContext.kactx.ecdsa.manifest, AJ_SHA256_DIGEST_LENGTH)) {
-        AJ_InfoPrintf(("AJ_PeerHandleSendManifest(msg=%p, reply=%p): Manifest digest mismatch\n", msg, reply));
-        goto Exit;
-    }
-
-    status = AJ_PolicyApply(&authContext, msg->sender);
-    if (AJ_OK != status) {
-        AJ_InfoPrintf(("AJ_PeerHandleSendManifest(msg=%p, reply=%p): Policy apply failed\n", msg, reply));
-        goto Exit;
-    }
-    status = AJ_ManifestApply(manifest, msg->sender);
-    if (AJ_OK != status) {
-        AJ_InfoPrintf(("AJ_PeerHandleSendManifest(msg=%p, reply=%p): Manifest apply failed\n", msg, reply));
-        goto Exit;
+    if (authContext.kactx.ecdsa.size && (0 == memcmp(digest, authContext.kactx.ecdsa.manifest, AJ_SHA256_DIGEST_LENGTH))) {
+        status = AJ_ManifestApply(manifest, msg->sender);
+        if (AJ_OK != status) {
+            AJ_InfoPrintf(("AJ_PeerHandleSendManifest(msg=%p, reply=%p): Manifest apply failed\n", msg, reply));
+            goto Exit;
+        }
     }
     AJ_ManifestFree(manifest);
     manifest = NULL;
@@ -1547,14 +1546,16 @@ AJ_Status AJ_PeerHandleSendManifest(AJ_Message* msg, AJ_Message* reply)
         goto Exit;
     }
     status = AJ_CredentialGet(AJ_CRED_TYPE_MANIFEST, NULL, NULL, &field);
-    if (AJ_OK != status) {
-        AJ_InfoPrintf(("AJ_PeerHandleSendManifest(msg=%p, reply=%p): Manifest get failed\n", msg, reply));
-        goto Exit;
-    }
-    status = AJ_ManifestFromBuffer(&manifest, &field);
-    if (AJ_OK != status) {
-        AJ_InfoPrintf(("AJ_PeerHandleSendManifest(msg=%p, reply=%p): Manifest buffer failed\n", msg, reply));
-        goto Exit;
+    if (AJ_OK == status) {
+        status = AJ_ManifestFromBuffer(&manifest, &field);
+        if (AJ_OK != status) {
+            AJ_InfoPrintf(("AJ_PeerHandleSendManifest(msg=%p, reply=%p): Manifest buffer failed\n", msg, reply));
+            goto Exit;
+        }
+    } else {
+        /* Create empty manifest */
+        manifest = (AJ_Manifest*) AJ_Malloc(sizeof (AJ_Manifest));
+        manifest->rules = NULL;
     }
     status = AJ_ManifestMarshal(manifest, reply);
     if (AJ_OK != status) {
@@ -1612,25 +1613,19 @@ AJ_Status AJ_PeerHandleSendManifestReply(AJ_Message* msg)
         goto Exit;
     }
     field.size = msg->bus->sock.rx.readPtr - field.data;
-    AJ_ManifestDigest(&field, digest);
+    status = AJ_ManifestDigest(&field, digest);
     field.data = NULL;
     field.size = 0;
+    if (AJ_OK != status) {
+        goto Exit;
+    }
     /* Compare with digest from certificate */
-    if (0 != memcmp(digest, authContext.kactx.ecdsa.manifest, AJ_SHA256_DIGEST_LENGTH)) {
-        AJ_InfoPrintf(("AJ_PeerHandleSendManifestReply(msg=%p): Manifest digest mismatch\n", msg));
-        status = AJ_ERR_SECURITY;
-        goto Exit;
-    }
-
-    status = AJ_PolicyApply(&authContext, msg->sender);
-    if (AJ_OK != status) {
-        AJ_InfoPrintf(("AJ_PeerHandleSendManifestReply(msg=%p): Policy apply failed\n", msg));
-        goto Exit;
-    }
-    status = AJ_ManifestApply(manifest, msg->sender);
-    if (AJ_OK != status) {
-        AJ_InfoPrintf(("AJ_PeerHandleSendManifestReply(msg=%p): Manifest apply failed\n", msg));
-        goto Exit;
+    if (authContext.kactx.ecdsa.size && (0 == memcmp(digest, authContext.kactx.ecdsa.manifest, AJ_SHA256_DIGEST_LENGTH))) {
+        status = AJ_ManifestApply(manifest, msg->sender);
+        if (AJ_OK != status) {
+            AJ_InfoPrintf(("AJ_PeerHandleSendManifestReply(msg=%p): Manifest apply failed\n", msg));
+            goto Exit;
+        }
     }
     AJ_ManifestFree(manifest);
     manifest = NULL;

@@ -91,10 +91,10 @@ static void AppDoWork()
  *
  * @return returns the length of the string received from the file.
  */
-uint32_t get_line(char*str, int num, FILE*fp)
+uint32_t get_line(char* str, int num, FILE* fp)
 {
     uint32_t stringLength = 0;
-    char*p = fgets(str, num, fp);
+    char* p = fgets(str, num, fp);
 
     // fgets will capture the '\n' character if the string entered is shorter than
     // num. Remove the '\n' from the end of the line and replace it with nul '\0'.
@@ -147,51 +147,49 @@ AJ_Status SendPing(AJ_BusAttachment* bus, uint32_t sessionId)
     return status;
 }
 
-// Copied from alljoyn/alljoyn_core/test/bbclient.cc
+// Copied from alljoyn/alljoyn_core/unit_test/AuthListenerECDHETest.cc with
+// newlines removed
 static const char pem_prv[] = {
     "-----BEGIN EC PRIVATE KEY-----"
-    "MDECAQEEINAmL3v0wNo5EfMqzB/GiVturVDGGefg9bPY/rZ5cM1GoAoGCCqGSM49"
-    "AwEH"
+    "MHcCAQEEIAzfibK85el6fvczuL5vIaKBiZ5hTTaNIo0LEkvJ2dCMoAoGCCqGSM49"
+    "AwEHoUQDQgAE3KsljHhEdm5JLdpRr0g1zw9EMmMqcQJdxYoMr8AAF//G8fujudM9"
+    "HMlXLcyBk195YnGp+hY8Tk+QNNA3ZVNavw=="
     "-----END EC PRIVATE KEY-----"
 };
 
-/*
- * Order of certificates is important.
- */
 static const char pem_x509[] = {
     "-----BEGIN CERTIFICATE-----"
-    "MIIBajCCARCgAwIBAgIUYB6roPAvFLNLCDrHmQB+pD8LjbkwCgYIKoZIzj0EAwIw"
-    "NTEzMDEGA1UEAwwqQWxsSm95biBFQ0RIRSBTYW1wbGUgQ2VydGlmaWNhdGUgQXV0"
-    "aG9yaXR5MB4XDTE1MDUwNzIyMTY0NVoXDTIwMDUwNTIyMTY0NVowJjEkMCIGA1UE"
-    "AwwbQWxsSm95biBFQ0RIRSBTYW1wbGUgQ2xpZW50MFkwEwYHKoZIzj0CAQYIKoZI"
-    "zj0DAQcDQgAEzE6Fox8LU/Cbi9+KI+6wQsFA8RhOv44JxTa1PY13xQGgzL0h+KKq"
-    "DrHleThtYqL8rFXFtuDMtYo1T/lOMIcz86MNMAswCQYDVR0TBAIwADAKBggqhkjO"
-    "PQQDAgNIADBFAiEA3KmONKSK9ebMUnBxDTYZMilW1QNqyR04KB3TUuI1MvcCIDTZ"
-    "MzxxFqMIDDaGUzqd4g1t/W9h+G+alwj3KemLkD3T"
+    "MIIBYTCCAQigAwIBAgIJAKdvmRDLDVWQMAoGCCqGSM49BAMCMCQxIjAgBgNVBAoM"
+    "GUFsbEpveW5UZXN0U2VsZlNpZ25lZE5hbWUwHhcNMTUwNzIyMjAxMTA3WhcNMTUw"
+    "ODIxMjAxMTA3WjAgMR4wHAYDVQQKDBVBbGxKb3luVGVzdENsaWVudE5hbWUwWTAT"
+    "BgcqhkjOPQIBBggqhkjOPQMBBwNCAATcqyWMeER2bkkt2lGvSDXPD0QyYypxAl3F"
+    "igyvwAAX/8bx+6O50z0cyVctzIGTX3lican6FjxOT5A00DdlU1q/oycwJTAVBgNV"
+    "HSUEDjAMBgorBgEEAYLefAEBMAwGA1UdEwEB/wQCMAAwCgYIKoZIzj0EAwIDRwAw"
+    "RAIgQsvHZ747URkPCpYtBxi56V1OcMF3oKWnGuz2jazWr4YCICCU5/itaYVt1SzQ"
+    "cBYyChWx/4KXL4QKWLdm9/6ispdq"
     "-----END CERTIFICATE-----"
     ""
     "-----BEGIN CERTIFICATE-----"
-    "MIIBezCCASKgAwIBAgIUDrFhHE80+zbEUOCNTxw219Nd1qwwCgYIKoZIzj0EAwIw"
-    "NTEzMDEGA1UEAwwqQWxsSm95biBFQ0RIRSBTYW1wbGUgQ2VydGlmaWNhdGUgQXV0"
-    "aG9yaXR5MB4XDTE1MDUwNzIyMTYzNloXDTI1MDUwNDIyMTYzNlowNTEzMDEGA1UE"
-    "AwwqQWxsSm95biBFQ0RIRSBTYW1wbGUgQ2VydGlmaWNhdGUgQXV0aG9yaXR5MFkw"
-    "EwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE6AsCTTviTBWX0Jw2e8Cs8DhwxfRd37Yp"
-    "IH5ALzBqwUN2sfG1odcthe6GKdE/9oVfy12SXOL3X2bi3yg1XFoWnaMQMA4wDAYD"
-    "VR0TBAUwAwEB/zAKBggqhkjOPQQDAgNHADBEAiASuD0OrpDM8ziC5GzMbZWKNE/X"
-    "eboedc0p6YsAZmry2AIgR23cKM4cKkc2bgUDbETNbDcOcwm+EWaK9E4CkOO/tBc="
+    "MIIBdDCCARugAwIBAgIJANOdlTtGQiNsMAoGCCqGSM49BAMCMCQxIjAgBgNVBAoM"
+    "GUFsbEpveW5UZXN0U2VsZlNpZ25lZE5hbWUwHhcNMTUwNzIyMjAxMTA2WhcNMjkw"
+    "MzMwMjAxMTA2WjAkMSIwIAYDVQQKDBlBbGxKb3luVGVzdFNlbGZTaWduZWROYW1l"
+    "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEfN5/iDyZAHt9zLEvR2/y02jVovfW"
+    "U+lxLtDe0I+fTOoZn3WMd3EyZWKKdfela66adLWwzijKpBlXpj5KKQn5vKM2MDQw"
+    "IQYDVR0lBBowGAYKKwYBBAGC3nwBAQYKKwYBBAGC3nwBBTAPBgNVHRMBAf8EBTAD"
+    "AQH/MAoGCCqGSM49BAMCA0cAMEQCIDT7r6txazffbFN8VxPg3tRuyWvtTNwYiS2y"
+    "tn0H/nsaAiBzKmTHjrmhSLmYidtNvcU/OjKzmRHmdGTaURz0s2NBcQ=="
     "-----END CERTIFICATE-----"
 };
 
 static const char psk_hint[] = "<anonymous>";
 static const char psk_char[] = "faaa0af3dd3f1e0379da046a3ab6ca44";
 static X509CertificateChain* chain = NULL;
-static AJ_ECCPrivateKey prv;
 static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, AJ_Credential*cred)
 {
     AJ_Status status = AJ_ERR_INVALID;
     X509CertificateChain* node;
 
-    AJ_AlwaysPrintf(("AuthListenerCallback authmechanism %d command %d\n", authmechanism, command));
+    AJ_AlwaysPrintf(("AuthListenerCallback authmechanism %08X command %d\n", authmechanism, command));
 
     switch (authmechanism) {
     case AUTH_SUITE_ECDHE_NULL:
@@ -220,12 +218,8 @@ static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, 
     case AUTH_SUITE_ECDHE_ECDSA:
         switch (command) {
         case AJ_CRED_PRV_KEY:
-            cred->len = sizeof (AJ_ECCPrivateKey);
-            status = AJ_DecodePrivateKeyPEM(&prv, pem_prv);
-            if (AJ_OK != status) {
-                return status;
-            }
-            cred->data = (uint8_t*) &prv;
+            AJ_ASSERT(sizeof (AJ_ECCPrivateKey) == cred->len);
+            status = AJ_DecodePrivateKeyPEM((AJ_ECCPrivateKey*) cred->data, pem_prv);
             cred->expiration = keyexpiration;
             break;
 

@@ -215,6 +215,40 @@ static const char pem_x509_11[] = {
     "-----END CERTIFICATE-----"
 };
 
+static const char pem_prv_12[] = {
+    "-----BEGIN EC PRIVATE KEY-----"
+    "MHcCAQEEINiXjrhr3NNV+NYcS9ZHuWGjOYVmK1l4S03QV+vn1mIIoAoGCCqGSM49"
+    "AwEHoUQDQgAEZFf5jgxNc4wJ2qYcuBHcrWsxOXhMgtvyRMfH2ryM6aQPlioY/dnc"
+    "XbWnsfO2FyE8wsdKLPeENJy+8g6p+RPEig=="
+    "-----END EC PRIVATE KEY-----"
+};
+
+static const char pem_x509_12[] = {
+    "-----BEGIN CERTIFICATE-----"
+    "MIIB2jCCAYGgAwIBAgIBAjAKBggqhkjOPQQDAjANMQswCQYDVQQDDAJjbjAeFw0x"
+    "NTA3MzEwNjUwMDhaFw0xNjA3MzAwNjUwMDhaMA0xCzAJBgNVBAMMAnR2MFkwEwYH"
+    "KoZIzj0CAQYIKoZIzj0DAQcDQgAEZFf5jgxNc4wJ2qYcuBHcrWsxOXhMgtvyRMfH"
+    "2ryM6aQPlioY/dncXbWnsfO2FyE8wsdKLPeENJy+8g6p+RPEiqOB0TCBzjAJBgNV"
+    "HRMEAjAAMB0GA1UdDgQWBBQWI2DkX/AhybZBGOUP+LEJcNz2yjAfBgNVHSMEGDAW"
+    "gBSqnBbXUz17dBCqTejIv0HoSS/xiTArBgNVHREEJDAioCAGCisGAQQBgt58AQSg"
+    "EgQQAAAAAAAAAAAAAAAAAAAAADAVBgNVHSUEDjAMBgorBgEEAYLefAEBMD0GCisG"
+    "AQQBgt58AQIELzAtBglghkgBZQMEAgEEIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    "AAAAAAAAAAAAMAoGCCqGSM49BAMCA0cAMEQCIDjCZb6ALBxw+lc7i7oHDNwOQCIU"
+    "BjYqtR4kr4LqdQktAiAfu5+EVXC1hDgK9bc91dy1cv21Pn9cL4FAVFX3xGm4hA=="
+    "-----END CERTIFICATE-----"
+    ""
+    "-----BEGIN CERTIFICATE-----"
+    "MIIBezCCASKgAwIBAgIBATAKBggqhkjOPQQDAjANMQswCQYDVQQDDAJjbjAeFw0x"
+    "NTA3MzEwNjQ3NDlaFw0xNjA3MzAwNjQ3NDlaMA0xCzAJBgNVBAMMAmNuMFkwEwYH"
+    "KoZIzj0CAQYIKoZIzj0DAQcDQgAE2+TD0C9O6nScng1lUl+s6pcrezUBySXVKadH"
+    "7P8vAdvnnGtjSxSLdy/G1XDG/81cWf+W/sZcC+qCSbQg+EW/QqNzMHEwDAYDVR0T"
+    "BAUwAwEB/zAdBgNVHQ4EFgQUqpwW11M9e3QQqk3oyL9B6Ekv8YkwHwYDVR0jBBgw"
+    "FoAUqpwW11M9e3QQqk3oyL9B6Ekv8YkwIQYDVR0lBBowGAYKKwYBBAGC3nwBAQYK"
+    "KwYBBAGC3nwBBTAKBggqhkjOPQQDAgNHADBEAiBVSPvp2t5Uct+Yrj43uC/eyKTb"
+    "BQPY5bGS2yt8iReZ+AIgacrFYDzNnbUu39rtjn85kn3zWasFXmsa8R+mTmlJTFo="
+    "-----END CERTIFICATE-----"
+};
+
 #define ASN_OCTETS           0x04
 #define ASN_UTF8             0x0C
 void PrintElement(char* tag, DER_Element* der, uint8_t type)
@@ -322,6 +356,16 @@ int AJ_Main(int ac, char** av)
     status = ParseCertificate(&certificate, pem_x509_9, 1);
     status = ParseCertificate(&certificate, pem_x509_10, 1);
     status = ParseCertificate(&certificate, pem_x509_11, 1);
+
+    X509CertificateChain* head;
+    X509CertificateChain* chain;
+    chain = AJ_X509DecodeCertificateChainPEM(pem_x509_12);
+    head = chain;
+    while (head) {
+        PrintCertificate(&head->certificate);
+        head = head->next;
+    }
+    AJ_X509FreeDecodedCertificateChain(chain);
 
     return 0;
 }

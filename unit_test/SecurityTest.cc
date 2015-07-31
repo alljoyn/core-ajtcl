@@ -64,6 +64,8 @@ static const uint32_t keyexpiration = 0xFFFFFFFF;
 
 static AJ_BusAttachment testBus;
 static const char ServiceName[] = "org.alljoyn.svclite";
+static const uint16_t ServicePort = 24;
+static char g_ServiceName[AJ_MAX_SERVICE_NAME_SIZE];
 
 class SecurityTest : public testing::Test {
   public:
@@ -73,7 +75,7 @@ class SecurityTest : public testing::Test {
     static void AuthCallback(const void* context, AJ_Status status)
     {
         *((AJ_Status*)context) = status;
-        ASSERT_EQ(AJ_OK, status) << "Auth callback returns fail" << AJ_StatusText(status);
+        ASSERT_EQ(AJ_OK, status) << "Auth callback returns fail " << AJ_StatusText(status);
     }
 
     AJ_Status authStatus;
@@ -82,7 +84,7 @@ class SecurityTest : public testing::Test {
 // Copied from alljoyn/alljoyn_core/unit_test/AuthListenerECDHETest.cc with
 // newlines removed
 static const char pem_prv[] = {
-    "-----BEGIN EC PRIVATE KEY-----\n"
+    "-----BEGIN EC PRIVATE KEY-----"
     "MHcCAQEEIAzfibK85el6fvczuL5vIaKBiZ5hTTaNIo0LEkvJ2dCMoAoGCCqGSM49"
     "AwEHoUQDQgAE3KsljHhEdm5JLdpRr0g1zw9EMmMqcQJdxYoMr8AAF//G8fujudM9"
     "HMlXLcyBk195YnGp+hY8Tk+QNNA3ZVNavw=="
@@ -128,7 +130,6 @@ static const char psk_char[] = "faaa0af3dd3f1e0379da046a3ab6ca44";
 static const char psk_char[] = "123456";
 #endif
 static X509CertificateChain* chain = NULL;
-static AJ_ECCPrivateKey prv;
 static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, AJ_Credential*cred)
 {
     AJ_Status status = AJ_ERR_INVALID;
@@ -163,12 +164,8 @@ static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, 
     case AUTH_SUITE_ECDHE_ECDSA:
         switch (command) {
         case AJ_CRED_PRV_KEY:
-            cred->len = sizeof (AJ_ECCPrivateKey);
-            status = AJ_DecodePrivateKeyPEM(&prv, pem_prv);
-            if (AJ_OK != status) {
-                return status;
-            }
-            cred->data = (uint8_t*) &prv;
+            AJ_ASSERT(sizeof (AJ_ECCPrivateKey) == cred->len);
+            status = AJ_DecodePrivateKeyPEM((AJ_ECCPrivateKey*) cred->data, pem_prv);
             cred->expiration = keyexpiration;
             break;
 
@@ -212,22 +209,21 @@ static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, 
 
 static const char PingString[] = "Ping String";
 
-/* Test for ECDHE_NULL  */
-
-TEST_F(SecurityTest, Test1)
+TEST_F(SecurityTest, Test_ECDHE_NULL)
 {
-    // Register bus objects and proxy bus objects
-    AJ_RegisterObjects(NULL, AppObjects);
     AJ_Status status = AJ_OK;
     AJ_Message msg;
     AJ_Message call;
-    char*value;
+    char* value;
     uint32_t suites[AJ_AUTH_SUITES_NUM];
     size_t numsuites = 0;
+    uint32_t session;
 
     AJ_Initialize();
+    // Register bus objects and proxy bus objects
+    AJ_RegisterObjects(NULL, AppObjects);
 
-    status = AJ_Connect(&testBus, NULL, CONNECT_TIMEOUT);
+    status = AJ_StartClientByName(&testBus, NULL, CONNECT_TIMEOUT, FALSE, ServiceName, ServicePort, &session, NULL, g_ServiceName);
     ASSERT_EQ(AJ_OK, status) << "Unable to connect to the daemon. " << "The status returned is " << AJ_StatusText(status);
     if (AJ_OK == status) {
         AJ_Printf("Connected to the bus. The unique name is %s\n", AJ_GetUniqueName(&testBus));
@@ -245,9 +241,10 @@ TEST_F(SecurityTest, Test1)
         status = AJ_UnmarshalMsg(&testBus, &msg, UNMARSHAL_TIMEOUT);
         if (status == AJ_ERR_TIMEOUT) {
             if (authStatus == AJ_OK) {
-                ASSERT_EQ(AJ_ERR_ACCESS, AJ_MarshalMethodCall(&testBus, &call, TEST1_APP_MY_PING, ServiceName, 0, 0, 5000));
-                status = AJ_OK;
-                break;
+                ASSERT_EQ(AJ_OK, AJ_MarshalMethodCall(&testBus, &call, TEST1_APP_MY_PING, ServiceName, session, 0, 5000));
+                ASSERT_EQ(AJ_OK, AJ_MarshalArgs(&call, "s", PingString));
+                ASSERT_EQ(AJ_OK, AJ_DeliverMsg(&call));
+                authStatus = AJ_ERR_NULL;
             }
         } else if (msg.msgId == AJ_REPLY_ID(TEST1_APP_MY_PING)) {
             status = AJ_UnmarshalArgs(&msg, "s", &value);
@@ -258,36 +255,29 @@ TEST_F(SecurityTest, Test1)
         } else {
             status = AJ_BusHandleBusMessage(&msg);
         }
-
-
         AJ_CloseMsg(&msg);
     }
+
     AJ_ClearCredentials(AJ_CRED_TYPE_GENERIC);
     ASSERT_EQ(AJ_OK, status) << "AJ_ClearCredentials returned status. " << AJ_StatusText(status);
     AJ_Disconnect(&testBus);
 }
 
-
-
-/* Test for ECDHE_PSK  */
-
-
-TEST_F(SecurityTest, Test2)
+TEST_F(SecurityTest, Test_ECDHE_PSK)
 {
-
-    // Register bus objects and proxy bus objects
-    AJ_RegisterObjects(NULL, AppObjects);
     AJ_Status status = AJ_OK;
     AJ_Message msg;
     AJ_Message call;
-    char*value;
+    char* value;
     uint32_t suites[AJ_AUTH_SUITES_NUM];
     size_t numsuites = 0;
+    uint32_t session;
 
     AJ_Initialize();
+    // Register bus objects and proxy bus objects
+    AJ_RegisterObjects(NULL, AppObjects);
 
-
-    status = AJ_Connect(&testBus, NULL, CONNECT_TIMEOUT);
+    status = AJ_StartClientByName(&testBus, NULL, CONNECT_TIMEOUT, FALSE, ServiceName, ServicePort, &session, NULL, g_ServiceName);
     ASSERT_EQ(AJ_OK, status) << "Unable to connect to the daemon. " << "The status returned is " << AJ_StatusText(status);
     if (AJ_OK == status) {
         AJ_Printf("Connected to the bus. The unique name is %s\n", AJ_GetUniqueName(&testBus));
@@ -304,7 +294,7 @@ TEST_F(SecurityTest, Test2)
         status = AJ_UnmarshalMsg(&testBus, &msg, UNMARSHAL_TIMEOUT);
         if (status == AJ_ERR_TIMEOUT) {
             if (authStatus == AJ_OK) {
-                ASSERT_EQ(AJ_OK, AJ_MarshalMethodCall(&testBus, &call, TEST1_APP_MY_PING, ServiceName, 0, 0, 5000));
+                ASSERT_EQ(AJ_OK, AJ_MarshalMethodCall(&testBus, &call, TEST1_APP_MY_PING, ServiceName, session, 0, 5000));
                 ASSERT_EQ(AJ_OK, AJ_MarshalArgs(&call, "s", PingString));
                 ASSERT_EQ(AJ_OK, AJ_DeliverMsg(&call));
                 authStatus = AJ_ERR_NULL;
@@ -318,32 +308,29 @@ TEST_F(SecurityTest, Test2)
         } else {
             status = AJ_BusHandleBusMessage(&msg);
         }
-
-
         AJ_CloseMsg(&msg);
     }
+
     AJ_ClearCredentials(AJ_CRED_TYPE_GENERIC);
     ASSERT_EQ(AJ_OK, status) << "AJ_ClearCredentials returned status. " << AJ_StatusText(status);
     AJ_Disconnect(&testBus);
 }
 
-
-/* Test for ECDHE_ECDSA  */
-
-TEST_F(SecurityTest, Test3)
+TEST_F(SecurityTest, Test_ECDHE_ECDSA)
 {
-    // Register bus objects and proxy bus objects
-    AJ_RegisterObjects(NULL, AppObjects);
     AJ_Status status = AJ_OK;
     AJ_Message msg;
     AJ_Message call;
-    char*value;
+    char* value;
     uint32_t suites[AJ_AUTH_SUITES_NUM];
     size_t numsuites = 0;
+    uint32_t session;
 
     AJ_Initialize();
+    // Register bus objects and proxy bus objects
+    AJ_RegisterObjects(NULL, AppObjects);
 
-    status = AJ_Connect(&testBus, NULL, CONNECT_TIMEOUT);
+    status = AJ_StartClientByName(&testBus, NULL, CONNECT_TIMEOUT, FALSE, ServiceName, ServicePort, &session, NULL, g_ServiceName);
     ASSERT_EQ(AJ_OK, status) << "Unable to connect to the daemon" << "The status returned is " << AJ_StatusText(status);
     if (AJ_OK == status) {
         AJ_Printf("Connected to the bus. The unique name is %s\n", AJ_GetUniqueName(&testBus));
@@ -360,10 +347,10 @@ TEST_F(SecurityTest, Test3)
         status = AJ_UnmarshalMsg(&testBus, &msg, UNMARSHAL_TIMEOUT);
         if (status == AJ_ERR_TIMEOUT) {
             if (authStatus == AJ_OK) {
-                /* ECDSA will fail, then drop back to NULL */
-                ASSERT_EQ(AJ_ERR_ACCESS, AJ_MarshalMethodCall(&testBus, &call, TEST1_APP_MY_PING, ServiceName, 0, 0, 5000));
-                status = AJ_OK;
-                break;
+                ASSERT_EQ(AJ_OK, AJ_MarshalMethodCall(&testBus, &call, TEST1_APP_MY_PING, ServiceName, session, 0, 5000));
+                ASSERT_EQ(AJ_OK, AJ_MarshalArgs(&call, "s", PingString));
+                ASSERT_EQ(AJ_OK, AJ_DeliverMsg(&call));
+                authStatus = AJ_ERR_NULL;
             }
         } else if (msg.msgId == AJ_REPLY_ID(TEST1_APP_MY_PING)) {
             status = AJ_UnmarshalArgs(&msg, "s", &value);
@@ -374,8 +361,6 @@ TEST_F(SecurityTest, Test3)
         } else {
             status = AJ_BusHandleBusMessage(&msg);
         }
-
-
         AJ_CloseMsg(&msg);
     }
 

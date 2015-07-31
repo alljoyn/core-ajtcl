@@ -218,16 +218,57 @@ static const char psk_char[] = "faaa0af3dd3f1e0379da046a3ab6ca44";
 #else
 static const char psk_char[] = "123456";
 #endif
+static uint32_t PasswordCallback(uint8_t* buffer, uint32_t bufLen)
+{
+    memcpy(buffer, psk_char, sizeof(psk_char));
+    return sizeof(psk_char) - 1;
+}
 
-static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, AJ_Credential*cred)
+// Copied from alljoyn/alljoyn_core/unit_test/AuthListenerECDHETest.cc with
+// newlines removed
+static const char pem_prv[] = {
+    "-----BEGIN EC PRIVATE KEY-----"
+    "MHcCAQEEIAzfibK85el6fvczuL5vIaKBiZ5hTTaNIo0LEkvJ2dCMoAoGCCqGSM49"
+    "AwEHoUQDQgAE3KsljHhEdm5JLdpRr0g1zw9EMmMqcQJdxYoMr8AAF//G8fujudM9"
+    "HMlXLcyBk195YnGp+hY8Tk+QNNA3ZVNavw=="
+    "-----END EC PRIVATE KEY-----"
+};
+
+static const char pem_x509[] = {
+    "-----BEGIN CERTIFICATE-----"
+    "MIIBYTCCAQigAwIBAgIJAKdvmRDLDVWQMAoGCCqGSM49BAMCMCQxIjAgBgNVBAoM"
+    "GUFsbEpveW5UZXN0U2VsZlNpZ25lZE5hbWUwHhcNMTUwNzIyMjAxMTA3WhcNMTUw"
+    "ODIxMjAxMTA3WjAgMR4wHAYDVQQKDBVBbGxKb3luVGVzdENsaWVudE5hbWUwWTAT"
+    "BgcqhkjOPQIBBggqhkjOPQMBBwNCAATcqyWMeER2bkkt2lGvSDXPD0QyYypxAl3F"
+    "igyvwAAX/8bx+6O50z0cyVctzIGTX3lican6FjxOT5A00DdlU1q/oycwJTAVBgNV"
+    "HSUEDjAMBgorBgEEAYLefAEBMAwGA1UdEwEB/wQCMAAwCgYIKoZIzj0EAwIDRwAw"
+    "RAIgQsvHZ747URkPCpYtBxi56V1OcMF3oKWnGuz2jazWr4YCICCU5/itaYVt1SzQ"
+    "cBYyChWx/4KXL4QKWLdm9/6ispdq"
+    "-----END CERTIFICATE-----"
+    ""
+    "-----BEGIN CERTIFICATE-----"
+    "MIIBdDCCARugAwIBAgIJANOdlTtGQiNsMAoGCCqGSM49BAMCMCQxIjAgBgNVBAoM"
+    "GUFsbEpveW5UZXN0U2VsZlNpZ25lZE5hbWUwHhcNMTUwNzIyMjAxMTA2WhcNMjkw"
+    "MzMwMjAxMTA2WjAkMSIwIAYDVQQKDBlBbGxKb3luVGVzdFNlbGZTaWduZWROYW1l"
+    "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEfN5/iDyZAHt9zLEvR2/y02jVovfW"
+    "U+lxLtDe0I+fTOoZn3WMd3EyZWKKdfela66adLWwzijKpBlXpj5KKQn5vKM2MDQw"
+    "IQYDVR0lBBowGAYKKwYBBAGC3nwBAQYKKwYBBAGC3nwBBTAPBgNVHRMBAf8EBTAD"
+    "AQH/MAoGCCqGSM49BAMCA0cAMEQCIDT7r6txazffbFN8VxPg3tRuyWvtTNwYiS2y"
+    "tn0H/nsaAiBzKmTHjrmhSLmYidtNvcU/OjKzmRHmdGTaURz0s2NBcQ=="
+    "-----END CERTIFICATE-----"
+};
+
+static X509CertificateChain* chain = NULL;
+static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, AJ_Credential* cred)
 {
     AJ_Status status = AJ_ERR_INVALID;
+    X509CertificateChain* node;
 
-    AJ_AlwaysPrintf(("AuthListenerCallback authmechanism %d command %d\n", authmechanism, command));
+    AJ_AlwaysPrintf(("AuthListenerCallback authmechanism %08X command %d\n", authmechanism, command));
 
     switch (authmechanism) {
     case AUTH_SUITE_ECDHE_NULL:
-        cred->expiration = 0;
+        cred->expiration = keyexpiration;
         status = AJ_OK;
         break;
 
@@ -245,6 +286,41 @@ static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, 
             cred->len = strlen(psk_char);
             cred->expiration = keyexpiration;
             status = AJ_OK;
+            break;
+        }
+        break;
+
+    case AUTH_SUITE_ECDHE_ECDSA:
+        switch (command) {
+        case AJ_CRED_PRV_KEY:
+            AJ_ASSERT(sizeof (AJ_ECCPrivateKey) == cred->len);
+            status = AJ_DecodePrivateKeyPEM((AJ_ECCPrivateKey*) cred->data, pem_prv);
+            cred->expiration = keyexpiration;
+            break;
+
+        case AJ_CRED_CERT_CHAIN:
+            switch (cred->direction) {
+            case AJ_CRED_REQUEST:
+                // Free previous certificate chain
+                AJ_X509FreeDecodedCertificateChain(chain);
+                chain = AJ_X509DecodeCertificateChainPEM(pem_x509);
+                if (NULL == chain) {
+                    return AJ_ERR_INVALID;
+                }
+                cred->data = (uint8_t*) chain;
+                cred->expiration = keyexpiration;
+                status = AJ_OK;
+                break;
+
+            case AJ_CRED_RESPONSE:
+                node = (X509CertificateChain*) cred->data;
+                while (node) {
+                    AJ_DumpBytes("CERTIFICATE", node->certificate.der.data, node->certificate.der.size);
+                    node = node->next;
+                }
+                status = AJ_OK;
+                break;
+            }
             break;
         }
         break;
