@@ -1249,10 +1249,8 @@ AJ_Status AJ_PolicyApply(AJ_AuthenticationContext* ctx, const char* name)
                 break;
 
             default:
-                if (AUTH_SUITE_ECDHE_NULL != ctx->suite) {
-                    /* Any trusted allowed incoming and outgoing (Security 1.0) */
-                    acm->access[peer] = ACCESS_POLICY | ACCESS_MANIFEST;
-                }
+                /* All allowed incoming and outgoing (Security 1.0) */
+                acm->access[peer] = ACCESS_POLICY | ACCESS_MANIFEST;
             }
             acm = acm->next;
         }
