@@ -947,10 +947,6 @@ uint8_t AJ_CommonPath(const char* name, const char* desc, uint8_t type)
     if (!name || !desc) {
         return 0;
     }
-    /* Allow empty (unspecified) name */
-    if ('\0' == *name) {
-        return 1;
-    }
     /* Skip past common characters, or until a wildcard is hit */
     while (*name) {
         if ('*' == *name) {
