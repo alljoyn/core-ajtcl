@@ -87,17 +87,6 @@ void AJ_SecurityGetClaimConfig(uint16_t* state, uint16_t* capabilities, uint16_t
 AJ_Status AJ_SecurityInit(AJ_BusAttachment* bus);
 
 /**
- * Set application state signal to be sent
- *
- * @param bus        The bus attachment
- *
- * @return
- *          - AJ_OK on success
- *          - AJ_ERR_SECURITY on all failures
- */
-AJ_Status AJ_ApplicationStateSignalEmit(AJ_BusAttachment* bus);
-
-/**
  * Send application state signal
  *
  * @param bus        The bus attachment
@@ -226,6 +215,17 @@ AJ_Status AJ_UnmarshalECCPublicKey(AJ_Message* msg, AJ_ECCPublicKey* pub, DER_El
  *          - AJ_ERR_INVALID on all failures
  */
 AJ_Status AJ_GetCertificateId(uint8_t type, X509CertificateChain* chain, AJ_CertificateId* id);
+
+/**
+ * Callback for the bind session port call.
+ *
+ * @param bus          The bus attachment
+ *
+ * @return  Return AJ_Status
+ *          - AJ_OK on success
+ *          - AJ_ERR_INVALID on all failures
+ */
+AJ_Status AJ_SecurityBound(AJ_BusAttachment* bus);
 
 #ifdef __cplusplus
 }
