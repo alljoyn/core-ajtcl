@@ -45,7 +45,7 @@ static uint8_t A2H(char hex, AJ_Status* status)
     }
 }
 
-int32_t AJ_StringFindFirstOf(const char* str, char* chars)
+int32_t AJ_StringFindFirstOf(const char* str, const char* chars)
 {
     if (str) {
         const char* p = str;

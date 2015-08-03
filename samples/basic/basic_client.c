@@ -149,7 +149,7 @@ int AJ_Main(void)
         if (AJ_OK == status) {
             switch (msg.msgId) {
             case AJ_REPLY_ID(BASIC_CLIENT_CAT):
-                {
+                if (msg.hdr->msgType == AJ_MSG_METHOD_RET) {
                     AJ_Arg arg;
 
                     status = AJ_UnmarshalArg(&msg, &arg);
@@ -163,6 +163,14 @@ int AJ_Main(void)
                         /* Try again because of the failure. */
                         MakeMethodCall(&bus, sessionId);
                     }
+                } else {
+                    const char* info = "";
+                    if (AJ_UnmarshalArgs(&msg, "s", &info) == AJ_OK) {
+                        AJ_AlwaysPrintf(("Method call returned error %s (%s)\n", msg.error, info));
+                    } else {
+                        AJ_AlwaysPrintf(("Method call returned error %s\n", msg.error));
+                    }
+                    done = TRUE;
                 }
                 break;
 
@@ -171,7 +179,7 @@ int AJ_Main(void)
                 {
                     uint32_t id, reason;
                     AJ_UnmarshalArgs(&msg, "uu", &id, &reason);
-                    AJ_AlwaysPrintf(("Session lost. ID = %u, reason = %u", id, reason));
+                    AJ_AlwaysPrintf(("Session lost. ID = %u, reason = %u\n", id, reason));
                 }
                 status = AJ_ERR_SESSION_LOST;
                 break;
