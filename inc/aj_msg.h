@@ -544,6 +544,16 @@ AJ_Status AJ_MarshalErrorMsgWithInfoAsync(AJ_MsgReplyContext* replyCtx, AJ_Messa
 AJ_EXPORT
 AJ_Status AJ_MarshalStatusMsgAsync(AJ_MsgReplyContext* replyCtx, AJ_Message* reply, AJ_Status status);
 
+/* Function for special marshaling required by language bindings. Application code should not
+ * normally call this function.
+ *
+ * @param msg     A message structure initialized with the required fields.
+ * @param msgType The message type
+ * @param flags   A logical OR of the applicable message flags
+ */
+AJ_EXPORT
+AJ_Status AJ_MarshalMsgCustom(AJ_Message* msg, uint8_t msgType, uint8_t flags);
+
 /**
  * Delivers a marshalled message to the network.
  *
@@ -714,6 +724,23 @@ void AJ_LocalMsg(AJ_BusAttachment* bus, AJ_MsgHeader* hdr, AJ_Message* msg, cons
  *          - AJ_ERR_INVALID if serial number is invalid.
  */
 AJ_Status AJ_CheckIncomingSerial(AJ_SerialNum* prev, uint32_t curr);
+
+/* Function prototype for a message interceptor callback.
+ *
+ * If this function returns TRUE the message is discarded.
+ *
+ * If the message is not to be discarded it must be untouched.
+ */
+typedef uint8_t (*AJ_MsgInterceptor)(AJ_Message* msg);
+
+/**
+ * A message interception callback to be called whenever a message is umarshaled or delivered.
+ *
+ * @param incomingCB    Intercept callback for incoming messages - called by AJ_UnmarshalMsg()
+ * @param outgoingCB    Intercept callback for outgoing messages - called by AJ_DeliverMsg()
+ */
+AJ_EXPORT
+void AJ_RegisterMsgInterceptors(AJ_MsgInterceptor incomingCB, AJ_MsgInterceptor outgoingCB);
 
 #ifdef __cplusplus
 }

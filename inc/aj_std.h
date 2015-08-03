@@ -72,6 +72,7 @@
 #define AJ_METHOD_BUS_PING                      AJ_BUS_MESSAGE_ID(1, 0, 18)   /**< method for ping */
 #define AJ_METHOD_BUS_SET_IDLE_TIMEOUTS         AJ_BUS_MESSAGE_ID(1, 0, 19)   /**< method for set idle timeouts */
 #define AJ_METHOD_BUS_SIMPLE_HELLO              AJ_BUS_MESSAGE_ID(1, 0, 20)   /**< Simple Hello, similar to BusHello */
+#define AJ_SIGNAL_MP_SESSION_CHANGED_WITH_REASON AJ_BUS_MESSAGE_ID(1, 0, 21)    /**< signal for mp session changed with reason */
 
 /*
  * Members of /org/alljoyn/Bus/Peer interface org.alljoyn.Bus.Peer.Session

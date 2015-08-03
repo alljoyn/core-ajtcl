@@ -22,6 +22,7 @@
  ******************************************************************************/
 
 #include <ajtcl/aj_authentication.h>
+#include <ajtcl/aj_introspect.h>
 #include <ajtcl/aj_cert.h>
 #include <ajtcl/aj_creds.h>
 #include <ajtcl/aj_crypto_ecc.h>

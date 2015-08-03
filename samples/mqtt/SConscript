@@ -1,0 +1,15 @@
+Import('env')
+
+sample_env = env.Clone()
+
+sample_env.Append(LIBPATH = "#dist/lib")
+sample_env.Prepend(LIBS = ["ajtcl","mosquitto"])
+
+Export('sample_env')
+
+progs = [
+    sample_env.Program('notif_consumer', ['notif_consumer.c']),
+    sample_env.Program('basic_service', ['basic_service.c']),
+    sample_env.Program('basic_client', ['basic_client.c']),
+]
+sample_env.Install("#dist/bin", progs)

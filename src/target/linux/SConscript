@@ -8,3 +8,9 @@ src_env['nvram'] = True
 
 # Build target source
 src_env['srcs'] += src_env.Glob('*.c')
+
+if 'MQTT' in src_env['connectivity']:
+    src_env['srcs'] += Glob('mqtt/*.c')
+else:
+    src_env['srcs'] += Glob('ip/*.c')
+

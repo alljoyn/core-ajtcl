@@ -244,12 +244,14 @@ size_t AJ_GetTypeSize(char typeId)
 }
 
 
-/*
- * Checks that the current message is closed
- */
-#ifndef NDEBUG
-static AJ_Message* currentMsg = NULL;
-#endif
+static AJ_MsgInterceptor incomingInterceptor;
+static AJ_MsgInterceptor outgoingInterceptor;
+
+void AJ_RegisterMsgInterceptors(AJ_MsgInterceptor incomingCB, AJ_MsgInterceptor outgoingCB)
+{
+    incomingInterceptor = incomingCB;
+    outgoingInterceptor = outgoingCB;
+}
 
 static void InitArg(AJ_Arg* arg, uint8_t typeId, const void* val)
 {
@@ -585,36 +587,29 @@ AJ_Status AJ_DeliverMsg(AJ_Message* msg)
     if (!msg || !msg->bus) {
         return AJ_ERR_MARSHAL;
     }
-
     ioBuf = &msg->bus->sock.tx;
-
     /*
-     * If the header has already been marshaled (due to partial delivery) it will be NULL
+     * Update the final body length in the header
      */
-    if (msg->hdr) {
-        /*
-         * Write the final body length to the header
-         */
-        msg->hdr->bodyLen = msg->bodyBytes;
-        AJ_DumpMsg("SENDING", msg, TRUE);
-        if (msg->hdr->flags & AJ_FLAG_ENCRYPTED) {
-            status = AuthoriseOutgoingMessage(msg);
-            if (AJ_OK == status) {
-                status = EncryptMessage(msg);
-            }
-
-            if (AJ_ERR_NO_MATCH == status && AJ_MSG_ERROR == msg->hdr->msgType && msg->error == AJ_ErrSecurityViolation) {
-                /* Allow an unencrypted reply in this specific key-not-found error case. */
-                status = AJ_OK;
-            }
+    msg->hdr->bodyLen += msg->bodyBytes;
+    /*
+     * Check if message is being intercepted
+     */
+    if (outgoingInterceptor && outgoingInterceptor(msg)) {
+        AJ_IO_BUF_RESET(ioBuf);
+        memset(msg, 0, sizeof(AJ_Message));
+        return AJ_OK;
+    }
+    AJ_DumpMsg("SENDING", msg, TRUE);
+    if (msg->hdr->flags & AJ_FLAG_ENCRYPTED) {
+        status = AuthoriseOutgoingMessage(msg);
+        if (AJ_OK == status) {
+            status = EncryptMessage(msg);
         }
-    } else {
-        /*
-         * Check that the entire body was written
-         */
-        if (msg->bodyBytes) {
-            AJ_ErrPrintf(("AJ_DeliverMsg(): AJ_ERR_MARSHAL\n"));
-            status = AJ_ERR_MARSHAL;
+
+        if (AJ_ERR_NO_MATCH == status && AJ_MSG_ERROR == msg->hdr->msgType && msg->error == AJ_ErrSecurityViolation) {
+            /* Allow an unencrypted reply in this specific key-not-found error case. */
+            status = AJ_OK;
         }
     }
     if (status == AJ_OK) {
@@ -774,8 +769,9 @@ AJ_Status AJ_CloseMsg(AJ_Message* msg)
 
         memset(msg, 0, sizeof(AJ_Message));
 #ifndef NDEBUG
-        currentMsg = NULL;
+        msg->bus->currentMsg = NULL;
 #endif
+        memset(msg, 0, sizeof(AJ_Message));
     }
     return status;
 }
@@ -1275,8 +1271,8 @@ AJ_Status AJ_UnmarshalMsg(AJ_BusAttachment* bus, AJ_Message* msg, uint32_t timeo
     /*
      * Check that messages are getting closed
      */
-    AJ_ASSERT(!currentMsg);
-    currentMsg = msg;
+    AJ_ASSERT(!msg->bus->currentMsg);
+    msg->bus->currentMsg = msg;
 #endif
     /*
      * If the endianess of the message is different than the local host
@@ -1495,7 +1491,12 @@ AJ_Status AJ_UnmarshalMsg(AJ_BusAttachment* bus, AJ_Message* msg, uint32_t timeo
         AJ_CloseMsg(msg);
     }
     if (status == AJ_OK) {
-        status = ProcessBusMessages(msg);
+        if (incomingInterceptor && incomingInterceptor(msg)) {
+            AJ_CloseMsg(msg);
+            status = AJ_ERR_INTERRUPTED;
+        } else {
+            status = ProcessBusMessages(msg);
+        }
     }
     return status;
 }
@@ -2193,12 +2194,20 @@ static AJ_Status MarshalMsg(AJ_Message* msg, uint8_t msgType, uint32_t msgId, ui
     return status;
 }
 
+AJ_Status AJ_MarshalMsgCustom(AJ_Message* msg, uint8_t msgType, uint8_t flags)
+{
+    return MarshalMsg(msg, msgType, msg->msgId, flags);
+}
+
 AJ_Status AJ_MarshalArg(AJ_Message* msg, AJ_Arg* arg)
 {
     AJ_Status status;
     AJ_IOBuffer* ioBuf = &msg->bus->sock.tx;
     uint8_t* argStart = ioBuf->writePtr;
 
+    if (msg->sigOffset == 0xFF) {
+        return AJ_ERR_UNEXPECTED;
+    }
     if (msg->varOffset) {
         /*
          * Marshaling a variant - get the signature from the I/O buffer
@@ -2368,6 +2377,7 @@ AJ_Status AJ_MarshalArgs(AJ_Message* msg, const char* sig, ...)
 
 AJ_Status AJ_DeliverMsgPartial(AJ_Message* msg, uint32_t bytesRemaining)
 {
+    static AJ_MsgHeader tmpHdr;
     AJ_IOBuffer* ioBuf = &msg->bus->sock.tx;
     uint8_t typeId = msg->signature[msg->sigOffset];
     size_t pad;
@@ -2409,10 +2419,10 @@ AJ_Status AJ_DeliverMsgPartial(AJ_Message* msg, uint32_t bytesRemaining)
     msg->hdr->bodyLen = (uint32_t)(msg->bodyBytes + pad + bytesRemaining);
     AJ_DumpMsg("SENDING(partial)", msg, FALSE);
     /*
-     * The buffer space occupied by the header is going to be overwritten
-     * so the header is going to become invalid.
+     * The buffer space occupied by the header may be overwritten
      */
-    msg->hdr = NULL;
+    tmpHdr = *msg->hdr;
+    msg->hdr = &tmpHdr;
     /*
      * From now on we are going to count down the remaining body bytes
      */
@@ -2420,16 +2430,18 @@ AJ_Status AJ_DeliverMsgPartial(AJ_Message* msg, uint32_t bytesRemaining)
     /*
      * Standard signature matching is now meaningless
      */
-    msg->signature = "";
-    msg->sigOffset = 0;;
+    msg->sigOffset = 0xFF;
 
     return AJ_OK;
 }
 
 AJ_Status AJ_MarshalRaw(AJ_Message* msg, const void* data, size_t len)
 {
-    if (msg->hdr) {
-        AJ_ErrPrintf(("AJ_MarshalRaw(): AJ_ERR_SECURITY\n"));
+    /*
+     * We expect the sigOffset to have been set to 0xFF
+     */
+    if (msg->sigOffset != 0xFF) {
+        AJ_ErrPrintf(("AJ_MarshalRaw(): AJ_ERR_UNEXPECTED\n"));
         return AJ_ERR_UNEXPECTED;
     }
     /*

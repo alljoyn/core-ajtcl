@@ -13,7 +13,10 @@ Export('sample_env')
 # The samples/examples for target platforms are handled by
 # the target specific directory (viz. target/arduino).
 if sample_env['TARG'] in [ 'win32', 'linux', 'darwin' ]:
-    sample_env.SConscript(['basic/SConscript'])
-    sample_env.SConscript(['secure/SConscript'])
-    sample_env.SConscript(['network/SConscript'])
+    if 'MQTT' in sample_env['connectivity']:
+        sample_env.SConscript(['mqtt/SConscript'])
+    else:
+        sample_env.SConscript(['basic/SConscript'])
+        sample_env.SConscript(['secure/SConscript'])
+        sample_env.SConscript(['network/SConscript'])
 

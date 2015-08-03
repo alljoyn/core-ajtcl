@@ -46,6 +46,10 @@ if src_env['wsl']:
     src_env.Append(CPPPATH = Dir(['target/$TARG']))
     src_env.Append(CPPPATH = Dir(['bsp']))
     src_env['srcs'] += Glob('wsl/*.c')
+if 'MQTT' in src_env['connectivity']:
+    src_env['srcs'] += Glob('mqtt_discovery/*.c')
+else:
+    src_env['srcs'] += Glob('rn_discovery/*.c')
 
 src_env.Append(CPPPATH = Dir(['.']))
 

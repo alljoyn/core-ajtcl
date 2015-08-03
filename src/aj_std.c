@@ -146,6 +146,7 @@ static const char* const BusIface[] = {
     "?Ping <s <u >u",
     "?SetIdleTimeouts <u <u >u >u >u",
     "?SimpleHello <s <u >s >s >u",
+    "!MPSessionChangedWithReason >u >s >b >u",
     NULL
 };
 

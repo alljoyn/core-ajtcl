@@ -30,12 +30,16 @@ extern "C" {
 #endif
 
 /*
- * Forward declaration
+ * Forward declarations
  */
 struct _AJ_IOBuffer;
+struct _AJ_Message;
 
 /**
  * Function pointer type for an abstracted transmit function
+ *
+ * @param buf     The buffer to write from
+ * @param msg     The message that is being sent or NULL if not message related
  */
 typedef AJ_Status (*AJ_TxFunc)(struct _AJ_IOBuffer* buf);
 
@@ -71,6 +75,7 @@ typedef struct _AJ_IOBuffer {
     uint8_t direction;  /**< I/O buffer is either a Tx buffer or an Rx buffer */
     uint8_t flags;      /**< ports to send to or receive on */
     uint16_t bufSize;   /**< Size of the data buffer */
+    AJ_Status status;   /**< Status code for last I/O operation */
     uint8_t* bufStart;  /**< Start for the data buffer */
     uint8_t* readPtr;   /**< Current position in buf for reading data */
     uint8_t* writePtr;  /**< Current position in buf for writing data */

@@ -105,6 +105,8 @@ typedef struct __AJ_Session {
  * Type for a bus attachment
  */
 typedef struct _AJ_BusAttachment {
+    uint8_t isAuthenticated;                   /**< Has authentication already occured? */
+    uint8_t isProbeRequired;                   /**< Are probe requests required for the live transport? */
     uint16_t aboutPort;                        /**< The port to use in announcements */
     char uniqueName[AJ_MAX_NAME_SIZE + 1];     /**< The unique name returned by the hello message */
     AJ_NetSocket sock;                         /**< Abstracts a network socket */
@@ -112,12 +114,13 @@ typedef struct _AJ_BusAttachment {
     AJ_AuthPwdFunc pwdCallback;                /**< Callback for obtaining passwords */
     AJ_AuthListenerFunc authListenerCallback;  /**< Callback for obtaining passwords */
     uint32_t suites[AJ_AUTH_SUITES_NUM];       /**< Supported cipher suites */
-    uint8_t isAuthenticated;                   /**< Has authentication already occured? */
     uint32_t aboutSerial;                      /**< Serial number for About announcement */
-    uint8_t isProbeRequired;                   /**< Are probe requests required for the live transport? */
     AJ_FactoryResetFunc factoryResetCallback;  /**< Callback for handling a factory reset request */
     AJ_PolicyChangedFunc policyChangedCallback;/**< Callback for handling a local policy change notification */
     AJ_Session* sessions;                      /**< Linked list describing all ongoing sessions this bus attachment is involved in */
+    #ifndef NDEBUG
+    AJ_Message* currentMsg;                    /**< For checking messages are being closed */
+    #endif
 } AJ_BusAttachment;
 
 /**
@@ -339,6 +342,24 @@ AJ_EXPORT
 AJ_Status AJ_BusJoinSession(AJ_BusAttachment* bus, const char* sessionHost, uint16_t port, const AJ_SessionOpts* opts);
 
 /**
+ * Reason codes reported in SESSION_LOST_WITH_REASON signal
+ */
+#define AJ_SESSIONLOST_REMOTE_END_LEFT_SESSION      0x01 /**< Remote end called LeaveSession */
+#define AJ_SESSIONLOST_REMOTE_END_CLOSED_ABRUPTLY   0x02 /**< Remote end closed abruptly */
+#define AJ_SESSIONLOST_REMOVED_BY_HOST              0x03 /**< Session host explicitly removed this peer by calling RemoveSessionMember */
+#define AJ_SESSIONLOST_LINK_TIMEOUT                 0x04 /**< Link was timed-out */
+#define AJ_SESSIONLOST_REASON_OTHER                 0x05 /**< Unspecified reason for session loss */
+#define AJ_SESSIONLOST_HOST_REMOVED_ITSELF          0x06 /**< Session host removed itself */
+
+/**
+ * Reason codes reported in MP_SESSION_CHANGED_WITH_REASON signal
+ */
+#define AJ_MPSESSIONCHANGED_LOCAL_MEMBER_ADDED      0x00 /** Local (this) peer was added to this session (catch up) */
+#define AJ_MPSESSIONCHANGED_REMOTE_MEMBER_ADDED     0x01 /** Remote peer was added to this session */
+#define AJ_MPSESSIONCHANGED_LOCAL_MEMBER_REMOVED    0x02 /** Local (this) peer removed to this session (see all remaining members removed) */
+#define AJ_MPSESSIONCHANGED_REMOTE_MEMBER_REMOVED   0x03 /** Remote peer was removed from this session */
+
+/**
  * Make a method call join a session.
  *
  * @param bus          The bus attachment
@@ -438,6 +459,7 @@ AJ_Status AJ_BusSetSignalRuleFlags(AJ_BusAttachment* bus, const char* ruleString
  */
 AJ_EXPORT
 AJ_Status AJ_BusSetLinkTimeout(AJ_BusAttachment* bus, uint32_t sessionId, uint32_t linkTimeout);
+
 /*
  * Use to remove a member from the session
  *
@@ -451,6 +473,7 @@ AJ_Status AJ_BusSetLinkTimeout(AJ_BusAttachment* bus, uint32_t sessionId, uint32
  */
 AJ_EXPORT
 AJ_Status AJ_BusRemoveSessionMember(AJ_BusAttachment* bus, uint32_t sessionId, const char* member);
+
 /*
  * Is the bus name reachable?
  *

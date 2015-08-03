@@ -1,6 +1,8 @@
 Import('sample_env')
 
 progs = [
+    sample_env.Program('notif_consumer', ['notif_consumer.c']),
+    sample_env.Program('signal_service', ['signal_service.c']),
     sample_env.Program('basic_service', ['basic_service.c']),
     sample_env.Program('basic_client', ['basic_client.c']),
     sample_env.Program('signal_service', ['signal_service.c']),
