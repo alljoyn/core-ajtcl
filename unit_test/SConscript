@@ -23,7 +23,9 @@ env = config.Finish()
 if custom_gtest:
     gtest_all_path = env.File('$GTEST_DIR/src/gtest-all.cc')
 elif env['TARG'] in ['linux', 'darwin']:
-    gtest_all_path = env.File(env.FindFile('gtest/src/gtest-all.cc', [ '/usr/src', '/usr/local/src' ]))
+    gtest_file = env.FindFile('gtest/src/gtest-all.cc', [ '/usr/src', '/usr/local/src' ])
+    if gtest_file:
+        gtest_all_path = env.File(gtest_file)
 
 if (system_gtest or custom_gtest) and os.path.exists(str(gtest_all_path)):
     gtest_env = env.Clone()
