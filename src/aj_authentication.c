@@ -1087,6 +1087,17 @@ void AJ_ConversationHash_Update_Message(AJ_AuthenticationContext* ctx, uint32_t 
                                               msg->bus->sock.tx.bufStart,
                                               sizeof(AJ_MsgHeader) + msg->hdr->headerLen + HEADERPAD(msg->hdr->headerLen) + msg->hdr->bodyLen);
     } else {
+        /* If the message hasn't already been unmarshaled, some data may still be waiting in the network
+         * layer. AJ_ResetArgs will call AJ_SkipArg in a loop, which will unmarshal every argument and
+         * ensure everything has been read into the message buffer, before resetting back to the beginning
+         * of the message.
+         */        
+        AJ_Status status = AJ_ResetArgs(msg);
+        if (AJ_OK != status) {
+            AJ_AlwaysPrintf(("AJ_ConversationHash_Update_Message: Failed to reset msg %p; status is %s\n", msg, status));
+            AJ_ASSERT(AJ_OK == status); /* This shouldn't happen; always break in debug builds. */
+            return;
+        }
         /* When a message is received, the AJ_FLAG_AUTO_START bit is flipped during unmarshaling.
          * In thin client, because the AJ_Message data structures are overlaid on the raw buffer, this
          * changes the buffer's content as well. Undo this flip so we hash the actual on-wire contents,
