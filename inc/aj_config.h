@@ -68,7 +68,7 @@ extern "C" {
 #define AJ_METHOD_TIMEOUT        (1000 * 3)        //timeout for method calls                         (aj_bus.c)
 #define AJ_MAX_AUTH_TIME         (5 * 60 * 1000ul) //max time for incomplete authentication           (aj_peer.c)
 #define AJ_AUTH_CALL_TIMEOUT     (2 * 60 * 1000ul) //long timeout for method calls w/ user input      (aj_peer.c)
-#define AJ_CALL_TIMEOUT          (1000ul * 5)      //default timout for method calls                  (aj_peer.c)
+#define AJ_CALL_TIMEOUT          (1000ul * 10)      //default timout for method calls                  (aj_peer.c)
 #define AJ_UDP_CONNECT_TIMEOUT   5000              //UDP connection timeout                           (aj_connect.c)
 
 /* Message identification related */
