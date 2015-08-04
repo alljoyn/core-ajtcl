@@ -1008,6 +1008,11 @@ static AJ_Status KeyAuthentication(AJ_Message* msg)
         return status;
     }
 
+    /* msg must be hashed in before the call to AJ_KeyAuthenticationMarshal because the verifier gets
+     * computed inside it.
+     */
+    AJ_ConversationHash_Update_Message(&authContext, CONVERSATION_V4, msg, 0);
+
     /*
      * Send authentication material
      */
@@ -1016,10 +1021,6 @@ static AJ_Status KeyAuthentication(AJ_Message* msg)
         AJ_WarnPrintf(("AJ_KeyAuthentication(msg=%p): Key authentication marshal error\n", msg));
         goto Exit;
     }
-    /* msg must be hashed in before the call to AJ_KeyAuthenticationMarshal because the verifier gets
-     * computed inside it.
-     */
-    AJ_ConversationHash_Update_Message(&authContext, CONVERSATION_V4, msg, 0);
     status = AJ_KeyAuthenticationMarshal(&authContext, &call);
     if (AJ_OK != status) {
         AJ_WarnPrintf(("AJ_KeyAuthentication(msg=%p): Key authentication marshal error\n", msg));
@@ -1061,6 +1062,8 @@ AJ_Status AJ_PeerHandleKeyAuthentication(AJ_Message* msg, AJ_Message* reply)
         goto Exit;
     }
 
+    /* msg must be hashed after the call to AJ_KeyAuthenticationMarshal so that it isn't included in the verifier
+     * computation. */
     AJ_ConversationHash_Update_Message(&authContext, CONVERSATION_V4, msg, 0);
 
     /*
@@ -1075,6 +1078,8 @@ AJ_Status AJ_PeerHandleKeyAuthentication(AJ_Message* msg, AJ_Message* reply)
         AJ_WarnPrintf(("AJ_PeerHandleKeyAuthentication(msg=%p, reply=%p): Key authentication marshal error\n", msg, reply));
         goto Exit;
     }
+
+    AJ_ConversationHash_Update_Message(&authContext, CONVERSATION_V4, reply, 1);
 
     AJ_InfoPrintf(("Key Authentication Complete\n"));
     peerContext.state = AJ_AUTH_SUCCESS;
@@ -1093,6 +1098,13 @@ AJ_Status AJ_PeerHandleKeyAuthenticationReply(AJ_Message* msg)
 
     AJ_InfoPrintf(("AJ_PeerHandleKeyAuthenticationReply(msg=%p)\n", msg));
 
+    status = HandshakeValid(peerGuid);
+    if (AJ_OK != status) {
+        return status;
+    }
+
+    AJ_ConversationHash_Update_Message(&authContext, CONVERSATION_V4, msg, 0);
+
     if (msg->hdr->msgType == AJ_MSG_ERROR) {
         AJ_WarnPrintf(("AJ_PeerHandleKeyAuthenticationReply(msg=%p): error=%s.\n", msg, msg->error));
         if (0 == strncmp(msg->error, AJ_ErrResources, sizeof(AJ_ErrResources))) {
@@ -1101,11 +1113,6 @@ AJ_Status AJ_PeerHandleKeyAuthenticationReply(AJ_Message* msg)
             status = AJ_ERR_SECURITY;
             HandshakeComplete(status);
         }
-        return status;
-    }
-
-    status = HandshakeValid(peerGuid);
-    if (AJ_OK != status) {
         return status;
     }
 
@@ -1209,12 +1216,16 @@ AJ_Status AJ_PeerHandleGenSessionKey(AJ_Message* msg, AJ_Message* reply)
     if (AJ_OK != status) {
         return AJ_MarshalErrorMsg(msg, reply, AJ_ErrResources);
     }
+    AJ_ConversationHash_Update_Message(&authContext, CONVERSATION_V4, msg, 0);
+
     if (AJ_AUTH_SUCCESS != peerContext.state) {
         /*
          * We don't have a saved master secret and we haven't generated one yet
          */
         AJ_InfoPrintf(("AJ_PeerHandleGenSessionKey(msg=%p, reply=%p): Key not available\n", msg, reply));
-        return AJ_MarshalErrorMsg(msg, reply, AJ_ErrRejected);
+        status = AJ_MarshalErrorMsg(msg, reply, AJ_ErrRejected);
+        AJ_ConversationHash_Update_Message(&authContext, CONVERSATION_V4, reply, 1);
+        return status;
     }
 
     /*
@@ -1225,7 +1236,6 @@ AJ_Status AJ_PeerHandleGenSessionKey(AJ_Message* msg, AJ_Message* reply)
         goto Exit;
     }
 
-    AJ_ConversationHash_Update_Message(&authContext, CONVERSATION_V4, msg, 0);
 
     /*
      * We expect arg[1] to be the local GUID
@@ -1262,7 +1272,9 @@ AJ_Status AJ_PeerHandleGenSessionKey(AJ_Message* msg, AJ_Message* reply)
 
 Exit:
     HandshakeComplete(AJ_ERR_SECURITY);
-    return AJ_MarshalErrorMsg(msg, reply, AJ_ErrSecurityViolation);
+    status = AJ_MarshalErrorMsg(msg, reply, AJ_ErrSecurityViolation);
+    AJ_ConversationHash_Update_Message(&authContext, CONVERSATION_V4, reply, 1);
+    return status;
 }
 
 AJ_Status AJ_PeerHandleGenSessionKeyReply(AJ_Message* msg)
@@ -1285,6 +1297,13 @@ AJ_Status AJ_PeerHandleGenSessionKeyReply(AJ_Message* msg)
 
     AJ_InfoPrintf(("AJ_PeerHandleGetSessionKeyReply(msg=%p)\n", msg));
 
+    status = HandshakeValid(peerGuid);
+    if (AJ_OK != status) {
+        return status;
+    }
+
+    AJ_ConversationHash_Update_Message(&authContext, CONVERSATION_V4, msg, 0);
+
     if (msg->hdr->msgType == AJ_MSG_ERROR) {
         AJ_WarnPrintf(("AJ_PeerHandleGetSessionKeyReply(msg=%p): error=%s.\n", msg, msg->error));
         if (0 == strncmp(msg->error, AJ_ErrResources, sizeof(AJ_ErrResources))) {
@@ -1298,16 +1317,10 @@ AJ_Status AJ_PeerHandleGenSessionKeyReply(AJ_Message* msg)
         return status;
     }
 
-    status = HandshakeValid(peerGuid);
-    if (AJ_OK != status) {
-        return status;
-    }
-
     status = AJ_UnmarshalArgs(msg, "ss", &nonce, &remVerifier);
     if (AJ_OK != status) {
         goto Exit;
     }
-    AJ_ConversationHash_Update_Message(&authContext, CONVERSATION_V4, msg, 0);
 
     status = KeyGen(msg->sender, AJ_ROLE_KEY_INITIATOR, peerContext.nonce, nonce, (uint8_t*)verifier, sizeof(verifier));
     if (AJ_OK != status) {
@@ -1356,7 +1369,7 @@ AJ_Status AJ_PeerHandleExchangeGroupKeys(AJ_Message* msg, AJ_Message* reply)
     AJ_InfoPrintf(("AJ_PeerHandleExchangeGroupKeys(msg=%p, reply=%p)\n", msg, reply));
 
     if (msg->hdr->msgType == AJ_MSG_ERROR) {
-        AJ_WarnPrintf(("AJ_PeerHandleKeyAuthenticationReply(msg=%p): error=%s.\n", msg, msg->error));
+        AJ_WarnPrintf(("AJ_PeerHandleExchangeGroupKeys(msg=%p): error=%s.\n", msg, msg->error));
         if (0 == strncmp(msg->error, AJ_ErrResources, sizeof(AJ_ErrResources))) {
             status = AJ_ERR_RESOURCES;
         } else {
