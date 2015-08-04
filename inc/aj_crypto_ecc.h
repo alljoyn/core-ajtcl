@@ -29,6 +29,8 @@
 extern "C" {
 #endif
 
+typedef enum {B_FALSE, B_TRUE} boolean_t;
+
 /**
  * ECC type sizes
  */

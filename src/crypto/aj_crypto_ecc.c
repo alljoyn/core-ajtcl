@@ -24,8 +24,9 @@
 #include <ajtcl/aj_crypto_ecc.h>
 #include <ajtcl/aj_crypto_sha2.h>
 #include <ajtcl/aj_util.h>
+#include <ajtcl/aj_crypto_fp.h>
+#include <ajtcl/aj_crypto_ec_p256.h>
 
-typedef enum {B_FALSE, B_TRUE} boolean_t;
 
 #define BIGLEN 9
 /*
@@ -52,9 +53,6 @@ typedef struct {
     bigval_t r;
     bigval_t s;
 } ECDSA_sig_t;
-
-#include <ajtcl/aj_crypto_fp.h>
-#include <ajtcl/aj_crypto_ec_p256.h>
 
 /* P256 is tested directly with known answer tests from example in
    ANSI X9.62 Annex L.4.2.  (See item in pt_mpy_testcases below.)
