@@ -19,7 +19,6 @@
 
 #include <ajtcl/aj_crypto_ecc.h>
 #include <ajtcl/aj_crypto_fp.h>
-#include <memory.h>             /* for memcpy_s */
 #include <ajtcl/aj_util.h>      /* for byte swaping function(s) */
 
 #ifdef _WIN32
