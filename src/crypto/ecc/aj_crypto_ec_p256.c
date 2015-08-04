@@ -45,10 +45,10 @@ AJ_Status ec_getcurve(ec_t* curve, curveid_t curveid)
         curve->rbits = 256;
         curve->pbits = 256;
 
-        curve->prime = malloc(sizeof(digit256_t));
-        curve->a = malloc(sizeof(digit256_tc));
-        curve->b = malloc(sizeof(digit256_tc));
-        curve->order = malloc(sizeof(digit256_tc));
+        curve->prime = AJ_Malloc(sizeof(digit256_t));
+        curve->a = AJ_Malloc(sizeof(digit256_tc));
+        curve->b = AJ_Malloc(sizeof(digit256_tc));
+        curve->order = AJ_Malloc(sizeof(digit256_tc));
         if (curve->prime == NULL || curve->a == NULL || curve->b == NULL || curve->order == NULL) {
             status = AJ_ERR_RESOURCES;
             goto Exit;
@@ -84,10 +84,10 @@ void ec_freecurve(ec_t* curve)
 {
     if (curve != NULL) {
         // Cleanup
-        free(curve->a);
-        free(curve->b);
-        free(curve->order);
-        free(curve->prime);
+        AJ_Free(curve->a);
+        AJ_Free(curve->b);
+        AJ_Free(curve->order);
+        AJ_Free(curve->prime);
         memset(curve, 0x00, sizeof(ec_t));
     }
 }
@@ -674,7 +674,7 @@ void ec_add(ecpoint_t* P, const ecpoint_t* Q, ec_t* curve)
 }
 
 /*  Is x < y? */
-static __inline unsigned char is_digit_lessthan_ct(digit_t x, digit_t y)
+static inline unsigned char is_digit_lessthan_ct(digit_t x, digit_t y)
 {
     return (unsigned char)((x ^ ((x ^ y) | ((x - y) ^ y))) >> (RADIX_BITS - 1));
 }

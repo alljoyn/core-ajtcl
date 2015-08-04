@@ -128,17 +128,7 @@ static void AppDoWork()
     AJ_InfoPrintf(("do work\n"));
 }
 
-
-static const char PWD[] = "123456";
-
 #if defined(SECURE_INTERFACE) || defined(SECURE_OBJECT)
-
-static uint32_t PasswordCallback(uint8_t* buffer, uint32_t bufLen)
-{
-    memcpy(buffer, PWD, sizeof(PWD));
-    return sizeof(PWD) - 1;
-}
-
 // Copied from alljoyn/alljoyn_core/test/bbservice.cc
 static const char pem_prv[] = {
     "-----BEGIN EC PRIVATE KEY-----"
@@ -453,8 +443,6 @@ int AJ_Main()
 
 #if defined(SECURE_INTERFACE) || defined(SECURE_OBJECT)
 
-            /* Register a callback for providing bus authentication password */
-            AJ_BusSetPasswordCallback(&bus, PasswordCallback);
             AJ_BusEnableSecurity(&bus, suites, numsuites);
             AJ_BusSetAuthListenerCallback(&bus, AuthListenerCallback);
 #endif
