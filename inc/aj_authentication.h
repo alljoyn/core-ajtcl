@@ -46,6 +46,9 @@ extern "C" {
 #define AUTH_CLIENT            0
 #define AUTH_SERVER            1
 
+#define HASH_MSG_UNMARSHALED   ((uint8_t)0)
+#define HASH_MSG_MARSHALED     ((uint8_t)1)
+
 /*
  * We now define two versions of conversation hash: one that only hashes
  * things inside KeyExchanger, used in authentication versions 3 and below, and
@@ -228,8 +231,8 @@ void AJ_ConversationHash_Update_String(AJ_AuthenticationContext* ctx, uint32_t c
  * @param conversationVersion   The minimum authentication version which applies to this update
  * @param msg                   The pointer to a message that was unmarshaled by an earlier call to AJ_UnmarshalMsg
  *                              or created by calls to AJ_Marshal*
- * @param isMarshaledMessage    1 if msg was created locally through AJ_Marshal* calls, or 0 if received
- *                              through a call to AJ_UnmarshalMsg
+ * @param isMarshaledMessage    HASH_MSG_MARSHALED if msg was created locally through AJ_Marshal* calls,
+ *                              or HASH_MSG_UNMARSHALED if received through a call to AJ_UnmarshalMsg
  *
  */
 void AJ_ConversationHash_Update_Message(AJ_AuthenticationContext* ctx, uint32_t conversationVersion, AJ_Message* msg, uint8_t isMarshaledMessage);
