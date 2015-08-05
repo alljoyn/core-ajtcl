@@ -52,6 +52,7 @@ uint8_t dbgSECURITY = 0;
 #define PUBLICKEY_CRV_NISTP256                 0
 #define DIGEST_ALG_SHA256                      0
 
+static uint8_t initialised = FALSE;
 static uint8_t emit = FALSE;
 static uint8_t clear = FALSE;
 static uint16_t claimState = APP_STATE_NOT_CLAIMABLE;
@@ -114,11 +115,12 @@ AJ_Status AJ_SecurityInit(AJ_BusAttachment* bus)
     AJ_Status status;
     AJ_ECCPublicKey pub;
     AJ_ECCPrivateKey prv;
-    uint8_t bound = FALSE;
-    uint32_t disposition;
-    uint16_t port;
 
     AJ_InfoPrintf(("AJ_SecurityInit(bus=%p)\n", bus));
+
+    if (initialised) {
+        return AJ_OK;
+    }
 
     /* Check I have a key pair */
     status = AJ_CredentialGetECCPublicKey(AJ_ECC_SIG, NULL, NULL, NULL);
@@ -143,52 +145,15 @@ AJ_Status AJ_SecurityInit(AJ_BusAttachment* bus)
      */
     AJ_InfoPrintf(("AJ_SecurityInit(bus=%p): Bind Session Port %d\n", bus, AJ_SECURE_MGMT_PORT));
     status = AJ_BusBindSessionPort(bus, AJ_SECURE_MGMT_PORT, NULL, 0);
-    if (AJ_OK != status) {
-        return status;
-    }
-    while (!bound && (AJ_OK == status)) {
-        AJ_Message msg;
-        status = AJ_UnmarshalMsg(bus, &msg, AJ_UNMARSHAL_TIMEOUT);
-        if (AJ_ERR_NO_MATCH == status) {
-            status = AJ_OK;
-            continue;
-        }
-        if (AJ_OK != status) {
-            break;
-        }
-        switch (msg.msgId) {
-        case AJ_REPLY_ID(AJ_METHOD_BIND_SESSION_PORT):
-            if (msg.hdr->msgType == AJ_MSG_ERROR) {
-                status = AJ_ERR_FAILURE;
-                AJ_ErrPrintf(("AJ_SecurityInit(bus=%p): AJ_METHOD_BIND_SESSION_PORT: %s\n", bus, msg.error));
-                break;
-            }
-            status = AJ_UnmarshalArgs(&msg, "uq", &disposition, &port);
-            if (AJ_OK != status) {
-                break;
-            }
-            if (AJ_SECURE_MGMT_PORT == port) {
-                if (AJ_BINDSESSIONPORT_REPLY_SUCCESS == disposition) {
-                    status = AJ_OK;
-                    AJ_InfoPrintf(("AJ_SecurityInit(bus=%p): AJ_METHOD_BIND_SESSION_PORT: %s\n", bus, AJ_StatusText(status)));
-                    bound = TRUE;
-                } else {
-                    status = AJ_ERR_FAILURE;
-                    AJ_InfoPrintf(("AJ_SecurityInit(bus=%p): AJ_METHOD_BIND_SESSION_PORT: disposition %d\n", bus, disposition));
-                    break;
-                }
-            }
-            break;
 
-        default:
-            /*
-             * Pass to the built-in bus message handlers
-             */
-            status = AJ_BusHandleBusMessage(&msg);
-            break;
-        }
-        AJ_CloseMsg(&msg);
-    }
+    return status;
+}
+
+AJ_Status AJ_SecurityBound(AJ_BusAttachment* bus)
+{
+    AJ_Status status;
+
+    AJ_InfoPrintf(("AJ_SecurityBound(bus=%p): Bind Session Port %d OK\n", bus, AJ_SECURE_MGMT_PORT));
 
     /* Get the initial claim state */
     status = GetClaimState(&claimState);
@@ -199,6 +164,9 @@ AJ_Status AJ_SecurityInit(AJ_BusAttachment* bus)
     }
 
     AJ_AuthorisationInit();
+
+    emit = TRUE;
+    initialised = TRUE;
 
     return AJ_OK;
 }
@@ -330,12 +298,6 @@ Exit:
     AJ_X509ChainFree(chain);
     AJ_CredFieldFree(&data);
     return status;
-}
-
-AJ_Status AJ_ApplicationStateSignalEmit(AJ_BusAttachment* bus)
-{
-    emit = TRUE;
-    return AJ_ApplicationStateSignal(bus);
 }
 
 AJ_Status AJ_ApplicationStateSignal(AJ_BusAttachment* bus)

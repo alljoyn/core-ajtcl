@@ -415,6 +415,7 @@ AJ_Status AJ_BusHandleBusMessage(AJ_Message* msg)
     AJ_BusAttachment* bus = msg->bus;
     char* languageTag;
     AJ_Message reply;
+    uint32_t disposition;
     uint16_t port;
     uint32_t session;
     char* joiner;
@@ -573,6 +574,21 @@ AJ_Status AJ_BusHandleBusMessage(AJ_Message* msg)
         AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_REPLY_ID(AJ_METHOD_{CANCEL_ADVERTISE|ADVERTISE_NAME})\n"));
         if (msg->hdr->msgType == AJ_MSG_ERROR) {
             status = AJ_ERR_FAILURE;
+        }
+        break;
+
+    case AJ_REPLY_ID(AJ_METHOD_BIND_SESSION_PORT):
+        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_REPLY_ID(AJ_METHOD_BIND_SESSION_PORT)\n"));
+        if (AJ_MSG_ERROR == msg->hdr->msgType) {
+            status = AJ_ERR_FAILURE;
+            break;
+        }
+        status = AJ_UnmarshalArgs(msg, "uq", &disposition, &port);
+        if (AJ_OK != status) {
+            break;
+        }
+        if ((AJ_BINDSESSIONPORT_REPLY_SUCCESS == disposition) && (AJ_SECURE_MGMT_PORT == port)) {
+            status = AJ_SecurityBound(bus);
         }
         break;
 
@@ -794,5 +810,5 @@ AJ_Status AJ_BusEnableSecurity(AJ_BusAttachment* bus, const uint32_t* suites, si
         AJ_EnableSuite(bus, suites[i]);
     }
 
-    return AJ_ApplicationStateSignalEmit(bus);
+    return AJ_SecurityInit(bus);
 }
