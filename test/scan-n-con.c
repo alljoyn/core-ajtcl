@@ -220,43 +220,38 @@ void AJ_Main(void)
                         dhcpStats.numFailed++;
                         AJ_Printf("Failed to get IP Address via DHCP : %s (code: %u)\n", AJ_StatusText(status), status);
                     }
-                    /*
-                     * No point in proceeding any further when IP address was
-                     * not acquired
-                     */
-                    continue;
                 } else {
                     dhcpStats.numSuccessful++;
                     AJ_Printf("Successfully obtained\n");
                     AJ_Printf("\tIP Addresss    : %s\n", TestAddrStr(current_ip_address));
                     AJ_Printf("\tSubnet Mask    : %s\n", TestAddrStr(current_subnet_mask));
                     AJ_Printf("\tDefault Gateway: %s\n", TestAddrStr(current_default_gateway));
-                }
 
-                /* Generate a random name using routingNodePrefix */
-                char currentRoutingNodeName[32 + 1];
-                strncpy(currentRoutingNodeName, routingNodePrefix, sizeof(routingNodePrefix));
-                AJ_RandHex(currentRoutingNodeName + strlen(routingNodePrefix), sizeof(currentRoutingNodeName) - sizeof(routingNodePrefix), (sizeof(currentRoutingNodeName) - sizeof(routingNodePrefix) - 1) / 2);
-                currentRoutingNodeName[32] = '\0'; /* just to be safe */
+                    /* Generate a random name using routingNodePrefix */
+                    char currentRoutingNodeName[32 + 1];
+                    strncpy(currentRoutingNodeName, routingNodePrefix, sizeof(routingNodePrefix));
+                    AJ_RandHex(currentRoutingNodeName + strlen(routingNodePrefix), sizeof(currentRoutingNodeName) - sizeof(routingNodePrefix), (sizeof(currentRoutingNodeName) - sizeof(routingNodePrefix) - 1) / 2);
+                    currentRoutingNodeName[32] = '\0'; /* just to be safe */
 
-                AJ_Printf("Attempting to discover routing node: %s...", currentRoutingNodeName);
+                    AJ_Printf("Attempting to discover routing node: %s...", currentRoutingNodeName);
 
-                status = AJ_FindBusAndConnect(&bus, currentRoutingNodeName, DISCOVER_TIMEOUT);
+                    status = AJ_FindBusAndConnect(&bus, currentRoutingNodeName, DISCOVER_TIMEOUT);
 
-                if (AJ_ERR_TIMEOUT == status) {
-                    /* this is the expected result */
-                    discoverStats.numTimedout++;
-                    AJ_Printf("Done (discovery of routing node).\n");
-                } else if (AJ_OK != status) {
-                    discoverStats.numFailed++;
-                    AJ_Printf("Failed to connect to routing node: %s (code: %u)\n", AJ_StatusText(status), status);
-                } else if (AJ_OK == status) {
-                    /*
-                     * the test attempted to discovery a randomly generated
-                     * routing node prefix and it worked - highly unlikely event
-                     */
-                    AJ_Printf("FATAL: Was able to discover and connect to routing node with prefix %s. Got unique address %s.", currentRoutingNodeName, AJ_GetUniqueName(&bus));
-                    AJ_ASSERT(0);
+                    if (AJ_ERR_TIMEOUT == status) {
+                        /* this is the expected result */
+                        discoverStats.numTimedout++;
+                        AJ_Printf("Done (discovery of routing node).\n");
+                    } else if (AJ_OK != status) {
+                        discoverStats.numFailed++;
+                        AJ_Printf("Failed to connect to routing node: %s (code: %u)\n", AJ_StatusText(status), status);
+                    } else if (AJ_OK == status) {
+                        /*
+                         * the test attempted to discovery a randomly generated
+                         * routing node prefix and it worked - highly unlikely event
+                         */
+                        AJ_Printf("FATAL: Was able to discover and connect to routing node with prefix %s. Got unique address %s.", currentRoutingNodeName, AJ_GetUniqueName(&bus));
+                        AJ_ASSERT(0);
+                    }
                 }
 
                 status = AJ_DisconnectWiFi();
