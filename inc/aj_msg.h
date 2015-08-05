@@ -688,6 +688,18 @@ AJ_Status AJ_MarshalCloseContainer(AJ_Message* msg, AJ_Arg* arg);
 AJ_EXPORT
 AJ_Status AJ_MarshalVariant(AJ_Message* msg, const char* sig);
 
+/**
+ * Create a message for local marshal or unmarshal
+ *
+ * @param bus  A dummy bus attachment
+ * @param hdr  The message header
+ * @param msg  The message
+ * @param sig  The message signature
+ * @param data The buffer for the message body
+ * @param size The buffer size
+ */
+void AJ_LocalMsg(AJ_BusAttachment* bus, AJ_MsgHeader* hdr, AJ_Message* msg, const char* sig, uint8_t* data, size_t size);
+
 #ifdef __cplusplus
 }
 #endif

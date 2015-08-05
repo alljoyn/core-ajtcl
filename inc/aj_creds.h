@@ -3,7 +3,7 @@
 
 /**
  * @file aj_creds.h
- * @defgroup aj_creads Credentials Management
+ * @defgroup aj_creds Credentials Management
  * @{
  */
 /******************************************************************************
@@ -26,186 +26,252 @@
 #include <ajtcl/aj_guid.h>
 #include <ajtcl/aj_status.h>
 #include <ajtcl/aj_config.h>
+#include <ajtcl/aj_crypto_ecc.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#define AJ_CRED_TYPE_GENERIC        1 /** < generic type */
-#define AJ_CRED_TYPE_AES            2 /** < AES type */
-#define AJ_CRED_TYPE_PRIVATE        3 /** < private key type */
-#define AJ_CRED_TYPE_PEM            4 /** < PEM encoded type */
-#define AJ_CRED_TYPE_PUBLIC         5 /** < public key type */
-#define AJ_CRED_TYPE_SPKI_CERT      6 /** < SPKI style certificate type */
-#define AJ_CRED_TYPE_DSA_PRIVATE    7 /** < DSA private key type */
-#define AJ_CRED_TYPE_DSA_PUBLIC     8 /** < DSA public key type */
-
 /**
- * Credentials for a remote peer
+ * Type low byte is basic type
  */
-typedef struct _AJ_PeerCred {
-    uint16_t type;  /** < credential type */
-    uint8_t idLen;  /** < the length of the id field */
-    uint8_t* id;     /**< the id field, it can be GUID for the peer */
-    uint32_t expiration;  /**< the expiry time expressed a number of seconds since Epoch */
-    uint8_t associationLen;   /**< association length */
-    uint8_t* association;   /**< association */
-    uint16_t dataLen;   /**< data length */
-    uint8_t* data;   /**< data */
-} AJ_PeerCred;
+#define AJ_CRED_TYPE_GENERIC        0x0001 /**< generic type */
+#define AJ_CRED_TYPE_AES            0x0002 /**< AES type */
+#define AJ_CRED_TYPE_PRIVATE        0x0003 /**< private key type */
+#define AJ_CRED_TYPE_PEM            0x0004 /**< PEM encoded type */
+#define AJ_CRED_TYPE_PUBLIC         0x0005 /**< public key type */
+#define AJ_CRED_TYPE_CERTIFICATE    0x0006 /**< Certificate type */
+#define AJ_CRED_TYPE_MANIFEST       0x0007 /**< manifest type */
+#define AJ_CRED_TYPE_POLICY         0x0008 /**< policy type */
+#define AJ_CRED_TYPE_CONFIG         0x0009 /**< config type */
 
 /**
- * Write a peer credential to NVRAM
+ * Type high byte is basic type (low byte) context specific
+ */
+#define AJ_GENERIC_MASTER_SECRET    0x0000 /**< Peer master secret */
+#define AJ_GENERIC_ECDSA_MANIFEST   0x0100 /**< Manifest digest from ECDSA authentication */
+#define AJ_GENERIC_ECDSA_KEYS       0x0200 /**< Public keys from ECDSA authentication */
+#define AJ_ECC_SIG                  0x0000 /**< ECC key for communication */
+#define AJ_CERTIFICATE_OEM_X509     0x0000 /**< Manufacturer certificate */
+#define AJ_CERTIFICATE_IDN_X509     0x0100 /**< Identity certificate */
+#define AJ_CERTIFICATE_MBR_X509     0x0200 /**< Membership certificate */
+#define AJ_CERTIFICATE_UNR_X509     (AJ_CERTIFICATE_IDN_X509 | AJ_CERTIFICATE_MBR_X509) /**< Unrestricted certificate */
+#define AJ_CERTIFICATE_INV_X509     0x0400 /**< Invalid certificate (EKUs present but no AllJoyn EKUs) */
+#define AJ_POLICY_DEFAULT           0x0000 /**< Default policy */
+#define AJ_POLICY_INSTALLED         0x0100 /**< Installed policy */
+#define AJ_CONFIG_CLAIMSTATE        0x0000 /**< Claim state */
+#define AJ_CONFIG_ADMIN_GROUP       0x0100 /**< Admin group identifier */
+
+/**
+ * Credential storage structures
+ */
+typedef struct _AJ_CredField {
+    uint16_t size;             /**< Field size */
+    uint8_t* data;             /**< Field data */
+} AJ_CredField;
+
+/**
+ * Read the credential from an NVRAM slot
  *
- * @param peerCred  The credentials to write.
+ * @param type         Credential type
+ * @param id           Credential id
+ * @param expiration   Credential expiration
+ * @param data         Credential data
+ * @param slot         NVRAM slot
  *
  * @return
- *          - AJ_OK if the credentials were written.
+ *      - AJ_OK if the credential is found
+ *      - AJ_ERR_FAILURE otherwise
+ */
+AJ_Status AJ_CredentialRead(uint16_t* type, AJ_CredField* id, uint32_t* expiration, AJ_CredField* data, uint16_t slot);
+
+/**
+ * Set the credential for a (type, id) pair
+ *
+ * @param type         Credential type
+ * @param id           Credential id
+ * @param expiration   Credential expiration
+ * @param data         Credential data
+ *
+ * @return
+ *      - AJ_OK if the credential is found
+ *      - AJ_ERR_FAILURE otherwise
+ */
+AJ_Status AJ_CredentialSet(uint16_t type, const AJ_CredField* id, uint32_t expiration, const AJ_CredField* data);
+
+/**
+ * Get the credential for a (type, id) pair
+ *
+ * @param type         Credential type
+ * @param id           Credential id
+ * @param expiration   Credential expiration
+ * @param data         Credential data
+ *
+ * @return
+ *      - AJ_OK if the credential is found
+ *      - AJ_ERR_UNKNOWN otherwise
+ */
+AJ_Status AJ_CredentialGet(uint16_t type, const AJ_CredField* id, uint32_t* expiration, AJ_CredField* data);
+
+/**
+ * Get the credential for a (type, id) pair starting from a given slot
+ *
+ * @param type         Credential type
+ * @param id           Credential id
+ * @param expiration   Credential expiration
+ * @param data         Credential data
+ * @param slot         NVRAM slot to start searching from
+ *
+ * @return
+ *      - AJ_OK if the credential is found
+ *      - AJ_ERR_UNKNOWN otherwise
+ */
+AJ_Status AJ_CredentialGetNext(uint16_t type, const AJ_CredField* id, uint32_t* expiration, AJ_CredField* data, uint16_t* slot);
+
+/**
+ * Get the GUID for this peer
+ * If this is the first time the GUID has been requested this function,
+ * it will generate the GUID and store it in NVRAM
+ *
+ * @param guid         Pointer to a buffer that has enough space to store the local GUID
+ *
+ * @return - AJ_OK on success
+ *         - AJ_ERR_FAILURE on failure
+ */
+AJ_Status AJ_GetLocalGUID(AJ_GUID* guid);
+
+/**
+ * Set the credential for a peer
+ *
+ * @param type         The credential type
+ * @param guid         The peer's GUID
+ * @param expiration   The credential expiration
+ * @param secret       The credential secret
+ * @param size         The credential secret size
+ *
+ * @return
+ *          - AJ_OK if the credentials were written
  *          - AJ_ERR_RESOURCES if there is no space to write the credentials
  */
-AJ_Status AJ_StoreCredential(AJ_PeerCred* peerCred);
+AJ_Status AJ_CredentialSetPeer(uint16_t type, const AJ_GUID* guid, uint32_t expiration, const uint8_t* secret, uint16_t size);
 
 /**
- * Store the peer secret
+ * Get the credential for a peer
  *
- * @param peerGuid  The peer's GUID
- * @param secret  The peer's secret
- * @param len  The peer's secret's length
- * @param expiration  The expiration of the secret
- *
- * @return
- *          - AJ_OK if the credentials were written.
- *          - AJ_ERR_RESOURCES if there is no space to write the credentials
- */
-AJ_Status AJ_StorePeerSecret(const AJ_GUID* peerGuid, const uint8_t* secret,
-                             const uint8_t len, uint32_t expiration);
-
-/**
- * Delete a peer credential from NVRAM
- *
- * @param peerGuid  The guid for the peer that has credentials to delete.
- *
- * @return
- *          - AJ_OK if the credentials were deleted.
- */
-AJ_Status AJ_DeletePeerCredential(const AJ_GUID* peerGuid);
-
-/**
- * Clears all peer credentials.
- *
- * @return
- *          - AJ_OK if all credentials have been deleted
- */
-AJ_Status AJ_ClearCredentials(void);
-
-/**
- * Get the credentials for a specific remote peer from NVRAM
- *
- * @param peerGuid  The GUID for the remote peer.
- * @param peerCredHolder Pointer to a credential object pointer.  This address will hold the new allocated credential object for the specific remote peer identified by a GUID
+ * @param type         The credential type
+ * @param guid         The input GUID for the remote peer
+ * @param expiration   The credential expiration
+ * @param data         The credential data
  *
  * @return
  *      - AJ_OK if the credentials for the specific remote peer exist and are copied into the buffer
- *      - AJ_ERR_FAILURE otherwise.
+ *      - AJ_ERR_FAILURE otherwise
  */
-AJ_Status AJ_GetPeerCredential(const AJ_GUID* peerGuid, AJ_PeerCred** peerCredHolder);
+AJ_Status AJ_CredentialGetPeer(uint16_t type, const AJ_GUID* guid, uint32_t* expiration, AJ_CredField* data);
 
 /**
- * Get the GUID for this peer. If this is the first time the GUID has been requested this function
- * will generate the GUID and store it in NVRAM
+ * Set the credential for an ECC public key
  *
- * @param[out] localGuid Pointer to a bufffer that has enough space to store the local GUID
- *
- * @return  AJ_OK if the local GUID is copied into the buffer.
- */
-AJ_Status AJ_GetLocalGUID(AJ_GUID* localGuid);
-
-/**
- * Free the memory allocation for this credential object.  The object itself
- * will also be freed.
- *
- * @param cred  Pointer to a credential object
+ * @param type         The credential type
+ * @param id           The credential id
+ * @param expiration   The credential expiration
+ * @param pub          The ECC public key
  *
  * @return
- *      - AJ_OK if the deallocation process succeeds
- *      - AJ_ERR_FAILURE otherwise.
+ *      - AJ_OK on success
+ *      - AJ_ERR_FAILURE otherwise
  */
-AJ_Status AJ_FreeCredential(AJ_PeerCred* cred);
+AJ_Status AJ_CredentialSetECCPublicKey(uint16_t type, const AJ_CredField* id, uint32_t expiration, const AJ_ECCPublicKey* pub);
+
+/**
+ * Get the credential for an ECC public key
+ *
+ * @param type         The credential type
+ * @param id           The credential id
+ * @param expiration   The credential expiration
+ * @param pub          The ECC public key
+ *
+ * @return
+ *      - AJ_OK on success
+ *      - AJ_ERR_FAILURE otherwise
+ */
+AJ_Status AJ_CredentialGetECCPublicKey(uint16_t type, const AJ_CredField* id, uint32_t* expiration, AJ_ECCPublicKey* pub);
+
+/**
+ * Set the credential for an ECC private key
+ *
+ * @param type         The credential type
+ * @param id           The credential id
+ * @param expiration   The credential expiration
+ * @param prv          The ECC private key
+ *
+ * @return
+ *      - AJ_OK on success
+ *      - AJ_ERR_FAILURE otherwise
+ */
+AJ_Status AJ_CredentialSetECCPrivateKey(uint16_t type, const AJ_CredField* id, uint32_t expiration, const AJ_ECCPrivateKey* prv);
+
+/**
+ * Get the credential for an ECC private key
+ *
+ * @param type         The credential type
+ * @param id           The credential id
+ * @param expiration   The credential expiration
+ * @param prv          The ECC private key
+ *
+ * @return
+ *      - AJ_OK on success
+ *      - AJ_ERR_FAILURE otherwise
+ */
+AJ_Status AJ_CredentialGetECCPrivateKey(uint16_t type, const AJ_CredField* id, uint32_t* expiration, AJ_ECCPrivateKey* prv);
 
 /**
  * Delete a credential from NVRAM
  *
- * @param credType  the credential type
- * @param id        the credential id
- * @param idLen     the credential id length
+ * @param type         Credential type
+ * @param id           Credential id
  *
  * @return
- *          - AJ_OK if the credentials were deleted.
+ *          - AJ_OK if the credentials were deleted
  */
-AJ_Status AJ_DeleteCredential(const uint16_t credType, const uint8_t* id, uint8_t idLen);
+AJ_Status AJ_CredentialDelete(uint16_t type, const AJ_CredField* id);
 
 /**
- * Get the credentials for a specific id from NVRAM
+ * Delete a peer credential from NVRAM
  *
- * @param credType  the credential type to search
- * @param id        the credential id to search
- * @param idLen     the credential id length to search
- * @param credHolder Pointer to a credential object pointer.  This address will hold the new allocated credential object for the specific custom credential
- *
- * @return
- *      - AJ_OK if the credential is found
- *      - AJ_ERR_FAILURE otherwise.
+ * @param type         The credential type
  */
-AJ_Status AJ_GetCredential(const uint16_t credType, const uint8_t* id, uint8_t idLen, AJ_PeerCred** credHolder);
+void AJ_CredentialDeletePeer(const AJ_GUID* guid);
 
 /**
- * Get the local credentials for a specific id from NVRAM
+ * Clears credentials
  *
- * @param credType  the credential type to search
- * @param id        the credential id to search
- * @param[out] credHolder Pointer to a credential object pointer.  This address will hold the new allocated credential object for the specific custom credential
+ * @param type         The type of credentials to clear (0 for all).
  *
  * @return
- *      - AJ_OK if the credential is found
- *      - AJ_ERR_FAILURE otherwise.
+ *          - AJ_OK if all credentials have been deleted
  */
-AJ_Status AJ_GetLocalCredential(const uint16_t credType, const uint16_t id, AJ_PeerCred** credHolder);
+AJ_Status AJ_ClearCredentials(uint16_t type);
 
 /**
- * Store a local credential
+ * Free the memory allocation for this credential field
  *
- * @param credType the credential type
- * @param id  The local id
- * @param data  The data
- * @param len  The data length
- * @param expiration  The expiration of the data
+ * @param field       Pointer to a credential field
  *
- * @return
- *          - AJ_OK if the credentials were written.
- *          - AJ_ERR_RESOURCES if there is no space to write the credentials
  */
-AJ_Status AJ_StoreLocalCredential(const uint16_t credType, const uint16_t id, const uint8_t* data, const uint8_t len, uint32_t expiration);
-
-/**
- * Delete the local credentials for a specific id from NVRAM
- *
- * @param credType  the credential type to delete
- * @param id        the credential id to delete
- *
- * @return
- *      - AJ_OK if the credential is deleted
- *      - AJ_ERR_FAILURE otherwise.
- */
-AJ_Status AJ_DeleteLocalCredential(const uint16_t credType, const uint16_t id);
+void AJ_CredFieldFree(AJ_CredField* field);
 
 /**
  * Checks a credential's expiry
+ *
+ * @param expiration   The credential expiration
+ *
  * @return
  *      - AJ_OK if the credential has not expired
  *      - AJ_ERR_KEY_EXPIRED if the credential has expired
  *      - AJ_ERR_INVALID if not clock is available
  */
-AJ_Status AJ_CredentialExpired(AJ_PeerCred* cred);
+AJ_Status AJ_CredentialExpired(uint32_t expiration);
 
 #ifdef __cplusplus
 }

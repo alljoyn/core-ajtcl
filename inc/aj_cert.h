@@ -26,28 +26,28 @@
 #include <ajtcl/aj_target.h>
 #include <ajtcl/aj_status.h>
 #include <ajtcl/aj_crypto_ecc.h>
+#include <ajtcl/aj_creds.h>
+#include <ajtcl/aj_msg.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/**
- * DER encoding types.
- */
-#define ASN_BOOLEAN          0x01
-#define ASN_INTEGER          0x02
-#define ASN_BITS             0x03
-#define ASN_OCTETS           0x04
-#define ASN_NULL             0x05
-#define ASN_OID              0x06
-#define ASN_UTF8             0x0C
-#define ASN_SEQ              0x10
-#define ASN_SET_OF           0x11
-#define ASN_PRINTABLE        0x13
-#define ASN_ASCII            0x16
-#define ASN_UTC_TIME         0x17
-#define ASN_GEN_TIME         0x18
-#define ASN_CONTEXT_SPECIFIC 0xA0
+extern const uint8_t OID_SIG_ECDSA_SHA256[8];
+extern const uint8_t OID_KEY_ECC[7];
+extern const uint8_t OID_CRV_PRIME256V1[8];
+extern const uint8_t OID_DN_OU[3];
+extern const uint8_t OID_DN_CN[3];
+extern const uint8_t OID_BASIC_CONSTRAINTS[3];
+extern const uint8_t OID_SKI[3];
+extern const uint8_t OID_AKI[3];
+extern const uint8_t OID_SUB_ALTNAME[3];
+extern const uint8_t OID_HASH_SHA256[9];
+extern const uint8_t OID_CUSTOM_EKU_IDENTITY[10];
+extern const uint8_t OID_CUSTOM_DIGEST[10];
+extern const uint8_t OID_CUSTOM_GROUP[10];
+extern const uint8_t OID_CUSTOM_ALIAS[10];
+extern const uint8_t OID_CUSTOM_EKU_MEMBERSHIP[10];
 
 /**
  * Structure for a DER encoded element.
@@ -86,15 +86,7 @@ AJ_Status AJ_ASN1DecodeElement(DER_Element* der, uint8_t tag, DER_Element* out);
  */
 AJ_Status AJ_ASN1DecodeElements(DER_Element* der, const uint8_t* tags, size_t len, ...);
 
-/**
- * OIDs used in X.509 certificates.
- */
-extern const uint8_t OID_SIG_ECDSA_SHA256[];
-extern const uint8_t OID_KEY_ECC[];
-extern const uint8_t OID_CRV_PRIME256V1[];
-extern const uint8_t OID_DN_OU[];
-extern const uint8_t OID_DN_CN[];
-extern const uint8_t OID_BASIC_CONSTRAINTS[];
+#define CERT_FMT_X509_DER  0
 
 typedef struct _X509Validity {
     uint64_t from;
@@ -108,6 +100,12 @@ typedef struct _X509DistinguishedName {
 
 typedef struct _X509Extensions {
     uint32_t ca;                         /**< Certificate authority */
+    uint32_t type;                       /**< Certificate type in AllJoyn ecosystem */
+    DER_Element ski;                     /**< Subject Key Identifier */
+    DER_Element aki;                     /**< Authority Key Identifier */
+    DER_Element alias;                   /**< Alias (subject alt name) */
+    DER_Element group;                   /**< Group (subject alt name) */
+    DER_Element digest;                  /**< Associated digest */
 } X509Extensions;
 
 typedef struct _X509TbsCertificate {
@@ -115,7 +113,7 @@ typedef struct _X509TbsCertificate {
     X509DistinguishedName issuer;        /**< The issuer's identity */
     X509Validity validity;               /**< The validity period */
     X509DistinguishedName subject;       /**< The subject's identity */
-    ecc_publickey publickey;             /**< The subject's public key */
+    AJ_ECCPublicKey publickey;           /**< The subject's public key */
     X509Extensions extensions;           /**< The certificate extensions */
 } X509TbsCertificate;
 
@@ -128,7 +126,7 @@ typedef struct _X509Certificate {
     DER_Element der;                     /**< Certificate DER encoding */
     DER_Element raw;                     /**< The raw tbs section */
     X509TbsCertificate tbs;              /**< The TBS section of the certificate */
-    ecc_signature signature;             /**< The certificate signature */
+    AJ_ECCSignature signature;           /**< The certificate signature */
 } X509Certificate;
 
 /**
@@ -149,7 +147,7 @@ typedef struct _X509CertificateChain {
  *          - AJ_OK on success
  *          - AJ_ERR_INVALID on all failures
  */
-AJ_Status AJ_DecodePrivateKeyPEM(ecc_privatekey* key, const char* pem);
+AJ_Status AJ_DecodePrivateKeyPEM(AJ_ECCPrivateKey* key, const char* pem);
 
 /**
  * Decode a ASN.1 DER encoded X.509 certificate.
@@ -181,11 +179,22 @@ AJ_Status AJ_X509DecodeCertificatePEM(X509Certificate* certificate, const char* 
  * This puts the child first, then parents follow.
  * That is the same order that should be in the pem.
  *
+ * On success, caller must later free the chain with a call
+ * to AJ_X509FreeDecodedCertificateChain.
+ *
  * @param pem         The input PEM.
  *
  * @return  Return chain on success, NULL on failure
  */
 X509CertificateChain* AJ_X509DecodeCertificateChainPEM(const char* pem);
+
+/**
+ * Free the memory allocated to an X509CertificateChain* as returned
+ * by AJ_X509DecodeCertificateChainPEM.
+ *
+ * @param head       Head of the certificate chain. If this is NULL, this function does nothing.
+ */
+void AJ_X509FreeDecodedCertificateChain(X509CertificateChain* head);
 
 /**
  * Verify a self-signed X.509 certificate.
@@ -208,7 +217,7 @@ AJ_Status AJ_X509SelfVerify(const X509Certificate* certificate);
  *          - AJ_OK on success
  *          - AJ_ERR_SECURITY on failure
  */
-AJ_Status AJ_X509Verify(const X509Certificate* certificate, const ecc_publickey* key);
+AJ_Status AJ_X509Verify(const X509Certificate* certificate, const AJ_ECCPublicKey* key);
 
 /**
  * Verify a chain of X.509 certificates.
@@ -221,35 +230,63 @@ AJ_Status AJ_X509Verify(const X509Certificate* certificate, const ecc_publickey*
  *          - AJ_OK on success
  *          - AJ_ERR_SECURITY on failure
  */
-AJ_Status AJ_X509VerifyChain(const X509CertificateChain* chain, const ecc_publickey* key);
+AJ_Status AJ_X509VerifyChain(const X509CertificateChain* chain, const AJ_ECCPublicKey* key);
 
 /**
- * Convert unsigned 32-bit int array to network order (big endian) bytes.
+ * Free memory associated with X.509 chain.
  *
- * @param u32  Unsigned 32-bit array
- * @param len  Length of 32-bit array
- * @param u8   Unsigned 8-bit array
- *
+ * @param head        The input certificate chain.
  */
-void HostU32ToBigEndianU8(uint32_t* u32, size_t len, uint8_t* u8);
+void AJ_X509ChainFree(X509CertificateChain* head);
 
 /**
- * Old encoding of native public key.
+ * Marshal a X.509 certificate chain.
  *
- * @param publickey  The ECC public key
- * @param[out] b8    Big endian byte array
+ * @param chain       The input certificate chain.
+ * @param msg         The message.
  *
+ * @return  Return AJ_Status
+ *          - AJ_OK on success
+ *          - AJ_ERR_SECURITY on failure
  */
-void AJ_BigEndianEncodePublicKey(ecc_publickey* publickey, uint8_t* b8);
+AJ_Status AJ_X509ChainMarshal(X509CertificateChain* chain, AJ_Message* msg);
 
 /**
- * Old decoding of native public key.
+ * Unmarshal a X.509 certificate chain.
  *
- * @param[out] publickey  The ECC public key
- * @param b8              Big endian byte array
+ * @param chain       The output certificate chain.
+ * @param msg         The message.
  *
+ * @return  Return AJ_Status
+ *          - AJ_OK on success
+ *          - AJ_ERR_SECURITY on failure
  */
-void AJ_BigEndianDecodePublicKey(ecc_publickey* publickey, uint8_t* b8);
+AJ_Status AJ_X509ChainUnmarshal(X509CertificateChain** chain, AJ_Message* msg);
+
+/**
+ * Marshal a X.509 certificate chain to a local buffer.
+ *
+ * @param chain       The input certificate chain.
+ * @param field       The local buffer.
+ *
+ * @return  Return AJ_Status
+ *          - AJ_OK on success
+ *          - AJ_ERR_SECURITY on failure
+ */
+AJ_Status AJ_X509ChainToBuffer(X509CertificateChain* chain, AJ_CredField* field);
+
+/**
+ * Unmarshal a X.509 certificate chain from a local buffer.
+ *
+ * @param chain       The output certificate chain.
+ * @param field       The local buffer.
+ *
+ * @return  Return AJ_Status
+ *          - AJ_OK on success
+ *          - AJ_ERR_SECURITY on failure
+ */
+AJ_Status AJ_X509ChainFromBuffer(X509CertificateChain** chain, AJ_CredField* field);
+X509Certificate* AJ_X509LeafCertificate(X509CertificateChain* chain);
 
 #ifdef __cplusplus
 }

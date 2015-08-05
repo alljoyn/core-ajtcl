@@ -26,6 +26,7 @@ extern "C" {
 #include <ajtcl/alljoyn.h>
 #include <ajtcl/aj_auth_listener.h>
 #include <ajtcl/aj_authentication.h>
+#include <ajtcl/aj_authorisation.h>
 #include <ajtcl/aj_cert.h>
 #include <ajtcl/aj_config.h>
 #include <ajtcl/aj_creds.h>
@@ -48,18 +49,10 @@ uint8_t dbgSECURITYTEST = 0;
 
 /*Interface */
 static const char* const Test1_Interface1[] = { "$org.alljoyn.alljoyn_test", "?my_ping inStr<s outStr>s", NULL };
-
-
 static const AJ_InterfaceDescription Test1_Interfaces[] = { AJ_PropertiesIface, Test1_Interface1, NULL };
-
 static const char testObj[] = "/org/alljoyn/alljoyn_test";
-
-
-static const char intfc[] = "org.alljoyn.test";
-
-
 static AJ_Object AppObjects[] = {
-    { NULL, Test1_Interfaces },     /* Object path will be specified later */
+    { testObj, Test1_Interfaces, AJ_OBJ_FLAG_SECURE },
     { NULL }
 };
 
@@ -86,12 +79,13 @@ class SecurityTest : public testing::Test {
     AJ_Status authStatus;
 };
 
-// Copied from alljoyn/alljoyn_core/test/bbclient.cc
+// Copied from alljoyn/alljoyn_core/unit_test/AuthListenerECDHETest.cc with
+// newlines removed
 static const char pem_prv[] = {
-    "-----BEGIN EC PRIVATE KEY-----"
-    "MHcCAQEEIAqN6AtyOAPxY5k7eFNXAwzkbsGMl4uqvPrYkIj0LNZBoAoGCCqGSM49"
-    "AwEHoUQDQgAEvnRd4fX9opwgXX4Em2UiCMsBbfaqhB1U5PJCDZacz9HumDEzYdrS"
-    "MymSxR34lL0GJVgEECvBTvpaHP2bpTIl6g=="
+    "-----BEGIN EC PRIVATE KEY-----\n"
+    "MHcCAQEEIAzfibK85el6fvczuL5vIaKBiZ5hTTaNIo0LEkvJ2dCMoAoGCCqGSM49"
+    "AwEHoUQDQgAE3KsljHhEdm5JLdpRr0g1zw9EMmMqcQJdxYoMr8AAF//G8fujudM9"
+    "HMlXLcyBk195YnGp+hY8Tk+QNNA3ZVNavw=="
     "-----END EC PRIVATE KEY-----"
 };
 
@@ -100,29 +94,25 @@ static const char pem_prv[] = {
  */
 static const char pem_x509[] = {
     "-----BEGIN CERTIFICATE-----"
-    "MIIBtDCCAVmgAwIBAgIJAMlyFqk69v+OMAoGCCqGSM49BAMCMFYxKTAnBgNVBAsM"
-    "IDdhNDhhYTI2YmM0MzQyZjZhNjYyMDBmNzdhODlkZDAyMSkwJwYDVQQDDCA3YTQ4"
-    "YWEyNmJjNDM0MmY2YTY2MjAwZjc3YTg5ZGQwMjAeFw0xNTAyMjYyMTUxMjVaFw0x"
-    "NjAyMjYyMTUxMjVaMFYxKTAnBgNVBAsMIDZkODVjMjkyMjYxM2IzNmUyZWVlZjUy"
-    "NzgwNDJjYzU2MSkwJwYDVQQDDCA2ZDg1YzI5MjI2MTNiMzZlMmVlZWY1Mjc4MDQy"
-    "Y2M1NjBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABL50XeH1/aKcIF1+BJtlIgjL"
-    "AW32qoQdVOTyQg2WnM/R7pgxM2Ha0jMpksUd+JS9BiVYBBArwU76Whz9m6UyJeqj"
-    "EDAOMAwGA1UdEwQFMAMBAf8wCgYIKoZIzj0EAwIDSQAwRgIhAKfmglMgl67L5ALF"
-    "Z63haubkItTMACY1k4ROC2q7cnVmAiEArvAmcVInOq/U5C1y2XrvJQnAdwSl/Ogr"
-    "IizUeK0oI5c="
+    "MIIBYTCCAQigAwIBAgIJAKdvmRDLDVWQMAoGCCqGSM49BAMCMCQxIjAgBgNVBAoM"
+    "GUFsbEpveW5UZXN0U2VsZlNpZ25lZE5hbWUwHhcNMTUwNzIyMjAxMTA3WhcNMTUw"
+    "ODIxMjAxMTA3WjAgMR4wHAYDVQQKDBVBbGxKb3luVGVzdENsaWVudE5hbWUwWTAT"
+    "BgcqhkjOPQIBBggqhkjOPQMBBwNCAATcqyWMeER2bkkt2lGvSDXPD0QyYypxAl3F"
+    "igyvwAAX/8bx+6O50z0cyVctzIGTX3lican6FjxOT5A00DdlU1q/oycwJTAVBgNV"
+    "HSUEDjAMBgorBgEEAYLefAEBMAwGA1UdEwEB/wQCMAAwCgYIKoZIzj0EAwIDRwAw"
+    "RAIgQsvHZ747URkPCpYtBxi56V1OcMF3oKWnGuz2jazWr4YCICCU5/itaYVt1SzQ"
+    "cBYyChWx/4KXL4QKWLdm9/6ispdq"
     "-----END CERTIFICATE-----"
     ""
     "-----BEGIN CERTIFICATE-----"
-    "MIIBszCCAVmgAwIBAgIJAILNujb37gH2MAoGCCqGSM49BAMCMFYxKTAnBgNVBAsM"
-    "IDdhNDhhYTI2YmM0MzQyZjZhNjYyMDBmNzdhODlkZDAyMSkwJwYDVQQDDCA3YTQ4"
-    "YWEyNmJjNDM0MmY2YTY2MjAwZjc3YTg5ZGQwMjAeFw0xNTAyMjYyMTUxMjNaFw0x"
-    "NjAyMjYyMTUxMjNaMFYxKTAnBgNVBAsMIDdhNDhhYTI2YmM0MzQyZjZhNjYyMDBm"
-    "NzdhODlkZDAyMSkwJwYDVQQDDCA3YTQ4YWEyNmJjNDM0MmY2YTY2MjAwZjc3YTg5"
-    "ZGQwMjBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABGEkAUATvOE4uYmt/10vkTcU"
-    "SA0C+YqHQ+fjzRASOHWIXBvpPiKgHcINtNFQsyX92L2tMT2Kn53zu+3S6UAwy6yj"
-    "EDAOMAwGA1UdEwQFMAMBAf8wCgYIKoZIzj0EAwIDSAAwRQIgKit5yeq1uxTvdFmW"
-    "LDeoxerqC1VqBrmyEvbp4oJfamsCIQDvMTmulW/Br/gY7GOP9H/4/BIEoR7UeAYS"
-    "4xLyu+7OEA=="
+    "MIIBdDCCARugAwIBAgIJANOdlTtGQiNsMAoGCCqGSM49BAMCMCQxIjAgBgNVBAoM"
+    "GUFsbEpveW5UZXN0U2VsZlNpZ25lZE5hbWUwHhcNMTUwNzIyMjAxMTA2WhcNMjkw"
+    "MzMwMjAxMTA2WjAkMSIwIAYDVQQKDBlBbGxKb3luVGVzdFNlbGZTaWduZWROYW1l"
+    "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEfN5/iDyZAHt9zLEvR2/y02jVovfW"
+    "U+lxLtDe0I+fTOoZn3WMd3EyZWKKdfela66adLWwzijKpBlXpj5KKQn5vKM2MDQw"
+    "IQYDVR0lBBowGAYKKwYBBAGC3nwBAQYKKwYBBAGC3nwBBTAPBgNVHRMBAf8EBTAD"
+    "AQH/MAoGCCqGSM49BAMCA0cAMEQCIDT7r6txazffbFN8VxPg3tRuyWvtTNwYiS2y"
+    "tn0H/nsaAiBzKmTHjrmhSLmYidtNvcU/OjKzmRHmdGTaURz0s2NBcQ=="
     "-----END CERTIFICATE-----"
 };
 
@@ -138,7 +128,7 @@ static const char psk_char[] = "faaa0af3dd3f1e0379da046a3ab6ca44";
 static const char psk_char[] = "123456";
 #endif
 static X509CertificateChain* chain = NULL;
-static ecc_privatekey prv;
+static AJ_ECCPrivateKey prv;
 static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, AJ_Credential*cred)
 {
     AJ_Status status = AJ_ERR_INVALID;
@@ -173,7 +163,7 @@ static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, 
     case AUTH_SUITE_ECDHE_ECDSA:
         switch (command) {
         case AJ_CRED_PRV_KEY:
-            cred->len = sizeof (ecc_privatekey);
+            cred->len = sizeof (AJ_ECCPrivateKey);
             status = AJ_DecodePrivateKeyPEM(&prv, pem_prv);
             if (AJ_OK != status) {
                 return status;
@@ -222,34 +212,17 @@ static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, 
 
 static const char PingString[] = "Ping String";
 
-void MakeMethodCall(int*count, uint32_t ID) {
-
-    AJ_Message msg;
-    AJ_Status status = AJ_OK;
-    if (*count == 0) {
-        *count = 1;
-        status = AJ_MarshalMethodCall(&testBus, &msg, ID, ServiceName, 0, 0, 5000);
-        ASSERT_EQ(AJ_OK, status) << "Cannot marshal method calls parameters" << AJ_StatusText(status);
-        status = AJ_MarshalArgs(&msg, "s", PingString);
-        ASSERT_EQ(AJ_OK, status) << "Cannot marshal method calls arguments" << AJ_StatusText(status);
-        status = AJ_DeliverMsg(&msg);
-        ASSERT_EQ(AJ_OK, status) << "Cannot deliver msg" << AJ_StatusText(status);
-    }
-
-}
-
 /* Test for ECDHE_NULL  */
 
 TEST_F(SecurityTest, Test1)
 {
-
     // Register bus objects and proxy bus objects
     AJ_RegisterObjects(NULL, AppObjects);
     AJ_Status status = AJ_OK;
-    int count = 0;
     AJ_Message msg;
+    AJ_Message call;
     char*value;
-    uint32_t suites[16];
+    uint32_t suites[AJ_AUTH_SUITES_NUM];
     size_t numsuites = 0;
 
     AJ_Initialize();
@@ -261,22 +234,24 @@ TEST_F(SecurityTest, Test1)
     }
 
     suites[numsuites++] = AUTH_SUITE_ECDHE_NULL;
-    AJ_BusEnableSecurity(&testBus, suites, numsuites);
+    status = AJ_BusEnableSecurity(&testBus, suites, numsuites);
     ASSERT_EQ(AJ_OK, status) << "Unable to enable security. " << "The status returned is " << AJ_StatusText(status);
     AJ_BusSetAuthListenerCallback(&testBus, AuthListenerCallback);
 
     status = AJ_BusAuthenticatePeer(&testBus, ServiceName, AuthCallback, &authStatus);
-
 
     while (TRUE) {
         status = AJ_SetProxyObjectPath(AppObjects, TEST1_APP_MY_PING, testObj);
         status = AJ_UnmarshalMsg(&testBus, &msg, UNMARSHAL_TIMEOUT);
         if (status == AJ_ERR_TIMEOUT) {
             if (authStatus == AJ_OK) {
-                MakeMethodCall(&count, TEST1_APP_MY_PING);
+                ASSERT_EQ(AJ_ERR_ACCESS, AJ_MarshalMethodCall(&testBus, &call, TEST1_APP_MY_PING, ServiceName, 0, 0, 5000));
+                status = AJ_OK;
+                break;
             }
         } else if (msg.msgId == AJ_REPLY_ID(TEST1_APP_MY_PING)) {
-            AJ_UnmarshalArgs(&msg, "s", &value);
+            status = AJ_UnmarshalArgs(&msg, "s", &value);
+            ASSERT_EQ(AJ_OK, status);
             ASSERT_STREQ(PingString, value);
             AJ_CloseMsg(&msg);
             break;
@@ -287,7 +262,7 @@ TEST_F(SecurityTest, Test1)
 
         AJ_CloseMsg(&msg);
     }
-    AJ_ClearCredentials();
+    AJ_ClearCredentials(AJ_CRED_TYPE_GENERIC);
     ASSERT_EQ(AJ_OK, status) << "AJ_ClearCredentials returned status. " << AJ_StatusText(status);
     AJ_Disconnect(&testBus);
 }
@@ -303,10 +278,10 @@ TEST_F(SecurityTest, Test2)
     // Register bus objects and proxy bus objects
     AJ_RegisterObjects(NULL, AppObjects);
     AJ_Status status = AJ_OK;
-    int count = 0;
     AJ_Message msg;
+    AJ_Message call;
     char*value;
-    uint32_t suites[16];
+    uint32_t suites[AJ_AUTH_SUITES_NUM];
     size_t numsuites = 0;
 
     AJ_Initialize();
@@ -329,10 +304,14 @@ TEST_F(SecurityTest, Test2)
         status = AJ_UnmarshalMsg(&testBus, &msg, UNMARSHAL_TIMEOUT);
         if (status == AJ_ERR_TIMEOUT) {
             if (authStatus == AJ_OK) {
-                MakeMethodCall(&count, TEST1_APP_MY_PING);
+                ASSERT_EQ(AJ_OK, AJ_MarshalMethodCall(&testBus, &call, TEST1_APP_MY_PING, ServiceName, 0, 0, 5000));
+                ASSERT_EQ(AJ_OK, AJ_MarshalArgs(&call, "s", PingString));
+                ASSERT_EQ(AJ_OK, AJ_DeliverMsg(&call));
+                authStatus = AJ_ERR_NULL;
             }
         } else if (msg.msgId == AJ_REPLY_ID(TEST1_APP_MY_PING)) {
-            AJ_UnmarshalArgs(&msg, "s", &value);
+            status = AJ_UnmarshalArgs(&msg, "s", &value);
+            ASSERT_EQ(AJ_OK, status);
             ASSERT_STREQ(PingString, value);
             AJ_CloseMsg(&msg);
             break;
@@ -343,10 +322,9 @@ TEST_F(SecurityTest, Test2)
 
         AJ_CloseMsg(&msg);
     }
-    AJ_ClearCredentials();
+    AJ_ClearCredentials(AJ_CRED_TYPE_GENERIC);
     ASSERT_EQ(AJ_OK, status) << "AJ_ClearCredentials returned status. " << AJ_StatusText(status);
     AJ_Disconnect(&testBus);
-
 }
 
 
@@ -357,10 +335,10 @@ TEST_F(SecurityTest, Test3)
     // Register bus objects and proxy bus objects
     AJ_RegisterObjects(NULL, AppObjects);
     AJ_Status status = AJ_OK;
-    int count = 0;
     AJ_Message msg;
+    AJ_Message call;
     char*value;
-    uint32_t suites[16];
+    uint32_t suites[AJ_AUTH_SUITES_NUM];
     size_t numsuites = 0;
 
     AJ_Initialize();
@@ -372,7 +350,7 @@ TEST_F(SecurityTest, Test3)
     }
 
     suites[numsuites++] = AUTH_SUITE_ECDHE_ECDSA;
-    AJ_BusEnableSecurity(&testBus, suites, numsuites);
+    status = AJ_BusEnableSecurity(&testBus, suites, numsuites);
     ASSERT_EQ(AJ_OK, status) << "Unable to enable security" << "The status returned is " << AJ_StatusText(status);
     AJ_BusSetAuthListenerCallback(&testBus, AuthListenerCallback);
     status = AJ_BusAuthenticatePeer(&testBus, ServiceName, AuthCallback, &authStatus);
@@ -382,10 +360,14 @@ TEST_F(SecurityTest, Test3)
         status = AJ_UnmarshalMsg(&testBus, &msg, UNMARSHAL_TIMEOUT);
         if (status == AJ_ERR_TIMEOUT) {
             if (authStatus == AJ_OK) {
-                MakeMethodCall(&count, TEST1_APP_MY_PING);
+                /* ECDSA will fail, then drop back to NULL */
+                ASSERT_EQ(AJ_ERR_ACCESS, AJ_MarshalMethodCall(&testBus, &call, TEST1_APP_MY_PING, ServiceName, 0, 0, 5000));
+                status = AJ_OK;
+                break;
             }
         } else if (msg.msgId == AJ_REPLY_ID(TEST1_APP_MY_PING)) {
-            AJ_UnmarshalArgs(&msg, "s", &value);
+            status = AJ_UnmarshalArgs(&msg, "s", &value);
+            ASSERT_EQ(AJ_OK, status);
             ASSERT_STREQ(PingString, value);
             AJ_CloseMsg(&msg);
             break;
@@ -397,8 +379,115 @@ TEST_F(SecurityTest, Test3)
         AJ_CloseMsg(&msg);
     }
 
-    AJ_ClearCredentials();
+    AJ_ClearCredentials(AJ_CRED_TYPE_GENERIC);
     ASSERT_EQ(AJ_OK, status) << "AJ_ClearCredentials returned status. " << AJ_StatusText(status);
     AJ_Disconnect(&testBus);
+}
 
+class CommonPathTest : public testing::Test {
+  public:
+    CommonPathTest() { }
+};
+
+TEST_F(CommonPathTest, Test1)
+{
+    EXPECT_FALSE(AJ_CommonPath("", "Signal1", SIGNAL));
+    EXPECT_FALSE(AJ_CommonPath("", "Method1", METHOD));
+    EXPECT_FALSE(AJ_CommonPath("", "Property1", PROPERTY));
+
+    EXPECT_TRUE(AJ_CommonPath("*", "Signal1", SIGNAL));
+    EXPECT_TRUE(AJ_CommonPath("*", "Method1", METHOD));
+    EXPECT_TRUE(AJ_CommonPath("*", "Property1", PROPERTY));
+
+    EXPECT_FALSE(AJ_CommonPath("Signal", "Signal1", SIGNAL));
+    EXPECT_FALSE(AJ_CommonPath("Method", "Method1", METHOD));
+    EXPECT_FALSE(AJ_CommonPath("Property", "Property1", PROPERTY));
+
+    EXPECT_TRUE(AJ_CommonPath("Signal1", "Signal1", SIGNAL));
+    EXPECT_TRUE(AJ_CommonPath("Method1", "Method1", METHOD));
+    EXPECT_FALSE(AJ_CommonPath("Property1", "Property1", PROPERTY));
+    EXPECT_TRUE(AJ_CommonPath("Signal1", "Signal1 ", SIGNAL));
+    EXPECT_TRUE(AJ_CommonPath("Method1", "Method1 ", METHOD));
+    EXPECT_FALSE(AJ_CommonPath("Property1", "Property1 ", PROPERTY));
+    EXPECT_TRUE(AJ_CommonPath("Signal1", "Signal1 >s", SIGNAL));
+    EXPECT_TRUE(AJ_CommonPath("Method1", "Method1 >s", METHOD));
+    EXPECT_TRUE(AJ_CommonPath("Method1", "Method1 <s", METHOD));
+    EXPECT_FALSE(AJ_CommonPath("Property1", "Property1 >s", PROPERTY));
+    EXPECT_FALSE(AJ_CommonPath("Property1", "Property1 <s", PROPERTY));
+    EXPECT_FALSE(AJ_CommonPath("Property1", "Property1 =s", PROPERTY));
+
+    EXPECT_FALSE(AJ_CommonPath("Signal1", "Signal1>s", SIGNAL));
+    EXPECT_FALSE(AJ_CommonPath("Method1", "Method1>s", METHOD));
+    EXPECT_FALSE(AJ_CommonPath("Method1", "Method1<s", METHOD));
+    EXPECT_TRUE(AJ_CommonPath("Property1", "Property1>s", PROPERTY));
+    EXPECT_TRUE(AJ_CommonPath("Property1", "Property1<s", PROPERTY));
+    EXPECT_TRUE(AJ_CommonPath("Property1", "Property1=s", PROPERTY));
+
+    EXPECT_FALSE(AJ_CommonPath("Signal1", "Signal", SIGNAL));
+    EXPECT_FALSE(AJ_CommonPath("Method1", "Method", METHOD));
+    EXPECT_FALSE(AJ_CommonPath("Property1", "Property", PROPERTY));
+    EXPECT_FALSE(AJ_CommonPath("Signal1", "Signal ", SIGNAL));
+    EXPECT_FALSE(AJ_CommonPath("Method1", "Method ", METHOD));
+    EXPECT_FALSE(AJ_CommonPath("Property1", "Property ", PROPERTY));
+    EXPECT_FALSE(AJ_CommonPath("Signal1", "Signal>s", SIGNAL));
+    EXPECT_FALSE(AJ_CommonPath("Method1", "Method>s", METHOD));
+    EXPECT_FALSE(AJ_CommonPath("Method1", "Method<s", METHOD));
+    EXPECT_FALSE(AJ_CommonPath("Property1", "Property>s", PROPERTY));
+    EXPECT_FALSE(AJ_CommonPath("Property1", "Property<s", PROPERTY));
+    EXPECT_FALSE(AJ_CommonPath("Property1", "Property=s", PROPERTY));
+    EXPECT_FALSE(AJ_CommonPath("Signal1", "Signal2", SIGNAL));
+    EXPECT_FALSE(AJ_CommonPath("Method1", "Method2", METHOD));
+    EXPECT_FALSE(AJ_CommonPath("Property1", "Property2", PROPERTY));
+    EXPECT_FALSE(AJ_CommonPath("Property1", "Property2>s", PROPERTY));
+    EXPECT_FALSE(AJ_CommonPath("Property1", "Property2<s", PROPERTY));
+    EXPECT_FALSE(AJ_CommonPath("Property1", "Property2=s", PROPERTY));
+
+    EXPECT_TRUE(AJ_CommonPath("Signal*", "Signal", SIGNAL));
+    EXPECT_TRUE(AJ_CommonPath("Method*", "Method", METHOD));
+    EXPECT_TRUE(AJ_CommonPath("Property*", "Property", PROPERTY));
+    EXPECT_TRUE(AJ_CommonPath("Signal*", "Signal ", SIGNAL));
+    EXPECT_TRUE(AJ_CommonPath("Method*", "Method ", METHOD));
+    EXPECT_TRUE(AJ_CommonPath("Property*", "Property ", PROPERTY));
+    EXPECT_TRUE(AJ_CommonPath("Signal*", "Signal1", SIGNAL));
+    EXPECT_TRUE(AJ_CommonPath("Method*", "Method1", METHOD));
+    EXPECT_TRUE(AJ_CommonPath("Property*", "Property1", PROPERTY));
+    EXPECT_TRUE(AJ_CommonPath("Property*", "Property1>s", PROPERTY));
+    EXPECT_TRUE(AJ_CommonPath("Property*", "Property1<s", PROPERTY));
+    EXPECT_TRUE(AJ_CommonPath("Property*", "Property1=s", PROPERTY));
+
+    EXPECT_FALSE(AJ_CommonPath("Signal1*", "Signal", SIGNAL));
+    EXPECT_FALSE(AJ_CommonPath("Method1*", "Method", METHOD));
+    EXPECT_FALSE(AJ_CommonPath("Property1*", "Property", PROPERTY));
+    EXPECT_FALSE(AJ_CommonPath("Property1*", "Property>s", PROPERTY));
+    EXPECT_FALSE(AJ_CommonPath("Property1*", "Property<s", PROPERTY));
+    EXPECT_FALSE(AJ_CommonPath("Property1*", "Property=s", PROPERTY));
+}
+
+TEST_F(SecurityTest, DecodeAndVerifyCertificateChainTest)
+{
+    X509CertificateChain* chain;
+    X509CertificateChain* head;
+    X509CertificateChain* last;
+    AJ_Status status = AJ_OK;
+
+    chain = AJ_X509DecodeCertificateChainPEM(pem_x509);
+
+    ASSERT_TRUE(chain != NULL);
+
+    /* AJ_X509VerifyChain expects cert chains in root..end entity order, but the pem_x509 string
+     * lists them in end entity..root order, which is the order used as a credential to be presented
+     * rather than verified. Reverse the list in place to provide the expected order.
+     */
+    head = chain;
+    last = NULL;
+    while (head) {
+        X509CertificateChain* temp = head->next;
+        head->next = last;
+        last = head;
+        head = temp;
+    }
+    chain = last;
+
+    ASSERT_EQ(AJ_OK, AJ_X509VerifyChain(chain, NULL));
+    AJ_X509FreeDecodedCertificateChain(chain);
 }

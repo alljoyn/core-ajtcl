@@ -25,8 +25,8 @@
 #include <ajtcl/aj_bus.h>
 #include <ajtcl/aj_config.h>
 #include <ajtcl/aj_target.h>
+#include <ajtcl/aj_cert.h>
 #include <ajtcl/aj_crypto.h>
-#include <ajtcl/aj_crypto_ecc.h>
 #include <ajtcl/aj_crypto_sha2.h>
 
 #ifdef __cplusplus
@@ -60,8 +60,8 @@ extern "C" {
 #define CONVERSATION_V4 ((uint32_t)0x0004)
 
 typedef struct _KeyExchangeContext {
-    ecc_publickey pub;
-    ecc_privatekey prv;
+    AJ_ECCPublicKey pub;
+    AJ_ECCPrivateKey prv;
 } KeyExchangeContext;
 
 /**
@@ -71,11 +71,20 @@ typedef struct _KeyExchangeContext {
  */
 typedef struct _PSKContext {
     uint8_t* hint;                                 /**< PSK hint */
-    size_t size;                                   /**< Size of PSK hint */
+    size_t hintSize;                              /**< Size of PSK hint */
+    uint8_t* key;                                  /**< PSK */
+    size_t keySize;                               /**< Size of PSK */
 } PSKContext;
+
+typedef struct _ECDSAContext {
+    AJ_ECCPublicKey* key;                          /**< Array of public keys (subject + issuers) */
+    size_t num;                                    /**< Number of public keys */
+    uint8_t manifest[AJ_SHA256_DIGEST_LENGTH];     /**< Manifest digest */
+} ECDSAContext;
 
 typedef struct _KeyAuthenticationContext {
     PSKContext psk;                                /**< Context for PSK authentication */
+    ECDSAContext ecdsa;                            /**< Context for ECDSA authentication */
 } KeyAuthenticationContext;
 
 /**
@@ -86,11 +95,13 @@ typedef struct _AJ_AuthenticationContext {
     uint8_t role;                                  /**< Role (client or server) */
     uint32_t suite;                                /**< Authentication suite */
     uint32_t version;                              /**< Protocol version */
-    AJ_SHA256_Context hash;                        /**< Running hash of exchanged messages */
+    AJ_SHA256_Context* hash;                       /**< Running hash of exchanged messages */
     KeyExchangeContext kectx;                      /**< Context for key exchange step */
     KeyAuthenticationContext kactx;                /**< Context for key authentication step */
     uint8_t mastersecret[AJ_MASTER_SECRET_LEN];    /**< Master secret */
     uint32_t expiration;                           /**< Master secret expiration */
+    uint16_t slot;                                 /**< NVRAM slot of membership certificate */
+    uint8_t code;                                  /**< Send Membership code (NONE, MORE, LAST) */
 } AJ_AuthenticationContext;
 
 /**
@@ -144,19 +155,21 @@ AJ_Status AJ_KeyAuthenticationUnmarshal(AJ_AuthenticationContext* ctx, AJ_Messag
 /**
  * Check if an authentication suite is available
  *
+ * @param bus          The bus attachment
  * @param suite        The authentication suite to check
  * @param version      The authentication protocol version
  *
  * @return  Return true or false
  */
-uint8_t AJ_IsSuiteEnabled(uint32_t suite, uint32_t version);
+uint8_t AJ_IsSuiteEnabled(AJ_BusAttachment* bus, uint32_t suite, uint32_t version);
 
 /**
  * Enable an authentication suite
  *
+ * @param bus          The bus attachment
  * @param suite        The authentication suite to enable
  */
-void AJ_EnableSuite(uint32_t suite);
+void AJ_EnableSuite(AJ_BusAttachment* bus, uint32_t suite);
 
 
 /**
@@ -164,8 +177,11 @@ void AJ_EnableSuite(uint32_t suite);
  *
  * @param ctx          The authentication context
  *
+ * @return
+ *         - AJ_OK on success
+ *         - An error status otherwise
  */
-void AJ_ConversationHash_Initialize(AJ_AuthenticationContext* ctx);
+AJ_Status AJ_ConversationHash_Initialize(AJ_AuthenticationContext* ctx);
 
 /**
  * Update the conversation hash with a uint8_t
@@ -218,10 +234,25 @@ void AJ_ConversationHash_Update_Message(AJ_AuthenticationContext* ctx, uint32_t 
  * Get the conversation hash
  *
  * @param ctx           The authentication context
- * @param digest        The buffer to receive the digest. Must be of SHA256_DIGEST_LENGTH
+ * @param digest        The buffer to receive the digest. Must be of AJ_SHA256_DIGEST_LENGTH
  * @param keepAlive     Whether or not to keep the digest alive for continuing digest
+ *
+ * @return
+ *         - AJ_OK on success
+ *         - An error status otherwise
  */
-void AJ_ConversationHash_GetDigest(AJ_AuthenticationContext* ctx, uint8_t* digest, const uint8_t keepAlive);
+AJ_Status AJ_ConversationHash_GetDigest(AJ_AuthenticationContext* ctx, uint8_t* digest);
+
+/**
+ * Reset the conversation hash
+ *
+ * @param ctx           The authentication context
+ *
+ * @return
+ *         - AJ_OK on success
+ *         - An error status otherwise
+ */
+AJ_Status AJ_ConversationHash_Reset(AJ_AuthenticationContext* ctx);
 
 #ifdef __cplusplus
 }

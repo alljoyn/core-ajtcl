@@ -108,126 +108,220 @@ static const char pem_x509_3[] = {
     "-----END CERTIFICATE-----"
 };
 
-/**
- * the basic constraints is marked as critical.
- */
-static const char pem_x509_bcCritical[] = {
+static const char pem_x509_4[] = {
     "-----BEGIN CERTIFICATE-----"
-    "MIIBVDCB/KADAgECAhC+Ci4hDqaWuEWj2eDd0zrfMAoGCCqGSM49BAMCMCQxIjAgBgNVBAMMGUFsbEpveW5UZXN0U2VsZlNpZ25lZE5hbWUwHhcNMTUwMzMxMTc0MTQwWhcNMTYwMzMwMTc0MTQwWjAkMSIwIAYDVQQDDBlBbGxKb3luVGVzdFNlbGZTaWduZWROYW1lMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE5nmP2qHqZ6N67jdoVxSA64U+Y+rThK+oAwgR6DNezFKMSgVMA1Snn4qsc1Q+KbaYAMj7hWs6xDUIbz6XTOJBvaMQMA4wDAYDVR0TAQH/BAIwADAKBggqhkjOPQQDAgNHADBEAiBJpmVQof40vG9qjWgBTMkETUT0d1kGADBjQK162bUCygIgAtHmpfRztbtr5hgXYdjx4W3Kw0elmnuIfsvrY86ONZs="
+    "MIIBOjCB4aADAgECAgECMAoGCCqGSM49BAMCMCIxDjAMBgNVBAsMBUFkbWluMRAw"
+    "DgYDVQQDDAdNYW5hZ2VyMB4XDTE1MDQyNzAyMTk1OFoXDTE2MDQyNjAyMTk1OFow"
+    "HTEOMAwGA1UECwwFTWVkaWExCzAJBgNVBAMMAlRWMFkwEwYHKoZIzj0CAQYIKoZI"
+    "zj0DAQcDQgAEXhpO6l5w9lARVZklVvYCnqvUnK1sQg+SFKERW9IOae0yUQJAoV5B"
+    "L4YkaN3zQirDZzZefX4gIxIYXeLNLwYr8qMNMAswCQYDVR0TBAIwADAKBggqhkjO"
+    "PQQDAgNIADBFAiA7aDL+XYAmfosrwINWWtwGcFDm1kSb7mw3N7tnXFwBHAIhAKeW"
+    "LfgmobFgXu++LwVFg02BSLuL0IrFAysDcF8w9lxj"
     "-----END CERTIFICATE-----"
 };
 
-/**
- * the basic constraints has a path len field.
- */
-static const char pem_x509_pathLen[] = {
+static const char pem_x509_5[] = {
     "-----BEGIN CERTIFICATE-----"
-    "MIIBTDCB86ADAgECAhDNAwko47UUmUcr+HFVMJj1MAoGCCqGSM49BAMCMB4xHDAaBgNVBAMME0FsbEpveW5UZXN0Um9vdE5hbWUwHhcNMTUwMzMxMjMyODU2WhcNMTYwMzMwMjMyODU2WjAeMRwwGgYDVQQDDBNBbGxKb3luVGVzdFJvb3ROYW1lMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEwmq2CF9Q1Lh/RfE9ejHMGb+AkgKljRgh3D2uOVCGCvxpMtH4AR+QzAPKwYOHvKewsZIBtC41N5Fb4wFbR3kaSaMTMBEwDwYDVR0TBAgwBgEB/wIBADAKBggqhkjOPQQDAgNIADBFAiAyIj1kEli20k2jRuhmSqyjHJ1rlv0oyLOXpgI5f5P0nAIhALIV4i9VG6+DiL7VgNQ1LQswZMgjEUMuPWL6UyuBDe3z"
+    "MIIBPTCB5KADAgECAgECMAoGCCqGSM49BAMCMCIxDjAMBgNVBAsMBUFkbWluMRAw"
+    "DgYDVQQDDAdNYW5hZ2VyMB4XDTE1MDQyNzAyMjIyOFoXDTE2MDQyNjAyMjIyOFow"
+    "HTEOMAwGA1UECwwFTWVkaWExCzAJBgNVBAMMAlRWMFkwEwYHKoZIzj0CAQYIKoZI"
+    "zj0DAQcDQgAEXhpO6l5w9lARVZklVvYCnqvUnK1sQg+SFKERW9IOae0yUQJAoV5B"
+    "L4YkaN3zQirDZzZefX4gIxIYXeLNLwYr8qMQMA4wDAYDVR0TBAUwAwEB/zAKBggq"
+    "hkjOPQQDAgNIADBFAiEAoT1gFCwUONyeLaiyv4LZFxqMsCnGOYlDejfPBjfdlccC"
+    "ICgI/7pny9QjuqKcX+FKUwqnq6IsOIaodvKNo3GlPe5O"
     "-----END CERTIFICATE-----"
 };
 
-/**
- * the basic constraints has no CA field.
- */
-static const char pem_x509_no_CA[] = {
+static const char pem_x509_6[] = {
     "-----BEGIN CERTIFICATE-----"
-    "MIIBRTCB66ADAgECAhAIrQyeRPmaj0tCzYi1kc1LMAoGCCqGSM49BAMCMB4xHDAaBgNVBAMME0FsbEpveW5UZXN0Um9vdE5hbWUwHhcNMTUwMzMxMjMyODU2WhcNMTYwMzMwMjMyODU2WjAcMRowGAYDVQQDDBFDZXJ0U2lnbkxpYkNsaWVudDBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABDrQE+EUBFzwtXq/vlG6IYYEpVxEndizIvaysExCBML5uYovNVLfWEqFmEDGLvv3rJkZ0I0xhzSyzLD+Zo4xzU+jDTALMAkGA1UdEwQCMAAwCgYIKoZIzj0EAwIDSQAwRgIhAJ++iDjgYeje0kmJ3cdYTwen1V92Ldz4m0NInbpPX3BOAiEAvUTLYd83T4uXNh6P+JL4Phj3zxVBo2mSvwnuFSyeSOg="
+    "MIIBPjCB5KADAgECAgECMAoGCCqGSM49BAMCMCIxDjAMBgNVBAsMBUFkbWluMRAw"
+    "DgYDVQQDDAdNYW5hZ2VyMB4XDTE1MDQyNzAyMjM1NFoXDTE2MDQyNjAyMjM1NFow"
+    "HTEOMAwGA1UECwwFTWVkaWExCzAJBgNVBAMMAlRWMFkwEwYHKoZIzj0CAQYIKoZI"
+    "zj0DAQcDQgAEXhpO6l5w9lARVZklVvYCnqvUnK1sQg+SFKERW9IOae0yUQJAoV5B"
+    "L4YkaN3zQirDZzZefX4gIxIYXeLNLwYr8qMQMA4wDAYDVR0TBAUwAwIBATAKBggq"
+    "hkjOPQQDAgNJADBGAiEA4Laxe8SunKOjqohe5lFzSUQh3m9O2OdzV3ZKKcclMtEC"
+    "IQCOVhnC7/PLFGXCY1uaJ/4cJvlLtUmLkMZVeYJRN3NSRA=="
     "-----END CERTIFICATE-----"
 };
+
+static const char pem_x509_7[] = {
+    "-----BEGIN CERTIFICATE-----"
+    "MIIBQjCB6qADAgECAgECMAoGCCqGSM49BAMCMCIxDjAMBgNVBAsMBUFkbWluMRAw"
+    "DgYDVQQDDAdNYW5hZ2VyMB4XDTE1MDQyNzAyMjQwMloXDTE2MDQyNjAyMjQwMlow"
+    "HTEOMAwGA1UECwwFTWVkaWExCzAJBgNVBAMMAlRWMFkwEwYHKoZIzj0CAQYIKoZI"
+    "zj0DAQcDQgAEXhpO6l5w9lARVZklVvYCnqvUnK1sQg+SFKERW9IOae0yUQJAoV5B"
+    "L4YkaN3zQirDZzZefX4gIxIYXeLNLwYr8qMWMBQwEgYDVR0TAQH/BAgwBgEB/wIB"
+    "ATAKBggqhkjOPQQDAgNHADBEAiB4qUTMHJZMHtSvi9AKPRvG9JwkgFewBYpxvQad"
+    "VbinnAIgWw4KgERCMAqSUbCVsQXGff87OPHrL1M1xsHpomG8Qhs="
+    "-----END CERTIFICATE-----"
+};
+
+static const char pem_x509_8[] = {
+    "-----BEGIN CERTIFICATE-----"
+    "MIIBPjCB5KADAgECAgECMAoGCCqGSM49BAMCMCIxDjAMBgNVBAsMBUFkbWluMRAw"
+    "DgYDVQQDDAdNYW5hZ2VyMB4XDTE1MDQyNzAyMjQyMVoXDTE2MDQyNjAyMjQyMVow"
+    "HTEOMAwGA1UECwwFTWVkaWExCzAJBgNVBAMMAlRWMFkwEwYHKoZIzj0CAQYIKoZI"
+    "zj0DAQcDQgAEXhpO6l5w9lARVZklVvYCnqvUnK1sQg+SFKERW9IOae0yUQJAoV5B"
+    "L4YkaN3zQirDZzZefX4gIxIYXeLNLwYr8qMQMA4wDAYDVR0TAQH/BAIwADAKBggq"
+    "hkjOPQQDAgNJADBGAiEA7lU0PJ5/TZgTj8EKiMUGIGsafxqZZVpjeeuC9yGskSwC"
+    "IQCTgDOBsgKA74gf0pKipF7fA0+UDLpwMLQlw8P6YVidHQ=="
+    "-----END CERTIFICATE-----"
+};
+
+static const char pem_x509_9[] = {
+    "-----BEGIN CERTIFICATE-----"
+    "MIIBiDCCAS+gAwIBAgIBATAKBggqhkjOPQQDAjAiMQ4wDAYDVQQLDAVBZG1pbjEQ"
+    "MA4GA1UEAwwHTWFuYWdlcjAeFw0xNTA0MjcwMjM1MDFaFw0xNjA0MjYwMjM1MDFa"
+    "MCIxDjAMBgNVBAsMBUFkbWluMRAwDgYDVQQDDAdNYW5hZ2VyMFkwEwYHKoZIzj0C"
+    "AQYIKoZIzj0DAQcDQgAEPEPcAowvgJcSAVbZgJp1TjZ84VHtgITq/Ex3ayLMGrJ1"
+    "aqA6+s9eOEYNGqvrZfQHRFcaM7m5MmRDn4J8PT+1oaNWMFQwDAYDVR0TAQH/BAIw"
+    "ADAgBgNVHQ4BAf8EFgQU1Fg51CWrJVEvK0CmpqxH5cugqlgwIgYDVR0jAQH/BBgw"
+    "FoAU1Fg51CWrJVEvK0CmpqxH5cugqlgwCgYIKoZIzj0EAwIDRwAwRAIgXzg72DWx"
+    "EwY6xH6iVLvuqGW9cgBsgp/tPzkPwsmg0kcCIETALRqB6+bcIEgPLa6EG3/7rC44"
+    "ZWyKXae3oh5W2t4k"
+    "-----END CERTIFICATE-----"
+};
+
+// Identity certificate
+static const char pem_x509_10[] = {
+    "-----BEGIN CERTIFICATE-----"
+    "MIIB8DCCAZagAwIBAgIBATAKBggqhkjOPQQDAjANMQswCQYDVQQDDAJjbjAeFw0x"
+    "NTA1MjgwMDM3NTNaFw0xNjA1MjcwMDM3NTNaMA0xCzAJBgNVBAMMAmNuMFkwEwYH"
+    "KoZIzj0CAQYIKoZIzj0DAQcDQgAEPEPcAowvgJcSAVbZgJp1TjZ84VHtgITq/Ex3"
+    "ayLMGrJ1aqA6+s9eOEYNGqvrZfQHRFcaM7m5MmRDn4J8PT+1oaOB5jCB4zAMBgNV"
+    "HRMBAf8EAjAAMCwGA1UdDgEB/wQiBCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    "AAAAAAAAADAuBgNVHSMBAf8EJDAigCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    "AAAAAAAAADARBgorBgEEAYLefAEBBAMCAQEwIwYDVR0RAQH/BBkwF6AVBgorBgEE"
+    "AYLefAEEoAcEBWFsaWFzMD0GCisGAQQBgt58AQIELzAtBglghkgBZQMEAgEEIAAA"
+    "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMAoGCCqGSM49BAMCA0gAMEUC"
+    "IQDyo+zR+1Ba7Nud8X9I53ZF52tNn+ou4zSo9qIiEKmI5wIgTUO3+3HE0NN5uy8c"
+    "aBmsqvqSzEvN/RQqsKXIyRUfQY8="
+    "-----END CERTIFICATE-----"
+};
+
+// Security group certificate
+static const char pem_x509_11[] = {
+    "-----BEGIN CERTIFICATE-----"
+    "MIIBuzCCAWKgAwIBAgIBATAKBggqhkjOPQQDAjANMQswCQYDVQQDDAJjbjAeFw0x"
+    "NTA1MjcwNDAzMzhaFw0xNjA1MjYwNDAzMzhaMA0xCzAJBgNVBAMMAmNuMFkwEwYH"
+    "KoZIzj0CAQYIKoZIzj0DAQcDQgAEPEPcAowvgJcSAVbZgJp1TjZ84VHtgITq/Ex3"
+    "ayLMGrJ1aqA6+s9eOEYNGqvrZfQHRFcaM7m5MmRDn4J8PT+1oaOBsjCBrzAMBgNV"
+    "HRMBAf8EAjAAMCwGA1UdDgEB/wQiBCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    "AAAAAAAAADAuBgNVHSMBAf8EJDAigCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    "AAAAAAAAADARBgorBgEEAYLefAEBBAMCAQIwLgYDVR0RAQH/BCQwIqAgBgorBgEE"
+    "AYLefAEDoBIEEAAAAAAAAAAAAAAAAAAAAAAwCgYIKoZIzj0EAwIDRwAwRAIgaGVf"
+    "HMKMdNPoBegHdikjI+tpNRWeh1rwg4xzKBnftWQCIFA6AK0Zm4cJfCvMw+Dx/rXa"
+    "xqmf9RLcTk6jT96b0wGC"
+    "-----END CERTIFICATE-----"
+};
+
+#define ASN_OCTETS           0x04
+#define ASN_UTF8             0x0C
+void PrintElement(char* tag, DER_Element* der, uint8_t type)
+{
+    size_t i;
+
+    if (0 == der->size) {
+        return;
+    }
+
+    AJ_AlwaysPrintf(("%s: ", tag));
+    for (i = 0; i < der->size; i++) {
+        switch (type) {
+        case ASN_OCTETS:
+            AJ_AlwaysPrintf(("%02X", der->data[i]));
+            break;
+
+        case ASN_UTF8:
+            AJ_AlwaysPrintf(("%c", (char) der->data[i]));
+            break;
+        }
+    }
+    AJ_AlwaysPrintf(("\n"));
+}
+
+void PrintCertificate(X509Certificate* certificate)
+{
+    AJ_AlwaysPrintf(("Certificate\n"));
+    PrintElement("    Serial    ", &certificate->tbs.serial, ASN_OCTETS);
+    PrintElement("    Issuer  OU", &certificate->tbs.issuer.ou, ASN_UTF8);
+    PrintElement("    Issuer  CN", &certificate->tbs.issuer.cn, ASN_UTF8);
+    PrintElement("    Subject OU", &certificate->tbs.subject.ou, ASN_UTF8);
+    PrintElement("    Subject CN", &certificate->tbs.subject.cn, ASN_UTF8);
+    AJ_AlwaysPrintf(("    Extensions\n"));
+    PrintElement("        SKI   ", &certificate->tbs.extensions.ski, ASN_OCTETS);
+    PrintElement("        AKI   ", &certificate->tbs.extensions.aki, ASN_OCTETS);
+    PrintElement("        Alias ", &certificate->tbs.extensions.alias, ASN_UTF8);
+    PrintElement("        Group ", &certificate->tbs.extensions.group, ASN_OCTETS);
+    PrintElement("        Digest", &certificate->tbs.extensions.digest, ASN_OCTETS);
+}
+
+AJ_Status ParseCertificate(X509Certificate* certificate, const char* pem, uint8_t verify)
+{
+    AJ_Status status = AJ_OK;
+    DER_Element der;
+
+    status = AJ_X509DecodeCertificatePEM(certificate, pem);
+    if (AJ_OK != status) {
+        AJ_Printf("Parse: %s\n", AJ_StatusText(status));
+        return status;
+    }
+    der.size = certificate->der.size;
+    der.data = certificate->der.data;
+    status = AJ_X509DecodeCertificateDER(certificate, &der);
+    AJ_Printf("Parse: %s\n", AJ_StatusText(status));
+    if (AJ_OK != status) {
+        return status;
+    }
+    PrintCertificate(certificate);
+    if (verify) {
+        status = AJ_X509SelfVerify(certificate);
+        AJ_Printf("Verify: %s\n", AJ_StatusText(status));
+    }
+    if (certificate->der.data) {
+        AJ_Free(certificate->der.data);
+    }
+    return status;
+}
 
 int AJ_Main(int ac, char** av)
 {
     AJ_Status status = AJ_OK;
     X509Certificate certificate;
-    DER_Element der;
-    ecc_privatekey prv;
-    ecc_signature sig;
-    uint8_t digest[AJ_SHA256_DIGEST_LENGTH];
+    AJ_ECCPublicKey pub;
+    AJ_ECCPrivateKey prv;
+    AJ_ECCSignature sig;
+    uint8_t buffer[128];
 
-    status = AJ_X509DecodeCertificatePEM(&certificate, pem_x509_self);
+    status = AJ_GenerateECCKeyPair(&pub, &prv);
     AJ_ASSERT(AJ_OK == status);
-    der.size = certificate.der.size;
-    der.data = certificate.der.data;
-    status = AJ_X509DecodeCertificateDER(&certificate, &der);
+    status = AJ_ECDSASign(buffer, sizeof (buffer), &prv, &sig);
     AJ_ASSERT(AJ_OK == status);
-    status = AJ_X509SelfVerify(&certificate);
-    AJ_Printf("Verify: %s\n", AJ_StatusText(status));
-    AJ_Free(certificate.der.data);
+    status = AJ_ECDSAVerify(buffer, sizeof (buffer), &sig, &pub);
+    AJ_ASSERT(AJ_OK == status);
 
-    memset(digest, 1, sizeof (digest));
+    status = ParseCertificate(&certificate, pem_x509_self, 1);
 
-    status = AJ_X509DecodeCertificatePEM(&certificate, pem_x509_1);
-    AJ_ASSERT(AJ_OK == status);
-    der.size = certificate.der.size;
-    der.data = certificate.der.data;
-    status = AJ_X509DecodeCertificateDER(&certificate, &der);
-    AJ_ASSERT(AJ_OK == status);
+    status = ParseCertificate(&certificate, pem_x509_1, 0);
     status = AJ_DecodePrivateKeyPEM(&prv, pem_prv_1);
     AJ_ASSERT(AJ_OK == status);
-    status = AJ_DSASignDigest(digest, &prv, &sig);
-    AJ_ASSERT(AJ_OK == status);
-    status = AJ_DSAVerifyDigest(digest, &sig, &certificate.tbs.publickey);
-    AJ_Printf("Verify: %s\n", AJ_StatusText(status));
-    AJ_Free(certificate.der.data);
 
-    status = AJ_X509DecodeCertificatePEM(&certificate, pem_x509_2);
-    AJ_ASSERT(AJ_OK == status);
-    der.size = certificate.der.size;
-    der.data = certificate.der.data;
-    status = AJ_X509DecodeCertificateDER(&certificate, &der);
-    AJ_ASSERT(AJ_OK == status);
-    status = AJ_X509SelfVerify(&certificate);
-    AJ_Printf("Verify: %s\n", AJ_StatusText(status));
+    status = ParseCertificate(&certificate, pem_x509_2, 0);
     status = AJ_DecodePrivateKeyPEM(&prv, pem_prv_2);
     AJ_ASSERT(AJ_OK == status);
-    status = AJ_DSASignDigest(digest, &prv, &sig);
-    AJ_ASSERT(AJ_OK == status);
-    status = AJ_DSAVerifyDigest(digest, &sig, &certificate.tbs.publickey);
-    AJ_Printf("Verify: %s\n", AJ_StatusText(status));
-    AJ_Free(certificate.der.data);
 
-    status = AJ_X509DecodeCertificatePEM(&certificate, pem_x509_3);
-    AJ_ASSERT(AJ_OK == status);
-    der.size = certificate.der.size;
-    der.data = certificate.der.data;
-    status = AJ_X509DecodeCertificateDER(&certificate, &der);
-    AJ_ASSERT(AJ_OK == status);
-    status = AJ_X509SelfVerify(&certificate);
-    AJ_Printf("Verify: %s\n", AJ_StatusText(status));
+    status = ParseCertificate(&certificate, pem_x509_3, 0);
     status = AJ_DecodePrivateKeyPEM(&prv, pem_prv_3);
     AJ_ASSERT(AJ_OK == status);
-    status = AJ_DSASignDigest(digest, &prv, &sig);
-    AJ_ASSERT(AJ_OK == status);
-    status = AJ_DSAVerifyDigest(digest, &sig, &certificate.tbs.publickey);
-    AJ_Printf("Verify: %s\n", AJ_StatusText(status));
-    AJ_Free(certificate.der.data);
 
-    status = AJ_X509DecodeCertificatePEM(&certificate, pem_x509_bcCritical);
-    AJ_ASSERT(AJ_OK == status);
-    der.size = certificate.der.size;
-    der.data = certificate.der.data;
-    status = AJ_X509DecodeCertificateDER(&certificate, &der);
-    AJ_ASSERT(AJ_OK == status);
-    AJ_Printf("Parse cert with basicConstraints marked as critical: %s\n", AJ_StatusText(status));
-    AJ_Free(certificate.der.data);
-
-    status = AJ_X509DecodeCertificatePEM(&certificate, pem_x509_pathLen);
-    AJ_ASSERT(AJ_OK == status);
-    der.size = certificate.der.size;
-    der.data = certificate.der.data;
-    status = AJ_X509DecodeCertificateDER(&certificate, &der);
-    AJ_ASSERT(AJ_OK == status);
-    AJ_Printf("Parse pathLen: %s\n", AJ_StatusText(status));
-    AJ_Free(certificate.der.data);
-
-    status = AJ_X509DecodeCertificatePEM(&certificate, pem_x509_no_CA);
-    AJ_ASSERT(AJ_OK == status);
-    der.size = certificate.der.size;
-    der.data = certificate.der.data;
-    status = AJ_X509DecodeCertificateDER(&certificate, &der);
-    AJ_ASSERT(AJ_OK == status);
-    AJ_Printf("Parse no CA: %s\n", AJ_StatusText(status));
-    AJ_Free(certificate.der.data);
+    status = ParseCertificate(&certificate, pem_x509_4, 0);
+    status = ParseCertificate(&certificate, pem_x509_5, 0);
+    status = ParseCertificate(&certificate, pem_x509_6, 0);
+    status = ParseCertificate(&certificate, pem_x509_7, 0);
+    status = ParseCertificate(&certificate, pem_x509_8, 0);
+    status = ParseCertificate(&certificate, pem_x509_9, 1);
+    status = ParseCertificate(&certificate, pem_x509_10, 1);
+    status = ParseCertificate(&certificate, pem_x509_11, 1);
 
     return 0;
 }

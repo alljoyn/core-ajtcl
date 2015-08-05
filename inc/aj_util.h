@@ -241,9 +241,6 @@ uint16_t AJ_ByteSwap16(uint16_t x);
 uint32_t AJ_ByteSwap32(uint32_t x);
 uint64_t AJ_ByteSwap64(uint64_t x);
 
-#ifdef __cplusplus
-}
-#endif
 /**
  * Convert integer to decimal string representation
  *
@@ -316,6 +313,30 @@ void HostU64ToBigEndianU8(uint64_t* u64, size_t len, uint8_t* u8);
  *
  */
 void HostU64ToLittleEndianU8(uint64_t* u64, size_t len, uint8_t* u8);
+/**
+ * Convert unsigned 32-bit int array to network order (big endian) bytes.
+ *
+ * @param u32  Unsigned 32-bit array
+ * @param len  Length of 32-bit array
+ * @param u8   Unsigned 8-bit array
+ *
+ */
+void HostU32ToBigEndianU8(uint32_t* u32, size_t len, uint8_t* u8);
+
+/**
+ * Convert network order (big endian) bytes to unsigned 32-bit int array.
+ *
+ * @param u8   Unsigned 8-bit array
+ * @param u32  Unsigned 32-bit array
+ * @param len  Length of 32-bit array
+ *
+ */
+void BigEndianU8ToHostU32(uint8_t* u8, uint32_t* u32, size_t len);
+
+#ifdef __cplusplus
+}
+#endif
+
 /**
  * @}
  */

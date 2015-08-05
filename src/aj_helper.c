@@ -25,6 +25,7 @@
 #include <ajtcl/aj_link_timeout.h>
 #include <ajtcl/aj_debug.h>
 #include <ajtcl/aj_config.h>
+#include <ajtcl/aj_security.h>
 
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
@@ -268,6 +269,8 @@ AJ_Status AJ_StartService(AJ_BusAttachment* bus,
     AJ_Status status;
     AJ_Time timer;
     uint8_t serviceStarted = FALSE;
+    uint32_t disposition;
+    uint16_t retport;
 
     AJ_InfoPrintf(("AJ_StartService(bus=0x%p, daemonName=\"%s\", timeout=%d., connected=%d., port=%d., name=\"%s\", flags=0x%x, opts=0x%p)\n",
                    bus, daemonName, timeout, connected, port, name, flags, opts));
@@ -319,9 +322,21 @@ AJ_Status AJ_StartService(AJ_BusAttachment* bus,
             if (msg.hdr->msgType == AJ_MSG_ERROR) {
                 AJ_ErrPrintf(("AJ_StartService(): AJ_METHOD_BIND_SESSION_PORT: %s\n", msg.error));
                 status = AJ_ERR_FAILURE;
-            } else {
-                AJ_InfoPrintf(("AJ_StartService(): AJ_BusRequestName()\n"));
-                status = AJ_BusRequestName(bus, name, flags);
+                break;
+            }
+            status = AJ_UnmarshalArgs(&msg, "uq", &disposition, &retport);
+            if (AJ_OK != status) {
+                break;
+            }
+            if (retport == port) {
+                if (AJ_BINDSESSIONPORT_REPLY_SUCCESS == disposition) {
+                    AJ_InfoPrintf(("AJ_StartService(): AJ_BusRequestName()\n"));
+                    status = AJ_BusRequestName(bus, name, flags);
+                } else {
+                    status = AJ_ERR_FAILURE;
+                    AJ_InfoPrintf(("AJ_StartService(bus=%p): AJ_METHOD_BIND_SESSION_PORT: disposition %d\n", bus, disposition));
+                    break;
+                }
             }
             break;
 
@@ -355,12 +370,18 @@ AJ_Status AJ_StartService(AJ_BusAttachment* bus,
         AJ_CloseMsg(&msg);
     }
 
-    if (status == AJ_OK) {
-        status = AJ_AboutInit(bus, port);
-    } else {
+    if (AJ_OK != status) {
         AJ_WarnPrintf(("AJ_StartService(): AJ_Disconnect(): status=%s\n", AJ_StatusText(status)));
         AJ_Disconnect(bus);
+        return status;
     }
+    status = AJ_AboutInit(bus, port);
+    if (AJ_OK != status) {
+        AJ_WarnPrintf(("AJ_StartService(): AJ_AboutInit returned status=%s\n", AJ_StatusText(status)));
+        AJ_Disconnect(bus);
+        return status;
+    }
+
     return status;
 }
 
@@ -611,10 +632,13 @@ AJ_Status StartClient(AJ_BusAttachment* bus,
         }
         AJ_CloseMsg(&msg);
     }
-    if (status != AJ_OK && !connected) {
+
+    if ((AJ_OK != status) && !connected) {
         AJ_WarnPrintf(("AJ_StartClient(): Client disconnecting from bus: status=%s\n", AJ_StatusText(status)));
         AJ_Disconnect(bus);
+        return status;
     }
+
     return status;
 }
 

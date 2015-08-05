@@ -43,7 +43,7 @@ if has_openssl:
     default_crypto = 'openssl'
     
 vars = Variables()
-vars.Add(EnumVariable('AJ_CRYPTO', 'Select Crypto system to use', os.environ.get('AJ__CRYPTO', default_crypto), crypto_opts))
+vars.Add(EnumVariable('AJ_CRYPTO', 'Select Crypto system to use', os.environ.get('AJ_CRYPTO', default_crypto), crypto_opts))
 vars.Update(env)
 Help(vars.GenerateHelpText(env))
 

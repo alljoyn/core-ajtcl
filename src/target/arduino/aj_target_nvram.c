@@ -40,6 +40,11 @@ void _AJ_NV_Write(void* dest, const void* buf, uint16_t size)
     memcpy(dest, buf, size);
 }
 
+void _AJ_NV_Move(void* dest, const void* buf, uint16_t size)
+{
+    memmove(dest, buf, size);
+}
+
 void _AJ_NV_Read(void* src, void* buf, uint16_t size)
 {
     memcpy(buf, src, size);
@@ -66,7 +71,7 @@ AJ_Status _AJ_CompactNVStorage()
         capacity = *(data + 1);
         entrySize = ENTRY_HEADER_SIZE + capacity;
         if (id != INVALID_ID) {
-            _AJ_NV_Write(writePtr, data, entrySize);
+            _AJ_NV_Move(writePtr, data, entrySize);
             writePtr += entrySize;
         } else {
             garbage += entrySize;

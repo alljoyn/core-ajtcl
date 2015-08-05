@@ -23,8 +23,36 @@
 #include <ajtcl/aj_crypto.h>
 #include <ajtcl/aj_crypto_ecc.h>
 #include <ajtcl/aj_crypto_sha2.h>
+#include <ajtcl/aj_util.h>
 #include <ajtcl/aj_crypto_fp.h>
 #include <ajtcl/aj_crypto_ec_p256.h>
+
+
+#define BIGLEN 9
+/*
+ * For P256 bigval_t types hold 288-bit 2's complement numbers (9
+ * 32-bit words).  For P192 they hold 224-bit 2's complement numbers
+ * (7 32-bit words).
+ *
+ * The representation is little endian by word and native endian
+ * within each word.
+ */
+
+typedef struct {
+    uint32_t data[BIGLEN];
+} bigval_t;
+
+
+typedef struct {
+    bigval_t x;
+    bigval_t y;
+    uint32_t infinity;
+} affine_point_t;
+
+typedef struct {
+    bigval_t r;
+    bigval_t s;
+} ECDSA_sig_t;
 
 /* P256 is tested directly with known answer tests from example in
    ANSI X9.62 Annex L.4.2.  (See item in pt_mpy_testcases below.)
@@ -1144,7 +1172,7 @@ Exit:
     return status;
 }
 
-void AJ_BigvalEncode(const bigval_t* src, uint8_t* tgt, size_t tgtlen)
+static void BigvalEncode(const bigval_t* src, uint8_t* tgt, size_t tgtlen)
 {
     size_t i;
     uint8_t v;
@@ -1163,13 +1191,13 @@ void AJ_BigvalEncode(const bigval_t* src, uint8_t* tgt, size_t tgtlen)
     }
 }
 
-void AJ_BigvalDecode(const uint8_t* src, bigval_t* tgt, size_t srclen)
+static void BigvalDecode(const uint8_t* src, bigval_t* tgt, size_t srclen)
 {
     size_t i;
     uint8_t v;
 
     /* zero the bigval_t */
-    memset(tgt, 0, sizeof (bigval_t));
+    memset((uint8_t*) tgt, 0, sizeof (bigval_t));
     /* scan from LSbyte to MSbyte */
     for (i = 0; i < srclen && i < 4 * BIGLEN; ++i) {
         v = ((uint8_t*)src)[srclen - 1 - i];
@@ -1379,144 +1407,183 @@ static int get_random_bytes(uint8_t* buf, int len) {
     return 0;
 }
 
+typedef bigval_t ecc_privatekey;
+typedef affine_point_t ecc_publickey;
+typedef affine_point_t ecc_secret;
+typedef ECDSA_sig_t ecc_signature;
 
-
-/**
- * Generates the Ephemeral Diffie-Hellman key pair.
- *
- * @param publicKey The output public key
- * @param privateKey The output private key
- *
- * @return  - AJ_OK if the key pair is successfully generated.
- *          - AJ_ERR_SECURITY otherwise
- */
-AJ_Status AJ_GenerateDHKeyPair(ecc_publickey* publicKey, ecc_privatekey* privateKey)
+AJ_Status AJ_GenerateECCKeyPair(AJ_ECCPublicKey* pub, AJ_ECCPrivateKey* prv)
 {
-    if (ECDH_generate(publicKey, privateKey) == 0) {
-        return AJ_OK;
-    }
-    return AJ_ERR_SECURITY;
-}
+    ecc_publickey publickey;
+    ecc_privatekey privatekey;
 
-
-/**
- * Generates the Diffie-Hellman share secret.
- *
- * @param peerPublicKey The peer's public key
- * @param privateKey The private key
- * @param secret The output share secret
- *
- * @return  - AJ_OK if the share secret is successfully generated.
- *          - AJ_ERR_SECURITY otherwise
- */
-AJ_Status AJ_GenerateShareSecret(ecc_publickey* peerPublicKey, ecc_privatekey* privateKey, ecc_secret* secret)
-{
-    boolean_t derive_rv;
-
-    derive_rv = ECDH_derive_pt(secret, privateKey, peerPublicKey);
-    if (!derive_rv) {
-        return AJ_ERR_SECURITY;  /* bad */
+    if (0 != ECDH_generate(&publickey, &privatekey)) {
+        return AJ_ERR_SECURITY;
     }
-    if (derive_rv) {
-        if (!in_curveP(secret)) {
-            return AJ_ERR_SECURITY;  /* bad */
-        }
-    }
+
+    /* Encode native to big-endian structures */
+    pub->alg = KEY_ALG_ECDSA_SHA256;
+    pub->crv = KEY_CRV_NISTP256;
+    prv->alg = KEY_ALG_ECDSA_SHA256;
+    prv->crv = KEY_CRV_NISTP256;
+    BigvalEncode(&publickey.x, pub->x, KEY_ECC_SZ);
+    BigvalEncode(&publickey.y, pub->y, KEY_ECC_SZ);
+    BigvalEncode(&privatekey, prv->x, KEY_ECC_SZ);
+
     return AJ_OK;
 }
 
-/**
- * Generates the DSA key pair.
- *
- * @param publicKey The output public key
- * @param privateKey The output private key
- * @return  - AJ_OK if the key pair is successfully generated
- *          - AJ_ERR_SECURITY otherwise
- */
-AJ_Status AJ_GenerateDSAKeyPair(ecc_publickey* publicKey, ecc_privatekey* privateKey)
+AJ_Status AJ_GenerateShareSecret(AJ_ECCPublicKey* pub, AJ_ECCPrivateKey* prv, AJ_ECCSecret* sec)
 {
-    if (ECDH_generate(publicKey, privateKey) == 0) {
-        return AJ_OK;
+    boolean_t derive_rv;
+    ecc_publickey publickey;
+    ecc_privatekey privatekey;
+    ecc_secret secret;
+
+    /* Decode big-endian structures to native */
+    publickey.infinity = B_FALSE;
+    BigvalDecode(pub->x, &publickey.x, KEY_ECC_SZ);
+    BigvalDecode(pub->y, &publickey.y, KEY_ECC_SZ);
+    BigvalDecode(prv->x, &privatekey, KEY_ECC_SZ);
+
+    derive_rv = ECDH_derive_pt(&secret, &privatekey, &publickey);
+    if (!derive_rv) {
+        return AJ_ERR_SECURITY;  /* bad */
+    } else if (!in_curveP(&secret)) {
+        return AJ_ERR_SECURITY;  /* bad */
     }
-    return AJ_ERR_SECURITY;
+
+    /* Encode native to big-endian structures */
+    sec->crv = KEY_CRV_NISTP256;
+    BigvalEncode(&secret.x, sec->x, KEY_ECC_SZ);
+
+    return AJ_OK;
 }
 
-/**
- * Sign a digest using the DSA key
- * @param digest The digest to sign
- * @param signingPrivateKey The signing private key
- * @param sig The output signature
- * @return  - AJ_OK if the signing process succeeds
- *          - AJ_ERR_SECURITY otherwise
- */
-AJ_Status AJ_DSASignDigest(const uint8_t* digest, const ecc_privatekey* signingPrivateKey, ecc_signature* sig)
+AJ_Status AJ_ECDSASignDigest(const uint8_t* digest, const AJ_ECCPrivateKey* prv, AJ_ECCSignature* sig)
 {
     bigval_t source;
+    ecc_privatekey privatekey;
+    ecc_signature signature;
+
+    /* Decode big-endian structures to native */
+    BigvalDecode(prv->x, &privatekey, KEY_ECC_SZ);
 
     ECC_hash_to_bigval(&source, digest, AJ_SHA256_DIGEST_LENGTH);
-    if (ECDSA_sign(&source, signingPrivateKey, sig) == 0) {
-        return AJ_OK;
+    if (0 != ECDSA_sign(&source, &privatekey, &signature)) {
+        return AJ_ERR_SECURITY;
     }
-    return AJ_ERR_SECURITY;
+
+    /* Encode native to big-endian structures */
+    sig->alg = KEY_ALG_ECDSA_SHA256;
+    sig->crv = KEY_CRV_NISTP256;
+    BigvalEncode(&signature.r, sig->r, KEY_ECC_SZ);
+    BigvalEncode(&signature.s, sig->s, KEY_ECC_SZ);
+
+    return AJ_OK;
 }
 
-/**
- * Sign a buffer using the DSA key
- * @param buf The buffer to sign
- * @param len The buffer len
- * @param signingPrivateKey The signing private key
- * @param sig The output signature
- * @return  - AJ_OK if the signing process succeeds
- *          - AJ_ERR_SECURITY otherwise
- */
-AJ_Status AJ_DSASign(const uint8_t* buf, uint16_t len, const ecc_privatekey* signingPrivateKey, ecc_signature* sig)
+AJ_Status AJ_ECDSASign(const uint8_t* buf, uint16_t len, const AJ_ECCPrivateKey* prv, AJ_ECCSignature* sig)
 {
-    AJ_SHA256_Context ctx;
+    AJ_SHA256_Context* ctx;
     uint8_t digest[AJ_SHA256_DIGEST_LENGTH];
+    AJ_Status status;
 
-    AJ_SHA256_Init(&ctx);
-    AJ_SHA256_Update(&ctx, (const uint8_t*) buf, (size_t) len);
-    AJ_SHA256_Final(&ctx, digest);
+    ctx = AJ_SHA256_Init();
+    if (!ctx) {
+        return AJ_ERR_RESOURCES;
+    }
+    AJ_SHA256_Update(ctx, buf, (size_t) len);
+    status = AJ_SHA256_Final(ctx, digest);
+    if (status != AJ_OK) {
+        return status;
+    }
 
-    return AJ_DSASignDigest(digest, signingPrivateKey, sig);
+    return AJ_ECDSASignDigest(digest, prv, sig);
 }
 
-/**
- * Verify DSA signature of a digest
- * @param digest The digest to sign
- * @param sig The signature
- * @param pubKey The signing public key
- * @return  - AJ_OK if the signature verification succeeds
- *          - AJ_ERR_SECURITY otherwise
- */
-AJ_Status AJ_DSAVerifyDigest(const uint8_t* digest, const ecc_signature* sig, const ecc_publickey* pubKey)
+AJ_Status AJ_ECDSAVerifyDigest(const uint8_t* digest, const AJ_ECCSignature* sig, const AJ_ECCPublicKey* pub)
 {
     bigval_t source;
+    ecc_publickey publickey;
+    ecc_signature signature;
+
+    /* Decode big-endian structures to native */
+    publickey.infinity = B_FALSE;
+    BigvalDecode(pub->x, &publickey.x, KEY_ECC_SZ);
+    BigvalDecode(pub->y, &publickey.y, KEY_ECC_SZ);
+    BigvalDecode(sig->r, &signature.r, KEY_ECC_SZ);
+    BigvalDecode(sig->s, &signature.s, KEY_ECC_SZ);
 
     ECC_hash_to_bigval(&source, digest, AJ_SHA256_DIGEST_LENGTH);
-    if (ECDSA_verify(&source, pubKey, sig) == B_TRUE) {
+    if (ECDSA_verify(&source, &publickey, &signature) == B_TRUE) {
         return AJ_OK;
     }
 
     return AJ_ERR_SECURITY;
 }
-/**
- * Verify DSA signature of a buffer
- * @param buf The buffer to sign
- * @param len The buffer len
- * @param sig The signature
- * @param pubKey The signing public key
- * @return  - AJ_OK if the signature verification succeeds
- *          - AJ_ERR_SECURITY otherwise
- */
-AJ_Status AJ_DSAVerify(const uint8_t* buf, uint16_t len, const ecc_signature* sig, const ecc_publickey* pubKey)
+
+AJ_Status AJ_ECDSAVerify(const uint8_t* buf, uint16_t len, const AJ_ECCSignature* sig, const AJ_ECCPublicKey* pub)
 {
-    AJ_SHA256_Context ctx;
+    AJ_SHA256_Context* ctx;
     uint8_t digest[AJ_SHA256_DIGEST_LENGTH];
+    AJ_Status status;
 
-    AJ_SHA256_Init(&ctx);
-    AJ_SHA256_Update(&ctx, (const uint8_t*) buf, (size_t) len);
-    AJ_SHA256_Final(&ctx, digest);
+    ctx = AJ_SHA256_Init();
+    if (!ctx) {
+        return AJ_ERR_RESOURCES;
+    }
+    AJ_SHA256_Update(ctx, (const uint8_t*) buf, (size_t) len);
+    status = AJ_SHA256_Final(ctx, digest);
+    if (status != AJ_OK) {
+        return status;
+    }
 
-    return AJ_DSAVerifyDigest(digest, sig, pubKey);
+    return AJ_ECDSAVerifyDigest(digest, sig, pub);
+}
+
+void AJ_BigEndianEncodePublicKey(AJ_ECCPublicKey* pub, uint8_t* b8)
+{
+    ecc_publickey publickey;
+    publickey.infinity = B_FALSE;
+    BigvalDecode(pub->x, &publickey.x, KEY_ECC_SZ);
+    BigvalDecode(pub->y, &publickey.y, KEY_ECC_SZ);
+    HostU32ToBigEndianU8((uint32_t*) &publickey, sizeof (ecc_publickey), b8);
+}
+
+void AJ_BigEndianDecodePublicKey(AJ_ECCPublicKey* pub, uint8_t* b8)
+{
+    ecc_publickey publickey;
+    BigEndianU8ToHostU32(b8, (uint32_t*) &publickey, sizeof (ecc_publickey));
+    BigvalEncode(&publickey.x, pub->x, KEY_ECC_SZ);
+    BigvalEncode(&publickey.y, pub->y, KEY_ECC_SZ);
+}
+
+AJ_Status AJ_GenerateShareSecretOld(AJ_ECCPublicKey* pub, AJ_ECCPrivateKey* prv, AJ_ECCPublicKey* sec)
+{
+    boolean_t derive_rv;
+    ecc_publickey publickey;
+    ecc_privatekey privatekey;
+    ecc_secret secret;
+
+    /* Decode big-endian structures to native */
+    publickey.infinity = B_FALSE;
+    BigvalDecode(pub->x, &publickey.x, KEY_ECC_SZ);
+    BigvalDecode(pub->y, &publickey.y, KEY_ECC_SZ);
+    BigvalDecode(prv->x, &privatekey, KEY_ECC_SZ);
+
+    derive_rv = ECDH_derive_pt(&secret, &privatekey, &publickey);
+    if (!derive_rv) {
+        return AJ_ERR_SECURITY;  /* bad */
+    } else if (!in_curveP(&secret)) {
+        return AJ_ERR_SECURITY;  /* bad */
+    }
+
+    /* Encode native to big-endian structures */
+    sec->crv = KEY_CRV_NISTP256;
+    secret.infinity = B_FALSE;
+    BigvalDecode(sec->x, &secret.x, KEY_ECC_SZ);
+    BigvalDecode(sec->y, &secret.y, KEY_ECC_SZ);
+
+    return AJ_OK;
 }

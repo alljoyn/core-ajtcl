@@ -40,6 +40,7 @@
 #include <ajtcl/aj_bus.h>
 #include <ajtcl/aj_debug.h>
 #include <ajtcl/aj_config.h>
+#include <ajtcl/aj_authorisation.h>
 
 #ifdef AJ_ARDP
 #include <ajtcl/aj_ardp.h>
@@ -1303,6 +1304,22 @@ AJ_Status AJ_UnmarshalMsg(AJ_BusAttachment* bus, AJ_Message* msg, uint32_t timeo
         if (status == AJ_OK) {
             status = AJ_IdentifyMessage(msg);
         }
+        /*
+         * Check incoming policy
+         */
+        if ((AJ_OK == status) && (msg->hdr) && (msg->hdr->flags & AJ_FLAG_ENCRYPTED)) {
+            if ((msg->hdr->msgType == AJ_MSG_METHOD_CALL) || (msg->hdr->msgType == AJ_MSG_SIGNAL)) {
+                status = AJ_AccessControlCheckMessage(msg, msg->sender, AJ_ACCESS_INCOMING);
+                if (AJ_OK != status) {
+                    if (msg->hdr->msgType == AJ_MSG_METHOD_CALL) {
+                        AJ_Message reply;
+                        AJ_MarshalStatusMsg(msg, &reply, status);
+                        AJ_DeliverMsg(&reply);
+                    }
+                    return status;
+                }
+            }
+        }
     } else {
         /*
          * Consume entire header
@@ -1427,7 +1444,7 @@ AJ_Status AJ_UnmarshalArg(AJ_Message* msg, AJ_Arg* arg)
              */
             if (len == container->len) {
                 memset(arg, 0, sizeof(AJ_Arg));
-                AJ_ErrPrintf(("AJ_UnmarshalMsg(): AJ_ERR_NO_MORE\n"));
+                AJ_InfoPrintf(("AJ_UnmarshalMsg(): AJ_ERR_NO_MORE\n"));
                 status = AJ_ERR_NO_MORE;
             } else {
                 status = Unmarshal(msg, &sig, arg);
@@ -1891,8 +1908,21 @@ static AJ_Status MarshalMsg(AJ_Message* msg, uint8_t msgType, uint32_t msgId, ui
             secure = FALSE;
         } else {
             msg->hdr->flags |= AJ_FLAG_ENCRYPTED;
+            /*
+             * Check outgoing policy
+             */
+            if ((msgType == AJ_MSG_METHOD_CALL) || (msgType == AJ_MSG_SIGNAL)) {
+                if (msg->destination) {
+                    /* Method or session based signal */
+                    status = AJ_AccessControlCheckMessage(msg, msg->destination, AJ_ACCESS_OUTGOING);
+                    if (AJ_OK != status) {
+                        return status;
+                    }
+                }
+            }
         }
     }
+
 
     /*
      * The wire-protocol calls this flag NO_AUTO_START we toggle the meaning in the API
@@ -2420,6 +2450,18 @@ static const char* StatusToErrorStrings(AJ_Status status, const char** info)
         *info = NULL;
         return AJ_ErrSecurityViolation;
 
+    case  AJ_ERR_ACCESS:
+        *info = NULL;
+        return AJ_ErrPermissionDenied;
+
+    case  AJ_ERR_SECURITY_DIGEST_MISMATCH:
+        *info = NULL;
+        return AJ_ErrDigestMismatch;
+
+    case  AJ_ERR_SECURITY_UNKNOWN_CERTIFICATE:
+        *info = NULL;
+        return AJ_ErrUnknownCertificate;
+
     default:
         *info = AJ_StatusText(status);
         return AJ_ErrRejected;
@@ -2455,6 +2497,7 @@ AJ_Status AJ_MarshalReplyMsgAsync(AJ_MsgReplyContext* replyCtx, AJ_Message* repl
     memset(replyCtx, 0, sizeof(*replyCtx));
     return status;
 }
+
 
 AJ_Status AJ_MarshalErrorMsgAsync(AJ_MsgReplyContext* replyCtx, AJ_Message* reply, const char* error)
 {
@@ -2496,4 +2539,39 @@ AJ_Status AJ_MarshalStatusMsgAsync(AJ_MsgReplyContext* replyCtx, AJ_Message* rep
     const char* info;
     const char* err = StatusToErrorStrings(status, &info);
     return AJ_MarshalErrorMsgWithInfoAsync(replyCtx, reply, err, info);
+}
+
+AJ_Status rx_noop(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)
+{
+    buf->writePtr += len;
+    return AJ_OK;
+}
+
+AJ_Status tx_noop(AJ_IOBuffer* buf)
+{
+    return AJ_OK;
+}
+
+/* This is the minimum requirements to unmarshal a message locally */
+void AJ_LocalMsg(AJ_BusAttachment* bus, AJ_MsgHeader* hdr, AJ_Message* msg, const char* sig, uint8_t* data, size_t size)
+{
+    memset(msg, 0, sizeof (AJ_Message));
+    memset(hdr, 0, sizeof (AJ_MsgHeader));
+    hdr->endianess = AJ_NATIVE_ENDIAN;
+    msg->hdr = hdr;
+    msg->bus = bus;
+    msg->signature = sig;
+    msg->bodyBytes = size;
+    bus->sock.rx.direction = AJ_IO_BUF_RX;
+    bus->sock.rx.recv = rx_noop;
+    bus->sock.rx.bufSize = size;
+    bus->sock.rx.bufStart = data;
+    bus->sock.rx.readPtr = bus->sock.rx.bufStart;
+    bus->sock.rx.writePtr = bus->sock.rx.bufStart;
+    bus->sock.tx.direction = AJ_IO_BUF_TX;
+    bus->sock.tx.send = tx_noop;
+    bus->sock.tx.bufSize = size;
+    bus->sock.tx.bufStart = data;
+    bus->sock.tx.readPtr = bus->sock.tx.bufStart;
+    bus->sock.tx.writePtr = bus->sock.tx.bufStart;
 }

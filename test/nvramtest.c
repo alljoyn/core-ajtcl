@@ -93,13 +93,19 @@ AJ_Status TestCreds()
     AJ_GUID localGuid;
     AJ_GUID remoteGuid;
     char str[33];
-    AJ_PeerCred*peerCredRead;
+    uint32_t exp;
+    AJ_CredField id;
+    AJ_CredField data;
     int i = 0;
     AJ_GUID peerGuid;
     uint8_t secretLen = 24;
     uint8_t secret[24];
     uint32_t expiration = 50898;
     char hex[100];
+    AJ_ECCPrivateKey prv1;
+    AJ_ECCPrivateKey prv2;
+    AJ_ECCPublicKey pub1;
+    AJ_ECCPublicKey pub2;
 
     AJ_AlwaysPrintf(("Start TestCreds\n"));
     status = AJ_GetLocalGUID(&localGuid);
@@ -108,6 +114,18 @@ AJ_Status TestCreds()
     }
     AJ_GUID_FromString(&localGuid, str);
 
+    /* Test delete oldest credential by storing more than MAX_CREDS */
+    id.data = (uint8_t*) &peerGuid;
+    id.size = sizeof (peerGuid);
+    data.data = id.data;
+    data.size = id.size;
+    memset(id.data, 0, id.size);
+    for (i = 0; i < 2 * AJ_MAX_CREDS; i++) {
+        id.data[0] = i;
+        status = AJ_CredentialSet(AJ_CRED_TYPE_GENERIC, &id, (uint32_t) i, &data);
+        AJ_ASSERT(AJ_OK == status);
+    }
+
     AJ_InfoPrintf(("TestCreds() Layout Print\n"));
     AJ_NVRAM_Layout_Print();
     memset(&peerGuid, 1, sizeof(AJ_GUID));
@@ -115,11 +133,11 @@ AJ_Status TestCreds()
         secret[i] = i;
     }
     AJ_GUID_ToString(&peerGuid, hex, 100);
-    AJ_AlwaysPrintf(("AJ_StorePeerSecret guid %s\n", hex));
-    status = AJ_StorePeerSecret(&peerGuid, secret, secretLen, expiration);
+    AJ_AlwaysPrintf(("AJ_CredentialSetPeer guid %s\n", hex));
+    status = AJ_CredentialSetPeer(AJ_GENERIC_MASTER_SECRET, &peerGuid, expiration, secret, secretLen);
     memcpy(&remoteGuid, &peerGuid, sizeof(AJ_GUID)); // backup the GUID
     if (AJ_OK != status) {
-        AJ_AlwaysPrintf(("AJ_StorePeerSecret failed = %d\n", status));
+        AJ_AlwaysPrintf(("AJ_CredentialSetPeer failed = %d\n", status));
         return status;
     }
     AJ_NVRAM_Layout_Print();
@@ -128,48 +146,37 @@ AJ_Status TestCreds()
     AJ_NVRAM_Layout_Print();
 
     AJ_GUID_ToString(&remoteGuid, hex, 100);
-    AJ_AlwaysPrintf(("AJ_GetPeerCredential guid %s\n", hex));
-    status = AJ_GetPeerCredential(&remoteGuid, &peerCredRead);
+    AJ_AlwaysPrintf(("AJ_CredentialGetPeer guid %s\n", hex));
+    data.data = NULL;
+    status = AJ_CredentialGetPeer(AJ_GENERIC_MASTER_SECRET, &remoteGuid, &exp, &data);
     if (AJ_OK != status) {
-        AJ_AlwaysPrintf(("AJ_GetPeerCredential failed = %d\n", status));
+        AJ_AlwaysPrintf(("AJ_CredentialGetPeer failed = %d\n", status));
         return status;
     }
 
-    if (0 != memcmp(peerCredRead->id, &peerGuid, peerCredRead->idLen)) {
-        AJ_AlwaysPrintf(("The retrieved credential does not match\n"));
-        AJ_FreeCredential(peerCredRead);
-        return AJ_ERR_FAILURE;
-
-    }
-    if (peerCredRead->dataLen != secretLen) {
+    if (data.size != secretLen) {
         AJ_AlwaysPrintf(("no match for secretLen got %d expected %d\n",
-                         peerCredRead->dataLen, secretLen));
-        AJ_FreeCredential(peerCredRead);
+                         data.size, secretLen));
+        AJ_CredFieldFree(&data);
         return AJ_ERR_FAILURE;
     }
     if (secretLen > 0) {
-        if (0 != memcmp(peerCredRead->data, secret, secretLen)) {
+        if (0 != memcmp(data.data, secret, secretLen)) {
             AJ_AlwaysPrintf(("no match for secret\n"));
-            AJ_FreeCredential(peerCredRead);
+            AJ_CredFieldFree(&data);
             return AJ_ERR_FAILURE;
         }
     }
-    if (peerCredRead->expiration != expiration) {
+    if (exp != expiration) {
         AJ_AlwaysPrintf(("no match for expiration got %d expected %d\n",
-                         peerCredRead->expiration, expiration));
-        AJ_FreeCredential(peerCredRead);
+                         exp, expiration));
+        AJ_CredFieldFree(&data);
         return AJ_ERR_FAILURE;
     }
 
-    status = AJ_DeletePeerCredential(&remoteGuid);
-    if (AJ_OK != status) {
-        AJ_AlwaysPrintf(("AJ_DeleteCredential failed = %d\n", status));
-        AJ_FreeCredential(peerCredRead);
-        return status;
-    }
-
-    AJ_FreeCredential(peerCredRead);
-    if (AJ_ERR_FAILURE == AJ_GetPeerCredential(&remoteGuid, NULL)) {
+    AJ_CredentialDeletePeer(&remoteGuid);
+    AJ_CredFieldFree(&data);
+    if (AJ_ERR_UNKNOWN == AJ_CredentialGetPeer(AJ_GENERIC_MASTER_SECRET, &remoteGuid, NULL, NULL)) {
         status = AJ_OK;
     } else {
         return AJ_ERR_FAILURE;
@@ -177,8 +184,8 @@ AJ_Status TestCreds()
     AJ_InfoPrintf(("TestCreds() Layout Print\n"));
     AJ_NVRAM_Layout_Print();
 
-    AJ_ClearCredentials();
-    if (AJ_ERR_FAILURE == AJ_GetPeerCredential(&remoteGuid, NULL)) {
+    AJ_ClearCredentials(0);
+    if (AJ_ERR_UNKNOWN == AJ_CredentialGetPeer(AJ_GENERIC_MASTER_SECRET, &remoteGuid, NULL, NULL)) {
         status = AJ_OK;
     } else {
         return AJ_ERR_FAILURE;
@@ -186,79 +193,24 @@ AJ_Status TestCreds()
     AJ_InfoPrintf(("TestCreds() Layout Print\n"));
     AJ_NVRAM_Layout_Print();
     AJ_AlwaysPrintf(("TestCreds done.\n"));
+
+    status = AJ_GenerateECCKeyPair(&pub1, &prv1);
+    AJ_ASSERT(AJ_OK == status);
+
+    status = AJ_CredentialSetECCPublicKey(AJ_ECC_SIG, NULL, 0xFFFFFFFF, &pub1);
+    AJ_ASSERT(AJ_OK == status);
+    status = AJ_CredentialSetECCPrivateKey(AJ_ECC_SIG, NULL, 0xFFFFFFFF, &prv1);
+    AJ_ASSERT(AJ_OK == status);
+    status = AJ_CredentialGetECCPublicKey(AJ_ECC_SIG, NULL, NULL, &pub2);
+    AJ_ASSERT(AJ_OK == status);
+    status = AJ_CredentialGetECCPrivateKey(AJ_ECC_SIG, NULL, NULL, &prv2);
+    AJ_ASSERT(AJ_OK == status);
+
+    AJ_ASSERT(0 == memcmp((uint8_t*) &pub1, (uint8_t*) &pub2, sizeof (pub1)));
+    AJ_ASSERT(0 == memcmp((uint8_t*) &prv1, (uint8_t*) &prv2, sizeof (prv1)));
+
     return status;
 }
-
-AJ_Status TestECCCreds()
-{
-    AJ_Status status = AJ_OK;
-    ecc_publickey publicKey;
-    ecc_privatekey privateKey;
-    uint16_t privateKeyID = 1;
-    uint16_t publicKeyID = 2;
-    AJ_PeerCred* privateKeyCred;
-    AJ_PeerCred* publicKeyCred;
-
-    AJ_AlwaysPrintf(("Start TestECCCreds\n"));
-    AJ_NVRAM_Layout_Print();
-
-    status = AJ_GenerateDSAKeyPair(&publicKey, &privateKey);
-    if (AJ_OK != status) {
-        AJ_AlwaysPrintf(("AJ_GenerateDSAKeyPair failed = %d\n", status));
-        return status;
-    }
-
-    status = AJ_StoreLocalCredential(AJ_CRED_TYPE_DSA_PRIVATE, privateKeyID, (uint8_t*) &privateKey, sizeof(privateKey), 0xFFFFFFFF);
-    if (AJ_OK != status) {
-        AJ_AlwaysPrintf(("AJ_StoreLocalCredential failed = %d\n", status));
-        return status;
-    }
-    status = AJ_GetLocalCredential(AJ_CRED_TYPE_DSA_PRIVATE, privateKeyID, &privateKeyCred);
-    if (AJ_OK != status) {
-        AJ_AlwaysPrintf(("AJ_GetLocalCredential failed = %d\n", status));
-        return status;
-    }
-    if (!privateKeyCred) {
-        AJ_AlwaysPrintf(("AJ_GetLocalCredential failed = %d\n", status));
-        return AJ_ERR_FAILURE;
-    }
-    if (privateKeyCred->dataLen != sizeof(privateKey)) {
-        AJ_AlwaysPrintf(("Retrieved private key length %d does not match the original %zu\n", privateKeyCred->dataLen, sizeof(privateKey)));
-        AJ_FreeCredential(privateKeyCred);
-        return AJ_ERR_FAILURE;
-    }
-    if (memcmp(privateKeyCred->data, &privateKey, sizeof(privateKey)) != 0) {
-        AJ_AlwaysPrintf(("Retrieved private key does not match the original\n"));
-    }
-    AJ_FreeCredential(privateKeyCred);
-
-    status = AJ_StoreLocalCredential(AJ_CRED_TYPE_DSA_PUBLIC, publicKeyID, (uint8_t*) &publicKey, sizeof(publicKey), 0xFFFFFFFF);
-    if (AJ_OK != status) {
-        AJ_AlwaysPrintf(("AJ_StoreLocalCredential failed = %d\n", status));
-        return status;
-    }
-    status = AJ_GetLocalCredential(AJ_CRED_TYPE_DSA_PUBLIC, publicKeyID, &publicKeyCred);
-    if (AJ_OK != status) {
-        AJ_AlwaysPrintf(("AJ_GetLocalCredential failed = %d\n", status));
-        return status;
-    }
-    if (!publicKeyCred) {
-        AJ_AlwaysPrintf(("AJ_GetLocalCredential failed = %d\n", status));
-        return AJ_ERR_FAILURE;
-    }
-    if (publicKeyCred->dataLen != sizeof(publicKey)) {
-        AJ_AlwaysPrintf(("Retrieved private key length %d does not match the original %zu\n", publicKeyCred->dataLen, sizeof(publicKey)));
-        return AJ_ERR_FAILURE;
-    }
-    if (memcmp(publicKeyCred->data, &publicKey, sizeof(publicKey)) != 0) {
-        AJ_AlwaysPrintf(("Retrieved private key does not match the original\n"));
-    }
-    AJ_FreeCredential(publicKeyCred);
-    AJ_NVRAM_Layout_Print();
-    AJ_AlwaysPrintf(("TestECCCreds done.\n"));
-    return status;
-}
-
 
 AJ_Status TestExist()
 {
@@ -956,10 +908,6 @@ int AJ_Main()
 #ifdef READABLE_LOG
         AJ_Sleep(3000);
 #endif
-
-        status = TestECCCreds();
-        AJ_AlwaysPrintf(("\nECC STATUS %u, NVRAMTEST RUN %u TIMES\n", status, count++));
-        AJ_ASSERT(status == AJ_OK);
 
         status = TestNVRAMPeek();
         AJ_InfoPrintf(("\nNVRAM Peek STATUS %u\n", status));

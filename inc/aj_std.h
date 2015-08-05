@@ -87,9 +87,11 @@
 #define AJ_METHOD_GEN_SESSION_KEY      AJ_BUS_MESSAGE_ID(2, 1, 1)    /**< method for generate session key */
 #define AJ_METHOD_EXCHANGE_GROUP_KEYS  AJ_BUS_MESSAGE_ID(2, 1, 2)    /**< method for exchange group keys */
 #define AJ_METHOD_AUTH_CHALLENGE       AJ_BUS_MESSAGE_ID(2, 1, 3)    /**< method for auth challenge */
-#define AJ_METHOD_EXCHANGE_SUITES      AJ_BUS_MESSAGE_ID(2, 1, 4)    /**< method for exchange suites*/
-#define AJ_METHOD_KEY_EXCHANGE         AJ_BUS_MESSAGE_ID(2, 1, 5)    /**< method for key exchange*/
-#define AJ_METHOD_KEY_AUTHENTICATION   AJ_BUS_MESSAGE_ID(2, 1, 6)    /**< method for authenticating key exchange*/
+#define AJ_METHOD_EXCHANGE_SUITES      AJ_BUS_MESSAGE_ID(2, 1, 4)    /**< method for exchange suites */
+#define AJ_METHOD_KEY_EXCHANGE         AJ_BUS_MESSAGE_ID(2, 1, 5)    /**< method for key exchange */
+#define AJ_METHOD_KEY_AUTHENTICATION   AJ_BUS_MESSAGE_ID(2, 1, 6)    /**< method for authenticating key exchange */
+#define AJ_METHOD_SEND_MANIFEST        AJ_BUS_MESSAGE_ID(2, 1, 7)    /**< method for exchanging manifests */
+#define AJ_METHOD_SEND_MEMBERSHIPS     AJ_BUS_MESSAGE_ID(2, 1, 8)    /**< method for exchanging membership certificates */
 
 /*
  * Members of interface org.freedesktop.DBus.Introspectable
@@ -142,6 +144,47 @@
 #define AJ_METHOD_ABOUT_ICON_GET_URL           AJ_BUS_MESSAGE_ID(6, 1, 3)
 #define AJ_METHOD_ABOUT_ICON_GET_CONTENT       AJ_BUS_MESSAGE_ID(6, 1, 4)
 
+#define AJ_METHOD_SECURITY_GET_PROP                AJ_BUS_MESSAGE_ID(7, 0,  AJ_PROP_GET)
+#define AJ_METHOD_SECURITY_SET_PROP                AJ_BUS_MESSAGE_ID(7, 0,  AJ_PROP_SET)
+/*
+ * Members of interface org.alljoyn.Bus.Application
+ */
+#define AJ_PROPERTY_APPLICATION_VERSION            AJ_BUS_MESSAGE_ID(7, 1, 0)
+#define AJ_SIGNAL_APPLICATION_STATE                AJ_BUS_MESSAGE_ID(7, 1, 1)
+/*
+ * Members of interface org.alljoyn.Bus.Security.Application
+ */
+#define AJ_PROPERTY_SEC_VERSION                    AJ_BUS_MESSAGE_ID(7, 2,  0)
+#define AJ_PROPERTY_SEC_APPLICATION_STATE          AJ_BUS_MESSAGE_ID(7, 2,  1)
+#define AJ_PROPERTY_SEC_MANIFEST_DIGEST            AJ_BUS_MESSAGE_ID(7, 2,  2)
+#define AJ_PROPERTY_SEC_ECC_PUBLICKEY              AJ_BUS_MESSAGE_ID(7, 2,  3)
+#define AJ_PROPERTY_SEC_MANUFACTURER_CERTIFICATE   AJ_BUS_MESSAGE_ID(7, 2,  4)
+#define AJ_PROPERTY_SEC_MANIFEST_TEMPLATE          AJ_BUS_MESSAGE_ID(7, 2,  5)
+#define AJ_PROPERTY_SEC_CLAIM_CAPABILITIES         AJ_BUS_MESSAGE_ID(7, 2,  6)
+#define AJ_PROPERTY_SEC_CLAIM_CAPABILITIES_INFO    AJ_BUS_MESSAGE_ID(7, 2,  7)
+/*
+ * Members of interface org.alljoyn.Bus.Security.ClaimableApplication
+ */
+#define AJ_PROPERTY_CLAIMABLE_VERSION              AJ_BUS_MESSAGE_ID(7, 3,  0)
+#define AJ_METHOD_CLAIMABLE_CLAIM                  AJ_BUS_MESSAGE_ID(7, 3,  1)
+/*
+ * Members of interface org.alljoyn.Bus.Security.ManagedApplication
+ */
+#define AJ_PROPERTY_MANAGED_VERSION                AJ_BUS_MESSAGE_ID(7, 4,  0)
+#define AJ_PROPERTY_MANAGED_IDENTITY               AJ_BUS_MESSAGE_ID(7, 4,  1)
+#define AJ_PROPERTY_MANAGED_MANIFEST               AJ_BUS_MESSAGE_ID(7, 4,  2)
+#define AJ_PROPERTY_MANAGED_IDENTITY_CERT_ID       AJ_BUS_MESSAGE_ID(7, 4,  3)
+#define AJ_PROPERTY_MANAGED_POLICY_VERSION         AJ_BUS_MESSAGE_ID(7, 4,  4)
+#define AJ_PROPERTY_MANAGED_POLICY                 AJ_BUS_MESSAGE_ID(7, 4,  5)
+#define AJ_PROPERTY_MANAGED_DEFAULT_POLICY         AJ_BUS_MESSAGE_ID(7, 4,  6)
+#define AJ_PROPERTY_MANAGED_MEMBERSHIP_SUMMARY     AJ_BUS_MESSAGE_ID(7, 4,  7)
+#define AJ_METHOD_MANAGED_RESET                    AJ_BUS_MESSAGE_ID(7, 4,  8)
+#define AJ_METHOD_MANAGED_UPDATE_IDENTITY          AJ_BUS_MESSAGE_ID(7, 4,  9)
+#define AJ_METHOD_MANAGED_UPDATE_POLICY            AJ_BUS_MESSAGE_ID(7, 4, 10)
+#define AJ_METHOD_MANAGED_RESET_POLICY             AJ_BUS_MESSAGE_ID(7, 4, 11)
+#define AJ_METHOD_MANAGED_INSTALL_MEMBERSHIP       AJ_BUS_MESSAGE_ID(7, 4, 12)
+#define AJ_METHOD_MANAGED_REMOVE_MEMBERSHIP        AJ_BUS_MESSAGE_ID(7, 4, 13)
+
 /**
  * Message identifier that indicates a message was invalid.
  */
@@ -165,17 +208,20 @@ extern const char AJ_BusDestination[16];
 /*
  * Error message strings
  */
-extern const char AJ_ErrSecurityViolation[34];    /**< Error security violation string */
-extern const char AJ_ErrTimeout[24];              /**< Error timeout string */
-extern const char AJ_ErrRejected[25];             /**< Error rejected string */
-extern const char AJ_ErrResources[26];            /**< Error resource string */
-extern const char AJ_ErrServiceUnknown[42];       /**< Error service unknown string */
+extern const char AJ_ErrSecurityViolation[34];     /**< Error security violation string */
+extern const char AJ_ErrPermissionDenied[48];      /**< Error permission denied string */
+extern const char AJ_ErrDigestMismatch[46];        /**< Error digest mismatch string */
+extern const char AJ_ErrUnknownCertificate[50];    /**< Error unknown certificate string */
+extern const char AJ_ErrTimeout[24];               /**< Error timeout string */
+extern const char AJ_ErrRejected[25];              /**< Error rejected string */
+extern const char AJ_ErrResources[26];             /**< Error resource string */
+extern const char AJ_ErrServiceUnknown[42];        /**< Error service unknown string */
 
-extern const char AJ_ErrUpdateNotAllowed[35];     /**< Error update not allowed string */
-extern const char AJ_ErrInvalidValue[31];         /**< Error invalid value string */
-extern const char AJ_ErrFeatureNotAvailable[38];  /**< Error feature not available string */
-extern const char AJ_ErrMaxSizeExceeded[34];      /**< Error max size exceeded string */
-extern const char AJ_ErrLanguageNotSuppored[39];  /**< Error language not supported string */
+extern const char AJ_ErrUpdateNotAllowed[35];      /**< Error update not allowed string */
+extern const char AJ_ErrInvalidValue[31];          /**< Error invalid value string */
+extern const char AJ_ErrFeatureNotAvailable[38];   /**< Error feature not available string */
+extern const char AJ_ErrMaxSizeExceeded[34];       /**< Error max size exceeded string */
+extern const char AJ_ErrLanguageNotSuppored[39];   /**< Error language not supported string */
 
 /**
  * The properties interface. This interface must be included in the property lists of all local and
@@ -187,6 +233,11 @@ extern const char* const AJ_PropertiesIface[5];
  * The DBUS Peer interface name
  */
 extern const char DBusPeerInterface[27];
+
+/**
+ * The AllJoyn Peer Authentication interface name
+ */
+extern const char PeerAuthInterface[36];
 
 /*
  * Constants for the various property method indices in the properties interface
@@ -209,10 +260,11 @@ extern const char AllSeenIntrospectableInterface[28];
  * The AllSeen introspection interface with the additional descriptions
  */
 extern const char* const AJ_AllSeenIntrospectionIface[4];
+
 /**
  * The standard objects that implement AllJoyn core functionality
  */
-extern const AJ_Object AJ_StandardObjects[8];
+extern const AJ_Object AJ_StandardObjects[9];
 
 /**
  * @}

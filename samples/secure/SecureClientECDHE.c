@@ -185,7 +185,7 @@ static const char pem_x509[] = {
 static const char psk_hint[] = "<anonymous>";
 static const char psk_char[] = "faaa0af3dd3f1e0379da046a3ab6ca44";
 static X509CertificateChain* chain = NULL;
-static ecc_privatekey prv;
+static AJ_ECCPrivateKey prv;
 static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, AJ_Credential*cred)
 {
     AJ_Status status = AJ_ERR_INVALID;
@@ -220,7 +220,7 @@ static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, 
     case AUTH_SUITE_ECDHE_ECDSA:
         switch (command) {
         case AJ_CRED_PRV_KEY:
-            cred->len = sizeof (ecc_privatekey);
+            cred->len = sizeof (AJ_ECCPrivateKey);
             status = AJ_DecodePrivateKeyPEM(&prv, pem_prv);
             if (AJ_OK != status) {
                 return status;
@@ -233,12 +233,7 @@ static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, 
             switch (cred->direction) {
             case AJ_CRED_REQUEST:
                 // Free previous certificate chain
-                while (chain) {
-                    node = chain;
-                    chain = chain->next;
-                    AJ_Free(node->certificate.der.data);
-                    AJ_Free(node);
-                }
+                AJ_X509FreeDecodedCertificateChain(chain);
                 chain = AJ_X509DecodeCertificateChainPEM(pem_x509);
                 if (NULL == chain) {
                     return AJ_ERR_INVALID;
@@ -284,7 +279,6 @@ int AJ_Main(int ac, char** av)
     uint32_t suites[16];
     size_t numsuites = 0;
     uint8_t clearkeys = FALSE;
-    X509CertificateChain* node;
 
     ac--;
     av++;
@@ -346,7 +340,7 @@ int AJ_Main(int ac, char** av)
                 AJ_BusEnableSecurity(&bus, suites, numsuites);
                 AJ_BusSetAuthListenerCallback(&bus, AuthListenerCallback);
                 if (clearkeys) {
-                    status = AJ_ClearCredentials();
+                    status = AJ_ClearCredentials(AJ_CRED_TYPE_GENERIC);
                     if (AJ_OK != status) {
                         AJ_Printf("AJ_ClearCredentials returned %d\n", status);
                         break;
@@ -403,7 +397,6 @@ int AJ_Main(int ac, char** av)
                     } else {
                         AJ_ErrPrintf(("Bad ping response.\n"));
                     }
-
                     done = TRUE;
                 }
                 break;
@@ -444,13 +437,7 @@ int AJ_Main(int ac, char** av)
     AJ_Printf("SecureClient EXIT %d.\n", status);
 
     // Clean up certificate chain
-    while (chain) {
-        node = chain;
-        chain = chain->next;
-        AJ_Free(node->certificate.der.data);
-        AJ_Free(node);
-    }
-
+    AJ_X509FreeDecodedCertificateChain(chain);
     return status;
 }
 

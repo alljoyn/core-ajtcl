@@ -242,6 +242,34 @@ void HostU32ToLittleEndianU8(uint32_t* u32, size_t len, uint8_t* u8)
     }
 }
 
+void HostU32ToBigEndianU8(uint32_t* u32, size_t len, uint8_t* u8)
+{
+    uint32_t x;
+    size_t i;
+
+    for (i = 0; i < len; i += sizeof (uint32_t)) {
+        x = u32[i / sizeof (uint32_t)];
+#if HOST_IS_LITTLE_ENDIAN
+        x = AJ_ByteSwap32(x);
+#endif
+        memcpy(&u8[i], &x, sizeof (x));
+    }
+}
+
+void BigEndianU8ToHostU32(uint8_t* u8, uint32_t* u32, size_t len)
+{
+    uint32_t x;
+    size_t i;
+
+    for (i = 0; i < len; i += sizeof (uint32_t)) {
+        memcpy(&x, &u8[i], sizeof (x));
+#if HOST_IS_LITTLE_ENDIAN
+        x = AJ_ByteSwap32(x);
+#endif
+        u32[i / sizeof (uint32_t)] = x;
+    }
+}
+
 void HostU64ToBigEndianU8(uint64_t* u64, size_t len, uint8_t* u8)
 {
     uint64_t x;

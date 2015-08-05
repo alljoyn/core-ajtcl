@@ -72,6 +72,7 @@ typedef struct _AJ_BusAttachment {
     uint32_t serial;                           /**< Next outgoing message serial number */
     AJ_AuthPwdFunc pwdCallback;                /**< Callback for obtaining passwords */
     AJ_AuthListenerFunc authListenerCallback;  /**< Callback for obtaining passwords */
+    uint32_t suites[AJ_AUTH_SUITES_NUM];       /**< Supported cipher suites */
     uint8_t isAuthenticated;                   /**< Has authentication already occured? */
     uint32_t aboutSerial;                      /**< Serial number for About announcement */
     uint8_t isProbeRequired;                   /**< Are probe requests required for the live transport? */
@@ -222,6 +223,15 @@ typedef struct _AJ_SessionOpts {
  */
 AJ_EXPORT
 AJ_Status AJ_BusBindSessionPort(AJ_BusAttachment* bus, uint16_t port, const AJ_SessionOpts* opts, uint8_t flags);
+
+/**
+ * Possible response codes for AJ_BusBindSessionPort
+ */
+#define AJ_BINDSESSIONPORT_REPLY_SUCCESS         1   /**< BindSessionPort reply: Success */
+#define AJ_BINDSESSIONPORT_REPLY_ALREADY_EXISTS  2   /**< BindSessionPort reply: SessionPort already exists */
+#define AJ_BINDSESSIONPORT_REPLY_FAILED          3   /**< BindSessionPort reply: Failed */
+#define AJ_BINDSESSIONPORT_REPLY_INVALID_OPTS    4   /**< BindSessionPort reply: Invalid SessionOpts */
+
 
 /**
  * Make a method call to unbind a session port.

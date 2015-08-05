@@ -45,13 +45,13 @@ typedef struct _NameToGUID {
     char uniqueName[AJ_MAX_NAME_SIZE + 1];
     const char* serviceName;
     AJ_GUID guid;
-    uint8_t sessionKey[16];
-    uint8_t groupKey[16];
+    uint8_t sessionKey[AJ_SESSION_KEY_LEN];
+    uint8_t groupKey[AJ_SESSION_KEY_LEN];
     uint32_t replySerial;
     uint32_t authVersion;
 } NameToGUID;
 
-static uint8_t localGroupKey[16];
+static uint8_t localGroupKey[AJ_SESSION_KEY_LEN];
 
 static NameToGUID nameMap[AJ_NAME_MAP_GUID_SIZE];
 
@@ -60,12 +60,12 @@ static AJ_Status NameHasOwner(AJ_Message* msg, const char* name, uint32_t* seria
 
 AJ_Status AJ_GUID_ToString(const AJ_GUID* guid, char* buffer, uint32_t bufLen)
 {
-    return AJ_RawToHex(guid->val, 16, buffer, bufLen, TRUE);
+    return AJ_RawToHex(guid->val, AJ_GUID_LEN, buffer, bufLen, TRUE);
 }
 
 AJ_Status AJ_GUID_FromString(AJ_GUID* guid, const char* str)
 {
-    return AJ_HexToRaw(str, 32, guid->val, 16);
+    return AJ_HexToRaw(str, 2 * AJ_GUID_LEN, guid->val, AJ_GUID_LEN);
 }
 
 static NameToGUID* LookupName(const char* name)
@@ -173,7 +173,7 @@ AJ_Status AJ_SetGroupKey(const char* uniqueName, const uint8_t* key)
 
     mapping = LookupName(uniqueName);
     if (mapping) {
-        memcpy(mapping->groupKey, key, 16);
+        memcpy(mapping->groupKey, key, AJ_SESSION_KEY_LEN);
         return AJ_OK;
     } else {
         AJ_WarnPrintf(("AJ_SetGroupKey(): AJ_ERR_NO_MATCH\n"));
@@ -191,7 +191,7 @@ AJ_Status AJ_SetSessionKey(const char* uniqueName, const uint8_t* key, uint8_t r
     if (mapping) {
         mapping->keyRole = role;
         mapping->authVersion = authVersion;
-        memcpy(mapping->sessionKey, key, 16);
+        memcpy(mapping->sessionKey, key, AJ_SESSION_KEY_LEN);
         return AJ_OK;
     } else {
         AJ_WarnPrintf(("AJ_SetSessionKey(): AJ_ERR_NO_MATCH\n"));
@@ -209,10 +209,27 @@ AJ_Status AJ_GetSessionKey(const char* name, uint8_t* key, uint8_t* role, uint32
     if (mapping) {
         *role = mapping->keyRole;
         *authVersion = mapping->authVersion;
-        memcpy(key, mapping->sessionKey, 16);
+        memcpy(key, mapping->sessionKey, AJ_SESSION_KEY_LEN);
         return AJ_OK;
     } else {
         AJ_WarnPrintf(("AJ_GetSessionKey(): AJ_ERR_NO_MATCH\n"));
+        return AJ_ERR_NO_MATCH;
+    }
+}
+
+AJ_Status AJ_GetPeerIndex(const char* name, uint32_t* peer)
+{
+    NameToGUID* mapping;
+
+    AJ_InfoPrintf(("AJ_GetPeerIndex(name=\"%s\", peer=%p)\n", name, peer));
+
+    mapping = LookupName(name);
+    if (mapping) {
+        *peer = (mapping - nameMap);
+        AJ_ASSERT(*peer < AJ_NAME_MAP_GUID_SIZE);
+        return AJ_OK;
+    } else {
+        AJ_WarnPrintf(("AJ_GetPeerIndex(name=\"%s\"): AJ_ERR_NO_MATCH\n", name));
         return AJ_ERR_NO_MATCH;
     }
 }
@@ -226,16 +243,16 @@ AJ_Status AJ_GetGroupKey(const char* name, uint8_t* key)
             AJ_WarnPrintf(("AJ_GetGroupKey(): AJ_ERR_NO_MATCH\n"));
             return AJ_ERR_NO_MATCH;
         }
-        memcpy(key, mapping->groupKey, 16);
+        memcpy(key, mapping->groupKey, AJ_SESSION_KEY_LEN);
     } else {
         /*
          * Check if the group key needs to be initialized
          */
-        memset(key, 0, 16);
-        if (memcmp(localGroupKey, key, 16) == 0) {
-            AJ_RandBytes(localGroupKey, 16);
+        memset(key, 0, AJ_SESSION_KEY_LEN);
+        if (memcmp(localGroupKey, key, AJ_SESSION_KEY_LEN) == 0) {
+            AJ_RandBytes(localGroupKey, AJ_SESSION_KEY_LEN);
         }
-        memcpy(key, localGroupKey, 16);
+        memcpy(key, localGroupKey, AJ_SESSION_KEY_LEN);
     }
     return AJ_OK;
 }

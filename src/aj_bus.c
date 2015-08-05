@@ -35,6 +35,7 @@
 #include <ajtcl/aj_peer.h>
 #include <ajtcl/aj_config.h>
 #include <ajtcl/aj_about.h>
+#include <ajtcl/aj_security.h>
 #include <ajtcl/aj_authentication.h>
 
 /**
@@ -414,6 +415,10 @@ AJ_Status AJ_BusHandleBusMessage(AJ_Message* msg)
     AJ_BusAttachment* bus = msg->bus;
     char* languageTag;
     AJ_Message reply;
+    uint32_t disposition;
+    uint16_t port;
+    uint32_t session;
+    char* joiner;
 
     AJ_InfoPrintf(("AJ_BusHandleBusMessage(msg=0x%p)\n", msg));
     memset(&reply, 0, sizeof(AJ_Message));
@@ -481,9 +486,29 @@ AJ_Status AJ_BusHandleBusMessage(AJ_Message* msg)
         status = AJ_PeerHandleKeyAuthentication(msg, &reply);
         break;
 
+    case AJ_METHOD_SEND_MANIFEST:
+        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_METHOD_SEND_MANIFEST\n"));
+        status = AJ_PeerHandleSendManifest(msg, &reply);
+        break;
+
+    case AJ_METHOD_SEND_MEMBERSHIPS:
+        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_METHOD_SEND_MEMBERSHIPS\n"));
+        status = AJ_PeerHandleSendMemberships(msg, &reply);
+        break;
+
     case AJ_REPLY_ID(AJ_METHOD_EXCHANGE_GUIDS):
         AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_REPLY_ID(AJ_METHOD_EXCHANGE_GUIDS)\n"));
         status = AJ_PeerHandleExchangeGUIDsReply(msg);
+        break;
+
+    case AJ_REPLY_ID(AJ_METHOD_GEN_SESSION_KEY):
+        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_REPLY_ID(AJ_METHOD_GEN_SESSION_KEY)\n"));
+        status = AJ_PeerHandleGenSessionKeyReply(msg);
+        break;
+
+    case AJ_REPLY_ID(AJ_METHOD_EXCHANGE_GROUP_KEYS):
+        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_REPLY_ID(AJ_METHOD_EXCHANGE_GROUP_KEYS)\n"));
+        status = AJ_PeerHandleExchangeGroupKeysReply(msg);
         break;
 
     case AJ_REPLY_ID(AJ_METHOD_EXCHANGE_SUITES):
@@ -501,20 +526,40 @@ AJ_Status AJ_BusHandleBusMessage(AJ_Message* msg)
         status = AJ_PeerHandleKeyAuthenticationReply(msg);
         break;
 
-    case AJ_REPLY_ID(AJ_METHOD_GEN_SESSION_KEY):
-        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_REPLY_ID(AJ_METHOD_GEN_SESSION_KEY)\n"));
-        status = AJ_PeerHandleGenSessionKeyReply(msg);
+    case AJ_REPLY_ID(AJ_METHOD_SEND_MANIFEST):
+        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_REPLY_ID(AJ_METHOD_SEND_MANIFEST)\n"));
+        status = AJ_PeerHandleSendManifestReply(msg);
         break;
 
-    case AJ_REPLY_ID(AJ_METHOD_EXCHANGE_GROUP_KEYS):
-        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_REPLY_ID(AJ_METHOD_EXCHANGE_GROUP_KEYS)\n"));
-        status = AJ_PeerHandleExchangeGroupKeysReply(msg);
+    case AJ_REPLY_ID(AJ_METHOD_SEND_MEMBERSHIPS):
+        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_REPLY_ID(AJ_METHOD_SEND_MEMBERSHIPS)\n"));
+        status = AJ_PeerHandleSendMembershipsReply(msg);
         break;
 
     case AJ_REPLY_ID(AJ_METHOD_CANCEL_SESSIONLESS):
         AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_REPLY_ID(AJ_METHOD_CANCEL_SESSIONLESS)\n"));
         // handle return code here
         status = AJ_OK;
+        break;
+
+    case AJ_METHOD_ACCEPT_SESSION:
+        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_METHOD_ACCEPT_SESSION\n"));
+        status = AJ_UnmarshalArgs(msg, "qus", &port, &session, &joiner);
+        if (AJ_OK != status) {
+            break;
+        }
+        status = AJ_MarshalReplyMsg(msg, &reply);
+        if (AJ_OK != status) {
+            break;
+        }
+        /* We only accept sessions to the Security Management port */
+        if (AJ_SECURE_MGMT_PORT == port) {
+            status = AJ_MarshalArgs(&reply, "b", TRUE);
+            AJ_InfoPrintf(("Accepted session session_id=%u joiner=%s\n", session, joiner));
+        } else {
+            status = AJ_MarshalArgs(&reply, "b", FALSE);
+            AJ_InfoPrintf(("Rejected session session_id=%u joiner=%s\n", session, joiner));
+        }
         break;
 
     case AJ_SIGNAL_SESSION_JOINED:
@@ -529,6 +574,21 @@ AJ_Status AJ_BusHandleBusMessage(AJ_Message* msg)
         AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_REPLY_ID(AJ_METHOD_{CANCEL_ADVERTISE|ADVERTISE_NAME})\n"));
         if (msg->hdr->msgType == AJ_MSG_ERROR) {
             status = AJ_ERR_FAILURE;
+        }
+        break;
+
+    case AJ_REPLY_ID(AJ_METHOD_BIND_SESSION_PORT):
+        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_REPLY_ID(AJ_METHOD_BIND_SESSION_PORT)\n"));
+        if (AJ_MSG_ERROR == msg->hdr->msgType) {
+            status = AJ_ERR_FAILURE;
+            break;
+        }
+        status = AJ_UnmarshalArgs(msg, "uq", &disposition, &port);
+        if (AJ_OK != status) {
+            break;
+        }
+        if ((AJ_BINDSESSIONPORT_REPLY_SUCCESS == disposition) && (AJ_SECURE_MGMT_PORT == port)) {
+            status = AJ_SecurityBound(bus);
         }
         break;
 
@@ -560,6 +620,37 @@ AJ_Status AJ_BusHandleBusMessage(AJ_Message* msg)
         break;
 #endif
 
+    case AJ_METHOD_SECURITY_GET_PROP:
+        return AJ_SecurityGetProperty(msg);
+
+    case AJ_METHOD_CLAIMABLE_CLAIM:
+        status = AJ_SecurityClaimMethod(msg, &reply);
+        break;
+
+    case AJ_METHOD_MANAGED_RESET:
+        status = AJ_SecurityResetMethod(msg, &reply);
+        break;
+
+    case AJ_METHOD_MANAGED_UPDATE_IDENTITY:
+        status = AJ_SecurityUpdateIdentityMethod(msg, &reply);
+        break;
+
+    case AJ_METHOD_MANAGED_UPDATE_POLICY:
+        status = AJ_SecurityUpdatePolicyMethod(msg, &reply);
+        break;
+
+    case AJ_METHOD_MANAGED_RESET_POLICY:
+        status = AJ_SecurityResetPolicyMethod(msg, &reply);
+        break;
+
+    case AJ_METHOD_MANAGED_INSTALL_MEMBERSHIP:
+        status = AJ_SecurityInstallMembershipMethod(msg, &reply);
+        break;
+
+    case AJ_METHOD_MANAGED_REMOVE_MEMBERSHIP:
+        status = AJ_SecurityRemoveMembershipMethod(msg, &reply);
+        break;
+
     default:
         AJ_InfoPrintf(("AJ_BusHandleBusMessage(): default\n"));
         if (msg->hdr->msgType == AJ_MSG_METHOD_CALL) {
@@ -575,16 +666,15 @@ AJ_Status AJ_BusHandleBusMessage(AJ_Message* msg)
      */
     if (status == AJ_OK) {
         AJ_AboutAnnounce(bus);
+        AJ_ApplicationStateSignal(bus);
     }
     return status;
 }
 
 void AJ_BusSetPasswordCallback(AJ_BusAttachment* bus, AJ_AuthPwdFunc pwdCallback)
 {
-#ifndef NO_SECURITY
     AJ_InfoPrintf(("AJ_BusSetPasswordCallback(bus=0x%p, pwdCallback=0x%p)\n", bus, pwdCallback));
     bus->pwdCallback = pwdCallback;
-#endif
 }
 
 /**
@@ -714,9 +804,11 @@ AJ_Status AJ_BusEnableSecurity(AJ_BusAttachment* bus, const uint32_t* suites, si
 
     AJ_InfoPrintf(("AJ_BusEnableSecurity(bus=0x%p, suites=0x%p)\n", bus, suites));
 
+    /* Disable all first to undo any previous calls */
+    memset((uint8_t*) bus->suites, 0, sizeof (bus->suites));
     for (i = 0; i < numsuites; i++) {
-        AJ_EnableSuite(suites[i]);
+        AJ_EnableSuite(bus, suites[i]);
     }
 
-    return AJ_OK;
+    return AJ_SecurityInit(bus);
 }
