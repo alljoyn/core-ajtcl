@@ -62,8 +62,6 @@ uint32_t TEST1_APP_MY_PING    = AJ_PRX_MESSAGE_ID(0, 1, 0);
  */
 static const uint32_t keyexpiration = 0xFFFFFFFF;
 
-static const char PWD[] = "123456";
-
 static AJ_BusAttachment testBus;
 static const char ServiceName[] = "org.alljoyn.svclite";
 
@@ -71,12 +69,6 @@ class SecurityTest : public testing::Test {
   public:
 
     SecurityTest() { authStatus = AJ_ERR_NULL; }
-
-    static uint32_t PasswordCallback(uint8_t* buffer, uint32_t bufLen)
-    {
-        memcpy(buffer, PWD, sizeof(PWD));
-        return sizeof(PWD) - 1;
-    }
 
     static void AuthCallback(const void* context, AJ_Status status)
     {

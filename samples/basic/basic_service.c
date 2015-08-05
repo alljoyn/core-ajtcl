@@ -71,6 +71,11 @@ static const AJ_Object AppObjects[] = {
  */
 #define BASIC_SERVICE_CAT AJ_APP_MESSAGE_ID(0, 0, 1)
 
+/*
+ * Use async version of API for reply
+ */
+static uint8_t asyncForm = TRUE;
+
 static AJ_Status AppHandleCat(AJ_Message* msg)
 {
 #define BUFFER_SIZE 256
@@ -81,14 +86,19 @@ static AJ_Status AppHandleCat(AJ_Message* msg)
     AJ_Arg replyArg;
 
     AJ_UnmarshalArgs(msg, "ss", &string0, &string1);
-    AJ_MarshalReplyMsg(msg, &reply);
 
     /* We have the arguments. Now do the concatenation. */
     strncpy(buffer, string0, BUFFER_SIZE);
     buffer[BUFFER_SIZE - 1] = '\0';
     strncat(buffer, string1, BUFFER_SIZE - strlen(buffer));
     buffer[BUFFER_SIZE - 1] = '\0';
-
+    if (asyncForm) {
+        AJ_MsgReplyContext replyCtx;
+        AJ_CloseMsgAndSaveReplyContext(msg, &replyCtx);
+        AJ_MarshalReplyMsgAsync(&replyCtx, &reply);
+    } else {
+        AJ_MarshalReplyMsg(msg, &reply);
+    }
     AJ_InitArg(&replyArg, AJ_ARG_STRING, 0, buffer, 0);
     AJ_MarshalArg(&reply, &replyArg);
 
@@ -164,7 +174,7 @@ int AJ_Main(void)
                 {
                     uint32_t id, reason;
                     AJ_UnmarshalArgs(&msg, "uu", &id, &reason);
-                    AJ_AlwaysPrintf(("Session lost. ID = %u, reason = %u", id, reason));
+                    AJ_AlwaysPrintf(("Session lost. ID = %u, reason = %u\n", id, reason));
                 }
                 break;
 

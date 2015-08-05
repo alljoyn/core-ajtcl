@@ -206,24 +206,7 @@ static void AppDoWork(AJ_BusAttachment* bus, uint32_t sessionId, const char* ser
     }
 }
 
-/*
- * The tests were changed at some point to make the PWD longer.
- * If doing backcompatibility testing with previous versions (14.08 or before),
- * define LITE_TEST_BACKCOMPAT to use the old version of the password.
- */
-#ifndef LITE_TEST_BACKCOMPAT
-static const char PWD[] = "faaa0af3dd3f1e0379da046a3ab6ca44";
-#else
-static const char PWD[] = "123456";
-#endif
-
 #if defined(SECURE_INTERFACE) || defined(SECURE_OBJECT)
-static uint32_t PasswordCallback(uint8_t* buffer, uint32_t bufLen)
-{
-    memcpy(buffer, PWD, sizeof(PWD));
-    return sizeof(PWD) - 1;
-}
-
 static const char psk_hint[] = "<anonymous>";
 /*
  * The tests were changed at some point to make the psk longer.
@@ -360,7 +343,6 @@ int AJ_Main()
     uint32_t suites[AJ_AUTH_SUITES_NUM];
     size_t numsuites = 0;
     uint8_t clearkeys = FALSE;
-    uint8_t enablepwd = FALSE;
 #endif
 
 #ifdef MAIN_ALLOWS_ARGS
@@ -390,8 +372,6 @@ int AJ_Main()
                 suites[numsuites++] = AUTH_SUITE_ECDHE_PSK;
             } else if (0 == strncmp(*av, "ECDHE_NULL", 10)) {
                 suites[numsuites++] = AUTH_SUITE_ECDHE_NULL;
-            } else if (0 == strncmp(*av, "PIN", 3)) {
-                enablepwd = TRUE;
             }
             ac--;
             av++;
@@ -427,9 +407,6 @@ int AJ_Main()
                 AJ_AlwaysPrintf(("Connected to Daemon:%s\n", AJ_GetUniqueName(&bus)));
                 connected = TRUE;
 #if defined(SECURE_INTERFACE) || defined(SECURE_OBJECT)
-                if (enablepwd) {
-                    AJ_BusSetPasswordCallback(&bus, PasswordCallback);
-                }
                 AJ_BusEnableSecurity(&bus, suites, numsuites);
                 AJ_BusSetAuthListenerCallback(&bus, AuthListenerCallback);
                 if (clearkeys) {

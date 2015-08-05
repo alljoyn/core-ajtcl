@@ -138,17 +138,7 @@ static void AppDoWork()
     AJ_InfoPrintf(("do work\n"));
 }
 
-
-static const char PWD[] = "123456";
-
 #if defined(SECURE_INTERFACE) || defined(SECURE_OBJECT)
-
-static uint32_t PasswordCallback(uint8_t* buffer, uint32_t bufLen)
-{
-    memcpy(buffer, PWD, sizeof(PWD));
-    return sizeof(PWD) - 1;
-}
-
 static const char psk_hint[] = "<anonymous>";
 /*
  * The tests were changed at some point to make the psk longer.
@@ -407,8 +397,6 @@ int AJ_Main()
 
 #if defined(SECURE_INTERFACE) || defined(SECURE_OBJECT)
 
-            /* Register a callback for providing bus authentication password */
-            AJ_BusSetPasswordCallback(&bus, PasswordCallback);
             AJ_BusEnableSecurity(&bus, suites, ArraySize(suites));
             AJ_BusSetAuthListenerCallback(&bus, AuthListenerCallback);
             AJ_ManifestTemplateSet(&manifest);

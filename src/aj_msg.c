@@ -662,6 +662,24 @@ AJ_Status AJ_CloseMsg(AJ_Message* msg)
     return status;
 }
 
+AJ_Status AJ_CloseMsgAndSaveReplyContext(AJ_Message* msg, AJ_MsgReplyContext* replyCtx)
+{
+    if (replyCtx) {
+        size_t len = strlen(msg->sender) + 1;
+        if (len > sizeof(replyCtx->sender)) {
+            AJ_CloseMsg(msg);
+            return AJ_ERR_RESOURCES;
+        }
+        memcpy(replyCtx->sender, msg->sender, len + 1);
+        replyCtx->bus = msg->bus;
+        replyCtx->flags = msg->hdr->flags;
+        replyCtx->serialNum = msg->hdr->serialNum;
+        replyCtx->msgId = msg->msgId;
+        replyCtx->sessionId = msg->sessionId;
+    }
+    return AJ_CloseMsg(msg);
+}
+
 /**
  * Get the length of the signature of the first complete type in sig
  */
@@ -1883,16 +1901,23 @@ static AJ_Status MarshalMsg(AJ_Message* msg, uint8_t msgType, uint32_t msgId, ui
     msg->hdr->msgType = msgType;
     msg->hdr->flags = flags;
     if (secure) {
-        msg->hdr->flags |= AJ_FLAG_ENCRYPTED;
         /*
-         * Check outgoing policy
+         * If we are reporing a security violation we cannot encrypt the result
          */
-        if ((msgType == AJ_MSG_METHOD_CALL) || (msgType == AJ_MSG_SIGNAL)) {
-            if (msg->destination) {
-                /* Method or session based signal */
-                status = AJ_AccessControlCheckMessage(msg, msg->destination, AJ_ACCESS_OUTGOING);
-                if (AJ_OK != status) {
-                    return status;
+        if ((msgType == AJ_MSG_ERROR) && (msg->error == AJ_ErrSecurityViolation)) {
+            secure = FALSE;
+        } else {
+            msg->hdr->flags |= AJ_FLAG_ENCRYPTED;
+            /*
+             * Check outgoing policy
+             */
+            if ((msgType == AJ_MSG_METHOD_CALL) || (msgType == AJ_MSG_SIGNAL)) {
+                if (msg->destination) {
+                    /* Method or session based signal */
+                    status = AJ_AccessControlCheckMessage(msg, msg->destination, AJ_ACCESS_OUTGOING);
+                    if (AJ_OK != status) {
+                        return status;
+                    }
                 }
             }
         }
@@ -2384,7 +2409,6 @@ AJ_Status AJ_MarshalReplyMsg(const AJ_Message* methodCall, AJ_Message* reply)
     reply->destination = methodCall->sender;
     reply->sessionId = methodCall->sessionId;
     reply->replySerial = methodCall->hdr->serialNum;
-    reply->ttl = 0;
     return MarshalMsg(reply, AJ_MSG_METHOD_RET, methodCall->msgId, methodCall->hdr->flags & AJ_FLAG_ENCRYPTED);
 }
 
@@ -2399,7 +2423,6 @@ AJ_Status AJ_MarshalErrorMsgWithInfo(const AJ_Message* methodCall, AJ_Message* r
     reply->sessionId = methodCall->sessionId;
     reply->replySerial = methodCall->hdr->serialNum;
     reply->error = error;
-    reply->ttl = 0;
     if (info) {
         reply->signature = "s";
     }
@@ -2416,23 +2439,16 @@ AJ_Status AJ_MarshalErrorMsg(const AJ_Message* methodCall, AJ_Message* reply, co
 }
 
 
-AJ_Status AJ_MarshalStatusMsg(const AJ_Message* methodCall, AJ_Message* reply, AJ_Status status)
+static const char* StatusToErrorStrings(AJ_Status status, const char** info)
 {
     switch (status) {
     case AJ_ERR_NO_MATCH:
-        status = AJ_MarshalErrorMsg(methodCall, reply, AJ_ErrServiceUnknown);
-        break;
+        *info = NULL;
+        return AJ_ErrServiceUnknown;
 
-    case  AJ_ERR_SECURITY:
-        status = AJ_MarshalErrorMsg(methodCall, reply, AJ_ErrSecurityViolation);
-        /*
-         * We get a security violation error so if we encrypt the error message the receiver
-         * won't be able to decrypt it. We can fix this by clearing the header flags.
-         */
-        if (status == AJ_OK) {
-            reply->hdr->flags = 0;
-        }
-        break;
+    case AJ_ERR_SECURITY:
+        *info = NULL;
+        return AJ_ErrSecurityViolation;
 
     case  AJ_ERR_ACCESS:
         status = AJ_MarshalErrorMsg(methodCall, reply, AJ_ErrPermissionDenied);
@@ -2447,10 +2463,82 @@ AJ_Status AJ_MarshalStatusMsg(const AJ_Message* methodCall, AJ_Message* reply, A
         break;
 
     default:
-        status = AJ_MarshalErrorMsgWithInfo(methodCall, reply, AJ_ErrRejected, AJ_StatusText(status));
-        break;
+        *info = AJ_StatusText(status);
+        return AJ_ErrRejected;
     }
+}
+
+AJ_Status AJ_MarshalStatusMsg(const AJ_Message* methodCall, AJ_Message* reply, AJ_Status status)
+{
+    const char* info;
+    const char* err = StatusToErrorStrings(status, &info);
+    return AJ_MarshalErrorMsgWithInfo(methodCall, reply, err, info);
+}
+
+AJ_Status AJ_MarshalReplyMsgAsync(AJ_MsgReplyContext* replyCtx, AJ_Message* reply)
+{
+    AJ_Status status;
+
+    if (!replyCtx) {
+        return AJ_ERR_NULL;
+    }
+    if (!replyCtx->msgId) {
+        return AJ_ERR_INVALID;
+    }
+    memset(reply, 0, sizeof(AJ_Message));
+    reply->bus = replyCtx->bus;
+    reply->destination = replyCtx->sender;
+    reply->sessionId = replyCtx->sessionId;
+    reply->replySerial = replyCtx->serialNum;
+    status = MarshalMsg(reply, AJ_MSG_METHOD_RET, replyCtx->msgId, replyCtx->flags & AJ_FLAG_ENCRYPTED);
+    /*
+     * Ensure reply context is only be used once
+     */
+    memset(replyCtx, 0, sizeof(*replyCtx));
     return status;
+}
+
+
+AJ_Status AJ_MarshalErrorMsgAsync(AJ_MsgReplyContext* replyCtx, AJ_Message* reply, const char* error)
+{
+    return AJ_MarshalErrorMsgWithInfoAsync(replyCtx, reply, error, NULL);
+}
+
+AJ_Status AJ_MarshalErrorMsgWithInfoAsync(AJ_MsgReplyContext* replyCtx, AJ_Message* reply, const char* error, const char* info)
+{
+    AJ_Status status;
+
+    if (!replyCtx) {
+        return AJ_ERR_NULL;
+    }
+    if (!replyCtx->msgId) {
+        return AJ_ERR_INVALID;
+    }
+    memset(reply, 0, sizeof(AJ_Message));
+    reply->bus = replyCtx->bus;
+    reply->destination = replyCtx->sender;
+    reply->sessionId = replyCtx->sessionId;
+    reply->replySerial = replyCtx->serialNum;
+    reply->error = error;
+    if (info) {
+        reply->signature = "s";
+    }
+    status = MarshalMsg(reply, AJ_MSG_ERROR, replyCtx->msgId, replyCtx->flags & AJ_FLAG_ENCRYPTED);
+    if ((status == AJ_OK) && info) {
+        status = AJ_MarshalArgs(reply, "s", info);
+    }
+    /*
+     * Ensure reply context is only be used once
+     */
+    memset(replyCtx, 0, sizeof(*replyCtx));
+    return status;
+}
+
+AJ_Status AJ_MarshalStatusMsgAsync(AJ_MsgReplyContext* replyCtx, AJ_Message* reply, AJ_Status status)
+{
+    const char* info;
+    const char* err = StatusToErrorStrings(status, &info);
+    return AJ_MarshalErrorMsgWithInfoAsync(replyCtx, reply, err, info);
 }
 
 AJ_Status rx_noop(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)

@@ -142,7 +142,7 @@ void AJ_MemZeroSecure(void* s, size_t n);
  *          does not appear in the string.
  *
  */
-int32_t AJ_StringFindFirstOf(const char* str, char* chars);
+int32_t AJ_StringFindFirstOf(const char* str, const char* chars);
 
 /**
  * Convert a raw byte string to NUL terminated ascii hex string. It is permitted for raw and hex to

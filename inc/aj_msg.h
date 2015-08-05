@@ -203,6 +203,18 @@ struct _AJ_Message {
 };
 
 /**
+ * Reply context for deferred (asynchronous) method replies.
+ */
+typedef struct _AJ_MsgReplyContext {
+    AJ_BusAttachment* bus;             /**< Bus attachment */
+    uint32_t serialNum;                /**< Serial number from the method call */
+    uint32_t msgId;                    /**< Message id from the method call */
+    uint32_t sessionId;                /**< Session id from the method call */
+    uint8_t flags;                     /**< Flags from the method call */
+    char sender[AJ_MAX_NAME_SIZE + 1]; /**< Sender field from the method call */
+} AJ_MsgReplyContext;
+
+/**
  * Unmarshals a message returning a message structure. Note that if a message is received but is not
  * recognized this function will return an uninitialized msg with msgId == 0. The application must
  * be prepared to handle this case.
@@ -358,6 +370,22 @@ AJ_EXPORT
 AJ_Status AJ_CloseMsg(AJ_Message* msg);
 
 /**
+ * Like AJ_CloseMsg(), this function closes an ummarshalled method call and release resources but
+ * returns a reply context that can be used later to generate a reply message. This allows an
+ * application to defer replying to a method call to a later time while still receiving other
+ * messages.
+ *
+ * @param msg       The message to close.
+ * @param replyCtx  A structure allocated by the caller to hold information needed to generate a
+ *                  reply message.
+ *
+ * @return   Return AJ_Status
+ */
+AJ_EXPORT
+AJ_Status AJ_CloseMsgAndSaveReplyContext(AJ_Message* msg, AJ_MsgReplyContext* replyCtx);
+
+
+/**
  * Type for a session identifier
  */
 typedef uint32_t AJ_SessionId;
@@ -414,7 +442,7 @@ AJ_EXPORT
 AJ_Status AJ_MarshalReplyMsg(const AJ_Message* methodCall, AJ_Message* reply);
 
 /**
- * Initialize and marshal a message that is a error response to a method call.
+ * Initialize and marshal a message that is an error response to a method call.
  *
  * @param methodCall  The method call message that was received
  * @param reply       The reply to be initialized
@@ -426,7 +454,7 @@ AJ_EXPORT
 AJ_Status AJ_MarshalErrorMsg(const AJ_Message* methodCall, AJ_Message* reply, const char* error);
 
 /**
- * Initialize and marshal a message that is a error response to a method call.
+ * Initialize and marshal a message that is an error response to a method call.
  *
  * @param methodCall  The method call message that was received
  * @param reply       The reply to be initialized
@@ -440,9 +468,9 @@ AJ_EXPORT
 AJ_Status AJ_MarshalErrorMsgWithInfo(const AJ_Message* methodCall, AJ_Message* reply, const char* error, const char* info);
 
 /**
- * Initialize and marshal a message that is a error response to a method call. This is a wrapper
- * function around AJ_MarshalErrorMsg that chooses an appropriate error message depending on the
- * AJ_Status value passed in.
+ * Marshal a message that is an error response to a method call. This is a wrapper function around
+ * AJ_MarshalErrorMsg() that chooses an appropriate error message depending on the AJ_Status value
+ * passed in.
  *
  * @param methodCall  The method call message that was received
  * @param reply       The reply to be initialized
@@ -450,8 +478,68 @@ AJ_Status AJ_MarshalErrorMsgWithInfo(const AJ_Message* methodCall, AJ_Message* r
  *
  * @return   Return AJ_Status
  */
+
 AJ_EXPORT
 AJ_Status AJ_MarshalStatusMsg(const AJ_Message* methodCall, AJ_Message* reply, AJ_Status status);
+
+/**
+ * Use a saved reply context to initialize and marshal a message that is a reply to a method call.
+ *
+ * This function clears the reply context before returning.
+ *
+ * @param replyCtx  The saved context for generating a reply to the method call
+ * @param reply     The reply message to be initialized
+ *
+ * @return   Return AJ_Status
+ */
+AJ_EXPORT
+AJ_Status AJ_MarshalReplyMsgAsync(AJ_MsgReplyContext* replyCtx, AJ_Message* reply);
+
+/**
+ * Use a saved reply context to initialize and marshal a message that is an error response to a method call.
+ *
+ * This function clears the reply context before returning.
+ *
+ * @param replyCtx  The saved context for generating a reply to the method call
+ * @param reply     The reply message to be initialized
+ * @param error     The error name to use in the response.
+ *
+ * @return   Return AJ_Status
+ */
+AJ_EXPORT
+AJ_Status AJ_MarshalErrorMsgAsync(AJ_MsgReplyContext* replyCtx, AJ_Message* reply, const char* error);
+
+/**
+ * Use a saved reply context to initialize and marshal a message that is an error response to a method call.
+ *
+ * This function clears the reply context before returning.
+ *
+ * @param replyCtx  The saved context for generating a reply to the method call
+ * @param reply     The reply to be initialized
+ * @param error     The error name to use in the response.
+ * @param info      A text string that provides additional information about the error. Can be
+ *                  NULL in which case this is equivalent to calling AJ_MarshalErrorFromReplyContext().
+ *
+ * @return   Return AJ_Status
+ */
+AJ_EXPORT
+AJ_Status AJ_MarshalErrorMsgWithInfoAsync(AJ_MsgReplyContext* replyCtx, AJ_Message* reply, const char* error, const char* info);
+
+/**
+ * Use a saved reply context to initialize and marshal a message that is an error response to a
+ * method call.  This is a wrapper function around AJ_MarshalErrorMsgAsync() that chooses an
+ * appropriate error message depending on the AJ_Status value passed in.
+ *
+ * This function clears the reply context before returning.
+ *
+ * @param replyCtx  The saved context for generating a reply to the method call
+ * @param reply     The reply to be initialized
+ * @param status    The status code for the error
+ *
+ * @return   Return AJ_Status
+ */
+AJ_EXPORT
+AJ_Status AJ_MarshalStatusMsgAsync(AJ_MsgReplyContext* replyCtx, AJ_Message* reply, AJ_Status status);
 
 /**
  * Delivers a marshalled message to the network.
