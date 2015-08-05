@@ -1072,11 +1072,11 @@ void AJ_ConversationHash_Update_Message(AJ_AuthenticationContext* ctx, uint32_t 
         return;
     }
 
-    AJ_ASSERT((0 == isMarshaledMessage) || (1 == isMarshaledMessage));
+    AJ_ASSERT((HASH_MSG_UNMARSHALED == isMarshaledMessage) || (HASH_MSG_UNMARSHALED == isMarshaledMessage));
 
     AJ_ASSERT(!(msg->hdr->flags & AJ_FLAG_ENCRYPTED));
 
-    if (1 == isMarshaledMessage) {
+    if (HASH_MSG_MARSHALED == isMarshaledMessage) {
         /* msg->hdr->bodyLen gets set by AJ_DeliverMsg when the message is sent out. We set it here as well
          * so that the buffer we hash equals what will actually go out on the wire.
          */
