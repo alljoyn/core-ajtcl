@@ -2451,16 +2451,16 @@ static const char* StatusToErrorStrings(AJ_Status status, const char** info)
         return AJ_ErrSecurityViolation;
 
     case  AJ_ERR_ACCESS:
-        status = AJ_MarshalErrorMsg(methodCall, reply, AJ_ErrPermissionDenied);
-        break;
+        *info = NULL;
+        return AJ_ErrPermissionDenied;
 
     case  AJ_ERR_SECURITY_DIGEST_MISMATCH:
-        status = AJ_MarshalErrorMsg(methodCall, reply, AJ_ErrDigestMismatch);
-        break;
+        *info = NULL;
+        return AJ_ErrDigestMismatch;
 
     case  AJ_ERR_SECURITY_UNKNOWN_CERTIFICATE:
-        status = AJ_MarshalErrorMsg(methodCall, reply, AJ_ErrUnknownCertificate);
-        break;
+        *info = NULL;
+        return AJ_ErrUnknownCertificate;
 
     default:
         *info = AJ_StatusText(status);
