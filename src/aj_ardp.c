@@ -748,6 +748,19 @@ static void FlushExpiredRcvMessages(uint32_t seq, uint32_t ackNXT)
         rBuf = rBuf->next;
         conn->rcv.CUR++;
     }
+
+    /*
+     * If the next rBuf contains valid data, update internal ARDP Rx context
+     * to point to the payload. Otherwise, there are no pending received data,
+     * reset Rx context to NULL.
+     */
+    if (rBuf->dataLen != 0) {
+        UDP_Recv_State.readBuf = rBuf->data;
+        UDP_Recv_State.dataLen = rBuf->dataLen;
+        UDP_Recv_State.rxContext = (void*) rBuf;
+    } else {
+        UDP_Recv_State.rxContext = NULL;
+    }
 }
 
 static void AddRcvBuffer(struct ArdpSeg* seg, uint8_t* rxBuf, uint16_t dataOffset)
@@ -913,7 +926,7 @@ static AJ_Status ARDP_Recv(uint8_t* rxBuf, uint16_t len)
         status = ArdpMachine(&seg, rxBuf, len);
     }
 
-    if (status != AJ_OK) {
+    if (status != AJ_OK && status != AJ_ERR_ARDP_RECV_EXPIRED) {
         AJ_ErrPrintf(("ARDP_Recv(): returned %s (0x%x)\n", AJ_StatusText(status), status));
     }
     return status;
@@ -1250,7 +1263,7 @@ AJ_Status AJ_ARDP_Recv(AJ_IOBuffer* rxBuf, uint32_t len, uint32_t timeout)
     uint32_t timeout2 = min(timeout, UDP_MINIMUM_TIMEOUT);
     AJ_Time now, end;
 
-    AJ_InfoPrintf(("AJ_ARDP_Recv(rxBuf=0x%p, len=%u, timeout=%u)\n", rxBuf, len, timeout));
+    AJ_InfoPrintf(("AJ_ARDP_Recv(rxBuf=%p, len=%u, timeout=%u)\n", rxBuf, len, timeout));
 
     if (conn == NULL) {
         return AJ_ERR_READ;
@@ -1280,6 +1293,8 @@ AJ_Status AJ_ARDP_Recv(AJ_IOBuffer* rxBuf, uint32_t len, uint32_t timeout)
 
         switch (status) {
         case AJ_ERR_TIMEOUT:
+            AJ_InfoPrintf(("AJ_ARDP_Recv status %s, len = %u, rxContext = %p\n", AJ_StatusText(status),
+                           len, UDP_Recv_State.rxContext));
             if ((len != 0) && (UDP_Recv_State.rxContext != NULL)) {
                 status = AJ_OK;
                 AJ_InitTimer(&conn->probeTimer.tStart);
@@ -1290,8 +1305,15 @@ AJ_Status AJ_ARDP_Recv(AJ_IOBuffer* rxBuf, uint32_t len, uint32_t timeout)
         case AJ_OK:
             status = ARDP_Recv(buf, received);
 
-            if ((status == AJ_OK) || (status == AJ_ERR_ARDP_RECV_EXPIRED)) {
+            if (status == AJ_OK) {
                 goto UPDATE_READ;
+            } else if (status == AJ_ERR_ARDP_RECV_EXPIRED) {
+                AJ_InfoPrintf(("AJ_ARDP_Recv: Expired message, LCS %u\n", conn->rcv.LCS));
+                conn->rcv.LCS = conn->rcv.CUR;
+                if (conn->ackTimer.retry == 0) {
+                    InitTimer(&conn->ackTimer, ARDP_MIN_DELAYED_ACK_TIMEOUT, 1);
+                }
+                return status;
             } else if (status == AJ_ERR_ARDP_DISCONNECTING) {
                 /* We are waiting for either TX queue to drain or timeout */
                 break;
@@ -1310,29 +1332,15 @@ AJ_Status AJ_ARDP_Recv(AJ_IOBuffer* rxBuf, uint32_t len, uint32_t timeout)
         default:
             AJ_WarnPrintf(("AJ_ARDP_Recv: Invalid\n"));
             AJ_ASSERT(!"this shouldn't happen!");
-            break;
+            return AJ_ERR_READ;
         }
 
         AJ_InitTimer(&now);
     } while (AJ_CompareTime(now, end) < 0);
 
 UPDATE_READ:
-
     if ((len != 0) && (UDP_Recv_State.rxContext != NULL)) {
         UpdateReadBuffer(rxBuf, len);
-    }
-
-    if (status == AJ_ERR_ARDP_RECV_EXPIRED) {
-        /*
-         * Currently we do not do anything with special expired messages.
-         * Just deliver the accumulated data and inform the upper layer
-         * (via status) that the the previous message may be incomplete.
-         */
-        AJ_WarnPrintf(("AJ_ARDP_Recv: Expired message, LCS %u\n", conn->rcv.LCS));
-        conn->rcv.LCS = conn->rcv.CUR;
-        if (conn->ackTimer.retry == 0) {
-            InitTimer(&conn->ackTimer, ARDP_MIN_DELAYED_ACK_TIMEOUT, 1);
-        }
     }
 
     AJ_InfoPrintf(("AJ_ARDP_Recv exit with %s\n", AJ_StatusText(status)));
