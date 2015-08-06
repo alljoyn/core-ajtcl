@@ -1685,7 +1685,7 @@ static AJ_Status CommonIssuer(AJ_CredField* data)
     if (AJ_OK != status) {
         goto Exit;
     }
-    status = AJ_GetCertificateId(AJ_PEER_TYPE_WITH_MEMBERSHIP, chain, &id);
+    status = AJ_GetCertificateId(chain, &id);
     if (AJ_OK != status) {
         goto Exit;
     }
@@ -1875,7 +1875,7 @@ static AJ_Status UnmarshalCertificates(AJ_Message* msg)
     }
 
     /* Lookup certificate authority public key */
-    status = AJ_PolicyGetCAPublicKey(AJ_PEER_TYPE_WITH_MEMBERSHIP, &head->certificate.tbs.extensions.aki, &pub);
+    status = AJ_PolicyGetCAPublicKey(head->certificate.tbs.extensions.type, &head->certificate.tbs.extensions.aki, &pub);
     if (AJ_OK != status) {
         AJ_InfoPrintf(("UnmarshalCertificates(msg=%p): Certificate authority unknown\n", msg));
         goto Exit;

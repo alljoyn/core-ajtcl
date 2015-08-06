@@ -257,7 +257,7 @@ AJ_Status AJ_PolicyVersion(uint32_t* version);
 /**
  * Search for a public key in the policy
  *
- * @param type         The peer type
+ * @param type         The certificate type
  * @param kid          The key identifier
  * @param pub          The output public key
  *
@@ -265,7 +265,7 @@ AJ_Status AJ_PolicyVersion(uint32_t* version);
  *          - AJ_OK on success
  *          - AJ_ERR_UNKNOWN otherwise
  */
-AJ_Status AJ_PolicyGetCAPublicKey(uint8_t type, DER_Element* kid, AJ_ECCPublicKey* pub);
+AJ_Status AJ_PolicyGetCAPublicKey(uint16_t type, DER_Element* kid, AJ_ECCPublicKey* pub);
 
 /**
  * Access control check for message

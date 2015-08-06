@@ -929,7 +929,7 @@ static AJ_Status ECDSAUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
         status = AJ_ERR_RESOURCES;
         goto Exit;
     }
-    status = AJ_PolicyGetCAPublicKey(AJ_PEER_TYPE_FROM_CA, &head->certificate.tbs.extensions.aki, &ctx->kactx.ecdsa.key[ctx->kactx.ecdsa.num - 1]);
+    status = AJ_PolicyGetCAPublicKey(head->certificate.tbs.extensions.type, &head->certificate.tbs.extensions.aki, &ctx->kactx.ecdsa.key[ctx->kactx.ecdsa.num - 1]);
     if (AJ_OK == status) {
         /* Verify the chain */
         status = AJ_X509VerifyChain(head, &ctx->kactx.ecdsa.key[ctx->kactx.ecdsa.num - 1]);

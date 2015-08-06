@@ -207,15 +207,17 @@ Exit:
     return AJ_ERR_INVALID;
 }
 
-AJ_Status AJ_GetCertificateId(uint8_t type, X509CertificateChain* chain, AJ_CertificateId* id)
+AJ_Status AJ_GetCertificateId(X509CertificateChain* chain, AJ_CertificateId* id)
 {
     AJ_Status status;
+    uint32_t type;
 
     AJ_ASSERT(id);
     AJ_ASSERT(chain);
-    /* AKI is in the root certificate */
+    /* AKI and type is in the root certificate */
     id->aki.data = chain->certificate.tbs.extensions.aki.data;
     id->aki.size = chain->certificate.tbs.extensions.aki.size;
+    type = chain->certificate.tbs.extensions.type;
     while (chain->next) {
         chain = chain->next;
     }
@@ -274,7 +276,7 @@ static AJ_Status MarshalMembershipIds(AJ_Message* msg)
             if (AJ_OK != status) {
                 goto Exit;
             }
-            status = AJ_GetCertificateId(AJ_PEER_TYPE_WITH_MEMBERSHIP, chain, &certificate);
+            status = AJ_GetCertificateId(chain, &certificate);
             if (AJ_OK != status) {
                 goto Exit;
             }
@@ -458,7 +460,7 @@ static AJ_Status SecurityGetProperty(AJ_Message* reply, uint32_t id, void* conte
         if (AJ_OK != status) {
             break;
         }
-        status = AJ_GetCertificateId(AJ_PEER_TYPE_FROM_CA, chain, &certificate);
+        status = AJ_GetCertificateId(chain, &certificate);
         if (AJ_OK != status) {
             break;
         }
@@ -956,7 +958,7 @@ AJ_Status AJ_SecurityInstallMembershipMethod(AJ_Message* msg, AJ_Message* reply)
         goto Exit;
     }
 
-    status = AJ_GetCertificateId(AJ_PEER_TYPE_WITH_MEMBERSHIP, membership, &certificate);
+    status = AJ_GetCertificateId(membership, &certificate);
     if (AJ_OK != status) {
         goto Exit;
     }
