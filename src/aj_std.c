@@ -127,7 +127,7 @@ static const char* const BusIface[] = {
     "?AdvertiseName <s <q >u",
     "?CancelAdvertiseName <s <q >u",
     "?FindAdvertisedName <s >u",
-    "?CancelFindAdvertisedName <s",
+    "?CancelFindAdvertisedName <s >u",
     "?BindSessionPort <q <a{sv} >u >q",
     "?UnbindSessionPort <q >u",
     "?JoinSession <s <q <a{sv} >u >u >a{sv}",
