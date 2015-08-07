@@ -69,6 +69,7 @@ typedef struct _ReplyContext {
     uint32_t timeout;    /**< How long to wait for a reply */
     uint32_t serial;     /**< Serial number for the reply message */
     uint32_t messageId;  /**< The unique message id for the call */
+    char uniqueName[AJ_MAX_NAME_SIZE + 1]; /**< Reply sender's unique name */
 } ReplyContext;
 
 static ReplyContext replyContexts[AJ_NUM_REPLY_CONTEXTS];
@@ -1401,6 +1402,16 @@ AJ_Status AJ_IdentifyMessage(AJ_Message* msg)
         ReplyContext* repCtx = FindReplyContext(msg->replySerial);
         if (repCtx) {
             status = CheckReturnSignature(msg, repCtx->messageId);
+
+            if (AJ_OK == status && (msg->hdr->flags & AJ_FLAG_ENCRYPTED)) {
+                /* Make sure the authenticated sender was the expected recipient
+                 * of the method call.
+                 */
+                if (0 != strncmp(msg->sender, repCtx->uniqueName, AJ_MAX_NAME_SIZE)) {
+                    status = AJ_ERR_NO_MATCH;
+                }
+            }
+
             /*
              * Release the reply context
              */
@@ -1469,10 +1480,22 @@ AJ_Status AJ_AllocReplyContext(AJ_Message* msg, uint32_t timeout)
         AJ_ASSERT(msg->hdr->msgType == AJ_MSG_METHOD_CALL);
 
         if (repCtx) {
+            AJ_Status status;
+            const char* unique;
+
             repCtx->serial = msg->hdr->serialNum;
             repCtx->messageId = msg->msgId;
             repCtx->timeout = timeout ? timeout : AJ_DEFAULT_REPLY_TIMEOUT;
             AJ_InitTimer(&repCtx->callTime);
+
+            status = AJ_GetRemoteUniqueName(msg->destination, &unique);
+            if (AJ_OK == status) {
+                strncpy(repCtx->uniqueName, unique, AJ_MAX_NAME_SIZE);
+                repCtx->uniqueName[AJ_MAX_NAME_SIZE] = '\0';
+            } else {
+                /* Lookup failed, but that doesn't matter for unencrypted messages */
+                repCtx->uniqueName[0] = '\0';
+            }
             return AJ_OK;
         } else {
             AJ_ErrPrintf(("AJ_AllocReplyContext(): Failed to allocate reply context.  status=AJ_ERR_RESOURCES\n"));
