@@ -49,6 +49,8 @@ typedef struct _NameToGUID {
     uint8_t groupKey[16];
     uint32_t replySerial;
     uint32_t authVersion;
+    AJ_SerialNum incoming;
+    AJ_SerialNum outgoing;
 } NameToGUID;
 
 static uint8_t localGroupKey[16];
@@ -125,6 +127,10 @@ AJ_Status AJ_GUID_AddNameMapping(AJ_BusAttachment* bus, const AJ_GUID* guid, con
         memcpy(&mapping->guid, guid, sizeof(AJ_GUID));
         memcpy(&mapping->uniqueName, uniqueName, len + 1);
         mapping->serviceName = serviceName;
+        mapping->incoming.serial = 0;
+        mapping->incoming.offset = 0;
+        mapping->outgoing.serial = 0;
+        mapping->outgoing.offset = 0;
         return AJ_OK;
     } else {
         AJ_ErrPrintf(("AJ_GUID_AddNameMapping(): AJ_ERR_RESOURCES\n"));
@@ -213,6 +219,27 @@ AJ_Status AJ_GetSessionKey(const char* name, uint8_t* key, uint8_t* role, uint32
         return AJ_OK;
     } else {
         AJ_WarnPrintf(("AJ_GetSessionKey(): AJ_ERR_NO_MATCH\n"));
+        return AJ_ERR_NO_MATCH;
+    }
+}
+
+AJ_Status AJ_GetSerialNumbers(const char* name, AJ_SerialNum** incoming, AJ_SerialNum** outgoing)
+{
+    NameToGUID* mapping;
+
+    AJ_InfoPrintf(("AJ_GetSerialNumbers(name=\"%s\", incoming=%p, outgoing=%p)\n", name, incoming, outgoing));
+
+    mapping = LookupName(name);
+    if (mapping) {
+        if (incoming) {
+            *incoming = &mapping->incoming;
+        }
+        if (outgoing) {
+            *outgoing = &mapping->outgoing;
+        }
+        return AJ_OK;
+    } else {
+        AJ_WarnPrintf(("AJ_GetSerialNumbers(): AJ_ERR_NO_MATCH\n"));
         return AJ_ERR_NO_MATCH;
     }
 }

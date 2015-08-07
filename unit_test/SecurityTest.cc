@@ -412,3 +412,263 @@ TEST_F(SecurityTest, Test3)
     AJ_Disconnect(&testBus);
 
 }
+
+class SerialNumberTest : public testing::Test {
+  public:
+    SerialNumberTest() { }
+};
+
+TEST_F(SerialNumberTest, Test1)
+{
+    AJ_SerialNum prev = { 0, 0 };
+    uint32_t curr = 0;
+    int i;
+
+    for (i = 0; i < 64; i++) {
+        curr++;
+        ASSERT_EQ(AJ_OK, AJ_CheckIncomingSerial(&prev, curr));
+        ASSERT_EQ(AJ_ERR_INVALID, AJ_CheckIncomingSerial(&prev, curr));
+    }
+    for (i = 0; i < 64; i++) {
+        curr--;
+        ASSERT_EQ(AJ_ERR_INVALID, AJ_CheckIncomingSerial(&prev, curr));
+    }
+}
+
+TEST_F(SerialNumberTest, Test2)
+{
+    AJ_SerialNum prev = { 0, 0 };
+    uint32_t curr = 0;
+    int i;
+
+    for (i = 0; i < 32; i++) {
+        curr += 2;
+        ASSERT_EQ(AJ_OK, AJ_CheckIncomingSerial(&prev, curr));
+        ASSERT_EQ(AJ_ERR_INVALID, AJ_CheckIncomingSerial(&prev, curr));
+    }
+    for (i = 0; i < 32; i++) {
+        curr -= 2;
+        ASSERT_EQ(AJ_ERR_INVALID, AJ_CheckIncomingSerial(&prev, curr));
+    }
+}
+
+TEST_F(SerialNumberTest, Test3)
+{
+    AJ_SerialNum prev = { 0, 0 };
+    uint32_t curr = 0xFFFFFFFFUL - 32;
+    int i;
+
+    for (i = 0; i < 64; i++) {
+        curr++;
+        if (curr != 0) {
+            ASSERT_EQ(AJ_OK, AJ_CheckIncomingSerial(&prev, curr));
+        }
+        ASSERT_EQ(AJ_ERR_INVALID, AJ_CheckIncomingSerial(&prev, curr));
+    }
+    for (i = 0; i < 64; i++) {
+        curr--;
+        ASSERT_EQ(AJ_ERR_INVALID, AJ_CheckIncomingSerial(&prev, curr));
+    }
+}
+
+TEST_F(SerialNumberTest, Test4)
+{
+    AJ_SerialNum prev = { 0, 0 };
+    uint32_t curr = 0xFFFFFFFFUL - 32;
+    int i;
+
+    for (i = 0; i < 32; i++) {
+        curr += 2;
+        ASSERT_EQ(AJ_OK, AJ_CheckIncomingSerial(&prev, curr));
+        ASSERT_EQ(AJ_ERR_INVALID, AJ_CheckIncomingSerial(&prev, curr));
+    }
+    for (i = 0; i < 32; i++) {
+        curr -= 2;
+        ASSERT_EQ(AJ_ERR_INVALID, AJ_CheckIncomingSerial(&prev, curr));
+    }
+}
+
+TEST_F(SerialNumberTest, Test5)
+{
+    AJ_SerialNum prev = { 0, 0 };
+    uint32_t curr = 64;
+
+    ASSERT_EQ(AJ_OK, AJ_CheckIncomingSerial(&prev, curr));
+    ASSERT_EQ(AJ_ERR_INVALID, AJ_CheckIncomingSerial(&prev, curr));
+    curr = curr - 63;
+    ASSERT_EQ(AJ_OK, AJ_CheckIncomingSerial(&prev, curr));
+    curr = curr - 1;
+    ASSERT_EQ(AJ_ERR_INVALID, AJ_CheckIncomingSerial(&prev, curr));
+    curr = 0x8000UL;
+    ASSERT_EQ(AJ_OK, AJ_CheckIncomingSerial(&prev, curr));
+    curr = 0x8001UL;
+    ASSERT_EQ(AJ_OK, AJ_CheckIncomingSerial(&prev, curr));
+    curr = 0x8000UL;
+    ASSERT_EQ(AJ_ERR_INVALID, AJ_CheckIncomingSerial(&prev, curr));
+}
+
+TEST_F(SerialNumberTest, Test6)
+{
+    AJ_SerialNum prev = { 0, 0 };
+    uint32_t curr = 0;
+    size_t i;
+
+    for (i = 0; i < 64; i++) {
+        curr++;
+        AJ_SetOutgoingSerial(&prev, curr);
+    }
+
+    curr = 0;
+    for (i = 0; i < 64; i++) {
+        curr++;
+        ASSERT_EQ(AJ_OK, AJ_CheckOutgoingSerial(&prev, curr));
+        ASSERT_EQ(AJ_ERR_INVALID, AJ_CheckOutgoingSerial(&prev, curr));
+    }
+}
+
+TEST_F(SerialNumberTest, Test7)
+{
+    AJ_SerialNum prev = { 0, 0 };
+    uint32_t curr = 0xFFFFFFFFUL - 32;
+    size_t i;
+
+    for (i = 0; i < 64; i++) {
+        curr++;
+        AJ_SetOutgoingSerial(&prev, curr);
+    }
+
+    curr = 0xFFFFFFFFUL - 32;
+    for (i = 0; i < 64; i++) {
+        curr++;
+        ASSERT_EQ(AJ_OK, AJ_CheckOutgoingSerial(&prev, curr));
+        ASSERT_EQ(AJ_ERR_INVALID, AJ_CheckOutgoingSerial(&prev, curr));
+    }
+}
+
+TEST_F(SerialNumberTest, Test8)
+{
+    AJ_SerialNum prev = { 0, 0 };
+    uint32_t curr = 0xFFFFFFFEUL;
+    size_t i;
+
+    for (i = 0; i < 64; i++) {
+        curr++;
+        AJ_SetOutgoingSerial(&prev, curr);
+    }
+
+    curr = 0xFFFFFFFEUL;
+    for (i = 0; i < 64; i++) {
+        curr++;
+        ASSERT_EQ(AJ_OK, AJ_CheckOutgoingSerial(&prev, curr));
+        ASSERT_EQ(AJ_ERR_INVALID, AJ_CheckOutgoingSerial(&prev, curr));
+    }
+}
+
+TEST_F(SerialNumberTest, Test9)
+{
+    AJ_SerialNum prev = { 0, 0 };
+    uint32_t curr = 0xFFFFFFFFUL;
+    size_t i;
+
+    for (i = 0; i < 64; i++) {
+        curr++;
+        AJ_SetOutgoingSerial(&prev, curr);
+    }
+
+    curr = 0xFFFFFFFFUL;
+    for (i = 0; i < 64; i++) {
+        curr++;
+        ASSERT_EQ(AJ_OK, AJ_CheckOutgoingSerial(&prev, curr));
+        ASSERT_EQ(AJ_ERR_INVALID, AJ_CheckOutgoingSerial(&prev, curr));
+    }
+}
+
+TEST_F(SerialNumberTest, Test10)
+{
+    AJ_SerialNum prev = { 0, 0 };
+    uint32_t curr;
+
+    curr = 1;
+    AJ_SetOutgoingSerial(&prev, curr);
+    curr = 64;
+    AJ_SetOutgoingSerial(&prev, curr);
+    curr = 1;
+    ASSERT_EQ(AJ_OK, AJ_CheckOutgoingSerial(&prev, curr));
+    curr = 64;
+    ASSERT_EQ(AJ_OK, AJ_CheckOutgoingSerial(&prev, curr));
+    curr = 63;
+    AJ_SetOutgoingSerial(&prev, curr);
+    curr = 63;
+    ASSERT_EQ(AJ_OK, AJ_CheckOutgoingSerial(&prev, curr));
+    curr = 65;
+    ASSERT_EQ(AJ_ERR_INVALID, AJ_CheckOutgoingSerial(&prev, curr));
+
+    curr = 17;
+    AJ_SetOutgoingSerial(&prev, curr);
+    curr = 42;
+    AJ_SetOutgoingSerial(&prev, curr);
+    curr = 17;
+    ASSERT_EQ(AJ_OK, AJ_CheckOutgoingSerial(&prev, curr));
+    curr = 42;
+    ASSERT_EQ(AJ_OK, AJ_CheckOutgoingSerial(&prev, curr));
+
+    curr = 17;
+    AJ_SetOutgoingSerial(&prev, curr);
+    curr = 42;
+    AJ_SetOutgoingSerial(&prev, curr);
+    curr = 42;
+    ASSERT_EQ(AJ_OK, AJ_CheckOutgoingSerial(&prev, curr));
+    curr = 17;
+    ASSERT_EQ(AJ_OK, AJ_CheckOutgoingSerial(&prev, curr));
+    curr = 18;
+    ASSERT_EQ(AJ_ERR_INVALID, AJ_CheckOutgoingSerial(&prev, curr));
+
+    curr = 0xFFFFFFFFUL;
+    AJ_SetOutgoingSerial(&prev, curr);
+    curr += 63;
+    AJ_SetOutgoingSerial(&prev, curr);
+    curr = 0xFFFFFFFFUL;
+    ASSERT_EQ(AJ_OK, AJ_CheckOutgoingSerial(&prev, curr));
+    curr += 63;
+    ASSERT_EQ(AJ_OK, AJ_CheckOutgoingSerial(&prev, curr));
+
+    curr = 0xFFFFFFFFUL;
+    AJ_SetOutgoingSerial(&prev, curr);
+    curr += 64;
+    AJ_SetOutgoingSerial(&prev, curr);
+    curr = 0xFFFFFFFFUL;
+    ASSERT_EQ(AJ_ERR_INVALID, AJ_CheckOutgoingSerial(&prev, curr));
+    curr += 64;
+    ASSERT_EQ(AJ_OK, AJ_CheckOutgoingSerial(&prev, curr));
+}
+
+TEST_F(SerialNumberTest, Test11)
+{
+    AJ_SerialNum prev = { 0, 0 };
+    uint32_t curr;
+
+    curr = 0x80000001UL;
+    ASSERT_EQ(AJ_OK, AJ_CheckIncomingSerial(&prev, curr));
+    curr = 0x10UL;
+    ASSERT_EQ(AJ_ERR_INVALID, AJ_CheckIncomingSerial(&prev, curr));
+    curr = 0x0UL;
+    ASSERT_EQ(AJ_ERR_INVALID, AJ_CheckIncomingSerial(&prev, curr));
+    curr = 0x60000000UL;
+    ASSERT_EQ(AJ_ERR_INVALID, AJ_CheckIncomingSerial(&prev, curr));
+    curr = 0xFFFFFFFFUL;
+    ASSERT_EQ(AJ_OK, AJ_CheckIncomingSerial(&prev, curr));
+    curr = 0x1UL;
+    ASSERT_EQ(AJ_OK, AJ_CheckIncomingSerial(&prev, curr));
+    curr = 0xFFFFFFFFUL;
+    ASSERT_EQ(AJ_ERR_INVALID, AJ_CheckIncomingSerial(&prev, curr));
+    curr = 0x0UL;
+    ASSERT_EQ(AJ_ERR_INVALID, AJ_CheckIncomingSerial(&prev, curr));
+    curr = 0x80000001UL;
+    ASSERT_EQ(AJ_ERR_INVALID, AJ_CheckIncomingSerial(&prev, curr));
+    curr = 0x7FFFFFFFUL;
+    ASSERT_EQ(AJ_OK, AJ_CheckIncomingSerial(&prev, curr));
+    curr = 0xC0000000UL;
+    ASSERT_EQ(AJ_OK, AJ_CheckIncomingSerial(&prev, curr));
+    curr = 0x1UL;
+    ASSERT_EQ(AJ_OK, AJ_CheckIncomingSerial(&prev, curr));
+}
