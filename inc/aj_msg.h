@@ -26,6 +26,7 @@
 #include "aj_status.h"
 #include "aj_bus.h"
 #include "aj_util.h"
+#include "aj_guid.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -599,6 +600,35 @@ AJ_Status AJ_MarshalCloseContainer(AJ_Message* msg, AJ_Arg* arg);
  */
 AJ_EXPORT
 AJ_Status AJ_MarshalVariant(AJ_Message* msg, const char* sig);
+
+/**
+ * Checks an incoming method or signal for a valid serial number.
+ *
+ * @param prev Previous serial number struct for sending peer.
+ * @param curr Current serial number.
+ *
+ * @return   Return AJ_Status
+ *          - AJ_OK if serial number is valid.
+ *          - AJ_ERR_INVALID if serial number is invalid.
+ */
+AJ_Status AJ_CheckIncomingSerial(AJ_SerialNum* prev, uint32_t curr);
+
+/**
+ * Sets expected serial numbers for method returns.
+ */
+void AJ_SetOutgoingSerial(AJ_SerialNum* prev, uint32_t curr);
+
+/**
+ * Checks an incoming method return for a valid serial number.
+ *
+ * @param prev Previous serial number struct for sending peer.
+ * @param curr Current serial number.
+ *
+ * @return   Return AJ_Status
+ *          - AJ_OK if serial number is valid.
+ *          - AJ_ERR_INVALID if serial number is invalid.
+ */
+AJ_Status AJ_CheckOutgoingSerial(AJ_SerialNum* prev, uint32_t curr);
 
 #ifdef __cplusplus
 }
