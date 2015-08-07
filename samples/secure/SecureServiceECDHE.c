@@ -118,47 +118,39 @@ static AJ_Status AppHandlePing(AJ_Message* msg)
     return status;
 }
 
-// Copied from alljoyn/alljoyn_core/test/bbservice.cc
+// Copied from alljoyn/alljoyn_core/unit_test/AuthListenerECDHETest.cc with
+// newlines removed
 static const char pem_prv[] = {
     "-----BEGIN EC PRIVATE KEY-----"
-    "MDECAQEEIJizQZiJuDAfWpd7mGByiuyf89i/xvIJCFlOHoMQg1D4oAoGCCqGSM49"
+    "MDECAQEEICCRJMbxSiWUqj4Zs7jFQRXDJdBRPWX6fIVqE1BaXd08oAoGCCqGSM49"
     "AwEH"
     "-----END EC PRIVATE KEY-----"
 };
 
 static const char pem_x509[] = {
     "-----BEGIN CERTIFICATE-----"
-    "MIIBazCCARGgAwIBAgIUc8XbK46MXC7nCM230CDYiHw756gwCgYIKoZIzj0EAwIw"
-    "NTEzMDEGA1UEAwwqQWxsSm95biBFQ0RIRSBTYW1wbGUgQ2VydGlmaWNhdGUgQXV0"
-    "aG9yaXR5MB4XDTE1MDUwNzIyMTY1OFoXDTIwMDUwNTIyMTY1OFowJzElMCMGA1UE"
-    "AwwcQWxsSm95biBFQ0RIRSBTYW1wbGUgU2VydmljZTBZMBMGByqGSM49AgEGCCqG"
-    "SM49AwEHA0IABC4onmzONqAWcdt9Z7cZMN9QFGQ3oLdxuDw/NAiWY3CCn7xK32tQ"
-    "A08D3Lp6o4g75CO7yFTSVnm8o43jbnfB6/SjDTALMAkGA1UdEwQCMAAwCgYIKoZI"
-    "zj0EAwIDSAAwRQIgX1fCAUg20I3e55CwguZ3qZc8Fjedqw9lhnMjNz2Br38CIQCq"
-    "h4W65dWkP2ksE+m/5PCtfgur/jYSYsK1X/wvs8TOeg=="
-    "-----END CERTIFICATE-----"
-    "-----BEGIN CERTIFICATE-----"
-    "MIIBezCCASKgAwIBAgIUDrFhHE80+zbEUOCNTxw219Nd1qwwCgYIKoZIzj0EAwIw"
-    "NTEzMDEGA1UEAwwqQWxsSm95biBFQ0RIRSBTYW1wbGUgQ2VydGlmaWNhdGUgQXV0"
-    "aG9yaXR5MB4XDTE1MDUwNzIyMTYzNloXDTI1MDUwNDIyMTYzNlowNTEzMDEGA1UE"
-    "AwwqQWxsSm95biBFQ0RIRSBTYW1wbGUgQ2VydGlmaWNhdGUgQXV0aG9yaXR5MFkw"
-    "EwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE6AsCTTviTBWX0Jw2e8Cs8DhwxfRd37Yp"
-    "IH5ALzBqwUN2sfG1odcthe6GKdE/9oVfy12SXOL3X2bi3yg1XFoWnaMQMA4wDAYD"
-    "VR0TBAUwAwEB/zAKBggqhkjOPQQDAgNHADBEAiASuD0OrpDM8ziC5GzMbZWKNE/X"
-    "eboedc0p6YsAZmry2AIgR23cKM4cKkc2bgUDbETNbDcOcwm+EWaK9E4CkOO/tBc="
+    "MIIBuDCCAV2gAwIBAgIHMTAxMDEwMTAKBggqhkjOPQQDAjBCMRUwEwYDVQQLDAxv"
+    "cmdhbml6YXRpb24xKTAnBgNVBAMMIDgxM2FkZDFmMWNiOTljZTk2ZmY5MTVmNTVk"
+    "MzQ4MjA2MB4XDTE1MDcyMjIxMDYxNFoXDTE2MDcyMTIxMDYxNFowQjEVMBMGA1UE"
+    "CwwMb3JnYW5pemF0aW9uMSkwJwYDVQQDDCAzOWIxZGNmMjBmZDJlNTNiZGYzMDU3"
+    "NzMzMjBlY2RjMzBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABGJ/9F4xHn3Klw7z"
+    "6LREmHJgzu8yJ4i09b4EWX6a5MgUpQoGKJcjWgYGWb86bzbciMCFpmKzfZ42Hg+k"
+    "BJs2ZWajPjA8MAwGA1UdEwQFMAMBAf8wFQYDVR0lBA4wDAYKKwYBBAGC3nwBATAV"
+    "BgNVHSMEDjAMoAoECELxjRK/fVhaMAoGCCqGSM49BAMCA0kAMEYCIQDixoulcO7S"
+    "df6Iz6lvt2CDy0sjt/bfuYVW3GeMLNK1LAIhALNklms9SP8ZmTkhCKdpC+/fuwn0"
+    "+7RX8CMop11eWCih"
     "-----END CERTIFICATE-----"
 };
 
 static const char psk_hint[] = "<anonymous>";
 static const char psk_char[] = "faaa0af3dd3f1e0379da046a3ab6ca44";
 static X509CertificateChain* chain = NULL;
-static AJ_ECCPrivateKey prv;
 static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, AJ_Credential*cred)
 {
     AJ_Status status = AJ_ERR_INVALID;
     X509CertificateChain* node;
 
-    AJ_AlwaysPrintf(("AuthListenerCallback authmechanism %d command %d\n", authmechanism, command));
+    AJ_AlwaysPrintf(("AuthListenerCallback authmechanism %08X command %d\n", authmechanism, command));
 
     switch (authmechanism) {
     case AUTH_SUITE_ECDHE_NULL:
@@ -187,12 +179,8 @@ static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, 
     case AUTH_SUITE_ECDHE_ECDSA:
         switch (command) {
         case AJ_CRED_PRV_KEY:
-            cred->len = sizeof (AJ_ECCPrivateKey);
-            status = AJ_DecodePrivateKeyPEM(&prv, pem_prv);
-            if (AJ_OK != status) {
-                return status;
-            }
-            cred->data = (uint8_t*) &prv;
+            AJ_ASSERT(sizeof (AJ_ECCPrivateKey) == cred->len);
+            status = AJ_DecodePrivateKeyPEM((AJ_ECCPrivateKey*) cred->data, pem_prv);
             cred->expiration = keyexpiration;
             break;
 

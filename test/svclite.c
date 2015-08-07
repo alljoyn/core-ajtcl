@@ -150,15 +150,47 @@ static const char psk_char[] = "faaa0af3dd3f1e0379da046a3ab6ca44";
 #else
 static const char psk_char[] = "123456";
 #endif
+static uint32_t PasswordCallback(uint8_t* buffer, uint32_t bufLen)
+{
+    memcpy(buffer, psk_char, sizeof(psk_char));
+    return sizeof(psk_char) - 1;
+}
+
+// Copied from alljoyn/alljoyn_core/unit_test/AuthListenerECDHETest.cc with
+// newlines removed
+static const char pem_prv[] = {
+    "-----BEGIN EC PRIVATE KEY-----"
+    "MDECAQEEICCRJMbxSiWUqj4Zs7jFQRXDJdBRPWX6fIVqE1BaXd08oAoGCCqGSM49"
+    "AwEH"
+    "-----END EC PRIVATE KEY-----"
+};
+
+static const char pem_x509[] = {
+    "-----BEGIN CERTIFICATE-----"
+    "MIIBuDCCAV2gAwIBAgIHMTAxMDEwMTAKBggqhkjOPQQDAjBCMRUwEwYDVQQLDAxv"
+    "cmdhbml6YXRpb24xKTAnBgNVBAMMIDgxM2FkZDFmMWNiOTljZTk2ZmY5MTVmNTVk"
+    "MzQ4MjA2MB4XDTE1MDcyMjIxMDYxNFoXDTE2MDcyMTIxMDYxNFowQjEVMBMGA1UE"
+    "CwwMb3JnYW5pemF0aW9uMSkwJwYDVQQDDCAzOWIxZGNmMjBmZDJlNTNiZGYzMDU3"
+    "NzMzMjBlY2RjMzBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABGJ/9F4xHn3Klw7z"
+    "6LREmHJgzu8yJ4i09b4EWX6a5MgUpQoGKJcjWgYGWb86bzbciMCFpmKzfZ42Hg+k"
+    "BJs2ZWajPjA8MAwGA1UdEwQFMAMBAf8wFQYDVR0lBA4wDAYKKwYBBAGC3nwBATAV"
+    "BgNVHSMEDjAMoAoECELxjRK/fVhaMAoGCCqGSM49BAMCA0kAMEYCIQDixoulcO7S"
+    "df6Iz6lvt2CDy0sjt/bfuYVW3GeMLNK1LAIhALNklms9SP8ZmTkhCKdpC+/fuwn0"
+    "+7RX8CMop11eWCih"
+    "-----END CERTIFICATE-----"
+};
+
+static X509CertificateChain* chain = NULL;
 static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, AJ_Credential* cred)
 {
     AJ_Status status = AJ_ERR_INVALID;
+    X509CertificateChain* node;
 
-    AJ_AlwaysPrintf(("AuthListenerCallback authmechanism %d command %d\n", authmechanism, command));
+    AJ_AlwaysPrintf(("AuthListenerCallback authmechanism %08X command %d\n", authmechanism, command));
 
     switch (authmechanism) {
     case AUTH_SUITE_ECDHE_NULL:
-        cred->expiration = 0;
+        cred->expiration = keyexpiration;
         status = AJ_OK;
         break;
 
@@ -176,6 +208,41 @@ static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, 
             cred->len = strlen(psk_char);
             cred->expiration = keyexpiration;
             status = AJ_OK;
+            break;
+        }
+        break;
+
+    case AUTH_SUITE_ECDHE_ECDSA:
+        switch (command) {
+        case AJ_CRED_PRV_KEY:
+            AJ_ASSERT(sizeof (AJ_ECCPrivateKey) == cred->len);
+            status = AJ_DecodePrivateKeyPEM((AJ_ECCPrivateKey*) cred->data, pem_prv);
+            cred->expiration = keyexpiration;
+            break;
+
+        case AJ_CRED_CERT_CHAIN:
+            switch (cred->direction) {
+            case AJ_CRED_REQUEST:
+                // Free previous certificate chain
+                AJ_X509FreeDecodedCertificateChain(chain);
+                chain = AJ_X509DecodeCertificateChainPEM(pem_x509);
+                if (NULL == chain) {
+                    return AJ_ERR_INVALID;
+                }
+                cred->data = (uint8_t*) chain;
+                cred->expiration = keyexpiration;
+                status = AJ_OK;
+                break;
+
+            case AJ_CRED_RESPONSE:
+                node = (X509CertificateChain*) cred->data;
+                while (node) {
+                    AJ_DumpBytes("CERTIFICATE", node->certificate.der.data, node->certificate.der.size);
+                    node = node->next;
+                }
+                status = AJ_OK;
+                break;
+            }
             break;
         }
         break;

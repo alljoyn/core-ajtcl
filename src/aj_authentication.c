@@ -673,8 +673,10 @@ static AJ_Status ECDSAMarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
     uint8_t verifier[AJ_SHA256_DIGEST_LENGTH];
     X509CertificateChain* chain = NULL;
     AJ_CredField field;
+    uint8_t owns_data = FALSE;
+    AJ_Credential cred;
 
-    AJ_InfoPrintf(("AJ_ECDSA_Marshal(ctx=%p, msg=%p)\n", ctx, msg));
+    AJ_InfoPrintf(("ECDSAMarshal(ctx=%p, msg=%p)\n", ctx, msg));
 
     ctx->expiration = 0xFFFFFFFF;
 
@@ -690,17 +692,48 @@ static AJ_Status ECDSAMarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
         goto Exit;
     }
 
-    /* Get private key from keystore */
-    status = AJ_CredentialGetECCPrivateKey(AJ_ECC_SIG, NULL, NULL, &prv);
+    /* Get certificate chain from keystore */
+    status = AJ_CredentialGet(AJ_CERTIFICATE_IDN_X509 | AJ_CRED_TYPE_CERTIFICATE, NULL, NULL, &field);
+    if (AJ_OK == status) {
+        status = AJ_X509ChainFromBuffer(&chain, &field);
+        if (AJ_OK != status) {
+            goto Exit;
+        }
+        owns_data = TRUE;
+        /* Get private key from keystore */
+        status = AJ_CredentialGetECCPrivateKey(AJ_ECC_SIG, NULL, NULL, &prv);
+        if (AJ_OK != status) {
+            AJ_WarnPrintf(("ECDSAMarshal(ctx=%p, msg=%p): Private key missing\n", ctx, msg));
+            goto Exit;
+        }
+    } else if (NULL != ctx->bus->authListenerCallback) {
+        /* Get certificate chain from application */
+        cred.direction = AJ_CRED_REQUEST;
+        status = ctx->bus->authListenerCallback(AUTH_SUITE_ECDHE_ECDSA, AJ_CRED_CERT_CHAIN, &cred);
+        if (AJ_OK != status) {
+            AJ_WarnPrintf(("ECDSAMarshal(ctx=%p, msg=%p): certificate chain missing\n", ctx, msg));
+            goto Exit;
+        }
+        chain = (X509CertificateChain*) cred.data;
+        /* Get private key from application */
+        cred.direction = AJ_CRED_REQUEST;
+        cred.len = sizeof (AJ_ECCPrivateKey);
+        cred.data = (uint8_t*) &prv;
+        status = ctx->bus->authListenerCallback(AUTH_SUITE_ECDHE_ECDSA, AJ_CRED_PRV_KEY, &cred);
+        if (AJ_OK != status) {
+            AJ_WarnPrintf(("ECDSAMarshal(ctx=%p, msg=%p): Private key missing\n", ctx, msg));
+            goto Exit;
+        }
+    }
     if (AJ_OK != status) {
-        AJ_WarnPrintf(("GetPrivateKey(ctx=%p, prv=%p): Private key missing from keystore\n", ctx, prv));
+        AJ_WarnPrintf(("ECDSAMarshal(ctx=%p, msg=%p): certificate chain missing\n", ctx, msg));
         goto Exit;
     }
 
     /* Sign verifier */
     status = AJ_ECDSASignDigest(verifier, &prv, &sig);
     if (AJ_OK != status) {
-        AJ_WarnPrintf(("AJ_ECDSA_Marshal(msg=%p): Sign verifier error\n", msg));
+        AJ_WarnPrintf(("ECDSAMarshal(ctx=%p, msg=%p): Sign verifier error\n", ctx, msg));
         goto Exit;
     }
     AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, sig.r, KEY_ECC_SZ);
@@ -720,26 +753,18 @@ static AJ_Status ECDSAMarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
         goto Exit;
     }
 
-    /* Get certificate chain from keystore */
-    status = AJ_CredentialGet(AJ_CERTIFICATE_IDN_X509 | AJ_CRED_TYPE_CERTIFICATE, NULL, NULL, &field);
-    if (AJ_OK != status) {
-        goto Exit;
-    }
-
     /* Marshal certificate chain */
-    status = AJ_X509ChainFromBuffer(&chain, &field);
-    if (AJ_OK != status) {
-        goto Exit;
-    }
     status = MarshalCertificates(ctx, chain, msg);
     if (AJ_OK != status) {
-        AJ_WarnPrintf(("AJ_ECDSA_Marshal(msg=%p): Marshal certificate chain error\n", msg));
+        AJ_WarnPrintf(("ECDSAMarshal(ctx=%p, msg=%p): Marshal certificate chain error\n", ctx, msg));
         goto Exit;
     }
     status = AJ_MarshalCloseContainer(msg, &container);
 
 Exit:
-    AJ_X509ChainFree(chain);
+    if (owns_data) {
+        AJ_X509ChainFree(chain);
+    }
     AJ_CredFieldFree(&field);
     return status;
 }
@@ -760,9 +785,10 @@ static AJ_Status ECDSAUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
     size_t len_s;
     X509CertificateChain* head = NULL;
     X509CertificateChain* node = NULL;
+    AJ_Credential cred;
     uint8_t trusted = 0;
 
-    AJ_InfoPrintf(("AJ_ECDSA_Unmarshal(msg=%p)\n", msg));
+    AJ_InfoPrintf(("ECDSAUnmarshal(ctx=%p, msg=%p)\n", ctx, msg));
 
     if (NULL == ctx->bus->authListenerCallback) {
         return AJ_ERR_SECURITY;
@@ -811,7 +837,7 @@ static AJ_Status ECDSAUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
         goto Exit;
     }
     if (CERT_FMT_X509_DER != fmt) {
-        AJ_InfoPrintf(("AJ_ECDSA_Unmarshal(msg=%p): DER encoding expected\n", msg));
+        AJ_InfoPrintf(("ECDSAUnmarshal(ctx=%p, msg=%p): DER encoding expected\n", ctx, msg));
         goto Exit;
     }
     AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, &fmt, sizeof(fmt));
@@ -836,7 +862,7 @@ static AJ_Status ECDSAUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
 
         node = (X509CertificateChain*) AJ_Malloc(sizeof (X509CertificateChain));
         if (NULL == node) {
-            AJ_WarnPrintf(("AJ_ECDSA_Unmarshal(msg=%p): Resource error\n", msg));
+            AJ_WarnPrintf(("ECDSAUnmarshal(ctx=%p, msg=%p): Resource error\n", ctx, msg));
             goto Exit;
         }
         /*
@@ -850,7 +876,7 @@ static AJ_Status ECDSAUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
         node->certificate.der.data = der.data;
         status = AJ_X509DecodeCertificateDER(&node->certificate, &der);
         if (AJ_OK != status) {
-            AJ_WarnPrintf(("AJ_ECDSA_Unmarshal(msg=%p): Certificate decode failed\n", msg));
+            AJ_WarnPrintf(("ECDSAUnmarshal(ctx=%p, msg=%p): Certificate decode failed\n", ctx, msg));
             goto Exit;
         }
 
@@ -861,15 +887,14 @@ static AJ_Status ECDSAUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
         if (NULL == node->next) {
             status = AJ_ECDSAVerifyDigest(digest, &sig, &node->certificate.tbs.publickey);
             if (AJ_OK != status) {
-                AJ_InfoPrintf(("AJ_ECDSA_Unmarshal(msg=%p): Signature invalid\n", msg));
+                AJ_InfoPrintf(("ECDSAUnmarshal(ctx=%p, msg=%p): Signature invalid\n", ctx, msg));
                 goto Exit;
             }
-            if (AJ_SHA256_DIGEST_LENGTH != node->certificate.tbs.extensions.digest.size) {
-                AJ_InfoPrintf(("AJ_ECDSA_Unmarshal(msg=%p): Manifest digest invalid\n", msg));
-                goto Exit;
+            if (AJ_SHA256_DIGEST_LENGTH == node->certificate.tbs.extensions.digest.size) {
+                ctx->kactx.ecdsa.size = AJ_SHA256_DIGEST_LENGTH;
+                /* Copy the manifest digest */
+                memcpy(ctx->kactx.ecdsa.manifest, node->certificate.tbs.extensions.digest.data, AJ_SHA256_DIGEST_LENGTH);
             }
-            /* Copy the manifest digest */
-            memcpy((uint8_t*) &ctx->kactx.ecdsa.manifest, node->certificate.tbs.extensions.digest.data, AJ_SHA256_DIGEST_LENGTH);
         }
         /* Copy the public key */
         ctx->kactx.ecdsa.num++;
@@ -881,7 +906,7 @@ static AJ_Status ECDSAUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
         memcpy((uint8_t*) &ctx->kactx.ecdsa.key[ctx->kactx.ecdsa.num - 1], &node->certificate.tbs.publickey, sizeof (AJ_ECCPublicKey));
     }
     if (AJ_ERR_NO_MORE != status) {
-        AJ_InfoPrintf(("AJ_ECDSA_Unmarshal(msg=%p): Certificate chain error %s\n", msg, AJ_StatusText(status)));
+        AJ_InfoPrintf(("ECDSAUnmarshal(ctx=%p, msg=%p): Certificate chain error %s\n", ctx, msg, AJ_StatusText(status)));
         goto Exit;
     }
     status = AJ_UnmarshalCloseContainer(msg, &container2);
@@ -893,7 +918,7 @@ static AJ_Status ECDSAUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
         goto Exit;
     }
     if (NULL == head) {
-        AJ_InfoPrintf(("AJ_ECDSA_Unmarshal(msg=%p): Certificate chain missing %s\n", msg, AJ_StatusText(status)));
+        AJ_InfoPrintf(("ECDSAUnmarshal(ctx=%p, msg=%p): Certificate chain missing\n", ctx, msg));
         goto Exit;
     }
 
@@ -905,17 +930,26 @@ static AJ_Status ECDSAUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
         goto Exit;
     }
     status = AJ_PolicyGetCAPublicKey(AJ_PEER_TYPE_FROM_CA, &head->certificate.tbs.extensions.aki, &ctx->kactx.ecdsa.key[ctx->kactx.ecdsa.num - 1]);
-    if (AJ_OK != status) {
-        AJ_InfoPrintf(("AJ_ECDSA_Unmarshal(msg=%p): Certificate authority unknown\n", msg));
-        goto Exit;
+    if (AJ_OK == status) {
+        /* Verify the chain */
+        status = AJ_X509VerifyChain(head, &ctx->kactx.ecdsa.key[ctx->kactx.ecdsa.num - 1]);
+        if (AJ_OK != status) {
+            AJ_InfoPrintf(("ECDSAUnmarshal(ctx=%p, msg=%p): Certificate chain invalid\n", ctx, msg));
+            goto Exit;
+        }
+        trusted = 1;
+    } else if (NULL != ctx->bus->authListenerCallback) {
+        AJ_InfoPrintf(("ECDSAUnmarshal(ctx=%p, msg=%p): Certificate authority unknown\n", ctx, msg));
+        /* Ask the application to verify the chain */
+        cred.direction = AJ_CRED_RESPONSE;
+        cred.data = (uint8_t*) head;
+        status = ctx->bus->authListenerCallback(AUTH_SUITE_ECDHE_ECDSA, AJ_CRED_CERT_CHAIN, &cred);
+        if (AJ_OK != status) {
+            AJ_InfoPrintf(("ECDSAUnmarshal(ctx=%p, msg=%p): Certificate chain invalid\n", ctx, msg));
+            goto Exit;
+        }
+        trusted = 1;
     }
-    /* Verify the chain */
-    status = AJ_X509VerifyChain(head, &ctx->kactx.ecdsa.key[ctx->kactx.ecdsa.num - 1]);
-    if (AJ_OK != status) {
-        AJ_InfoPrintf(("AJ_ECDSA_Unmarshal(msg=%p): Certificate chain invalid\n", msg));
-        goto Exit;
-    }
-    trusted = 1;
 
 Exit:
     /* Free the cert chain */
