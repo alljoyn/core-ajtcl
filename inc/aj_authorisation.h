@@ -283,6 +283,7 @@ AJ_Status AJ_AccessControlCheckMessage(AJ_Message* msg, const char* name, uint8_
 /**
  * Access control check for a property
  *
+ * @param msg          The message
  * @param id           The property id
  * @param name         The peer's name
  * @param direction    The message direction (incoming/outgoing)
@@ -291,7 +292,7 @@ AJ_Status AJ_AccessControlCheckMessage(AJ_Message* msg, const char* name, uint8_
  *          - AJ_OK on success
  *          - AJ_ERR_ACCESS on all failures
  */
-AJ_Status AJ_AccessControlCheckProperty(uint32_t id, const char* name, uint8_t direction);
+AJ_Status AJ_AccessControlCheckProperty(AJ_Message* msg, uint32_t id, const char* name, uint8_t direction);
 
 /**
  * Reset access control list for a peer

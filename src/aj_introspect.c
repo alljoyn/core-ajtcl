@@ -1047,7 +1047,7 @@ AJ_Status AJ_MarshalPropertyArgs(AJ_Message* msg, uint32_t propId)
         /*
          * Check outgoing access policy
          */
-        status = AJ_AccessControlCheckProperty(propId, msg->destination, AJ_ACCESS_OUTGOING);
+        status = AJ_AccessControlCheckProperty(msg, propId, msg->destination, AJ_ACCESS_OUTGOING);
         if (AJ_OK != status) {
             return status;
         }
@@ -1276,7 +1276,7 @@ AJ_Status AJ_UnmarshalPropertyArgs(AJ_Message* msg, uint32_t* propId, const char
             /*
              * Check incoming access policy
              */
-            status = AJ_AccessControlCheckProperty(*propId, msg->sender, AJ_ACCESS_INCOMING);
+            status = AJ_AccessControlCheckProperty(msg, *propId, msg->sender, AJ_ACCESS_INCOMING);
         }
     }
     return status;
@@ -1339,7 +1339,7 @@ AJ_Status AJ_MarshalAllPropertiesArgs(AJ_Message* replyMsg, const char* iface, A
             /*
              * Check outgoing access policy
              */
-            status = AJ_AccessControlCheckProperty(propId, replyMsg->destination, AJ_ACCESS_OUTGOING);
+            status = AJ_AccessControlCheckProperty(replyMsg, propId, replyMsg->destination, AJ_ACCESS_OUTGOING);
             if (AJ_OK != status) {
                 goto Exit;
             }
