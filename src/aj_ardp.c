@@ -686,7 +686,7 @@ static void AdjustRTT(ArdpSBuf* sBuf)
         conn->rttMeanVar = (conn->rttMeanVar * 31 + ABS(err)) >> 5;
     }
 
-    rttUnit = (7 * conn->rttMeanUnit + rttUnit) >> 3;
+    conn->rttMeanUnit = (7 * conn->rttMeanUnit + rttUnit) >> 3;
 
     conn->backoff = 0;
 
