@@ -200,6 +200,7 @@ struct _AJ_Message {
     struct _AJ_Arg* outer;     /**< Container arg current being marshaled */
     uint32_t timeout;          /**< Remaining time to wait for all bytes of this message */
     uint32_t authVersion;      /**< Authentication version used */
+    uint8_t expired;           /**< For indicating whether the Rx message has expired */
 };
 
 /**

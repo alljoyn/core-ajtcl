@@ -520,10 +520,11 @@ AJ_Status AJ_DeliverMsg(AJ_Message* msg)
 /*
  * Make sure we have the required number of bytes in the I/O buffer
  */
-static AJ_Status LoadBytes(AJ_IOBuffer* ioBuf, uint16_t numBytes, uint8_t pad, uint32_t* timeout)
+static AJ_Status LoadBytes(AJ_IOBuffer* ioBuf, uint16_t numBytes, uint8_t pad, AJ_Message* msg)
 {
     AJ_Status status = AJ_OK;
     AJ_Time msgTimer;
+    uint32_t* timeout = &msg->timeout;
 
     AJ_InitTimer(&msgTimer);
     numBytes += pad;
@@ -562,6 +563,10 @@ static AJ_Status LoadBytes(AJ_IOBuffer* ioBuf, uint16_t numBytes, uint8_t pad, u
                 }
                 AJ_ErrPrintf(("LoadBytes(): AJ_ERR_READ\n"));
                 status = AJ_ERR_READ;
+            } else if (status == AJ_ERR_ARDP_RECV_EXPIRED) {
+                AJ_ErrPrintf(("LoadBytes(): AJ_ERR_ARDP_RECV_EXPIRED -> AJ_ERR_UNMARSHAL\n"));
+                msg->expired  = TRUE;
+                status = AJ_ERR_UNMARSHAL;
             }
             break;
         }
@@ -637,23 +642,28 @@ AJ_Status AJ_CloseMsg(AJ_Message* msg)
      */
     if (msg->bus) {
         AJ_IOBuffer* ioBuf = &msg->bus->sock.rx;
-        /*
-         * Skip any unconsumed bytes
-         */
-        while (msg->bodyBytes) {
-            uint16_t sz = AJ_IO_BUF_AVAIL(ioBuf);
-            sz = min(sz, msg->bodyBytes);
-            if (!sz) {
-                AJ_IO_BUF_RESET(ioBuf);
-                sz = min(msg->bodyBytes, ioBuf->bufSize);
+        if (msg->expired == TRUE) {
+            AJ_IO_BUF_RESET(ioBuf);
+        } else {
+            /*
+             * Skip any unconsumed bytes
+             */
+            while (msg->bodyBytes) {
+                uint16_t sz = AJ_IO_BUF_AVAIL(ioBuf);
+                sz = min(sz, msg->bodyBytes);
+                if (!sz) {
+                    AJ_IO_BUF_RESET(ioBuf);
+                    sz = min(msg->bodyBytes, ioBuf->bufSize);
+                }
+                status = LoadBytes(ioBuf, sz, 0, msg);
+                if (status != AJ_OK) {
+                    break;
+                }
+                msg->bodyBytes -= sz;
+                ioBuf->readPtr += sz;
             }
-            status = LoadBytes(ioBuf, sz, 0, &msg->timeout);
-            if (status != AJ_OK) {
-                break;
-            }
-            msg->bodyBytes -= sz;
-            ioBuf->readPtr += sz;
         }
+
         memset(msg, 0, sizeof(AJ_Message));
 #ifndef NDEBUG
         currentMsg = NULL;
@@ -725,7 +735,7 @@ static AJ_Status Unmarshal(AJ_Message* msg, const char** sig, AJ_Arg* arg);
 static AJ_Status UnmarshalStruct(AJ_Message* msg, const char** sig, AJ_Arg* arg, uint8_t pad)
 {
     AJ_IOBuffer* ioBuf = &msg->bus->sock.rx;
-    AJ_Status status = LoadBytes(ioBuf, 0, pad, &msg->timeout);
+    AJ_Status status = LoadBytes(ioBuf, 0, pad, msg);
     arg->val.v_data = ioBuf->readPtr;
     arg->sigPtr = *sig;
     /*
@@ -760,7 +770,7 @@ static AJ_Status UnmarshalArray(AJ_Message* msg, const char** sig, AJ_Arg* arg, 
     /*
      * Get the byte count for the array
      */
-    status = LoadBytes(ioBuf, 4, pad, &msg->timeout);
+    status = LoadBytes(ioBuf, 4, pad, msg);
     if (status != AJ_OK) {
         return status;
     }
@@ -772,7 +782,7 @@ static AJ_Status UnmarshalArray(AJ_Message* msg, const char** sig, AJ_Arg* arg, 
      * the array element types align on an 8 byte boundary.
      */
     pad = PadForType(typeId, ioBuf);
-    status = LoadBytes(ioBuf, numBytes, pad, &msg->timeout);
+    status = LoadBytes(ioBuf, numBytes, pad, msg);
     if (status != AJ_OK) {
         return status;
     }
@@ -824,7 +834,7 @@ static AJ_Status Unmarshal(AJ_Message* msg, const char** sig, AJ_Arg* arg)
 
     if (IsScalarType(typeId)) {
         sz = SizeOfType(typeId);
-        status = LoadBytes(ioBuf, sz, pad, &msg->timeout);
+        status = LoadBytes(ioBuf, sz, pad, msg);
         if (status != AJ_OK) {
             return status;
         }
@@ -845,7 +855,7 @@ static AJ_Status Unmarshal(AJ_Message* msg, const char** sig, AJ_Arg* arg)
          * Read the string length. Note the length doesn't include the terminating NUL
          * so an empty string in encoded as two zero bytes.
          */
-        status = LoadBytes(ioBuf, lenSize, pad, &msg->timeout);
+        status = LoadBytes(ioBuf, lenSize, pad, msg);
         if (status != AJ_OK) {
             return status;
         }
@@ -856,7 +866,7 @@ static AJ_Status Unmarshal(AJ_Message* msg, const char** sig, AJ_Arg* arg)
             sz = (uint32_t)(*ioBuf->readPtr);
         }
         ioBuf->readPtr += lenSize;
-        status = LoadBytes(ioBuf, sz + 1, 0, &msg->timeout);
+        status = LoadBytes(ioBuf, sz + 1, 0, msg);
         if (status != AJ_OK) {
             return status;
         }
@@ -1103,13 +1113,16 @@ AJ_Status AJ_UnmarshalMsg(AJ_BusAttachment* bus, AJ_Message* msg, uint32_t timeo
                 msg->sender = AJ_GetUniqueName(msg->bus);
                 msg->destination = msg->sender;
                 status = AJ_OK;
+            } else if (status == AJ_ERR_ARDP_RECV_EXPIRED) {
+                status = AJ_ERR_UNMARSHAL;
+                msg->expired = TRUE;
             }
 
             return status;
         }
     }
     /*
-     * Header was unmarsalled directly into the rx buffer
+     * Header was unmarshalled directly into the rx buffer
      */
     msg->hdr = (AJ_MsgHeader*)ioBuf->bufStart;
     ioBuf->readPtr += sizeof(AJ_MsgHeader);
@@ -1140,7 +1153,7 @@ AJ_Status AJ_UnmarshalMsg(AJ_BusAttachment* bus, AJ_Message* msg, uint32_t timeo
     /*
      * Load the header
      */
-    status = LoadBytes(ioBuf, msg->hdr->headerLen + hdrPad, 0, &msg->timeout);
+    status = LoadBytes(ioBuf, msg->hdr->headerLen + hdrPad, 0, msg);
     if (status != AJ_OK) {
         return status;
     }
@@ -1178,7 +1191,7 @@ AJ_Status AJ_UnmarshalMsg(AJ_BusAttachment* bus, AJ_Message* msg, uint32_t timeo
         /*
          * Custom unmarshal the header field - signature is "(yv)" so starts off with STRUCT aligment.
          */
-        status = LoadBytes(ioBuf, 4, PadForType(AJ_ARG_STRUCT, ioBuf), &msg->timeout);
+        status = LoadBytes(ioBuf, 4, PadForType(AJ_ARG_STRUCT, ioBuf), msg);
         if (status != AJ_OK) {
             break;
         }
@@ -1287,7 +1300,7 @@ AJ_Status AJ_UnmarshalMsg(AJ_BusAttachment* bus, AJ_Message* msg, uint32_t timeo
          * If the message is encrypted load the entire message body and decrypt it.
          */
         if (msg->hdr->flags & AJ_FLAG_ENCRYPTED) {
-            status = LoadBytes(ioBuf, msg->hdr->bodyLen, 0, &msg->timeout);
+            status = LoadBytes(ioBuf, msg->hdr->bodyLen, 0, msg);
             if (status == AJ_OK) {
                 status = DecryptMessage(msg);
             }
@@ -1374,7 +1387,7 @@ AJ_Status AJ_SkipArg(AJ_Message* msg)
             /*
              * Just consume the array bytes
              */
-            status = LoadBytes(ioBuf, skippy.len, 0, &msg->timeout);
+            status = LoadBytes(ioBuf, skippy.len, 0, msg);
             if (status == AJ_OK) {
                 ioBuf->readPtr += skippy.len;
                 msg->bodyBytes -= skippy.len;
@@ -1636,7 +1649,10 @@ AJ_Status AJ_UnmarshalRaw(AJ_Message* msg, const void** data, size_t len, size_t
             AJ_ErrPrintf(("AJ_UnmarshalRaw(): AJ_ERR_UNMARSHAL\n"));
             return AJ_ERR_UNMARSHAL;
         }
-        LoadBytes(ioBuf, 0, pad, &msg->timeout);
+        status = LoadBytes(ioBuf, 0, pad, msg);
+        if (status != AJ_OK) {
+            return status;
+        }
         msg->bodyBytes -= pad;
         /*
          * Standard signature matching is now meaningless
@@ -1665,7 +1681,7 @@ AJ_Status AJ_UnmarshalRaw(AJ_Message* msg, const void** data, size_t len, size_t
      * If we try to load more than the available space we will get an error
      */
     len = min(len, AJ_IO_BUF_SPACE(ioBuf));
-    status = LoadBytes(ioBuf, (uint16_t)len, 0, &msg->timeout);
+    status = LoadBytes(ioBuf, (uint16_t)len, 0, msg);
     if (status == AJ_OK) {
         sz = AJ_IO_BUF_AVAIL(ioBuf);
         if (sz < len) {
