@@ -331,7 +331,7 @@ static AJ_Status SendHeader(uint8_t flags)
     size_t sent;
     AJ_Status status;
 
-    AJ_InfoPrintf(("SendHeader(flags=0x%02x, seq=%u, ack=%u)\n", flags, conn->snd.NXT, conn->rcv.CUR));
+    AJ_InfoPrintf(("SendHeader(flags=0x%02x, seq=%u, ack=%u, lcs=%u)\n", flags, conn->snd.NXT, conn->rcv.CUR, conn->rcv.LCS));
 
     /* Marshal the header structure into a byte buffer */
     MarshalHeader(buf32, flags, 0, ARDP_TTL_INFINITE, 0, 0);
@@ -942,9 +942,13 @@ AJ_Status AJ_ARDP_StartMsgSend(uint32_t ttl)
 
     AJ_InfoPrintf(("ARDP_StartMsgSend: ttl=%d\n", ttl));
 
-    AJ_ASSERT(conn->snd.newMsg == FALSE);
+    if (conn->snd.msgLenSent != 0) {
+        AJ_ASSERT(conn->snd.newMsg == FALSE);
+    }
     conn->snd.newMsg = TRUE;
     conn->snd.msgTTL = ttl;
+    conn->snd.msgLenSent = 0;
+
     return AJ_OK;
 }
 
@@ -995,7 +999,6 @@ static AJ_Status ARDP_Send(uint8_t* txBuf, uint16_t len)
     if (conn->snd.newMsg == TRUE) {
         AJ_MsgHeader* hdr = (AJ_MsgHeader*) txBuf;
         conn->snd.msgLenTotal = sizeof(AJ_MsgHeader) + ((hdr->headerLen + 7) & 0xFFFFFFF8) + hdr->bodyLen;
-        conn->snd.msgLenSent = 0;
         AJ_InfoPrintf(("ARDP_Send: new message len = %u\n", conn->snd.msgLenTotal));
         conn->snd.newMsg = FALSE;
         conn->snd.msgSOM = conn->snd.NXT;
@@ -1044,7 +1047,7 @@ static AJ_Status ARDP_Send(uint8_t* txBuf, uint16_t len)
         /*
          * Check if the segment is not filled to full capacity and is not the last segment. If so, we need
          * to wait for more data to pack in. Do not send, do not update counters.
-         * Note: Soft check (instead of checking len == 0): a precaution for avoiding infinte loop in case we miscalculated.
+         * Note: Soft check (instead of checking len == 0): a precaution for avoiding infinite loop in case we miscalculated.
          */
         if ((dataLen < ARDP_MAX_DLEN) && dataLen != (conn->snd.msgLenTotal - conn->snd.msgLenSent)) {
             AJ_InfoPrintf(("ARDP_Send(): queued %d bytes\n", dataLen));
@@ -1056,7 +1059,7 @@ static AJ_Status ARDP_Send(uint8_t* txBuf, uint16_t len)
 
         MarshalHeader(sBuf->data, ARDP_FLAG_ACK | ARDP_FLAG_VER, dataLen, ttl, conn->snd.msgSOM, fcnt);
 
-        AJ_InfoPrintf(("ARDP_Send(): send %d bytes (seq %u, ack %u)\n", ARDP_HEADER_SIZE + dataLen, conn->snd.NXT, conn->rcv.CUR));
+        AJ_InfoPrintf(("ARDP_Send(): send %d bytes (seq %u, ack %u, lcs %u)\n", ARDP_HEADER_SIZE + dataLen, conn->snd.NXT, conn->rcv.CUR, conn->rcv.LCS));
         status = (*sendFunction)(conn->context, (uint8_t*) sBuf->data, ARDP_HEADER_SIZE + dataLen, &sent, conn->confirm);
 
         if (status != AJ_OK) {
