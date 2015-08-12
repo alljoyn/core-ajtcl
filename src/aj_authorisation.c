@@ -114,9 +114,8 @@ static void AccessControlClose(void)
  * The member id is used when applying access control
  * for each incoming or outgoing message.
  */
-static AJ_Status AccessControlInit(void)
+static AJ_Status AccessControlRegister(const AJ_Object* list, uint8_t l)
 {
-    AJ_ObjectIterator iter;
     const AJ_Object* obj;
     const AJ_InterfaceDescription* interfaces;
     AJ_InterfaceDescription iface;
@@ -124,12 +123,18 @@ static AJ_Status AccessControlInit(void)
     const char* mbr;
     uint8_t secure;
     uint8_t i, m;
+    uint16_t n = 0;
     AccessControlMember* member;
 
-    AJ_InfoPrintf(("AJ_AccessControlInit()\n"));
+    AJ_InfoPrintf(("AccessControlRegister(list=%p, l=%x)\n", list, l));
 
-    for (obj = AJ_InitObjectIterator(&iter, AJ_OBJ_FLAGS_ALL_INCLUDE_MASK, 0); obj != NULL; obj = AJ_NextObject(&iter)) {
-        secure = obj->flags & AJ_OBJ_FLAG_SECURE;
+    if (NULL == list) {
+        /* Nothing to add to the list */
+        return AJ_OK;
+    }
+
+    while (list[n].path) {
+        obj = &list[n++];
         interfaces = obj->interfaces;
         if (!interfaces) {
             continue;
@@ -139,6 +144,7 @@ static AJ_Status AccessControlInit(void)
             iface = *interfaces++;
             ifn = *iface++;
             AJ_ASSERT(ifn);
+            secure = obj->flags & AJ_OBJ_FLAG_SECURE;
             secure |= (SECURE_TRUE == *ifn);
             secure &= ~(SECURE_OFF == *ifn);
             /* Only access control secure objects/interfaces */
@@ -148,16 +154,17 @@ static AJ_Status AccessControlInit(void)
                     mbr = *iface++;
                     member = (AccessControlMember*) AJ_Malloc(sizeof (AccessControlMember));
                     if (NULL == member) {
+                        AJ_WarnPrintf(("AccessControlRegister(list=%p, l=%x): AJ_ERR_RESOURCES\n", list, l));
                         goto Exit;
                     }
                     memset(member, 0, sizeof (AccessControlMember));
                     member->obj = obj->path;
                     member->ifn = ifn;
                     member->mbr = mbr;
-                    member->id = AJ_ENCODE_MESSAGE_ID(iter.l, iter.n - 1, i, m);
+                    member->id = AJ_ENCODE_MESSAGE_ID(l, n - 1, i, m);
                     member->next = g_access;
                     g_access = member;
-                    AJ_InfoPrintf(("AJ_AccessControlInit(): id 0x%08X obj %s ifn %s mbr %s\n", member->id, obj->path, ifn, mbr));
+                    AJ_InfoPrintf(("AccessControlRegister: id 0x%08X obj %s ifn %s mbr %s\n", member->id, obj->path, ifn, mbr));
                     m++;
                 }
             }
@@ -168,8 +175,40 @@ static AJ_Status AccessControlInit(void)
     return AJ_OK;
 
 Exit:
-    AccessControlClose();
     return AJ_ERR_RESOURCES;
+}
+
+static void AccessControlDeregister(uint8_t l)
+{
+    AccessControlMember* node;
+    AccessControlMember* head = g_access;
+
+    /* Remove nodes from beginning of the list */
+    while (NULL != head) {
+        if (l == (head->id >> 24)) {
+            AJ_InfoPrintf(("AccessControlDeregister: id 0x%08X obj %s ifn %s mbr %s\n", head->id, head->obj, head->ifn, head->mbr));
+            node = head;
+            head = head->next;
+            AJ_Free(node);
+        } else {
+            break;
+        }
+    }
+    g_access = head;
+    if (NULL == g_access) {
+        return;
+    }
+    /* Remove nodes from rest of the list */
+    while (NULL != head->next) {
+        if (l == (head->next->id >> 24)) {
+            AJ_InfoPrintf(("AccessControlDeregister: id 0x%08X obj %s ifn %s mbr %s\n", head->next->id, head->next->obj, head->next->ifn, head->next->mbr));
+            node = head->next;
+            head->next = node->next;
+            AJ_Free(node);
+        } else {
+            head = head->next;
+        }
+    }
 }
 
 static AccessControlMember* FindAccessControlMember(uint32_t id)
@@ -989,10 +1028,16 @@ Exit:
     return AJ_ERR_INVALID;
 }
 
-AJ_Status AJ_AuthorisationInit(void)
+AJ_Status AJ_AuthorisationRegister(const AJ_Object* list, uint8_t l)
 {
-    /* Init access control list */
-    return AccessControlInit();
+    /* Register objects on the access control list */
+    return AccessControlRegister(list, l);
+}
+
+void AJ_AuthorisationDeregister(uint8_t l)
+{
+    /* Deregister objects on the access control list */
+    AccessControlDeregister(l);
 }
 
 void AJ_AuthorisationClose(void)

@@ -38,6 +38,7 @@
 #include <ajtcl/aj_creds.h>
 #include <ajtcl/aj_peer.h>
 #include <ajtcl/aj_authorisation.h>
+#include <ajtcl/aj_security.h>
 
 #ifdef AJ_ARDP
 #include <ajtcl/aj_ardp.h>

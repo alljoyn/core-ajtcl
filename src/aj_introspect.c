@@ -1434,9 +1434,19 @@ AJ_Status AJ_IdentifyMessage(AJ_Message* msg)
 
 void AJ_RegisterObjects(const AJ_Object* localObjects, const AJ_Object* proxyObjects)
 {
+    AJ_Status status;
+
     AJ_ASSERT(AJ_PRX_ID_FLAG < ArraySize(objectLists));
     objectLists[AJ_APP_ID_FLAG] = localObjects;
     objectLists[AJ_PRX_ID_FLAG] = proxyObjects;
+    status = AJ_AuthorisationRegister(localObjects, AJ_APP_ID_FLAG);
+    if (AJ_OK != status) {
+        AJ_WarnPrintf(("AJ_RegisterObjects(localObjects=%p, proxyObjects=%p): %s\n", localObjects, proxyObjects, AJ_StatusText(status)));
+    }
+    status = AJ_AuthorisationRegister(proxyObjects, AJ_PRX_ID_FLAG);
+    if (AJ_OK != status) {
+        AJ_WarnPrintf(("AJ_RegisterObjects(localObjects=%p, proxyObjects=%p): %s\n", localObjects, proxyObjects, AJ_StatusText(status)));
+    }
 }
 
 void AJ_RegisterDescriptionLanguages(const char* const* languages) {
@@ -1450,7 +1460,8 @@ AJ_Status AJ_RegisterObjectListWithDescriptions(const AJ_Object* objList, uint8_
     }
     objectLists[index] = objList;
     descriptionLookups[index] = descLookup;
-    return AJ_OK;
+    AJ_AuthorisationDeregister(index);
+    return AJ_AuthorisationRegister(objList, index);
 }
 
 AJ_Status AJ_RegisterObjectList(const AJ_Object* objList, uint8_t index)
