@@ -206,7 +206,6 @@ AJ_Status AJ_UnmarshalECCPublicKey(AJ_Message* msg, AJ_ECCPublicKey* pub, DER_El
 /**
  * Unmarshal a certificate chain field and generate the id
  *
- * @param type         The peer type
  * @param chain        The certificate chain
  * @param id           The certificate id
  *
@@ -214,7 +213,7 @@ AJ_Status AJ_UnmarshalECCPublicKey(AJ_Message* msg, AJ_ECCPublicKey* pub, DER_El
  *          - AJ_OK on success
  *          - AJ_ERR_INVALID on all failures
  */
-AJ_Status AJ_GetCertificateId(uint8_t type, X509CertificateChain* chain, AJ_CertificateId* id);
+AJ_Status AJ_GetCertificateId(X509CertificateChain* chain, AJ_CertificateId* id);
 
 /**
  * Callback for the bind session port call.

@@ -1325,7 +1325,7 @@ AJ_Status AJ_PolicyVersion(uint32_t* version)
     return AJ_OK;
 }
 
-AJ_Status AJ_PolicyGetCAPublicKey(uint8_t type, DER_Element* kid, AJ_ECCPublicKey* pub)
+AJ_Status AJ_PolicyGetCAPublicKey(uint16_t type, DER_Element* kid, AJ_ECCPublicKey* pub)
 {
     AJ_Status status;
     Policy policy;
@@ -1342,11 +1342,24 @@ AJ_Status AJ_PolicyGetCAPublicKey(uint8_t type, DER_Element* kid, AJ_ECCPublicKe
     while (acl) {
         peer = acl->peers;
         while (peer) {
-            if (type == peer->type) {
-                if ((kid->size == peer->kid.size) && (0 == memcmp(kid->data, peer->kid.data, kid->size))) {
-                    status = AJ_OK;
-                    memcpy((uint8_t*) pub, (uint8_t*) &peer->pub, sizeof (AJ_ECCPublicKey));
+            switch (peer->type) {
+            case AJ_PEER_TYPE_FROM_CA:
+                if (AJ_CERTIFICATE_UNR_X509 & type) {
+                    if ((kid->size == peer->kid.size) && (0 == memcmp(kid->data, peer->kid.data, kid->size))) {
+                        status = AJ_OK;
+                        memcpy((uint8_t*) pub, (uint8_t*) &peer->pub, sizeof (AJ_ECCPublicKey));
+                    }
                 }
+                break;
+
+            case AJ_PEER_TYPE_WITH_MEMBERSHIP:
+                if (AJ_CERTIFICATE_MBR_X509 & type) {
+                    if ((kid->size == peer->kid.size) && (0 == memcmp(kid->data, peer->kid.data, kid->size))) {
+                        status = AJ_OK;
+                        memcpy((uint8_t*) pub, (uint8_t*) &peer->pub, sizeof (AJ_ECCPublicKey));
+                    }
+                }
+                break;
             }
             peer = peer->next;
         }
