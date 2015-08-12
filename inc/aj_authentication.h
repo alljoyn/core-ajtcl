@@ -221,6 +221,10 @@ void AJ_ConversationHash_Update_String(AJ_AuthenticationContext* ctx, uint32_t c
  * Update the conversation hash with a message. If the message has been created locally with calls to AJ_Marshal*
  * functions, this function must be called BEFORE AJ_DeliverMsg or AJ_DeliverMsgPartial is called on it.
  *
+ * If isMarshaledMessage is 0, the message will be reset to the beginning as a consequence of calling this function.
+ * Any subsequent argument unmarshaling calls will start at the beginning of the message. It is therefore recommended
+ * to call this function before or after all argument unmarshaling.
+ *
  * @param ctx                   The authentication context
  * @param conversationVersion   The minimum authentication version which applies to this update
  * @param msg                   The pointer to a message that was unmarshaled by an earlier call to AJ_UnmarshalMsg
