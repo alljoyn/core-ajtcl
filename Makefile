@@ -201,7 +201,6 @@ FLAGS = 	-mthumb \
 			-Wwrite-strings \
 			-Wsign-compare \
 			-Waggregate-return \
-			-Wmissing-declarations \
 			-Wformat \
 			-Wmissing-format-attribute \
 			-Wno-deprecated-declarations \

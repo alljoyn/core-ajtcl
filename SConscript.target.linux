@@ -61,7 +61,6 @@ env.Append(CFLAGS = [
     '-Wfloat-equal',
     '-Wformat=2',
     '-Wlong-long',
-    '-Wmissing-declarations',
     '-Wmissing-format-attribute',
     '-Wno-deprecated-declarations',
     '-Wpacked',
