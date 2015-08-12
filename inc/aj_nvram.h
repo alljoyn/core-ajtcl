@@ -98,7 +98,7 @@ void AJ_NVRAM_Clear();
  *
  * @return A handle that specifies the data set. NULL if the open operation fails.
  */
-AJ_NV_DATASET* AJ_NVRAM_Open(uint16_t id, char* mode, uint16_t capacity);
+AJ_NV_DATASET* AJ_NVRAM_Open(uint16_t id, const char* mode, uint16_t capacity);
 
 /**
  * Write to the data set specified by a handle

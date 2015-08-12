@@ -172,7 +172,7 @@ AJ_Status AJ_NVRAM_Delete(uint16_t id)
     return AJ_OK;
 }
 
-AJ_NV_DATASET* AJ_NVRAM_Open(uint16_t id, char* mode, uint16_t capacity)
+AJ_NV_DATASET* AJ_NVRAM_Open(uint16_t id, const char* mode, uint16_t capacity)
 {
     AJ_Status status = AJ_OK;
     uint8_t* entry = NULL;
