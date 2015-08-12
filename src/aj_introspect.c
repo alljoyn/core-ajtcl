@@ -1437,6 +1437,8 @@ void AJ_RegisterObjects(const AJ_Object* localObjects, const AJ_Object* proxyObj
     AJ_ASSERT(AJ_PRX_ID_FLAG < ArraySize(objectLists));
     objectLists[AJ_APP_ID_FLAG] = localObjects;
     objectLists[AJ_PRX_ID_FLAG] = proxyObjects;
+    AJ_AuthorisationRegister(localObjects, AJ_APP_ID_FLAG);
+    AJ_AuthorisationRegister(proxyObjects, AJ_PRX_ID_FLAG);
 }
 
 void AJ_RegisterDescriptionLanguages(const char* const* languages) {

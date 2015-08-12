@@ -161,7 +161,7 @@ AJ_Status AJ_SecurityBound(AJ_BusAttachment* bus)
 {
     AJ_InfoPrintf(("AJ_SecurityBound(bus=%p): Bind OK\n", bus));
 
-    AJ_AuthorisationInit();
+    AJ_AuthorisationRegister(AJ_StandardObjects, AJ_BUS_ID_FLAG);
     emit = TRUE;
     initialised = TRUE;
 
