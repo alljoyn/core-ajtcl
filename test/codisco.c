@@ -29,6 +29,8 @@ static const char* routingNodeName = "org.alljoyn.BusNode";
 
 static const uint16_t CONNECT_TIMEOUT   = 1000 * 5;
 
+static const uint16_t ROUTER_SELECTION_TIMEOUT = 5;
+
 /* PAUSE is the delay between connection attempts */
 static const uint16_t PAUSE_MAX   = 1000 * 4; /* Four seconds */
 static const uint16_t PAUSE_MIN   = 500  * 1; /* Half-a-second */
@@ -77,7 +79,7 @@ void AJ_Main(void)
     /*
      * Set the selection timeout to a different value from the default.
      */
-    AJ_SetSelectionTimeout(2000);
+    AJ_SetSelectionTimeout(ROUTER_SELECTION_TIMEOUT);
 
     /* Connect and disconnect forever */
     while (TRUE) {
