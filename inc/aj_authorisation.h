@@ -88,13 +88,16 @@ typedef struct _AJ_Policy {
 } AJ_Policy;
 
 /**
- * Initialise access control list
+ * Register objects on the access control list
+ *
+ * @param list         The object list
+ * @param l            The std, app, prx identifier
  *
  * @return
  *          - AJ_OK on success
  *          - AJ_ERR_INVALID otherwise
  */
-AJ_Status AJ_AuthorisationInit(void);
+AJ_Status AJ_AuthorisationRegister(const AJ_Object* list, uint8_t l);
 
 /**
  * Cleanup access control memory
