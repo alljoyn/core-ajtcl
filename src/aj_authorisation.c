@@ -55,15 +55,28 @@ typedef struct _Policy {
     AJ_Policy* policy;
 } Policy;
 
-#define ACCESS_DENY                 0x01
-#define ACCESS_POLICY_INCOMING      0x02
-#define ACCESS_POLICY_OUTGOING      0x04
-#define ACCESS_MANIFEST_INCOMING    (ACCESS_POLICY_INCOMING << 2)
-#define ACCESS_MANIFEST_OUTGOING    (ACCESS_POLICY_OUTGOING << 2)
-#define ACCESS_POLICY (ACCESS_POLICY_INCOMING | ACCESS_POLICY_OUTGOING)
-#define ACCESS_MANIFEST (ACCESS_MANIFEST_INCOMING | ACCESS_MANIFEST_OUTGOING)
-#define POLICY_ACCESS(a) (a)
-#define MANIFEST_ACCESS(a) (a << 2)
+#define POLICY_METHOD_INCOMING      0x01
+#define POLICY_METHOD_OUTGOING      0x02
+#define POLICY_PRPSET_INCOMING      0x04
+#define POLICY_PRPSET_OUTGOING      0x08
+#define POLICY_SIGNAL_INCOMING      POLICY_METHOD_INCOMING
+#define POLICY_SIGNAL_OUTGOING      POLICY_METHOD_OUTGOING
+#define POLICY_PRPGET_INCOMING      POLICY_METHOD_INCOMING
+#define POLICY_PRPGET_OUTGOING      POLICY_METHOD_OUTGOING
+#define MANIFEST_METHOD_INCOMING    (POLICY_METHOD_INCOMING << 4)
+#define MANIFEST_METHOD_OUTGOING    (POLICY_METHOD_OUTGOING << 4)
+#define MANIFEST_PRPSET_INCOMING    (POLICY_PRPSET_INCOMING << 4)
+#define MANIFEST_PRPSET_OUTGOING    (POLICY_PRPSET_OUTGOING << 4)
+#define MANIFEST_SIGNAL_INCOMING    MANIFEST_METHOD_INCOMING
+#define MANIFEST_SIGNAL_OUTGOING    MANIFEST_METHOD_OUTGOING
+#define MANIFEST_PRPGET_INCOMING    MANIFEST_METHOD_INCOMING
+#define MANIFEST_PRPGET_OUTGOING    MANIFEST_METHOD_OUTGOING
+#define POLICY_INCOMING             (POLICY_METHOD_INCOMING | POLICY_PRPSET_INCOMING)
+#define POLICY_OUTGOING             (POLICY_METHOD_OUTGOING | POLICY_PRPSET_OUTGOING)
+#define MANIFEST_INCOMING           (MANIFEST_METHOD_INCOMING | MANIFEST_PRPSET_INCOMING)
+#define MANIFEST_OUTGOING           (MANIFEST_METHOD_OUTGOING | MANIFEST_PRPSET_OUTGOING)
+#define POLICY_ACCESS               (POLICY_INCOMING | POLICY_OUTGOING)
+#define MANIFEST_ACCESS             (MANIFEST_INCOMING | MANIFEST_OUTGOING)
 
 /*
  * The main access control structure.
@@ -74,7 +87,8 @@ typedef struct _AccessControlMember {
     const char* obj;
     const char* ifn;
     const char* mbr;
-    uint8_t access[AJ_NAME_MAP_GUID_SIZE];
+    uint8_t deny[AJ_NAME_MAP_GUID_SIZE];
+    uint8_t allow[AJ_NAME_MAP_GUID_SIZE];
     struct _AccessControlMember* next;
 } AccessControlMember;
 
@@ -158,28 +172,13 @@ Exit:
     return AJ_ERR_RESOURCES;
 }
 
-/*
- * For a given message id, checks the access control table for that peer.
- * Incoming and outgoing messages have their own entry.
- */
-static AJ_Status AccessControlCheck(uint32_t id, const char* name, uint8_t direction)
+static AccessControlMember* FindAccessControlMember(uint32_t id)
 {
-    AJ_Status status;
     AccessControlMember* mbr;
-    uint32_t peer;
-    uint8_t access;
-
-    AJ_InfoPrintf(("AJ_AccessControlCheck(id=0x%08X, name=%s, direction=%x)\n", id, name, direction));
 
     if (!g_access) {
-        AJ_WarnPrintf(("AccessControlCheck(id=0x%08X, name=%s, direction=%x): Access table not initialised\n", id, name, direction));
-        return AJ_ERR_ACCESS;
-    }
-
-    status = AJ_GetPeerIndex(name, &peer);
-    if (AJ_OK != status) {
-        AJ_WarnPrintf(("AccessControlCheck(id=0x%08X, name=%s, direction=%x): Peer not in table\n", id, name, direction));
-        return AJ_ERR_ACCESS;
+        AJ_WarnPrintf(("FindAccessControlMember(id=0x%08X): Access table not initialised\n", id));
+        return NULL;
     }
 
     // This linked list is a reverse ordered list
@@ -188,33 +187,15 @@ static AJ_Status AccessControlCheck(uint32_t id, const char* name, uint8_t direc
         mbr = mbr->next;
     }
 
-    if (NULL == mbr) {
-        AJ_WarnPrintf(("AccessControlCheck(id=0x%08X, name=%s, direction=%x): Member not in table AJ_ERR_ACCESS\n", id, name, direction));
-        return AJ_ERR_ACCESS;
-    }
-
-    status = AJ_ERR_ACCESS;
-    access = mbr->access[peer];
-    switch (direction) {
-    case AJ_ACCESS_INCOMING:
-        if (!(ACCESS_DENY & access) && (ACCESS_POLICY_INCOMING & access) && (ACCESS_MANIFEST_INCOMING & access)) {
-            status = AJ_OK;
-        }
-        break;
-
-    case AJ_ACCESS_OUTGOING:
-        if (!(ACCESS_DENY & access) && (ACCESS_POLICY_OUTGOING & access) && (ACCESS_MANIFEST_OUTGOING & access)) {
-            status = AJ_OK;
-        }
-        break;
-    }
-    AJ_InfoPrintf(("AccessControlCheck(id=0x%08X, name=%s, direction=%x): %s\n", id, name, direction, AJ_StatusText(status)));
-
-    return status;
+    return mbr;
 }
 
 AJ_Status AJ_AccessControlCheckMessage(AJ_Message* msg, const char* name, uint8_t direction)
 {
+    AJ_Status status;
+    AccessControlMember* mbr;
+    uint32_t peer;
+    uint8_t access;
     size_t i;
     const char* ifn;
     const char* allowed[] = {
@@ -240,13 +221,92 @@ AJ_Status AJ_AccessControlCheckMessage(AJ_Message* msg, const char* name, uint8_
         }
     }
 
-    return AccessControlCheck(msg->msgId, name, direction);
+    status = AJ_GetPeerIndex(name, &peer);
+    if (AJ_OK != status) {
+        return AJ_ERR_ACCESS;
+    }
+
+    mbr = FindAccessControlMember(msg->msgId);
+    if (NULL == mbr) {
+        AJ_WarnPrintf(("AJ_AccessControlCheckMessage(msg=%p, name=%s, direction=%x): Member not in table AJ_ERR_ACCESS\n", msg, name, direction));
+        return AJ_ERR_ACCESS;
+    }
+
+    status = AJ_ERR_ACCESS;
+    access = mbr->deny[peer] ? 0 : mbr->allow[peer];
+    switch (direction) {
+    case AJ_ACCESS_INCOMING:
+        if ((POLICY_METHOD_INCOMING & access) && (MANIFEST_METHOD_INCOMING & access)) {
+            status = AJ_OK;
+        }
+        break;
+
+    case AJ_ACCESS_OUTGOING:
+        if ((POLICY_METHOD_OUTGOING & access) && (MANIFEST_METHOD_OUTGOING & access)) {
+            status = AJ_OK;
+        }
+        break;
+    }
+    AJ_InfoPrintf(("AJ_AccessControlCheck(msg=%p, name=%s, direction=%x): %s\n", msg, name, direction, AJ_StatusText(status)));
+
+    return status;
 }
 
-AJ_Status AJ_AccessControlCheckProperty(uint32_t id, const char* name, uint8_t direction)
+AJ_Status AJ_AccessControlCheckProperty(AJ_Message* msg, uint32_t id, const char* name, uint8_t direction)
 {
-    AJ_InfoPrintf(("AJ_AccessControlCheckProperty(id=0x%08X, name=%s, direction=%x)\n", id, name, direction));
-    return AccessControlCheck(id, name, direction);
+    AJ_Status status;
+    AccessControlMember* mbr;
+    uint32_t peer;
+    uint8_t access;
+
+    AJ_InfoPrintf(("AJ_AccessControlCheckProperty(msg=%p, id=0x%08X, name=%s, direction=%x)\n", msg, id, name, direction));
+
+    status = AJ_GetPeerIndex(name, &peer);
+    if (AJ_OK != status) {
+        AJ_WarnPrintf(("AccessControlCheckProperty(msg=%p, id=0x%08X, name=%s, direction=%x): Peer not in table\n", msg, id, name, direction));
+        return AJ_ERR_ACCESS;
+    }
+
+    mbr = FindAccessControlMember(id);
+    if (NULL == mbr) {
+        AJ_WarnPrintf(("AccessControlCheckProperty(msg=%p, id=0x%08X, name=%s, direction=%x): Member not in table AJ_ERR_ACCESS\n", msg, id, name, direction));
+        return AJ_ERR_ACCESS;
+    }
+
+    status = AJ_ERR_ACCESS;
+    access = mbr->deny[peer] ? 0 : mbr->allow[peer];
+    switch (direction) {
+    case AJ_ACCESS_INCOMING:
+        if (AJ_PROP_GET == (msg->msgId & 0xFF)) {
+            if ((POLICY_PRPGET_INCOMING & access) && (MANIFEST_PRPGET_INCOMING & access)) {
+                status = AJ_OK;
+            }
+        } else if (AJ_PROP_SET == (msg->msgId & 0xFF)) {
+            if ((POLICY_PRPSET_INCOMING & access) && (MANIFEST_PRPSET_INCOMING & access)) {
+                status = AJ_OK;
+            }
+        } else {
+            AJ_WarnPrintf(("AccessControlCheckProperty(msg=%p, id=0x%08X, name=%s, direction=%x): Invalid message id\n", msg, id, name, direction));
+        }
+        break;
+
+    case AJ_ACCESS_OUTGOING:
+        if (AJ_PROP_GET == (msg->msgId & 0xFF)) {
+            if ((POLICY_PRPGET_OUTGOING & access) && (MANIFEST_PRPGET_OUTGOING & access)) {
+                status = AJ_OK;
+            }
+        } else if (AJ_PROP_SET == (msg->msgId & 0xFF)) {
+            if ((POLICY_PRPSET_OUTGOING & access) && (MANIFEST_PRPSET_OUTGOING & access)) {
+                status = AJ_OK;
+            }
+        } else {
+            AJ_WarnPrintf(("AccessControlCheckProperty(msg=%p, id=0x%08X, name=%s, direction=%x): Invalid message id\n", msg, id, name, direction));
+        }
+        break;
+    }
+    AJ_InfoPrintf(("AccessControlCheckProperty(msg=%p, id=0x%08X, name=%s, direction=%x): %s\n", msg, id, name, direction, AJ_StatusText(status)));
+
+    return status;
 }
 
 /*
@@ -266,7 +326,7 @@ AJ_Status AJ_AccessControlReset(const char* name)
         return status;
     }
     while (node) {
-        node->access[peer] = 0;
+        node->allow[peer] = 0;
         node = node->next;
     }
 
@@ -967,24 +1027,6 @@ uint8_t AJ_CommonPath(const char* name, const char* desc, uint8_t type)
     }
 }
 
-/* 3 message types: SIGNAL, METHOD, PROPERTY */
-static uint8_t access_incoming[3] = { AJ_ACTION_PROVIDE, AJ_ACTION_MODIFY, AJ_ACTION_OBSERVE | AJ_ACTION_MODIFY };
-static uint8_t access_outgoing[3] = { AJ_ACTION_OBSERVE, AJ_ACTION_PROVIDE, AJ_ACTION_PROVIDE };
-static uint8_t PermissionMemberAccess(uint8_t type, uint8_t action)
-{
-    uint8_t access = 0;
-
-    AJ_ASSERT(type < 3);
-    if (access_incoming[type] & action) {
-        access |= ACCESS_POLICY_INCOMING;
-    }
-    if (access_outgoing[type] & action) {
-        access |= ACCESS_POLICY_OUTGOING;
-    }
-
-    return access;
-}
-
 static uint8_t MemberType(uint8_t a, uint8_t b)
 {
     switch (a) {
@@ -1003,7 +1045,7 @@ static uint8_t MemberType(uint8_t a, uint8_t b)
     return 0;
 }
 
-static uint8_t PermissionRuleAccess(AJ_PermissionRule* rule, AccessControlMember* acm, uint8_t with_public_key)
+static uint8_t PermissionRuleAccess(AJ_PermissionRule* rule, AccessControlMember* acm, uint32_t peer, uint8_t with_public_key)
 {
     AJ_PermissionMember* member;
     uint8_t type;
@@ -1032,11 +1074,42 @@ static uint8_t PermissionRuleAccess(AJ_PermissionRule* rule, AccessControlMember
             while (member) {
                 if (AJ_CommonPath(member->mbr, mbr, type) && MemberType(member->type, type)) {
                     /* Access is the union of all rules */
-                    access |= PermissionMemberAccess(type, member->action);
+                    switch (type) {
+                    case SIGNAL:
+                        if (AJ_ACTION_OBSERVE & member->action) {
+                            access |= POLICY_SIGNAL_OUTGOING;
+                        }
+                        if (AJ_ACTION_PROVIDE & member->action) {
+                            access |= POLICY_SIGNAL_INCOMING;
+                        }
+                        break;
+
+                    case METHOD:
+                        if (AJ_ACTION_PROVIDE & member->action) {
+                            access |= POLICY_METHOD_OUTGOING;
+                        }
+                        if (AJ_ACTION_MODIFY & member->action) {
+                            access |= POLICY_METHOD_INCOMING;
+                        }
+                        break;
+
+                    case PROPERTY:
+                        if (AJ_ACTION_PROVIDE & member->action) {
+                            access |= POLICY_PRPSET_OUTGOING;
+                            access |= POLICY_PRPGET_OUTGOING;
+                        }
+                        if (AJ_ACTION_MODIFY & member->action) {
+                            access |= POLICY_PRPSET_INCOMING;
+                        }
+                        if (AJ_ACTION_OBSERVE & member->action) {
+                            access |= POLICY_PRPGET_INCOMING;
+                        }
+                        break;
+                    }
                     /* Only apply DENY if WITH_PUBLIC_KEY and rule is all wildcard */
                     if (with_public_key && ('*' == rule->obj[0]) && ('*' == rule->ifn[0]) && ('*' == member->mbr[0]) && (0 == member->action)) {
                         /* Explicit deny both directions */
-                        access = ACCESS_DENY;
+                        acm->deny[peer] = 1;
                     }
                 }
                 member = member->next;
@@ -1065,19 +1138,19 @@ AJ_Status AJ_ManifestApply(AJ_Manifest* manifest, const char* name)
 
     acm = g_access;
     while (acm) {
-        access = PermissionRuleAccess(manifest->rules, acm, FALSE);
-        acm->access[peer] |= MANIFEST_ACCESS(access);
+        access = PermissionRuleAccess(manifest->rules, acm, peer, FALSE);
+        acm->allow[peer] |= (access << 4);
 #ifndef NDEBUG
-        if (ACCESS_MANIFEST_INCOMING & acm->access[peer]) {
+        if (MANIFEST_INCOMING & acm->allow[peer]) {
             AJ_InfoPrintf(("INCOMING MANIFEST: %s %s %s\n", acm->obj, acm->ifn, acm->mbr));
         }
-        if (!(ACCESS_DENY & acm->access[peer]) && (ACCESS_POLICY_INCOMING & acm->access[peer]) && (ACCESS_MANIFEST_INCOMING & acm->access[peer])) {
+        if (!(acm->deny[peer]) && (POLICY_INCOMING & acm->allow[peer]) && (MANIFEST_INCOMING & acm->allow[peer])) {
             AJ_InfoPrintf(("INCOMING: %s %s %s\n", acm->obj, acm->ifn, acm->mbr));
         }
-        if (ACCESS_MANIFEST_OUTGOING & acm->access[peer]) {
+        if (MANIFEST_OUTGOING & acm->allow[peer]) {
             AJ_InfoPrintf(("OUTGOING MANIFEST: %s %s %s\n", acm->obj, acm->ifn, acm->mbr));
         }
-        if (!(ACCESS_DENY & acm->access[peer]) && (ACCESS_POLICY_OUTGOING & acm->access[peer]) && (ACCESS_MANIFEST_OUTGOING & acm->access[peer])) {
+        if (!(acm->deny[peer]) && (POLICY_OUTGOING & acm->allow[peer]) && (MANIFEST_OUTGOING & acm->allow[peer])) {
             AJ_InfoPrintf(("OUTGOING: %s %s %s\n", acm->obj, acm->ifn, acm->mbr));
         }
 #endif
@@ -1140,7 +1213,7 @@ AJ_Status AJ_PolicyApply(AJ_AuthenticationContext* ctx, const char* name)
         acm = g_access;
         while (acm) {
             /* Default to no access */
-            acm->access[peer] = 0;
+            acm->allow[peer] = 0;
             acl = policy.policy->acls;
             while (acl) {
                 found = 0;
@@ -1160,29 +1233,29 @@ AJ_Status AJ_PolicyApply(AJ_AuthenticationContext* ctx, const char* name)
                     }
                 }
                 if (found) {
-                    access = PermissionRuleAccess(acl->rules, acm, found >> 1);
-                    acm->access[peer] |= POLICY_ACCESS(access);
+                    access = PermissionRuleAccess(acl->rules, acm, peer, found >> 1);
+                    acm->allow[peer] |= access;
                     if (AUTH_SUITE_ECDHE_ECDSA != ctx->suite) {
                         /* We don't receive a manifest, so switch those bits on too */
-                        acm->access[peer] |= MANIFEST_ACCESS(access);
+                        acm->allow[peer] |= (access << 4);
                     }
 #ifndef NDEBUG
-                    if (ACCESS_DENY & acm->access[peer]) {
+                    if (acm->deny[peer]) {
                         AJ_InfoPrintf(("INCOMING DENY    : %s %s %s\n", acm->obj, acm->ifn, acm->mbr));
                     }
-                    if (ACCESS_POLICY_INCOMING & acm->access[peer]) {
+                    if (POLICY_INCOMING & acm->allow[peer]) {
                         AJ_InfoPrintf(("INCOMING POLICY  : %s %s %s\n", acm->obj, acm->ifn, acm->mbr));
                     }
-                    if (!(ACCESS_DENY & acm->access[peer]) && (ACCESS_POLICY_INCOMING & acm->access[peer]) && (ACCESS_MANIFEST_INCOMING & acm->access[peer])) {
+                    if (!(acm->deny[peer]) && (POLICY_INCOMING & acm->allow[peer]) && (MANIFEST_INCOMING & acm->allow[peer])) {
                         AJ_InfoPrintf(("INCOMING: %s %s %s\n", acm->obj, acm->ifn, acm->mbr));
                     }
-                    if (ACCESS_DENY & acm->access[peer]) {
+                    if (acm->deny[peer]) {
                         AJ_InfoPrintf(("OUTGOING DENY    : %s %s %s\n", acm->obj, acm->ifn, acm->mbr));
                     }
-                    if (ACCESS_POLICY_OUTGOING & acm->access[peer]) {
+                    if (POLICY_OUTGOING & acm->allow[peer]) {
                         AJ_InfoPrintf(("OUTGOING POLICY  : %s %s %s\n", acm->obj, acm->ifn, acm->mbr));
                     }
-                    if (!(ACCESS_DENY & acm->access[peer]) && (ACCESS_POLICY_OUTGOING & acm->access[peer]) && (ACCESS_MANIFEST_OUTGOING & acm->access[peer])) {
+                    if (!(acm->deny[peer]) && (POLICY_OUTGOING & acm->allow[peer]) && (MANIFEST_OUTGOING & acm->allow[peer])) {
                         AJ_InfoPrintf(("OUTGOING: %s %s %s\n", acm->obj, acm->ifn, acm->mbr));
                     }
 #endif
@@ -1197,7 +1270,7 @@ AJ_Status AJ_PolicyApply(AJ_AuthenticationContext* ctx, const char* name)
         /* Initial restricted access rights */
         acm = g_access;
         while (acm) {
-            acm->access[peer] = 0;
+            acm->allow[peer] = 0;
             switch (acm->id) {
             case AJ_METHOD_SECURITY_GET_PROP:
             case AJ_PROPERTY_SEC_VERSION:
@@ -1210,7 +1283,7 @@ AJ_Status AJ_PolicyApply(AJ_AuthenticationContext* ctx, const char* name)
             case AJ_PROPERTY_SEC_CLAIM_CAPABILITIES_INFO:
             case AJ_PROPERTY_CLAIMABLE_VERSION:
             case AJ_PROPERTY_MANAGED_VERSION:
-                acm->access[peer] = ACCESS_POLICY_INCOMING | ACCESS_MANIFEST_INCOMING;
+                acm->allow[peer] = POLICY_INCOMING | MANIFEST_INCOMING;
                 break;
 
             case AJ_METHOD_CLAIMABLE_CLAIM:
@@ -1218,11 +1291,11 @@ AJ_Status AJ_PolicyApply(AJ_AuthenticationContext* ctx, const char* name)
                 AJ_SecurityGetClaimConfig(&state, &capabilities, &info);
                 if (APP_STATE_CLAIMABLE == state) {
                     if ((CLAIM_CAPABILITY_ECDHE_NULL & capabilities) && (AUTH_SUITE_ECDHE_NULL == ctx->suite)) {
-                        acm->access[peer] = ACCESS_POLICY_INCOMING | ACCESS_MANIFEST_INCOMING;
+                        acm->allow[peer] = POLICY_INCOMING | MANIFEST_INCOMING;
                     } else if ((CLAIM_CAPABILITY_ECDHE_PSK & capabilities) && (AUTH_SUITE_ECDHE_PSK == ctx->suite)) {
-                        acm->access[peer] = ACCESS_POLICY_INCOMING | ACCESS_MANIFEST_INCOMING;
+                        acm->allow[peer] = POLICY_INCOMING | MANIFEST_INCOMING;
                     } else if ((CLAIM_CAPABILITY_ECDHE_ECDSA & capabilities) && (AUTH_SUITE_ECDHE_ECDSA == ctx->suite)) {
-                        acm->access[peer] = ACCESS_POLICY_INCOMING | ACCESS_MANIFEST_INCOMING;
+                        acm->allow[peer] = POLICY_INCOMING | MANIFEST_INCOMING;
                     }
                 }
                 break;
@@ -1246,7 +1319,7 @@ AJ_Status AJ_PolicyApply(AJ_AuthenticationContext* ctx, const char* name)
 
             default:
                 /* All allowed incoming and outgoing (Security 1.0) */
-                acm->access[peer] = ACCESS_POLICY | ACCESS_MANIFEST;
+                acm->allow[peer] = POLICY_ACCESS | MANIFEST_ACCESS;
             }
             acm = acm->next;
         }
@@ -1282,19 +1355,19 @@ AJ_Status AJ_MembershipApply(AJ_ECCPublicKey* issuer, DER_Element* group, const 
                 /* Look for a match in the peer list */
                 found = PermissionPeerFind(acl->peers, AJ_PEER_TYPE_WITH_MEMBERSHIP, issuer, group);
                 if (found) {
-                    access = PermissionRuleAccess(acl->rules, acm, FALSE);
-                    acm->access[peer] |= POLICY_ACCESS(access);
+                    access = PermissionRuleAccess(acl->rules, acm, peer, FALSE);
+                    acm->allow[peer] |= access;
 #ifndef NDEBUG
-                    if (ACCESS_POLICY_INCOMING & acm->access[peer]) {
+                    if (POLICY_INCOMING & acm->allow[peer]) {
                         AJ_InfoPrintf(("INCOMING POLICY  : %s %s %s\n", acm->obj, acm->ifn, acm->mbr));
                     }
-                    if (!(ACCESS_DENY & acm->access[peer]) && (ACCESS_POLICY_INCOMING & acm->access[peer]) && (ACCESS_MANIFEST_INCOMING & acm->access[peer])) {
+                    if (!(acm->deny[peer]) && (POLICY_INCOMING & acm->allow[peer]) && (MANIFEST_INCOMING & acm->allow[peer])) {
                         AJ_InfoPrintf(("INCOMING: %s %s %s\n", acm->obj, acm->ifn, acm->mbr));
                     }
-                    if (ACCESS_POLICY_OUTGOING & acm->access[peer]) {
+                    if (POLICY_OUTGOING & acm->allow[peer]) {
                         AJ_InfoPrintf(("OUTGOING POLICY  : %s %s %s\n", acm->obj, acm->ifn, acm->mbr));
                     }
-                    if (!(ACCESS_DENY & acm->access[peer]) && (ACCESS_POLICY_OUTGOING & acm->access[peer]) && (ACCESS_MANIFEST_OUTGOING & acm->access[peer])) {
+                    if (!(acm->deny[peer]) && (POLICY_OUTGOING & acm->allow[peer]) && (MANIFEST_OUTGOING & acm->allow[peer])) {
                         AJ_InfoPrintf(("OUTGOING: %s %s %s\n", acm->obj, acm->ifn, acm->mbr));
                     }
 #endif
