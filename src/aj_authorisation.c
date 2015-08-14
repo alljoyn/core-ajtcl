@@ -1422,7 +1422,7 @@ AJ_Status AJ_PolicyGetCAPublicKey(uint16_t type, DER_Element* kid, AJ_ECCPublicK
         while (peer) {
             switch (peer->type) {
             case AJ_PEER_TYPE_FROM_CA:
-                if (AJ_CERTIFICATE_UNR_X509 & type) {
+                if (AJ_CERTIFICATE_IDN_X509 & type) {
                     if ((kid->size == peer->kid.size) && (0 == memcmp(kid->data, peer->kid.data, kid->size))) {
                         status = AJ_OK;
                         memcpy((uint8_t*) pub, (uint8_t*) &peer->pub, sizeof (AJ_ECCPublicKey));
@@ -1431,7 +1431,7 @@ AJ_Status AJ_PolicyGetCAPublicKey(uint16_t type, DER_Element* kid, AJ_ECCPublicK
                 break;
 
             case AJ_PEER_TYPE_WITH_MEMBERSHIP:
-                if (AJ_CERTIFICATE_MBR_X509 & type) {
+                if (AJ_CERTIFICATE_UNR_X509 & type) {
                     if ((kid->size == peer->kid.size) && (0 == memcmp(kid->data, peer->kid.data, kid->size))) {
                         status = AJ_OK;
                         memcpy((uint8_t*) pub, (uint8_t*) &peer->pub, sizeof (AJ_ECCPublicKey));
