@@ -1243,6 +1243,7 @@ AJ_Status AJ_PolicyApply(AJ_AuthenticationContext* ctx, const char* name)
     uint16_t capabilities;
     uint16_t info;
     uint8_t found;
+    size_t i;
 
     AJ_InfoPrintf(("AJ_PolicyApply(ctx=%p, name=%s)\n", ctx, name));
 
@@ -1271,9 +1272,9 @@ AJ_Status AJ_PolicyApply(AJ_AuthenticationContext* ctx, const char* name)
                     /* With public key applies deny rules, flip the 2nd bit to indicate this type */
                     /* Subject public key is in array index 0 */
                     found |= (PermissionPeerFind(acl->peers, AJ_PEER_TYPE_WITH_PUBLIC_KEY, &ctx->kactx.ecdsa.key[0], NULL) << 1);
-                    /* Issuer public keys are in array index > 0, only apply the root */
-                    if (ctx->kactx.ecdsa.num > 1) {
-                        found |= PermissionPeerFind(acl->peers, AJ_PEER_TYPE_FROM_CA, &ctx->kactx.ecdsa.key[ctx->kactx.ecdsa.num - 1], NULL);
+                    /* Issuer public keys are in array index > 0, check root and all intermediates */
+                    for (i = 1; (i < ctx->kactx.ecdsa.num) && !found; i++) {
+                        found |= PermissionPeerFind(acl->peers, AJ_PEER_TYPE_FROM_CA, &ctx->kactx.ecdsa.key[i], NULL);
                     }
                 }
                 if (found) {
@@ -1372,7 +1373,7 @@ AJ_Status AJ_PolicyApply(AJ_AuthenticationContext* ctx, const char* name)
     return AJ_OK;
 }
 
-AJ_Status AJ_MembershipApply(AJ_ECCPublicKey* issuer, DER_Element* group, const char* name)
+AJ_Status AJ_MembershipApply(X509CertificateChain* head, AJ_ECCPublicKey* issuer, DER_Element* group, const char* name)
 {
     AJ_Status status;
     Policy policy;
@@ -1382,11 +1383,11 @@ AJ_Status AJ_MembershipApply(AJ_ECCPublicKey* issuer, DER_Element* group, const 
     AJ_PermissionACL* acl;
     uint8_t found;
 
-    AJ_InfoPrintf(("AJ_MembershipApply(issuer=%p, group=%p, name=%s)\n", issuer, group, name));
+    AJ_InfoPrintf(("AJ_MembershipApply(head=%p, issuer=%p, group=%p, name=%s)\n", head, issuer, group, name));
 
     status = AJ_GetPeerIndex(name, &peer);
     if (AJ_OK != status) {
-        AJ_WarnPrintf(("AJ_MembershipApply(issuer=%p, group=%p, name=%s): Peer not in table\n", issuer, group, name));
+        AJ_WarnPrintf(("AJ_MembershipApply(head=%p, issuer=%p, group=%p, name=%s): Peer not in table\n", head, issuer, group, name));
         return AJ_ERR_ACCESS;
     }
 
@@ -1396,8 +1397,15 @@ AJ_Status AJ_MembershipApply(AJ_ECCPublicKey* issuer, DER_Element* group, const 
         while (acm) {
             acl = policy.policy->acls;
             while (acl) {
-                /* Look for a match in the peer list */
+                /* Check if root issuer is in the peer list */
                 found = PermissionPeerFind(acl->peers, AJ_PEER_TYPE_WITH_MEMBERSHIP, issuer, group);
+                if (NULL != head) {
+                    /* Check if intermediate issuer is in the peer list */
+                    while (!found && (NULL != head->next)) {
+                        found = PermissionPeerFind(acl->peers, AJ_PEER_TYPE_WITH_MEMBERSHIP, &head->certificate.tbs.publickey, group);
+                        head = head->next;
+                    }
+                }
                 if (found) {
                     access = PermissionRuleAccess(acl->rules, acm, peer, FALSE);
                     acm->allow[peer] |= access;
@@ -1461,19 +1469,23 @@ AJ_Status AJ_PolicyGetCAPublicKey(uint16_t type, DER_Element* kid, AJ_ECCPublicK
         while (peer) {
             switch (peer->type) {
             case AJ_PEER_TYPE_FROM_CA:
-                if (AJ_CERTIFICATE_UNR_X509 & type) {
+                /* This type of certificate authority can only issue Identity certificates */
+                if (AJ_CERTIFICATE_IDN_X509 & type) {
                     if ((kid->size == peer->kid.size) && (0 == memcmp(kid->data, peer->kid.data, kid->size))) {
                         status = AJ_OK;
-                        memcpy((uint8_t*) pub, (uint8_t*) &peer->pub, sizeof (AJ_ECCPublicKey));
+                        memcpy(pub, &peer->pub, sizeof (AJ_ECCPublicKey));
+                        goto Exit;
                     }
                 }
                 break;
 
             case AJ_PEER_TYPE_WITH_MEMBERSHIP:
-                if (AJ_CERTIFICATE_MBR_X509 & type) {
+                /* This type of certificate authority can issue both Identity and Membership certificates */
+                if ((AJ_CERTIFICATE_IDN_X509 & type) || (AJ_CERTIFICATE_MBR_X509 & type)) {
                     if ((kid->size == peer->kid.size) && (0 == memcmp(kid->data, peer->kid.data, kid->size))) {
                         status = AJ_OK;
-                        memcpy((uint8_t*) pub, (uint8_t*) &peer->pub, sizeof (AJ_ECCPublicKey));
+                        memcpy(pub, &peer->pub, sizeof (AJ_ECCPublicKey));
+                        goto Exit;
                     }
                 }
                 break;
@@ -1482,8 +1494,9 @@ AJ_Status AJ_PolicyGetCAPublicKey(uint16_t type, DER_Element* kid, AJ_ECCPublicK
         }
         acl = acl->next;
     }
-    PolicyUnload(&policy);
 
+Exit:
+    PolicyUnload(&policy);
     return status;
 }
 

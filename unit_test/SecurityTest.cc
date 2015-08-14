@@ -369,12 +369,7 @@ TEST_F(SecurityTest, Test_ECDHE_ECDSA)
     AJ_Disconnect(&testBus);
 }
 
-class CommonPathTest : public testing::Test {
-  public:
-    CommonPathTest() { }
-};
-
-TEST_F(CommonPathTest, Test1)
+TEST_F(SecurityTest, CommonPathTest)
 {
     EXPECT_FALSE(AJ_CommonPath("", "Signal1", SIGNAL));
     EXPECT_FALSE(AJ_CommonPath("", "Method1", METHOD));
@@ -473,16 +468,14 @@ TEST_F(SecurityTest, DecodeAndVerifyCertificateChainTest)
     }
     chain = last;
 
-    ASSERT_EQ(AJ_OK, AJ_X509VerifyChain(chain, NULL));
+    /* This is an Identity certificate */
+    ASSERT_EQ(AJ_OK, AJ_X509VerifyChain(chain, NULL, AJ_CERTIFICATE_IDN_X509));
+    ASSERT_EQ(AJ_ERR_SECURITY, AJ_X509VerifyChain(chain, NULL, AJ_CERTIFICATE_MBR_X509));
+    ASSERT_EQ(AJ_ERR_SECURITY, AJ_X509VerifyChain(chain, NULL, AJ_CERTIFICATE_UNR_X509));
     AJ_X509FreeDecodedCertificateChain(chain);
 }
 
-class RegisterACLTest : public testing::Test {
-  public:
-    RegisterACLTest() { }
-};
-
-TEST_F(RegisterACLTest, Test1)
+TEST_F(SecurityTest, RegisterACLTest)
 {
     AJ_AuthorisationRegister(AppObjects, AJ_APP_ID_FLAG);
     AJ_AuthorisationDeregister(AJ_APP_ID_FLAG);

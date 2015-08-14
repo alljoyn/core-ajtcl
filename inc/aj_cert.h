@@ -225,12 +225,13 @@ AJ_Status AJ_X509Verify(const X509Certificate* certificate, const AJ_ECCPublicKe
  *
  * @param chain       The input certificate chain.
  * @param key         The verification key of the root. If this is NULL, don't verify the root.
+ * @param type        The expected certificate type (EKU).
  *
  * @return  Return AJ_Status
  *          - AJ_OK on success
  *          - AJ_ERR_SECURITY on failure
  */
-AJ_Status AJ_X509VerifyChain(const X509CertificateChain* chain, const AJ_ECCPublicKey* key);
+AJ_Status AJ_X509VerifyChain(const X509CertificateChain* chain, const AJ_ECCPublicKey* key, uint32_t type);
 
 /**
  * Free memory associated with X.509 chain.

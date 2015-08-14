@@ -183,7 +183,7 @@ void AJ_SecurityClose(AJ_BusAttachment* bus)
     /* We don't need to wait for the response */
     status = AJ_MarshalMethodCall(bus, &msg, AJ_METHOD_UNBIND_SESSION, AJ_BusDestination, 0, AJ_FLAG_NO_REPLY_EXPECTED, 0);
     if (status == AJ_OK) {
-        AJ_MarshalArgs(&msg, "q", AJ_SECURE_MGMT_PORT);
+        status = AJ_MarshalArgs(&msg, "q", AJ_SECURE_MGMT_PORT);
     }
     if (status == AJ_OK) {
         status = AJ_DeliverMsg(&msg);
