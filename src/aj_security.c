@@ -727,8 +727,6 @@ AJ_Status AJ_SecurityClaimMethod(AJ_Message* msg, AJ_Message* reply)
     if (AJ_OK != status) {
         goto Exit;
     }
-    /* Clear session keys, can't do it now because we need to reply */
-    clear = TRUE;
 
     /* Set claim state and save to nvram */
     status = SetClaimState(APP_STATE_CLAIMED);
