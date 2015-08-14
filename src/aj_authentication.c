@@ -791,7 +791,8 @@ static AJ_Status ECDSAUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
     AJ_InfoPrintf(("ECDSAUnmarshal(ctx=%p, msg=%p)\n", ctx, msg));
 
     if (NULL == ctx->bus->authListenerCallback) {
-        return AJ_ERR_SECURITY;
+        status = AJ_ERR_SECURITY;
+        goto Exit;
     }
 
     if (AUTH_CLIENT == ctx->role) {
@@ -808,6 +809,7 @@ static AJ_Status ECDSAUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
         goto Exit;
     }
     if (0 != strncmp(variant, "(vyv)", 5)) {
+        status = AJ_ERR_SECURITY;
         goto Exit;
     }
     status = AJ_UnmarshalContainer(msg, &container1, AJ_ARG_STRUCT);
@@ -821,9 +823,11 @@ static AJ_Status ECDSAUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
         goto Exit;
     }
     if (SIG_FMT != fmt) {
+        status = AJ_ERR_SECURITY;
         goto Exit;
     }
     if ((KEY_ECC_SZ != len_r) || (KEY_ECC_SZ != len_s)) {
+        status = AJ_ERR_SECURITY;
         goto Exit;
     }
     memcpy(sig.r, sig_r, KEY_ECC_SZ);
@@ -838,6 +842,7 @@ static AJ_Status ECDSAUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
     }
     if (CERT_FMT_X509_DER != fmt) {
         AJ_InfoPrintf(("ECDSAUnmarshal(ctx=%p, msg=%p): DER encoding expected\n", ctx, msg));
+        status = AJ_ERR_SECURITY;
         goto Exit;
     }
     AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, &fmt, sizeof(fmt));
@@ -846,6 +851,7 @@ static AJ_Status ECDSAUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
         goto Exit;
     }
     if (0 != strncmp(variant, "a(ay)", 5)) {
+        status = AJ_ERR_SECURITY;
         goto Exit;
     }
     status = AJ_UnmarshalContainer(msg, &container2, AJ_ARG_ARRAY);
@@ -863,6 +869,7 @@ static AJ_Status ECDSAUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
         node = (X509CertificateChain*) AJ_Malloc(sizeof (X509CertificateChain));
         if (NULL == node) {
             AJ_WarnPrintf(("ECDSAUnmarshal(ctx=%p, msg=%p): Resource error\n", ctx, msg));
+            status = AJ_ERR_RESOURCES;
             goto Exit;
         }
         /*
@@ -903,10 +910,11 @@ static AJ_Status ECDSAUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
             status = AJ_ERR_RESOURCES;
             goto Exit;
         }
-        memcpy((uint8_t*) &ctx->kactx.ecdsa.key[ctx->kactx.ecdsa.num - 1], &node->certificate.tbs.publickey, sizeof (AJ_ECCPublicKey));
+        memcpy(&ctx->kactx.ecdsa.key[ctx->kactx.ecdsa.num - 1], &node->certificate.tbs.publickey, sizeof (AJ_ECCPublicKey));
     }
     if (AJ_ERR_NO_MORE != status) {
         AJ_InfoPrintf(("ECDSAUnmarshal(ctx=%p, msg=%p): Certificate chain error %s\n", ctx, msg, AJ_StatusText(status)));
+        status = AJ_ERR_SECURITY;
         goto Exit;
     }
     status = AJ_UnmarshalCloseContainer(msg, &container2);
@@ -919,6 +927,7 @@ static AJ_Status ECDSAUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
     }
     if (NULL == head) {
         AJ_InfoPrintf(("ECDSAUnmarshal(ctx=%p, msg=%p): Certificate chain missing\n", ctx, msg));
+        status = AJ_ERR_SECURITY;
         goto Exit;
     }
 
@@ -932,7 +941,7 @@ static AJ_Status ECDSAUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
     status = AJ_PolicyGetCAPublicKey(head->certificate.tbs.extensions.type, &head->certificate.tbs.extensions.aki, &ctx->kactx.ecdsa.key[ctx->kactx.ecdsa.num - 1]);
     if (AJ_OK == status) {
         /* Verify the chain */
-        status = AJ_X509VerifyChain(head, &ctx->kactx.ecdsa.key[ctx->kactx.ecdsa.num - 1]);
+        status = AJ_X509VerifyChain(head, &ctx->kactx.ecdsa.key[ctx->kactx.ecdsa.num - 1], AJ_CERTIFICATE_IDN_X509);
         if (AJ_OK != status) {
             AJ_InfoPrintf(("ECDSAUnmarshal(ctx=%p, msg=%p): Certificate chain invalid\n", ctx, msg));
             goto Exit;

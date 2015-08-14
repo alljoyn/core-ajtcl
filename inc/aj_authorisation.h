@@ -243,7 +243,8 @@ AJ_Status AJ_PolicyApply(AJ_AuthenticationContext* ctx, const char* name);
 /**
  * Apply the policy access rules for a group membership
  *
- * @param issuer       The membership issuer
+ * @param head         The membership certificate chain
+ * @param issuer       The root certificate authority
  * @param group        The membership group
  * @param name         The peer's name
  *
@@ -251,7 +252,7 @@ AJ_Status AJ_PolicyApply(AJ_AuthenticationContext* ctx, const char* name);
  *          - AJ_OK on success
  *          - AJ_ERR_INVALID otherwise
  */
-AJ_Status AJ_MembershipApply(AJ_ECCPublicKey* issuer, DER_Element* group, const char* name);
+AJ_Status AJ_MembershipApply(X509CertificateChain* head, AJ_ECCPublicKey* issuer, DER_Element* group, const char* name);
 
 /**
  * Get the policy version

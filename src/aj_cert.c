@@ -925,12 +925,12 @@ AJ_Status AJ_X509Verify(const X509Certificate* certificate, const AJ_ECCPublicKe
     return AJ_ECDSAVerify(certificate->raw.data, certificate->raw.size, &certificate->signature, key);
 }
 
-AJ_Status AJ_X509VerifyChain(const X509CertificateChain* chain, const AJ_ECCPublicKey* key)
+AJ_Status AJ_X509VerifyChain(const X509CertificateChain* chain, const AJ_ECCPublicKey* key, uint32_t type)
 {
     AJ_Status status;
     uint32_t chainValidForType = AJ_CERTIFICATE_UNR_X509;
 
-    AJ_InfoPrintf(("AJ_X509VerifyChain(chain=%p, key=%p)\n", chain, key));
+    AJ_InfoPrintf(("AJ_X509VerifyChain(chain=%p, key=%p, type=%x)\n", chain, key, type));
 
     while (chain) {
         if (key) {
@@ -945,7 +945,7 @@ AJ_Status AJ_X509VerifyChain(const X509CertificateChain* chain, const AJ_ECCPubl
          */
         AJ_ASSERT((AJ_CERTIFICATE_UNR_X509 & AJ_CERTIFICATE_INV_X509) == 0);
         if ((chainValidForType & chain->certificate.tbs.extensions.type) != chain->certificate.tbs.extensions.type) {
-            AJ_InfoPrintf(("AJ_X509VerifyChain(chain=%p, key=%p): Certificate fails transitive EKU check; chain so far is valid for type %X, current certificate has type %X\n", chain, key, chainValidForType, chain->certificate.tbs.extensions.type));
+            AJ_InfoPrintf(("AJ_X509VerifyChain(chain=%p, key=%p, type=%x): Certificate fails transitive EKU check; chain so far is valid for type %X, current certificate has type %X\n", chain, key, type, chainValidForType, chain->certificate.tbs.extensions.type));
             return AJ_ERR_SECURITY;
         }
         chainValidForType &= chain->certificate.tbs.extensions.type;
@@ -955,17 +955,17 @@ AJ_Status AJ_X509VerifyChain(const X509CertificateChain* chain, const AJ_ECCPubl
          */
         if (NULL != chain->next) {
             if (!AJ_X509CompareNames(chain->certificate.tbs.subject, chain->next->certificate.tbs.issuer)) {
-                AJ_InfoPrintf(("AJ_X509VerifyChain(chain=%p, key=%p): Subject/Issuer name mismatch\n", chain, key));
+                AJ_InfoPrintf(("AJ_X509VerifyChain(chain=%p, key=%p, type=%x): Subject/Issuer name mismatch\n", chain, key, type));
                 return AJ_ERR_SECURITY;
             }
             if (0 == chain->certificate.tbs.extensions.ca) {
-                AJ_InfoPrintf(("AJ_X509VerifyChain(chain=%p, key=%p): Issuer is not a CA\n", chain, key));
+                AJ_InfoPrintf(("AJ_X509VerifyChain(chain=%p, key=%p, type=%x): Issuer is not a CA\n", chain, key, type));
                 return AJ_ERR_SECURITY;
             }
         } else {
-            /* This is the end entity cert. It must not be unrestricted. */
-            if (AJ_CERTIFICATE_UNR_X509 == chain->certificate.tbs.extensions.type) {
-                AJ_InfoPrintf(("AJ_X509VerifyChain(chain=%p, key=%p): End entity certificate is unrestricted\n", chain, key));
+            /* This is the end entity cert. It must be the expected type. */
+            if (type != chain->certificate.tbs.extensions.type) {
+                AJ_InfoPrintf(("AJ_X509VerifyChain(chain=%p, key=%p, type=%x): End entity certificate has incorrect EKU\n", chain, key, type));
                 return AJ_ERR_SECURITY;
             }
         }

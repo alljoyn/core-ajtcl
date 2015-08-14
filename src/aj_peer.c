@@ -1919,14 +1919,14 @@ static AJ_Status UnmarshalCertificates(AJ_Message* msg)
         goto Exit;
     }
     /* Verify the chain */
-    status = AJ_X509VerifyChain(head, &pub);
+    status = AJ_X509VerifyChain(head, &pub, AJ_CERTIFICATE_MBR_X509);
     if (AJ_OK != status) {
         AJ_InfoPrintf(("UnmarshalCertificates(msg=%p): Certificate chain invalid\n", msg));
         goto Exit;
     }
 
     /* Chain is trusted, apply the membership authorisation */
-    status = AJ_MembershipApply(&pub, group, msg->sender);
+    status = AJ_MembershipApply(head, &pub, group, msg->sender);
 
 Exit:
     /* Free the cert chain */
