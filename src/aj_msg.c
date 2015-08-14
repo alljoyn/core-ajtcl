@@ -1125,6 +1125,7 @@ AJ_Status AJ_UnmarshalMsg(AJ_BusAttachment* bus, AJ_Message* msg, uint32_t timeo
      * Header was unmarshalled directly into the rx buffer
      */
     msg->hdr = (AJ_MsgHeader*)ioBuf->bufStart;
+    AJ_ASSERT(msg->hdr);
     ioBuf->readPtr += sizeof(AJ_MsgHeader);
     /*
      * Quick sanity check on the header - unrecoverable error if this check fails
@@ -1323,15 +1324,15 @@ AJ_Status AJ_UnmarshalMsg(AJ_BusAttachment* bus, AJ_Message* msg, uint32_t timeo
         if ((AJ_OK == status) && (msg->hdr) && (msg->hdr->flags & AJ_FLAG_ENCRYPTED)) {
             if ((msg->hdr->msgType == AJ_MSG_METHOD_CALL) || (msg->hdr->msgType == AJ_MSG_SIGNAL)) {
                 status = AJ_AccessControlCheckMessage(msg, msg->sender, AJ_ACCESS_INCOMING);
-                if (AJ_OK != status) {
-                    if (msg->hdr->msgType == AJ_MSG_METHOD_CALL) {
-                        AJ_Message reply;
-                        AJ_MarshalStatusMsg(msg, &reply, status);
-                        AJ_DeliverMsg(&reply);
-                    }
-                    return status;
-                }
             }
+        }
+        /*
+         * If any error above, reply with status (to method calls only)
+         */
+        if ((AJ_OK != status) && (msg->hdr->msgType == AJ_MSG_METHOD_CALL) && !(msg->hdr->flags & AJ_FLAG_NO_REPLY_EXPECTED)) {
+            AJ_Message reply;
+            AJ_MarshalStatusMsg(msg, &reply, status);
+            AJ_DeliverMsg(&reply);
         }
     } else {
         /*

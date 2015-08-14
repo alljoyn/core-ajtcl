@@ -1404,21 +1404,6 @@ AJ_Status AJ_IdentifyMessage(AJ_Message* msg)
             AJ_ErrPrintf(("AJ_IdentifyMessage(): AJ_ERR_SECURITY\n"));
             status = AJ_ERR_SECURITY;
         }
-        /*
-         * Generate an error response for an invalid method call rather than reporting an invalid
-         * message id to the application.
-         */
-        if ((status != AJ_OK) && (msg->hdr->msgType == AJ_MSG_METHOD_CALL) && !(msg->hdr->flags & AJ_FLAG_NO_REPLY_EXPECTED)) {
-            AJ_Message reply;
-
-            AJ_DumpMsg("Rejecting unidentified method call", msg, FALSE);
-            AJ_MarshalStatusMsg(msg, &reply, status);
-            status = AJ_DeliverMsg(&reply);
-            /*
-             * Cleanup the message we are ignoring.
-             */
-            AJ_CloseMsg(msg);
-        }
     } else {
         ReplyContext* repCtx = FindReplyContext(msg->replySerial);
         if (repCtx) {
