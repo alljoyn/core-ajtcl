@@ -116,7 +116,7 @@ AJ_Status AJ_SecurityInit(AJ_BusAttachment* bus)
     AJ_ECCPublicKey pub;
     AJ_ECCPrivateKey prv;
 
-    AJ_InfoPrintf(("AJ_SecurityInit(bus=%p)\n", bus));
+    AJ_InfoPrintf(("AJ_SecurityInit(bus=%p): Initialised = %x\n", bus, initialised));
 
     if (initialised) {
         return AJ_OK;
@@ -140,6 +140,14 @@ AJ_Status AJ_SecurityInit(AJ_BusAttachment* bus)
         }
     }
 
+    /* Get the initial claim state */
+    status = GetClaimState(&claimState);
+    if (AJ_OK != status) {
+        /* If not stored, default to claimable */
+        claimState = APP_STATE_CLAIMABLE;
+        claimCapabilities = CLAIM_CAPABILITY_ECDHE_NULL | CLAIM_CAPABILITY_ECDHE_PSK;
+    }
+
     /*
      * Bind to the security management port
      */
@@ -151,24 +159,32 @@ AJ_Status AJ_SecurityInit(AJ_BusAttachment* bus)
 
 AJ_Status AJ_SecurityBound(AJ_BusAttachment* bus)
 {
-    AJ_Status status;
-
-    AJ_InfoPrintf(("AJ_SecurityBound(bus=%p): Bind Session Port %d OK\n", bus, AJ_SECURE_MGMT_PORT));
-
-    /* Get the initial claim state */
-    status = GetClaimState(&claimState);
-    if (AJ_OK != status) {
-        /* If not stored, default to claimable */
-        claimState = APP_STATE_CLAIMABLE;
-        claimCapabilities = CLAIM_CAPABILITY_ECDHE_NULL | CLAIM_CAPABILITY_ECDHE_PSK;
-    }
+    AJ_InfoPrintf(("AJ_SecurityBound(bus=%p): Bind OK\n", bus));
 
     AJ_AuthorisationInit();
-
     emit = TRUE;
     initialised = TRUE;
 
     return AJ_OK;
+}
+
+void AJ_SecurityClose(AJ_BusAttachment* bus)
+{
+    AJ_Status status;
+    AJ_Message msg;
+
+    AJ_InfoPrintf(("AJ_SecurityClose(bus=%p)\n", bus));
+
+    /* We don't need to wait for the response */
+    status = AJ_MarshalMethodCall(bus, &msg, AJ_METHOD_UNBIND_SESSION, AJ_BusDestination, 0, AJ_FLAG_NO_REPLY_EXPECTED, 0);
+    if (status == AJ_OK) {
+        AJ_MarshalArgs(&msg, "q", AJ_SECURE_MGMT_PORT);
+    }
+    if (status == AJ_OK) {
+        status = AJ_DeliverMsg(&msg);
+    }
+    initialised = FALSE;
+    AJ_AuthorisationClose();
 }
 
 AJ_Status AJ_UnmarshalECCPublicKey(AJ_Message* msg, AJ_ECCPublicKey* pub, DER_Element* kid)

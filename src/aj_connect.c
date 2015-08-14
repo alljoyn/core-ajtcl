@@ -680,6 +680,11 @@ AJ_Status AJ_ARDP_UDP_Connect(AJ_BusAttachment* bus, void* context, const AJ_Ser
 void AJ_Disconnect(AJ_BusAttachment* bus)
 {
     /*
+     * Close security module
+     */
+    AJ_SecurityClose(bus);
+
+    /*
      * We won't be getting any more method replies.
      */
     AJ_ReleaseReplyContexts();
@@ -697,11 +702,6 @@ void AJ_Disconnect(AJ_BusAttachment* bus)
      * Clear auth context
      */
     AJ_ClearAuthContext();
-
-    /*
-     * Close authorisation module
-     */
-    AJ_AuthorisationClose();
 
     /*
      * Set the routing nodes proto version to zero (not connected)
