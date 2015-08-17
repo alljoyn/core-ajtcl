@@ -77,6 +77,24 @@ static digit256_tc P256_MODULUS = { 18446744073709551615, 4294967295, 0, 1844674
 #define gethigh_tolow(x) ((x) >> (digit_t) 32)
 
 
+/* Is x != 0? */
+inline boolean_t is_digit_nonzero_ct(digit_t x)
+{
+    return (boolean_t)((x | (0 - x)) >> (RADIX_BITS - 1));
+}
+
+/* Is x == 0? */
+inline boolean_t is_digit_zero_ct(digit_t x)
+{
+    return (boolean_t)(1 ^ is_digit_nonzero_ct(x));
+}
+
+static inline unsigned char is_digit_lessthan_ct(digit_t x, digit_t y)
+{
+    /* Look at the high bit of x, y and (x - y) to determine whether x < y. */
+    return (unsigned char)((x ^ ((x ^ y) | ((x - y) ^ y))) >> (RADIX_BITS - 1));
+}
+
 /* Software macros for addition, may be substituted if intrinsics are available
  * on a given platform. */
 #define add3(c0, c1, c2, c3, a0, a1, a2, b0, b1, b2) \
@@ -211,72 +229,58 @@ uint64_t software_umul128(uint64_t u, uint64_t v, uint64_t* high)
 /* Multiply-and-accumulate
  * (c1,c0) = a*b+c0
  */
-#define muladd(c0, c1, a, b) \
-    { \
+#define muladd(c0, c1, a, b) { \
         digit_t _c = c0; \
         mul(c0, c1, a, b); \
         ADD(_c, c0, c0, _c); \
         c1 += _c; \
-    }
+}
 
 /* Multiply-and-accumulate-accumulate
  * (c1,c0) = a*b+c0+c1
  */
-#define muladdadd(c0, c1, a, b) \
-    { \
+#define muladdadd(c0, c1, a, b) { \
         digit_t _C0 = c0, _C1 = c1, carry; \
         mul(c0, c1, a, b); \
         ADD(carry, c0, c0, _C0); \
         ADDC(carry, c1, c1, 0, carry); \
         ADD(carry, c0, c0, _C1); \
         ADDC(carry, c1, c1, 0, carry); \
-    }
+}
 
 /* Adds two operands, and produces sum of the two inputs and the carry bit.
  * This is ideally an intrinsic, but is emulated when an intrinsic is not available. */
 #define ADD(carryOut, sumOut, addend1, addend2) { \
         digit_t sum = (addend1) + (addend2); \
-        carryOut = ((addend1) > sum) || ((addend2) > sum); \
-        sumOut = sum; }
+        carryOut = (digit_t)is_digit_lessthan_ct(sum, (addend1)); \
+        (sumOut) = sum; }
 
 /* Adds two operands and a carry bit, produces sum of the three inputs and the carry bit.
  * This is ideally an intrinsic, but is emulated when an intrinsic is not available.*/
-
 #pragma warning(suppress:4296)
 #define ADDC(carryOut, sumOut, addend1, addend2, carryIn) { \
-        digit_t sum = (addend1) + (addend2) + (carryIn); \
-        carryOut = ((addend1) > (sum)) || ((addend2) > (sum)) || ((((addend1) == ~DIGIT_ZERO) || ((addend2) == ~DIGIT_ZERO)) & (carryIn)); \
-        sumOut = sum; }
+        digit_t tempReg = (addend1) + (digit_t)(carryIn); \
+        (sumOut) = (addend2) + tempReg; \
+        (carryOut) = (is_digit_lessthan_ct(tempReg, (digit_t)(carryIn)) | is_digit_lessthan_ct((sumOut), tempReg)); }
 
 /* Subtract operation.
  * Subtract one number from the other, and return the difference and the borrow (carry) bit. */
 #define SUB(borrowOut, differenceOut, minuend, subtrahend) { \
-        borrowOut = (minuend) < (subtrahend); \
-        differenceOut = (minuend) - (subtrahend); }
+        (borrowOut) = (digit_t)is_digit_lessthan_ct((minuend), (subtrahend)); \
+        (differenceOut) = (minuend) - (subtrahend); }
 
 /* Subtraction with borrow (carry).
  * Subtract one number from the other with borrow (carry), and return the difference and the borrow (carry) bit.*/
-#pragma warning(suppress:4296)
 #define SUBC(borrowOut, differenceOut, minuend, subtrahend, borrowIn) { \
-        digit_t difference = (minuend) - (subtrahend) - (borrowIn); \
-        borrowOut = (borrowIn) ? (minuend) <= (subtrahend) : (minuend) < (subtrahend); \
-        differenceOut = difference; }
+        digit_t tempReg = (minuend) - (subtrahend); \
+        digit_t borrowReg = ((digit_t)is_digit_lessthan_ct((minuend), (subtrahend)) | ((borrowIn) & is_digit_zero_ct(tempReg))); \
+        (differenceOut) = tempReg - (digit_t)(borrowIn); \
+        (borrowOut) = borrowReg; }
 
 /* Move if carry is set. */
-#define CMOVC(dest, src, carryIn) { dest = (carryIn) ? (src) : (dest); }
-
-
-/* Is x != 0? */
-boolean_t is_digit_nonzero_ct(digit_t x)
-{
-    return (boolean_t)((x | (0 - x)) >> (RADIX_BITS - 1));
-}
-
-/* Is x = 0? */
-boolean_t is_digit_zero_ct(digit_t x)
-{
-    return (boolean_t)(1 ^ is_digit_nonzero_ct(x));
-}
+#define CMOVC(dest, src, selector) { \
+        digit_t mask = (digit_t)is_digit_nonzero_ct(selector) - 1; \
+        (dest) = ((~mask) & (src)) | (mask & (dest)); }
 
 /* Zero of a 256-bit field element, a = 0 */
 void fpzero_p256(digit256_t a)
@@ -286,7 +290,7 @@ void fpzero_p256(digit256_t a)
     AJ_MemZeroSecure(a, sizeof(digit256_t));
 }
 
-/* Is a = 0? (as integers, not mod P256)   */
+/* Is a == 0? (as integers, not mod P256)   */
 boolean_t fpiszero_p256(digit256_t a)
 {
     size_t i;
@@ -588,11 +592,6 @@ void fpsub_p256(
      * so that the high-order all-1 digits produced after the ill-conceived subtraction
      * would go back to being zero when added 1.*/
     AJ_ASSERT(carry == borrow);
-}
-
-static unsigned char is_digit_lessthan_ct(digit_t x, digit_t y)
-{
-    return (unsigned char)((x ^ ((x ^ y) | ((x - y) ^ y))) >> (RADIX_BITS - 1));
 }
 
 /* Negate a
