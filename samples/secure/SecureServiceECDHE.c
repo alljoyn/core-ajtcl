@@ -30,6 +30,8 @@
 #include <ajtcl/aj_auth_listener.h>
 #include <ajtcl/aj_authentication.h>
 #include <ajtcl/aj_util.h>
+#include <ajtcl/aj_security.h>
+#include <ajtcl/aj_authorisation.h>
 
 uint8_t dbgSECURE_SERVICE = 1;
 
@@ -72,6 +74,10 @@ static const AJ_Object AppObjects[] = {
     { ServicePath, secureInterfaces },
     { NULL }
 };
+
+static AJ_PermissionMember members[] = { { "*", AJ_MEMBER_TYPE_ANY, AJ_ACTION_PROVIDE | AJ_ACTION_OBSERVE, NULL } };
+static AJ_PermissionRule rules[] = { { ServicePath, InterfaceName, members, NULL } };
+static AJ_Manifest manifest = { rules };
 
 /*
  * The value of the arguments are the indices of the
@@ -262,6 +268,8 @@ int AJ_Main(void)
 
             AJ_BusEnableSecurity(&bus, suites, numsuites);
             AJ_BusSetAuthListenerCallback(&bus, AuthListenerCallback);
+            AJ_ManifestTemplateSet(&manifest);
+            AJ_SecuritySetClaimConfig(&bus, APP_STATE_CLAIMABLE, CLAIM_CAPABILITY_ECDHE_PSK, 0);
         }
 
         status = AJ_UnmarshalMsg(&bus, &msg, UNMARSHAL_TIMEOUT);
@@ -277,8 +285,16 @@ int AJ_Main(void)
                     uint16_t port;
                     char* joiner;
                     AJ_UnmarshalArgs(&msg, "qus", &port, &sessionId, &joiner);
-                    status = AJ_BusReplyAcceptSession(&msg, TRUE);
-                    AJ_InfoPrintf(("Accepted session session_id=%u joiner=%s\n", sessionId, joiner));
+                    if (port == ServicePort) {
+                        status = AJ_BusReplyAcceptSession(&msg, TRUE);
+                        AJ_InfoPrintf(("Accepted session session_id=%u joiner=%s\n", sessionId, joiner));
+                    } else {
+                        status = AJ_ResetArgs(&msg);
+                        if (AJ_OK != status) {
+                            break;
+                        }
+                        status = AJ_BusHandleBusMessage(&msg);
+                    }
                 }
                 break;
 
