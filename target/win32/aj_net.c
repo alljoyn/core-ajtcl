@@ -692,8 +692,9 @@ static void Mcast6Up(const char* group, uint16_t port, uint8_t mdns, uint16_t re
         struct sockaddr_in6 addr;
         struct sockaddr_in v4_addr;
         struct ipv6_mreq mreq6;
-
         mcast_info_t new_sock;
+        PIP_ADAPTER_ADDRESSES v4_addr_begin = v4_interfaces;
+
         new_sock.sock = INVALID_SOCKET;
         new_sock.family = AF_INET6;
         new_sock.recv_port = recv_port;
@@ -711,12 +712,20 @@ static void Mcast6Up(const char* group, uint16_t port, uint8_t mdns, uint16_t re
         memcpy(&addr, interfaces->FirstUnicastAddress->Address.lpSockaddr, sizeof(struct sockaddr_in6));
 
         // find and save the IPv4 address from this same adapter
-        for (; v4_interfaces != NULL; v4_interfaces = v4_interfaces->Next) {
-            if (interfaces->Ipv6IfIndex == v4_interfaces->IfIndex) {
-                memcpy(&v4_addr, v4_interfaces->FirstUnicastAddress->Address.lpSockaddr, sizeof(struct sockaddr_in));
+        for (; v4_addr_begin != NULL; v4_addr_begin = v4_addr_begin->Next) {
+            if (interfaces->Ipv6IfIndex == v4_addr_begin->IfIndex) {
+                memcpy(&v4_addr, v4_addr_begin->FirstUnicastAddress->Address.lpSockaddr, sizeof(struct sockaddr_in));
                 new_sock.v4_addr.s_addr = v4_addr.sin_addr.s_addr;
+                break;
             }
         }
+
+        if (!new_sock.v4_addr.s_addr) {
+            AJ_ErrPrintf(("Mcast6Up(): IPV4 address not found for interface %u\n", interfaces->Ipv6IfIndex));
+            continue;
+        }
+
+
 
         // create a socket
         new_sock.sock = socket(AF_INET6, SOCK_DGRAM, 0);
