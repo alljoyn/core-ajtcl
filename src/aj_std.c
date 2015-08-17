@@ -209,7 +209,7 @@ static const char* const SecurityApplicationIface[] = {
     "@ManufacturerCertificate>a(yay)",
     "@ManifestTemplate>a(ssa(syy))",
     "@ClaimCapabilities>q",
-    "@ClaimCapabilitiesAdditionalInfo>q",
+    "@ClaimCapabilityAdditionalInfo>q",
     NULL
 };
 
