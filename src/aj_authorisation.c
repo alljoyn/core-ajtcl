@@ -477,30 +477,29 @@ AJ_Status AJ_ManifestTemplateMarshal(AJ_Message* msg)
 AJ_Status AJ_MarshalDefaultPolicy(AJ_CredField* field, AJ_PermissionPeer* peer_ca, AJ_PermissionPeer* peer_admin)
 {
     AJ_Status status;
-
-    /* All allowed */
-    AJ_PermissionMember member_admin = { "*", AJ_MEMBER_TYPE_ANY, AJ_ACTION_PROVIDE | AJ_ACTION_OBSERVE | AJ_ACTION_MODIFY, NULL };
-    /* Outgoing allowed, incoming signal allowed */
-    AJ_PermissionMember member_any0 = { "*", AJ_MEMBER_TYPE_ANY, AJ_ACTION_PROVIDE, NULL };
-    AJ_PermissionMember member_any1 = { "*", AJ_MEMBER_TYPE_SIGNAL, AJ_ACTION_OBSERVE, &member_any0 };
-
-    AJ_PermissionRule rule_admin = { "*", "*", &member_admin, NULL };
-    AJ_PermissionRule rule_any = { "*", "*", &member_any1, NULL };
-
     /* Any authenticated peer */
     AJ_PermissionPeer peer_any;
     peer_any.type = AJ_PEER_TYPE_ANY_TRUSTED;
     peer_any.next = NULL;
+    {
+        /* All allowed */
+        AJ_PermissionMember member_admin = { "*", AJ_MEMBER_TYPE_ANY, AJ_ACTION_PROVIDE | AJ_ACTION_OBSERVE | AJ_ACTION_MODIFY, NULL };
+        /* Outgoing allowed, incoming signal allowed */
+        AJ_PermissionMember member_any0 = { "*", AJ_MEMBER_TYPE_ANY, AJ_ACTION_PROVIDE, NULL };
+        AJ_PermissionMember member_any1 = { "*", AJ_MEMBER_TYPE_SIGNAL, AJ_ACTION_OBSERVE, &member_any0 };
 
-    AJ_PermissionACL acl_ca = { peer_ca, NULL, NULL };
-    AJ_PermissionACL acl_admin = { peer_admin, &rule_admin, &acl_ca };
-    AJ_PermissionACL acl_any = { &peer_any, &rule_any, &acl_admin };
+        AJ_PermissionRule rule_admin = { "*", "*", &member_admin, NULL };
+        AJ_PermissionRule rule_any = { "*", "*", &member_any1, NULL };
 
-    AJ_Policy policy = { POLICY_SPECIFICATION_VERSION, 1, &acl_any };
+        AJ_PermissionACL acl_ca = { peer_ca, NULL, NULL };
+        AJ_PermissionACL acl_admin = { peer_admin, &rule_admin, &acl_ca };
+        AJ_PermissionACL acl_any = { &peer_any, &rule_any, &acl_admin };
 
-    /* Marshal the policy */
-    status = AJ_PolicyToBuffer(&policy, field);
+        AJ_Policy policy = { POLICY_SPECIFICATION_VERSION, 1, &acl_any };
 
+        /* Marshal the policy */
+        status = AJ_PolicyToBuffer(&policy, field);
+    }
     return status;
 }
 

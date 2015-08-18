@@ -325,6 +325,8 @@ int AJ_Main(int ac, char** av)
     AJ_ECCPublicKey pub;
     AJ_ECCPrivateKey prv;
     AJ_ECCSignature sig;
+    X509CertificateChain* head;
+    X509CertificateChain* chain;
     uint8_t buffer[128];
 
     status = AJ_GenerateECCKeyPair(&pub, &prv);
@@ -357,8 +359,6 @@ int AJ_Main(int ac, char** av)
     status = ParseCertificate(&certificate, pem_x509_10, 1);
     status = ParseCertificate(&certificate, pem_x509_11, 1);
 
-    X509CertificateChain* head;
-    X509CertificateChain* chain;
     chain = AJ_X509DecodeCertificateChainPEM(pem_x509_12);
     head = chain;
     while (head) {

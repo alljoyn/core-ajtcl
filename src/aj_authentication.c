@@ -1087,8 +1087,8 @@ void AJ_ConversationHash_Update_UInt8Array(AJ_AuthenticationContext* ctx, uint32
     }
     if (conversationVersion >= CONVERSATION_V4) {
         uint8_t v_uintLE[sizeof(uint32_t)];
-        AJ_ASSERT(bufSize <= 0xFFFFFFFF);
         uint32_t bufSizeU32 = (uint32_t)bufSize;
+        AJ_ASSERT(bufSize <= 0xFFFFFFFF);
         HostU32ToLittleEndianU8(&bufSizeU32, sizeof(bufSizeU32), v_uintLE);
         AJ_SHA256_Update(ctx->hash, v_uintLE, sizeof(v_uintLE));
     }
