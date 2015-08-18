@@ -126,7 +126,7 @@ AJ_Status AJ_NVRAM_Create(uint16_t id, uint16_t capacity)
 
     AJ_InfoPrintf(("AJ_NVRAM_Create(id=%d., capacity=%d.)\n", id, capacity));
 
-    if (!capacity || AJ_NVRAM_Exist(id)) {
+    if (id == INVALID_DATA || !capacity || AJ_NVRAM_Exist(id)) {
         AJ_ErrPrintf(("AJ_NVRAM_Create(): AJ_ERR_FAILURE\n"));
         return AJ_ERR_FAILURE;
     }
@@ -154,11 +154,13 @@ AJ_Status AJ_NVRAM_Create(uint16_t id, uint16_t capacity)
 AJ_Status AJ_NVRAM_Delete(uint16_t id)
 {
     NV_EntryHeader newHeader;
-    uint8_t* ptr;
+    uint8_t* ptr = NULL;
 
     AJ_InfoPrintf(("AJ_NVRAM_Delete(id=%d.)\n", id));
 
-    ptr = AJ_FindNVEntry(id);
+    if (id != INVALID_DATA) {
+        ptr = AJ_FindNVEntry(id);
+    }
 
     if (!ptr) {
         AJ_ErrPrintf(("AJ_NVRAM_Delete(): AJ_ERR_FAILURE\n"));
@@ -180,7 +182,7 @@ AJ_NV_DATASET* AJ_NVRAM_Open(uint16_t id, const char* mode, uint16_t capacity)
 
     AJ_InfoPrintf(("AJ_NVRAM_Open(id=%d., mode=\"%s\", capacity=%d.)\n", id, mode, capacity));
 
-    if (!id) {
+    if (!id || id == INVALID_DATA) {
         AJ_ErrPrintf(("AJ_NVRAM_Open(): invalid id\n"));
         goto OPEN_ERR_EXIT;
     }
@@ -342,9 +344,9 @@ uint8_t AJ_NVRAM_Exist(uint16_t id)
 {
     AJ_InfoPrintf(("AJ_NVRAM_Exist(id=%d.)\n", id));
 
-    if (!id) {
+    if (!id || id == INVALID_DATA) {
         AJ_ErrPrintf(("AJ_NVRAM_Exist(): AJ_ERR_INVALID\n"));
-        return FALSE; // the unique id is not allowed to be 0
+        return FALSE; // the unique id is not allowed to be 0 or 0xffff
     }
     return (NULL != AJ_FindNVEntry(id));
 }
