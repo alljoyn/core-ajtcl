@@ -42,12 +42,11 @@
 #define AJ_SIGNAL_NAME_OWNER_CHANGED   AJ_BUS_MESSAGE_ID(0, 0, 1)    /**< signal for name owner changed */
 #define AJ_SIGNAL_NAME_ACQUIRED        AJ_BUS_MESSAGE_ID(0, 0, 2)    /**< signal for name acquired */
 #define AJ_SIGNAL_NAME_LOST            AJ_BUS_MESSAGE_ID(0, 0, 3)    /**< signal for name lost */
-#define AJ_SIGNAL_PROPS_CHANGED        AJ_BUS_MESSAGE_ID(0, 0, 4)    /**< signal for props changed */
-#define AJ_METHOD_REQUEST_NAME         AJ_BUS_MESSAGE_ID(0, 0, 5)    /**< method for request name */
-#define AJ_METHOD_ADD_MATCH            AJ_BUS_MESSAGE_ID(0, 0, 6)    /**< method for add match */
-#define AJ_METHOD_REMOVE_MATCH         AJ_BUS_MESSAGE_ID(0, 0, 7)    /**< method for remove match */
-#define AJ_METHOD_RELEASE_NAME         AJ_BUS_MESSAGE_ID(0, 0, 8)    /**< method for release name */
-#define AJ_METHOD_NAME_HAS_OWNER       AJ_BUS_MESSAGE_ID(0, 0, 9)    /**< method for name has owner */
+#define AJ_METHOD_REQUEST_NAME         AJ_BUS_MESSAGE_ID(0, 0, 4)    /**< method for request name */
+#define AJ_METHOD_ADD_MATCH            AJ_BUS_MESSAGE_ID(0, 0, 5)    /**< method for add match */
+#define AJ_METHOD_REMOVE_MATCH         AJ_BUS_MESSAGE_ID(0, 0, 6)    /**< method for remove match */
+#define AJ_METHOD_RELEASE_NAME         AJ_BUS_MESSAGE_ID(0, 0, 7)    /**< method for release name */
+#define AJ_METHOD_NAME_HAS_OWNER       AJ_BUS_MESSAGE_ID(0, 0, 8)    /**< method for name has owner */
 
 /*
  * Members of /org/alljoyn/Bus interface org.alljoyn.Bus
@@ -227,7 +226,7 @@ extern const char AJ_ErrLanguageNotSuppored[39];   /**< Error language not suppo
  * The properties interface. This interface must be included in the property lists of all local and
  * proxy objects that have properties.
  */
-extern const char* const AJ_PropertiesIface[5];
+extern const char* const AJ_PropertiesIface[6];
 
 /**
  * The DBUS Peer interface name
@@ -245,6 +244,7 @@ extern const char PeerAuthInterface[36];
 #define AJ_PROP_GET     0        /**< index for property method get */
 #define AJ_PROP_SET     1        /**< index for property method set */
 #define AJ_PROP_GET_ALL 2        /**< index for property method get_all */
+#define AJ_PROP_CHANGED 3        /**< index for properties changed signal */
 
 /**
  * The introspection interface.
