@@ -31,12 +31,12 @@ extern "C" {
  *
  * Joppe W. Bos and Craig Costello and Patrick Longa and Michael Naehrig
  * "Selecting elliptic curves for cryptography: an efficiency and security analysis",
- * http://eprint.iacr.org/2014/130
+ * Journal of Cryptographic Engineering, 2015, http://eprint.iacr.org/2014/130
  *
  * and parts of this implementation are based on the associated implementation "MSR Elliptic Curve Cryptography Library",
  * available at http://research.microsoft.com/en-us/projects/nums/default.aspx.
  *
- * The above refernced paper gives a proof that the scalar multiplication algorithm implemented
+ * The above referenced paper gives a proof that the scalar multiplication algorithm implemented
  * here is exception-less, and has constant-time execution.
  */
 

@@ -168,7 +168,7 @@ boolean_t ec_is_infinity_jacobian(const ecpoint_jacobian_t* P, ec_t* curve)
         c = c | P->X[i] | P->Z[i];
     }
 
-    return (boolean_t)is_digit_zero_ct(c);
+    return is_digit_zero_ct(c);
 }
 
 boolean_t ec_oncurve(const ecpoint_t* P, ec_t* curve)
@@ -457,7 +457,7 @@ static void lut_chudnovsky(ecpoint_chudnovsky_t* table, ecpoint_chudnovsky_t* P,
 
     for (i = 1; i < npoints; i++) {
         pos--;
-        /* If match then mask = 0xFF...F else sign = 0x00...0 */
+        /* If match then mask = 0xFF...F else mask = 0x00...0 */
         mask = (digit_t)is_digit_nonzero_ct(pos) - 1;
         fpcopy_p256(table[i].X, temp_point.X);                            /* temp_point = table[i+1] */
         fpcopy_p256(table[i].Y, temp_point.Y);
@@ -767,7 +767,7 @@ AJ_Status ec_scalarmul(const ecpoint_t* P, digit256_t k, ecpoint_t* Q, ec_t* cur
     if (fpvalidate_p256(P->x) == B_FALSE || fpvalidate_p256(P->y) == B_FALSE) {
         return AJ_ERR_INVALID;
     }
-    /* The question of if P lies on the curve should be checekd before calling scalarmul */
+    /* The question of if P lies on the curve should be checked before calling scalarmul */
     /* end input validation */
 
     ec_precomp(P, table, npoints, curve);               /* Precomputation of points T[0],...,T[npoints-1]  */
