@@ -1215,7 +1215,7 @@ static void UpdateReadBuffer(AJ_IOBuffer* rxBuf, uint32_t len) {
 
     AJ_InfoPrintf(("UpdateRead: rxBuf %p, len %u\n", rxBuf, len));
 
-    while ((UDP_Recv_State.rxContext != NULL) && len != 0) {
+    while ((UDP_Recv_State.rxContext != NULL) && (UDP_Recv_State.readBuf != NULL) && (len != 0)) {
         ArdpRBuf* rBuf = UDP_Recv_State.rxContext;
         size_t rx = AJ_IO_BUF_SPACE(rxBuf);
         uint32_t consumed;
