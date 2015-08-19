@@ -73,6 +73,7 @@ const char* const AJ_PropertiesIface[] = {
     "?Get <s <s >v",
     "?Set <s <s <v",
     "?GetAll <s >a{sv}",
+    "!PropertiesChanged >s >a{sv} >as",
     NULL
 };
 
@@ -95,7 +96,6 @@ static const char* const DBusIface[] = {
     "!NameOwnerChanged >s >s >s",
     "!NameAcquired >s",
     "!NameLost >s",
-    "!PropertiesChanged >s >a{sv} >as",
     "?RequestName <s <u >u",
     "?AddMatch <s",
     "?RemoveMatch <s",
