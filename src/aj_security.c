@@ -756,20 +756,29 @@ Exit:
 AJ_Status AJ_SecurityResetMethod(AJ_Message* msg, AJ_Message* reply)
 {
     AJ_Status status;
+    AJ_ECCPublicKey pub;
+    AJ_ECCPrivateKey prv;
 
     AJ_InfoPrintf(("AJ_SecurityResetMethod(msg=%p, reply=%p)\n", msg, reply));
 
-    status = AJ_ClearCredentials(0);
+    /* Clear everything out except ECDSA signature pair */
+    AJ_CredentialGetECCPublicKey(AJ_ECC_SIG, NULL, NULL, &pub);
+    AJ_CredentialGetECCPrivateKey(AJ_ECC_SIG, NULL, NULL, &prv);
+    AJ_ClearCredentials(0);
+    AJ_CredentialSetECCPublicKey(AJ_ECC_SIG, NULL, 0xFFFFFFFF, &pub);
+    AJ_CredentialSetECCPrivateKey(AJ_ECC_SIG, NULL, 0xFFFFFFFF, &prv);
 
-    if (AJ_OK == status) {
-        /* Set claim state and emit signal*/
-        SetClaimState(APP_STATE_CLAIMABLE);
-        /* Clear session keys, can't do it now because we need to reply */
-        clear = TRUE;
-        return AJ_MarshalReplyMsg(msg, reply);
-    } else {
-        return AJ_MarshalErrorMsg(msg, reply, AJ_ErrSecurityViolation);
+    /* Set claim state and emit signal*/
+    status = SetClaimState(APP_STATE_CLAIMABLE);
+    if (AJ_OK != status) {
+        goto Exit;
     }
+    /* Clear session keys, can't do it now because we need to reply */
+    clear = TRUE;
+
+    return AJ_MarshalReplyMsg(msg, reply);
+Exit:
+    return AJ_MarshalErrorMsg(msg, reply, AJ_ErrSecurityViolation);
 }
 
 AJ_Status AJ_SecurityUpdateIdentityMethod(AJ_Message* msg, AJ_Message* reply)
