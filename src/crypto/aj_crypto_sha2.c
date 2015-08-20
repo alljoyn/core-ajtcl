@@ -68,10 +68,9 @@ static AJ_Status AJ_HMAC_SHA256_Final(AJ_HMAC_SHA256_CTX* ctx, uint8_t* digest);
  * matched with a call to AJ_SHA256_Final() to ensure that resources
  * are released.
  *
- * @param context the hash context
  * @return Pointer to context. NULL if init failed.
  */
-AJ_SHA256_Context* AJ_SHA256_Init()
+AJ_SHA256_Context* AJ_SHA256_Init(void)
 {
     AJ_SHA256_Context* context;
     context = AJ_Malloc(sizeof(*context));
