@@ -395,13 +395,6 @@ static AJ_Status AboutPropGetter(AJ_Message* reply, const char* language)
     return status;
 }
 
-uint32_t MyBusAuthPwdCB(uint8_t* buf, uint32_t bufLen)
-{
-    const char* myPwd = "1234";
-    strncpy((char*)buf, myPwd, bufLen);
-    return (uint32_t)strlen(myPwd);
-}
-
 static const uint32_t suites[] = { AUTH_SUITE_ECDHE_ECDSA, AUTH_SUITE_ECDHE_PSK, AUTH_SUITE_ECDHE_NULL };
 
 #define CONNECT_TIMEOUT    (1000 * 1000)

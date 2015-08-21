@@ -126,6 +126,7 @@ AJ_EXPORT
 void AJ_Disconnect(AJ_BusAttachment* bus);
 
 /**
+ * @deprecated
  * Bus authentication password function prototype for requesting a
  * password (to authenticate with the daemon) from the application.
  *
@@ -138,6 +139,7 @@ void AJ_Disconnect(AJ_BusAttachment* bus);
 typedef uint32_t (*BusAuthPwdFunc)(uint8_t* buffer, uint32_t bufLen);
 
 /**
+ * @deprecated
  * Set the callback for the application to provide a password for authentication to the daemon bus
  *
  * @param callback  The callback provided by the application
