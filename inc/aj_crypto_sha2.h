@@ -40,10 +40,9 @@ typedef struct AJ_SHA256_Context AJ_SHA256_Context;
  * matched with a call to AJ_SHA256_Final() to ensure that resources
  * are released.
  *
- * @param context the hash context
  * @return Pointer to context. NULL if init failed.
  */
-AJ_SHA256_Context* AJ_SHA256_Init();
+AJ_SHA256_Context* AJ_SHA256_Init(void);
 
 /**
  * Update the digest using the specific bytes
