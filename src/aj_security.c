@@ -739,6 +739,9 @@ Exit:
     AJ_ManifestFree(manifest);
     AJ_CredFieldFree(&manifest_data);
     if (AJ_OK == status) {
+        if (msg->bus->policyChangedCallback) {
+            msg->bus->policyChangedCallback();
+        }
         return AJ_MarshalReplyMsg(msg, reply);
     } else {
         /* Remove stored values on error */
@@ -761,6 +764,13 @@ AJ_Status AJ_SecurityResetMethod(AJ_Message* msg, AJ_Message* reply)
 
     AJ_InfoPrintf(("AJ_SecurityResetMethod(msg=%p, reply=%p)\n", msg, reply));
 
+    if (msg->bus->factoryResetCallback) {
+        status = msg->bus->factoryResetCallback();
+        if (AJ_OK != status) {
+            goto Exit;
+        }
+    }
+
     /* Clear everything out except ECDSA signature pair */
     AJ_CredentialGetECCPublicKey(AJ_ECC_SIG, NULL, NULL, &pub);
     AJ_CredentialGetECCPrivateKey(AJ_ECC_SIG, NULL, NULL, &prv);
@@ -775,6 +785,10 @@ AJ_Status AJ_SecurityResetMethod(AJ_Message* msg, AJ_Message* reply)
     }
     /* Clear session keys, can't do it now because we need to reply */
     clear = TRUE;
+
+    if (msg->bus->policyChangedCallback) {
+        msg->bus->policyChangedCallback();
+    }
 
     return AJ_MarshalReplyMsg(msg, reply);
 Exit:

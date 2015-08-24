@@ -689,6 +689,30 @@ void AJ_BusSetAuthListenerCallback(AJ_BusAttachment* bus, AJ_AuthListenerFunc au
     bus->authListenerCallback = authListenerCallback;
 }
 
+/**
+ * Set a callback for handling requests to factory reset any application state.
+ *
+ * @param bus                   The bus attachment struct
+ * @param factoryResetCallback  The factory reset callback function.
+ */
+void AJ_BusSetFactoryResetCallback(AJ_BusAttachment* bus, AJ_FactoryResetFunc factoryResetCallback)
+{
+    AJ_InfoPrintf(("AJ_BusSetFactoryResetCallback(bus=0x%p, factoryResetCallback=0x%p)\n", bus, factoryResetCallback));
+    bus->factoryResetCallback = factoryResetCallback;
+}
+
+/**
+ * Set a callback for handling security policy change notifications.
+ *
+ * @param bus                    The bus attachment struct
+ * @param policyChangedCallback  The policy changed callback function.
+ */
+void AJ_BusSetPolicyChangedCallback(AJ_BusAttachment* bus, AJ_PolicyChangedFunc policyChangedCallback)
+{
+    AJ_InfoPrintf(("AJ_BusSetPolicyChangedCallback(bus=0x%p, policyChangedCallback=0x%p)\n", bus, policyChangedCallback));
+    bus->policyChangedCallback = policyChangedCallback;
+}
+
 AJ_Status AJ_BusAuthenticatePeer(AJ_BusAttachment* bus, const char* peerName, AJ_BusAuthPeerCallback callback, void* cbContext)
 {
     AJ_InfoPrintf(("AJ_BusAuthenticatePeer(bus=0x%p, peerName=\"%s\", callback=0x%p, cbContext=0x%p)\n", bus, peerName, callback, cbContext));
