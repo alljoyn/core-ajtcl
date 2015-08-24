@@ -263,15 +263,15 @@ static SendFunction sendFunction;
  * End of definitions
  */
 
-void AJ_ARDP_InitFunctions(ReceiveFunction recv, SendFunction send)
+void AJ_ARDP_InitFunctions(ReceiveFunction rcvFunc, SendFunction sndFunc)
 {
-    recvFunction = recv;
-    sendFunction = send;
+    recvFunction = rcvFunc;
+    sendFunction = sndFunc;
 }
 
 static AJ_Status InitConnection()
 {
-    uint32_t rand;
+    uint32_t rand32;
     uint32_t i;
 
     conn = (struct ArdpConnection*) AJ_Malloc(sizeof(struct ArdpConnection));
@@ -280,8 +280,8 @@ static AJ_Status InitConnection()
     }
     memset(conn, 0, sizeof(struct ArdpConnection));
 
-    AJ_RandBytes((uint8_t*) &rand, sizeof(uint32_t));
-    conn->local = (rand % 65534) + 1;  /* Allocate an "ephemeral" source port */
+    AJ_RandBytes((uint8_t*) &rand32, sizeof(uint32_t));
+    conn->local = (rand32 % 65534) + 1;  /* Allocate an "ephemeral" source port */
 
     /* Initialize the sender side of the connection */
     AJ_RandBytes((uint8_t*) &conn->snd.ISS, sizeof(conn->snd.ISS));
@@ -494,14 +494,14 @@ static AJ_Status DataTimerHandler(ArdpSBuf* sBuf)
 
 static AJ_Status CheckDataTimers()
 {
-    uint32_t index;
+    uint32_t idx;
 
     /* Check data retransmit timer */
-    index = conn->snd.UNA % UDP_SEGMAX;
-    if (conn->snd.buf[index].timer.retry != 0 &&
-        AJ_GetElapsedTime(&conn->snd.buf[index].timer.tStart, TRUE) >= conn->snd.buf[index].timer.delta) {
+    idx = conn->snd.UNA % UDP_SEGMAX;
+    if (conn->snd.buf[idx].timer.retry != 0 &&
+        AJ_GetElapsedTime(&conn->snd.buf[idx].timer.tStart, TRUE) >= conn->snd.buf[idx].timer.delta) {
         AJ_InfoPrintf(("CheckDataTimers: Fire data timer\n"));
-        return DataTimerHandler(&conn->snd.buf[index]);
+        return DataTimerHandler(&conn->snd.buf[idx]);
     }
     return AJ_OK;
 }
@@ -695,8 +695,8 @@ static void AdjustRTT(ArdpSBuf* sBuf)
 
 static void UpdateSndSegments(uint32_t ack)
 {
-    uint16_t index = ack % UDP_SEGMAX;
-    ArdpSBuf* sBuf = &conn->snd.buf[index];
+    uint16_t idx = ack % UDP_SEGMAX;
+    ArdpSBuf* sBuf = &conn->snd.buf[idx];
     uint32_t i;
 
     /* Nothing to clean up */
@@ -737,8 +737,8 @@ static void UpdateSndSegments(uint32_t ack)
 
 static void FlushExpiredRcvMessages(uint32_t seq, uint32_t ackNXT)
 {
-    uint32_t index =  conn->rcv.CUR % UDP_SEGMAX;
-    ArdpRBuf* rBuf = &conn->rcv.buf[index];
+    uint32_t idx =  conn->rcv.CUR % UDP_SEGMAX;
+    ArdpRBuf* rBuf = &conn->rcv.buf[idx];
 
     AJ_InfoPrintf(("FlushExpiredRcvMessages: seq = %u, expected %u got %u\n",
                    seq, conn->rcv.CUR + 1, ackNXT));
@@ -765,21 +765,21 @@ static void FlushExpiredRcvMessages(uint32_t seq, uint32_t ackNXT)
 
 static void AddRcvBuffer(struct ArdpSeg* seg, uint8_t* rxBuf, uint16_t dataOffset)
 {
-    uint32_t index = seg->SEQ % UDP_SEGMAX;
+    uint32_t idx = seg->SEQ % UDP_SEGMAX;
 
     AJ_InfoPrintf(("AddRcvBuffer: seq=%u\n", seg->SEQ));
-    AJ_ASSERT(conn->rcv.buf[index].fcnt == 0);
+    AJ_ASSERT(conn->rcv.buf[idx].fcnt == 0);
 
-    conn->rcv.buf[index].seq = seg->SEQ;
-    conn->rcv.buf[index].som = seg->SOM;
-    conn->rcv.buf[index].fcnt = seg->FCNT;
-    conn->rcv.buf[index].dataLen = seg->DLEN;
-    memcpy(conn->rcv.buf[index].data, rxBuf + dataOffset, seg->DLEN);
+    conn->rcv.buf[idx].seq = seg->SEQ;
+    conn->rcv.buf[idx].som = seg->SOM;
+    conn->rcv.buf[idx].fcnt = seg->FCNT;
+    conn->rcv.buf[idx].dataLen = seg->DLEN;
+    memcpy(conn->rcv.buf[idx].data, rxBuf + dataOffset, seg->DLEN);
 
     if (UDP_Recv_State.rxContext == NULL) {
-        UDP_Recv_State.readBuf = conn->rcv.buf[index].data;
+        UDP_Recv_State.readBuf = conn->rcv.buf[idx].data;
         UDP_Recv_State.dataLen = seg->DLEN;
-        UDP_Recv_State.rxContext = (void*) &conn->rcv.buf[index];
+        UDP_Recv_State.rxContext = (void*) &conn->rcv.buf[idx];
     }
 }
 

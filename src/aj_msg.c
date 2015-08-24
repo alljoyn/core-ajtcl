@@ -1504,8 +1504,8 @@ AJ_Status AJ_SkipArg(AJ_Message* msg)
             /*
              * Skip the individual elements
              */
-            char close = (skippy.typeId == AJ_ARG_STRUCT) ?  AJ_STRUCT_CLOSE : AJ_DICT_ENTRY_CLOSE;
-            while (*skippy.sigPtr != close) {
+            char closeType = (skippy.typeId == AJ_ARG_STRUCT) ?  AJ_STRUCT_CLOSE : AJ_DICT_ENTRY_CLOSE;
+            while (*skippy.sigPtr != closeType) {
                 status = AJ_SkipArg(msg);
                 if (status != AJ_OK) {
                     break;

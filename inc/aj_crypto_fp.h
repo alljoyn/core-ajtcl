@@ -26,7 +26,7 @@ extern "C" {
 #endif
 
 #ifndef UNREFERENCED_PARAMETER
-    #define UNREFERENCED_PARAMETER(P) (P)
+    #define UNREFERENCED_PARAMETER(P) ((void)(P))
 #endif
 
 /* Digit types for multiprecision integers.*/
@@ -89,9 +89,9 @@ void fpzero_p256(digit256_t a);
  *
  * @param[in] a The field element to test.
  *
- * @return TRUE if a is zero, and FALSE if a is nonzero.
+ * @return 1 if a is zero, and 0 if a is nonzero.
  */
-boolean_t fpiszero_p256(digit256_t a);
+digit_t fpiszero_p256(digit256_t a);
 
 /**
  * Get the value P256, the prime that defines the field.
@@ -125,18 +125,18 @@ boolean_t validate_256(digit256_tc a, digit256_tc modulus);
  *
  * @param[in] x the digit to test.
  *
- * @return TRUE if x == 0, FALSE otherwise.
+ * @return 1 if x == 0, 0 otherwise.
  */
-boolean_t is_digit_zero_ct(digit_t x);
+digit_t is_digit_zero_ct(digit_t x);
 
 /**
- * Test whether a digit is nonzero, in constant time.
+ * Test whether a digit is nonzero, in constant time, fully typed as digit_t.
  *
  * @param[in] x the digit to test.
  *
- * @return TRUE if x != 0, FALSE otherwise.
+ * @return 1 if x != 0, 0 otherwise.
  */
-boolean_t is_digit_nonzero_ct(digit_t x);
+digit_t is_digit_nonzero_ct(digit_t x);
 
 /**
  * Field subtraction (modular subtraction).

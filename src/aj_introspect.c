@@ -461,10 +461,10 @@ static const char* GetBestLanguage(const char* requested)
         languageToCheck[MAX_LANG_SIZE] = '\0';
         for (;;) {
             // Look for a supported language matching the language to check.
-            size_t index;
-            for (index = 0; languageList[index] != NULL; index++) {
-                if (strcasecmp(languageList[index], languageToCheck) == 0) {
-                    return languageList[index];
+            size_t idx;
+            for (idx = 0; languageList[idx] != NULL; idx++) {
+                if (strcasecmp(languageList[idx], languageToCheck) == 0) {
+                    return languageList[idx];
                 }
             }
 
@@ -903,9 +903,9 @@ static uint32_t MatchMember(const char* encoding, const AJ_Message* msg)
     return (*encoding == '\0') || (*encoding == ' ');
 }
 
-static AJ_InterfaceDescription FindInterface(const AJ_InterfaceDescription* interfaces, const char* iface, uint8_t* index)
+static AJ_InterfaceDescription FindInterface(const AJ_InterfaceDescription* interfaces, const char* iface, uint8_t* idx)
 {
-    *index = 0;
+    *idx = 0;
     if (interfaces) {
         while (*interfaces) {
             AJ_InterfaceDescription desc = *interfaces++;
@@ -922,7 +922,7 @@ static AJ_InterfaceDescription FindInterface(const AJ_InterfaceDescription* inte
                     return desc;
                 }
             }
-            *index += 1;
+            *idx += 1;
         }
     }
     return NULL;
@@ -991,7 +991,7 @@ AJ_Status AJ_LookupMessageId(AJ_Message* msg, uint8_t* secure)
 /*
  * Validates an index into a NULL terminated array
  */
-static uint8_t CheckIndex(const void* ptr, uint8_t index, size_t stride)
+static uint8_t CheckIndex(const void* ptr, uint8_t idx, size_t stride)
 {
     if (!ptr) {
         return FALSE;
@@ -1002,7 +1002,7 @@ static uint8_t CheckIndex(const void* ptr, uint8_t index, size_t stride)
             return FALSE;
         }
         ptr = (((uint8_t*)ptr) + stride);
-    } while (index--);
+    } while (idx--);
     return TRUE;
 }
 #endif
@@ -1500,20 +1500,20 @@ void AJ_RegisterDescriptionLanguages(const char* const* languages) {
     languageList = languages;
 }
 
-AJ_Status AJ_RegisterObjectListWithDescriptions(const AJ_Object* objList, uint8_t index, AJ_DescriptionLookupFunc descLookup)
+AJ_Status AJ_RegisterObjectListWithDescriptions(const AJ_Object* objList, uint8_t idx, AJ_DescriptionLookupFunc descLookup)
 {
-    if (index >= ArraySize(objectLists)) {
+    if (idx >= ArraySize(objectLists)) {
         return AJ_ERR_RANGE;
     }
-    objectLists[index] = objList;
-    descriptionLookups[index] = descLookup;
-    AJ_AuthorisationDeregister(index);
-    return AJ_AuthorisationRegister(objList, index);
+    objectLists[idx] = objList;
+    descriptionLookups[idx] = descLookup;
+    AJ_AuthorisationDeregister(idx);
+    return AJ_AuthorisationRegister(objList, idx);
 }
 
-AJ_Status AJ_RegisterObjectList(const AJ_Object* objList, uint8_t index)
+AJ_Status AJ_RegisterObjectList(const AJ_Object* objList, uint8_t idx)
 {
-    return AJ_RegisterObjectListWithDescriptions(objList, index, NULL);
+    return AJ_RegisterObjectListWithDescriptions(objList, idx, NULL);
 }
 
 AJ_Status AJ_SetProxyObjectPath(AJ_Object* proxyObjects, uint32_t msgId, const char* objPath)

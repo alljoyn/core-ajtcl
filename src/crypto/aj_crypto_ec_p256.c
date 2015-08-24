@@ -23,11 +23,11 @@
 
 #define W_VARBASE 6     /* Parameter for scalar multiplication.  Should use 2-2.5 KB.  Must be >= 2. */
 
-static digit256_tc P256_A = { 18446744073709551612, 4294967295, 0, 18446744069414584321 };
-static digit256_tc P256_B = { 4309448131093880907, 7285987128567378166, 12964664127075681980, 6540974713487397863 };
-static digit256_tc P256_ORDER = { 17562291160714782033, 13611842547513532036, 18446744073709551615, 18446744069414584320 };
-static digit256_tc P256_GENERATOR_X = { 17627433388654248598, 8575836109218198432, 17923454489921339634, 7716867327612699207 };
-static digit256_tc P256_GENERATOR_Y = { 14678990851816772085, 3156516839386865358, 10297457778147434006, 5756518291402817435 };
+static digit256_tc P256_A = { 18446744073709551612ULL, 4294967295ULL, 0ULL, 18446744069414584321ULL };
+static digit256_tc P256_B = { 4309448131093880907ULL, 7285987128567378166ULL, 12964664127075681980ULL, 6540974713487397863ULL };
+static digit256_tc P256_ORDER = { 17562291160714782033ULL, 13611842547513532036ULL, 18446744073709551615ULL, 18446744069414584320ULL };
+static digit256_tc P256_GENERATOR_X = { 17627433388654248598ULL, 8575836109218198432ULL, 17923454489921339634ULL, 7716867327612699207ULL };
+static digit256_tc P256_GENERATOR_Y = { 14678990851816772085ULL, 3156516839386865358ULL, 10297457778147434006ULL, 5756518291402817435ULL };
 
 AJ_Status ec_getcurve(ec_t* curve, curveid_t curveid)
 {
@@ -458,7 +458,7 @@ static void lut_chudnovsky(ecpoint_chudnovsky_t* table, ecpoint_chudnovsky_t* P,
     for (i = 1; i < npoints; i++) {
         pos--;
         /* If match then mask = 0xFF...F else mask = 0x00...0 */
-        mask = (digit_t)is_digit_nonzero_ct(pos) - 1;
+        mask = is_digit_nonzero_ct(pos) - 1;
         fpcopy_p256(table[i].X, temp_point.X);                            /* temp_point = table[i+1] */
         fpcopy_p256(table[i].Y, temp_point.Y);
         fpcopy_p256(table[i].Z, temp_point.Z);
@@ -498,40 +498,40 @@ static void lut_chudnovsky(ecpoint_chudnovsky_t* table, ecpoint_chudnovsky_t* P,
  */
 static unsigned int lut_complete_eval(digit256_t val1, digit256_t val2, digit256_t val3, digit_t*mask)
 {
-    digit_t index_temp = 0, index = 3;
+    digit_t idx_temp = 0, idx = 3;
     digit_t eval1, eval2;
 
-    eval1 = (digit_t)(fpiszero_p256(val1) - 1);                       /* if val1 = 0 then eval1 = 0, else eval1 = -1  */
-    index = (eval1 & (index ^ index_temp)) ^ index_temp;              /* if val1 = 0 then index = 0  */
+    eval1 = (digit_t)(fpiszero_p256(val1) - 1);               /* if val1 = 0 then eval1 = 0, else eval1 = -1  */
+    idx = (eval1 & (idx ^ idx_temp)) ^ idx_temp;              /* if val1 = 0 then idx = 0  */
 
-    index_temp = 2;
-    eval2 = (digit_t)(fpiszero_p256(val3) - 1);                       /* if val3 = 0 then eval2 = 0, else eval2 = -1  */
-    index = ((eval1 | eval2) & (index ^ index_temp)) ^ index_temp;    /* if (val1 = 0 & val3 = 0) then index = 2  */
+    idx_temp = 2;
+    eval2 = (digit_t)(fpiszero_p256(val3) - 1);               /* if val3 = 0 then eval2 = 0, else eval2 = -1  */
+    idx = ((eval1 | eval2) & (idx ^ idx_temp)) ^ idx_temp;    /* if (val1 = 0 & val3 = 0) then idx = 2  */
 
-    index_temp = 1;
-    eval1 = (digit_t)(fpiszero_p256(val2) - 1);                       /* if val2 = 0 then eval1 = 0, else eval1 = -1  */
-    index = (eval1 & (index ^ index_temp)) ^ index_temp;              /* if val2 = 0 then index = 1  */
+    idx_temp = 1;
+    eval1 = (digit_t)(fpiszero_p256(val2) - 1);               /* if val2 = 0 then eval1 = 0, else eval1 = -1  */
+    idx = (eval1 & (idx ^ idx_temp)) ^ idx_temp;              /* if val2 = 0 then idx = 1  */
 
-    /* If index=3 then mask = 0xFF...F else mask = 0x00...0 */
-    *mask = (digit_t)is_digit_nonzero_ct(index - 3) - 1;
+    /* If idx=3 then mask = 0xFF...F else mask = 0x00...0 */
+    *mask = is_digit_nonzero_ct(idx - 3) - 1;
 
-    return (unsigned int)index;
+    return (unsigned int)idx;
 }
 
 /* Point extraction from LUT for the complete addition */
-static void complete_lut(ecpoint_jacobian_t* table, unsigned int index, ecpoint_jacobian_t* P, unsigned int npoints, ec_t* curve)
+static void complete_lut(ecpoint_jacobian_t* table, unsigned int idx, ecpoint_jacobian_t* P, unsigned int npoints, ec_t* curve)
 {
     size_t i, j, nwords = NBITS_TO_NDIGITS(curve->pbits);
     digit_t pos, mask;
     ecpoint_jacobian_t point, temp_point;
 
-    pos = (digit_t)index;                                                    // Load digit position
+    pos = (digit_t)idx;                                                    // Load digit position
     ecpoint_jacobian_copy(&table[0], &point);                                       // point = table[0]
 
     for (i = 1; i < npoints; i++) {
         pos--;
-        // If match then mask = 0xFF...F else sign = 0x00...0
-        mask = (digit_t)is_digit_nonzero_ct(pos) - 1;
+        // If match then mask = 0xFF...F else mask = 0x00...0
+        mask = is_digit_nonzero_ct(pos) - 1;
         ecpoint_jacobian_copy(&table[i], &temp_point);                              // temp_point = table[i+1]
         // If mask = 0x00...0 then point = point, else if mask = 0xFF...F then point = temp_point
         for (j = 0; j < nwords; j++) {
@@ -572,7 +572,7 @@ static void ecadd_jacobian_no_init(ecpoint_jacobian_t* Q, ecpoint_jacobian_t* P,
 {
 
     digit256_t t1, t2, t3, t4, t5, t6, t7, t8;
-    unsigned int index = 0;
+    unsigned int idx = 0;
     digit_t mask = 0;
     digit_t mask1 = 0;
     digit_t temps[P256_TEMPS];
@@ -589,10 +589,11 @@ static void ecadd_jacobian_no_init(ecpoint_jacobian_t* Q, ecpoint_jacobian_t* P,
     fpmul_p256(t5, P->Y, t8, temps);                    /* t8 = z2^3*y1  */
     fpsub_p256(t1, t7, t1);                             /* t1 = beta2 = z1^2*x2-z2^2*x1   */
     fpsub_p256(t4, t8, t4);                             /* t4 = alpha2 = z1^3*y2-z2^3*y1  */
-    index = lut_complete_eval(t1, P->Z, t4, &mask);     /* if t1=0 (P=-Q) then index=0, if Z1=0 (P inf) then index=1, if t4=0 (P=Q) then index=2, else index=3  */
-    /* if index=3 then mask = 0xff...ff, else mask = 0 */
-    mask1 = ~(-(int) fpiszero_p256(Q->Z));              /* if Z2=0 (Q inf) then mask1 = 0, else mask1 = 0xff...ff  */
-    index = (mask1 & (index ^ 4)) ^ 4;                  /* if mask1 = 0 then index=4, else if mask1 = 0xff...ff then keep previous index    */
+    idx = lut_complete_eval(t1, P->Z, t4, &mask);       /* if t1=0 (P=-Q) then idx=0, if Z1=0 (P inf) then idx=1, if t4=0 (P=Q) then idx=2, else idx=3  */
+    /* if idx=3 then mask = 0xff...ff, else mask = 0 */
+    AJ_ASSERT(sizeof(digit_t) == sizeof(int64_t));
+    mask1 = ~(-(int64_t) fpiszero_p256(Q->Z));          /* if Z2=0 (Q inf) then mask1 = 0, else mask1 = 0xff...ff  */
+    idx = (mask1 & (idx ^ 4)) ^ 4;                      /* if mask1 = 0 then idx=4, else if mask1 = 0xff...ff then keep previous idx    */
     fpadd_p256(P->X, t2, t3);                           /* t3 = x1+z1^2  */
     fpsub_p256(P->X, t2, t6);                           /* t6 = x1-z1^2  */
     complete_select(P->Y, t1, t2, mask);                /* If mask=0 (DBL) then t2=y1, else if mask=-1 (ADD) then t2=beta2   */
@@ -619,7 +620,7 @@ static void ecadd_jacobian_no_init(ecpoint_jacobian_t* Q, ecpoint_jacobian_t* P,
     fpmul_p256(t1, t2, t3, temps);                      /* t3 = y1^4 (DBL) or z2^3*y1*beta2^3 (ADD)  */
     fpsub_p256(t4, t3, table[2].Y);                     /* Y2Pfinal = alpha1.(beta1-X2Pfinal)-y1^4 (DBL) or alpha2.(z2^2*x1*beta2^2-XPQfinal)-z2^3*y1*beta2^3 (ADD)  */
     fpcopy_p256(table[2].Y, table[3].Y);                /* YPQfinal = alpha2.(z2^2*x1*beta2^2-XPQfinal)-z2^3*y1*beta2^3  */
-    complete_lut(table, index, P, 5, curve);            /* P = table[index] (5 is the table size)  */
+    complete_lut(table, idx, P, 5, curve);              /* P = table[idx] (5 is the table size)  */
 
     /* cleanup */
     fpzero_p256(t1);
@@ -642,8 +643,9 @@ static void ecadd_jacobian_no_init(ecpoint_jacobian_t* Q, ecpoint_jacobian_t* P,
  */
 void ec_add_jacobian(ecpoint_jacobian_t* Q, ecpoint_jacobian_t* P, ec_t* curve)
 {
-    ecpoint_jacobian_t table[5] = { 0 };
+    ecpoint_jacobian_t table[5];
 
+    memset(table, 0, sizeof(table));
     table[0].Y[0] = 1;                              /* Initialize table[0] with the point at infinity (0:1:0)  */
     ecpoint_jacobian_copy(Q, &table[1]);            /* Initialize table[1] with Q  */
     ecpoint_jacobian_copy(P, &table[4]);            /* Initialize table[4] with P  */

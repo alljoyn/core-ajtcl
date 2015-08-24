@@ -58,12 +58,12 @@ static Pool* heapPools;
 static uint8_t numPools;
 static uint8_t* heapStart;
 
-size_t AJ_PoolRequired(const AJ_HeapConfig* poolConfig, uint8_t numPools)
+size_t AJ_PoolRequired(const AJ_HeapConfig* poolConfig, uint8_t poolCnt)
 {
-    size_t heapSz = sizeof(Pool) * numPools;
+    size_t heapSz = sizeof(Pool) * poolCnt;
     uint8_t i;
 
-    for (i = 0; i < numPools; ++i) {
+    for (i = 0; i < poolCnt; ++i) {
         size_t sz = poolConfig[i].size;
         sz += AJ_HEAP_POOL_ROUNDING - (sz & (AJ_HEAP_POOL_ROUNDING - 1));
         heapSz += sz * poolConfig[i].entries;

@@ -137,7 +137,7 @@ static AJ_Status ReadLine(AJ_IOBuffer* rxBuf)
     return status;
 }
 
-static AJ_Status WriteLine(AJ_IOBuffer* txBuf, char* line)
+static AJ_Status WriteLine(AJ_IOBuffer* txBuf, const char* line)
 {
     strcpy((char*) txBuf->writePtr, line);
     txBuf->writePtr += strlen(line);
@@ -844,7 +844,7 @@ AJ_Status AJ_SelectRoutingNodeFromResponseList(AJ_Service* service)
     uint8_t skip = 0;
     uint32_t priority_idx = 0;
     uint32_t priority_srv = 0;
-    uint32_t random = 0;
+    uint32_t rand32 = 0;
     if (RNResponseList[0].ipv4 || RNResponseList[0].ipv4Udp) {
         service->ipv4 = RNResponseList[0].ipv4;
         service->ipv4port = RNResponseList[0].ipv4port;
@@ -902,14 +902,14 @@ AJ_Status AJ_SelectRoutingNodeFromResponseList(AJ_Service* service)
                      * priorities (inclusive) is chosen and the first node whose associated
                      * sum is greater than or equal to the random number is selected.
                      */
-                    random = 0;
-                    AJ_RandBytes((uint8_t*)&random, sizeof(random));
+                    rand32 = 0;
+                    AJ_RandBytes((uint8_t*)&rand32, sizeof(rand32));
                     priority_idx = RNResponseList[i].priority + runningSum;
                     priority_srv = runningSum;
                     runningSum = priority_idx;
-                    random %= (runningSum + 1);
-                    AJ_InfoPrintf(("P_idx is %u and P_srv is %u and random is %u\n", priority_idx, priority_srv, random));
-                    if (random > priority_srv) {
+                    rand32 %= (runningSum + 1);
+                    AJ_InfoPrintf(("P_idx is %u and P_srv is %u and random is %u\n", priority_idx, priority_srv, rand32));
+                    if (rand32 > priority_srv) {
                         AJ_InfoPrintf(("Picking index %d on this round\n", i));
                         service->ipv4 = RNResponseList[i].ipv4;
                         service->ipv4port = RNResponseList[i].ipv4port;

@@ -214,20 +214,6 @@ void HostU16ToLittleEndianU8(uint16_t* u16, size_t len, uint8_t* u8)
     }
 }
 
-static void BigEndianU8ToHostU16(uint8_t* u8, uint16_t* u16, size_t len)
-{
-    uint16_t x;
-    size_t i;
-
-    for (i = 0; i < len; i += sizeof(uint16_t)) {
-        memcpy(&x, &u8[i], sizeof(x));
-#if HOST_IS_LITTLE_ENDIAN
-        x = AJ_ByteSwap16(x);
-#endif
-        u16[i / sizeof(uint16_t)] = x;
-    }
-}
-
 void HostU32ToLittleEndianU8(uint32_t* u32, size_t len, uint8_t* u8)
 {
     uint32_t x;
@@ -295,19 +281,5 @@ void HostU64ToLittleEndianU8(uint64_t* u64, size_t len, uint8_t* u8)
         x = AJ_ByteSwap64(x);
 #endif
         memcpy(&u8[i], &x, sizeof(x));
-    }
-}
-
-static void BigEndianU8ToHostU64(uint8_t* u8, uint64_t* u64, size_t len)
-{
-    uint64_t x;
-    size_t i;
-
-    for (i = 0; i < len; i += sizeof(uint64_t)) {
-        memcpy(&x, &u8[i], sizeof(x));
-#if HOST_IS_LITTLE_ENDIAN
-        x = AJ_ByteSwap64(x);
-#endif
-        u64[i / sizeof(uint64_t)] = x;
     }
 }

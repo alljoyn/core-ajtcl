@@ -57,7 +57,7 @@ void AJ_InitTimer(AJ_Time* timer)
     timer->milliseconds = (uint16_t)(now.milliseconds % 1000);
 }
 
-uint64_t AJ_DecodeTime(char* der, char* fmt)
+uint64_t AJ_DecodeTime(char* der, const char* fmt)
 {
     time_t ret;
     char* tz;

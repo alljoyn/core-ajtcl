@@ -135,7 +135,7 @@ uint8_t AJ_StopReadFromStdIn()
     return FALSE;
 }
 
-uint64_t AJ_DecodeTime(char* der, char* fmt)
+uint64_t AJ_DecodeTime(char* der, const char* fmt)
 {
     //TODO
     return 0;

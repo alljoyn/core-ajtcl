@@ -167,7 +167,7 @@ void AES_CTR_DRBG_Instantiate(CTR_DRBG_CTX* ctx, uint8_t* seed, size_t size, uin
     AES_CTR_DRBG_Reseed(ctx, seed, size);
 }
 
-AJ_Status AES_CTR_DRBG_Generate(CTR_DRBG_CTX* ctx, uint8_t* rand, size_t size)
+AJ_Status AES_CTR_DRBG_Generate(CTR_DRBG_CTX* ctx, uint8_t* randBuf, size_t size)
 {
     uint8_t data[SEEDLEN];
     size_t copy;
@@ -181,8 +181,8 @@ AJ_Status AES_CTR_DRBG_Generate(CTR_DRBG_CTX* ctx, uint8_t* rand, size_t size)
         AES_CTR_DRBG_Increment(ctx->v, OUTLEN);
         AJ_AES_ECB_128_ENCRYPT(ctx->k, ctx->v, data);
         copy = (size < OUTLEN) ? size : OUTLEN;
-        memcpy(rand, data, copy);
-        rand += copy;
+        memcpy(randBuf, data, copy);
+        randBuf += copy;
         size -= copy;
     }
     memset(data, 0, SEEDLEN);

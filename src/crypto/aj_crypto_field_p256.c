@@ -68,7 +68,7 @@
  * zero and p256.
  */
 
-static digit256_tc P256_MODULUS = { 18446744073709551615, 4294967295, 0, 18446744069414584321 };
+static digit256_tc P256_MODULUS = { 18446744073709551615ULL, 4294967295ULL, 0ULL, 18446744069414584321ULL };
 
 /* Macros to extract the lower and upper parts. */
 #define getlow_tolow(x) ((x) & (digit_t) 0xFFFFFFFF)
@@ -78,15 +78,15 @@ static digit256_tc P256_MODULUS = { 18446744073709551615, 4294967295, 0, 1844674
 
 
 /* Is x != 0? */
-inline boolean_t is_digit_nonzero_ct(digit_t x)
+inline digit_t is_digit_nonzero_ct(digit_t x)
 {
-    return (boolean_t)((x | (0 - x)) >> (RADIX_BITS - 1));
+    return ((x | (0 - x)) >> (RADIX_BITS - 1));
 }
 
 /* Is x == 0? */
-inline boolean_t is_digit_zero_ct(digit_t x)
+inline digit_t is_digit_zero_ct(digit_t x)
 {
-    return (boolean_t)(1 ^ is_digit_nonzero_ct(x));
+    return (1 ^ is_digit_nonzero_ct(x));
 }
 
 static inline unsigned char is_digit_lessthan_ct(digit_t x, digit_t y)
@@ -279,7 +279,7 @@ uint64_t software_umul128(uint64_t u, uint64_t v, uint64_t* high)
 
 /* Move if carry is set. */
 #define CMOVC(dest, src, selector) { \
-        digit_t mask = (digit_t)is_digit_nonzero_ct(selector) - 1; \
+        digit_t mask = is_digit_nonzero_ct(selector) - 1; \
         (dest) = ((~mask) & (src)) | (mask & (dest)); }
 
 /* Zero of a 256-bit field element, a = 0 */
@@ -290,8 +290,8 @@ void fpzero_p256(digit256_t a)
     AJ_MemZeroSecure(a, sizeof(digit256_t));
 }
 
-/* Is a == 0? (as integers, not mod P256)   */
-boolean_t fpiszero_p256(digit256_t a)
+/* Is a == 0? (as integers, not mod P256) */
+digit_t fpiszero_p256(digit256_t a)
 {
     size_t i;
     digit_t c;
@@ -619,7 +619,7 @@ void fpdiv2_p256(
     digit_t*    temps)
 {
     /* The constant 1/2 (mod p256): */
-    digit256_tc half = { 0, 2147483648, 9223372036854775808, 9223372034707292160 };
+    digit256_tc half = { 0ULL, 2147483648ULL, 9223372036854775808ULL, 9223372034707292160ULL };
 
     AJ_ASSERT(numerator != NULL);
     AJ_ASSERT(quotient != NULL);
@@ -685,7 +685,7 @@ void fpinv_p256(
     digit_t*    temps)
 {
     /* Exponentiation by (p-2). */
-    digit256_tc P256m2 = { 18446744073709551613, 4294967295, 0, 18446744069414584321 };
+    digit256_tc P256m2 = { 18446744073709551613ULL, 4294967295ULL, 0ULL, 18446744069414584321ULL };
     fpexp_naive_p256(a, P256m2, inv, temps);
 }
 

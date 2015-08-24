@@ -17,7 +17,6 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 #define AJ_MODULE TARGET_UTIL
-
 #include "aj_target.h"
 #include <time.h>
 #include <unistd.h>
@@ -32,11 +31,11 @@
 
 uint8_t dbgTARGET_UTIL = 0;
 
-void AJ_Sleep(uint32_t time)
+void AJ_Sleep(uint32_t ms)
 {
     struct timespec waittime = { };
-    waittime.tv_sec = time / 1000;
-    waittime.tv_nsec = (time % 1000) * 1000000LL;
+    waittime.tv_sec = ms / 1000;
+    waittime.tv_nsec = (ms % 1000) * 1000000LL;
 
     // nanosleep returns the amount of time slept before being interrupted by a signal,
     // so loop until the full sleep is finished
@@ -131,7 +130,7 @@ int8_t AJ_CompareTime(AJ_Time timerA, AJ_Time timerB)
     }
 }
 
-uint64_t AJ_DecodeTime(char* der, char* fmt)
+uint64_t AJ_DecodeTime(char* der, const char* fmt)
 {
     struct tm tm;
     if (!strptime(der, fmt, &tm)) {

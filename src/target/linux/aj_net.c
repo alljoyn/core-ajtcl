@@ -422,7 +422,7 @@ static uint8_t sendToBroadcast(int sock, uint16_t port, void* ptr, size_t tx)
 static AJ_Status RewriteSenderInfo(AJ_IOBuffer* buf, uint32_t addr, uint16_t port)
 {
     uint16_t sidVal;
-    const char send[4] = { 'd', 'n', 'e', 's' };
+    const char snd[4] = { 'd', 'n', 'e', 's' };
     const char sid[] = { 's', 'i', 'd', '=' };
     const char ipv4[] = { 'i', 'p', 'v', '4', '=' };
     const char upcv4[] = { 'u', 'p', 'c', 'v', '4', '=' };
@@ -460,7 +460,7 @@ static AJ_Status RewriteSenderInfo(AJ_IOBuffer* buf, uint32_t addr, uint16_t por
     pkt = buf->writePtr;
     match = 0;
     do {
-        if (*(pkt--) == send[match]) {
+        if (*(pkt--) == snd[match]) {
             match++;
         } else {
             match = 0;

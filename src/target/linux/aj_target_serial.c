@@ -65,7 +65,7 @@ void OI_HCIIfc_DeviceHasBeenReset(void)
 }
 
 
-char* OI_HciDataTypeText(uint8_t hciDataType)
+const char* OI_HciDataTypeText(uint8_t hciDataType)
 {
     AJ_ErrPrintf(("OI_HciDataTypeText(): Serial undefined on this target\n"));
     assert(0);

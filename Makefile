@@ -202,10 +202,9 @@ FLAGS = 	-mthumb \
 			-Wsign-compare \
 			-Waggregate-return \
 			-Wformat \
-			-Wmissing-format-attribute \
 			-Wno-deprecated-declarations \
+			-Wno-unknown-pragmas \
 			-Wpacked \
-			-Wlong-long \
 			-Wunreachable-code \
 			-Wcast-align \
 			--param max-inline-insns-single=500 \

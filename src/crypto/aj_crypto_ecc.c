@@ -62,8 +62,7 @@ typedef struct {
 
 /*
  * This file exports the functions ECDH_generate, ECDH_derive, and
- * optionally, ECDSA_sign and ECDSA_verify.  It depends on a function
- * get_random_bytes, which is expected to be of cryptographic quality.
+ * optionally, ECDSA_sign and ECDSA_verify.
  */
 
 /*
@@ -120,13 +119,6 @@ typedef struct {
  *
  * An exact reduction function is supplied, and must be called as necessary.
  */
-
-/*
- * The external function get_random_bytes is expected to be avaiable.
- * It must return 0 on success, and -1 on error.  Feel free to raname
- * this function, if necessary.
- */
-static int get_random_bytes(uint8_t* buf, int len);
 
 /*
  * CONFIGURATION STUFF
@@ -830,16 +822,6 @@ static void big_sub(bigval_t* tgt, bigval_t const* a, bigval_t const* b)
 }
 
 
-/*
- * modulo modulusP subtraction with approximate reduction.
- */
-static void big_subP(bigval_t* tgt, bigval_t const* a, bigval_t const* b)
-{
-    big_sub(tgt, a, b);
-    big_approx_reduceP(tgt, tgt);
-}
-
-
 /* returns 1 if a > b, -1 if a < b, and 0 if a == b.
    a and b are 2's complement.  When applied to modular values,
    args must be precisely reduced. */
@@ -1418,11 +1400,6 @@ char* ECC_feature_list(void)
             );
 }
 #endif /* ECC_TEST */
-
-static int get_random_bytes(uint8_t* buf, int len) {
-    AJ_RandBytes(buf, len);
-    return 0;
-}
 
 typedef bigval_t ecc_privatekey;
 typedef affine_point_t ecc_publickey;

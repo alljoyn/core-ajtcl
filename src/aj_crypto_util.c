@@ -35,10 +35,10 @@
 uint8_t dbgCRYPTO_UTIL = 0;
 #endif
 
-AJ_Status AJ_RandHex(char* rand, uint32_t bufLen, uint32_t len)
+AJ_Status AJ_RandHex(char* randBuf, uint32_t bufLen, uint32_t len)
 {
-    AJ_RandBytes((uint8_t*)rand, len);
-    return AJ_RawToHex((const uint8_t*) rand, len, rand, bufLen, FALSE);
+    AJ_RandBytes((uint8_t*)randBuf, len);
+    return AJ_RawToHex((const uint8_t*) randBuf, len, randBuf, bufLen, FALSE);
 }
 
 int AJ_Crypto_Compare(const void* buf1, const void* buf2, size_t count)

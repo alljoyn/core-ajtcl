@@ -127,7 +127,7 @@ int8_t AJ_CompareTime(AJ_Time timerA, AJ_Time timerB)
     }
 }
 
-uint64_t AJ_DecodeTime(char* der, char* fmt)
+uint64_t AJ_DecodeTime(char* der, const char* fmt)
 {
     struct tm tm;
     if (!strptime(der, fmt, &tm)) {

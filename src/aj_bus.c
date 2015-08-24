@@ -351,14 +351,14 @@ AJ_Status AJ_BusSetSignalRuleFlags(AJ_BusAttachment* bus, const char* ruleString
     return AJ_BusSetSignalRuleSerial(bus, ruleString, rule, flags, NULL);
 }
 
-AJ_Status AJ_BusReplyAcceptSession(AJ_Message* msg, uint32_t accept)
+AJ_Status AJ_BusReplyAcceptSession(AJ_Message* msg, uint32_t acpt)
 {
     AJ_Message reply;
 
-    AJ_InfoPrintf(("AJ_BusReplyAcceptSession(msg=0x%p, accept=%d.)\n", msg, accept));
+    AJ_InfoPrintf(("AJ_BusReplyAcceptSession(msg=0x%p, accept=%d.)\n", msg, acpt));
 
     AJ_MarshalReplyMsg(msg, &reply);
-    AJ_MarshalArgs(&reply, "b", accept);
+    AJ_MarshalArgs(&reply, "b", acpt);
     return AJ_DeliverMsg(&reply);
 }
 

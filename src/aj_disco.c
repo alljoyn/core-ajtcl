@@ -996,7 +996,7 @@ AJ_Status AJ_Discover(const char* prefix, AJ_Service* service, uint32_t timeout,
     uint32_t queries = 0;
     int32_t discover = (int32_t) timeout;
     int32_t selection = (int32_t) selectionTimeout;
-    int32_t listen;
+    int32_t listenInt;
     AJ_Time discoverTimer;
     AJ_Time listenTimer;
     AJ_Time selectionTimer;
@@ -1086,32 +1086,32 @@ AJ_Status AJ_Discover(const char* prefix, AJ_Service* service, uint32_t timeout,
             } else if (queries >= 12) {
                 interval = 40000;
             }
-            listen = interval + AJ_BURST_INTERVAL;
+            listenInt = interval + AJ_BURST_INTERVAL;
         } else {
-            listen = AJ_BURST_INTERVAL;
+            listenInt = AJ_BURST_INTERVAL;
         }
 
         /*
          * If selection period has not passed do not listen longer than the selection timeout
          */
-        if ((selection > 0) && (listen > selection)) {
-            listen = selection;
+        if ((selection > 0) && (listenInt > selection)) {
+            listenInt = selection;
         }
 
         /*
          * Do not listen longer than the overall discover timeout
          */
-        if (listen > discover) {
-            listen = discover;
+        if (listenInt > discover) {
+            listenInt = discover;
         }
 
         /*
          * recv for the listen period
          */
         AJ_InitTimer(&listenTimer);
-        while (listen > 0) {
+        while (listenInt > 0) {
             AJ_IO_BUF_RESET(&sock.rx);
-            status = sock.rx.recv(&sock.rx, AJ_IO_BUF_SPACE(&sock.rx), listen);
+            status = sock.rx.recv(&sock.rx, AJ_IO_BUF_SPACE(&sock.rx), listenInt);
             if (status != AJ_OK) {
                 /*
                  * Anything other than AJ_ERR_TIMEOUT means bail
@@ -1149,7 +1149,7 @@ AJ_Status AJ_Discover(const char* prefix, AJ_Service* service, uint32_t timeout,
                     }
                 }
             }
-            listen -= AJ_GetElapsedTime(&listenTimer, FALSE);
+            listenInt -= AJ_GetElapsedTime(&listenTimer, FALSE);
         }
         selection -= AJ_GetElapsedTime(&selectionTimer, FALSE);
         if (selection < 0 && AJ_GetRoutingNodeResponseListSize() > 0) {

@@ -234,7 +234,7 @@ AJ_Status AJ_AccessControlCheckMessage(AJ_Message* msg, const char* name, uint8_
     AJ_Status status;
     AccessControlMember* mbr;
     uint32_t peer;
-    uint8_t access;
+    uint8_t acc;
     size_t i;
     const char* ifn;
     const char* allowed[] = {
@@ -272,16 +272,16 @@ AJ_Status AJ_AccessControlCheckMessage(AJ_Message* msg, const char* name, uint8_
     }
 
     status = AJ_ERR_ACCESS;
-    access = mbr->deny[peer] ? 0 : mbr->allow[peer];
+    acc = mbr->deny[peer] ? 0 : mbr->allow[peer];
     switch (direction) {
     case AJ_ACCESS_INCOMING:
-        if ((POLICY_METHOD_INCOMING & access) && (MANIFEST_METHOD_INCOMING & access)) {
+        if ((POLICY_METHOD_INCOMING & acc) && (MANIFEST_METHOD_INCOMING & acc)) {
             status = AJ_OK;
         }
         break;
 
     case AJ_ACCESS_OUTGOING:
-        if ((POLICY_METHOD_OUTGOING & access) && (MANIFEST_METHOD_OUTGOING & access)) {
+        if ((POLICY_METHOD_OUTGOING & acc) && (MANIFEST_METHOD_OUTGOING & acc)) {
             status = AJ_OK;
         }
         break;
@@ -296,7 +296,7 @@ AJ_Status AJ_AccessControlCheckProperty(AJ_Message* msg, uint32_t id, const char
     AJ_Status status;
     AccessControlMember* mbr;
     uint32_t peer;
-    uint8_t access;
+    uint8_t acc;
 
     AJ_InfoPrintf(("AJ_AccessControlCheckProperty(msg=%p, id=0x%08X, name=%s, direction=%x)\n", msg, id, name, direction));
 
@@ -313,15 +313,15 @@ AJ_Status AJ_AccessControlCheckProperty(AJ_Message* msg, uint32_t id, const char
     }
 
     status = AJ_ERR_ACCESS;
-    access = mbr->deny[peer] ? 0 : mbr->allow[peer];
+    acc = mbr->deny[peer] ? 0 : mbr->allow[peer];
     switch (direction) {
     case AJ_ACCESS_INCOMING:
         if (AJ_PROP_GET == (msg->msgId & 0xFF)) {
-            if ((POLICY_PRPGET_INCOMING & access) && (MANIFEST_PRPGET_INCOMING & access)) {
+            if ((POLICY_PRPGET_INCOMING & acc) && (MANIFEST_PRPGET_INCOMING & acc)) {
                 status = AJ_OK;
             }
         } else if (AJ_PROP_SET == (msg->msgId & 0xFF)) {
-            if ((POLICY_PRPSET_INCOMING & access) && (MANIFEST_PRPSET_INCOMING & access)) {
+            if ((POLICY_PRPSET_INCOMING & acc) && (MANIFEST_PRPSET_INCOMING & acc)) {
                 status = AJ_OK;
             }
         } else {
@@ -331,11 +331,11 @@ AJ_Status AJ_AccessControlCheckProperty(AJ_Message* msg, uint32_t id, const char
 
     case AJ_ACCESS_OUTGOING:
         if (AJ_PROP_GET == (msg->msgId & 0xFF)) {
-            if ((POLICY_PRPGET_OUTGOING & access) && (MANIFEST_PRPGET_OUTGOING & access)) {
+            if ((POLICY_PRPGET_OUTGOING & acc) && (MANIFEST_PRPGET_OUTGOING & acc)) {
                 status = AJ_OK;
             }
         } else if (AJ_PROP_SET == (msg->msgId & 0xFF)) {
-            if ((POLICY_PRPSET_OUTGOING & access) && (MANIFEST_PRPSET_OUTGOING & access)) {
+            if ((POLICY_PRPSET_OUTGOING & acc) && (MANIFEST_PRPSET_OUTGOING & acc)) {
                 status = AJ_OK;
             }
         } else {
@@ -1096,7 +1096,7 @@ static uint8_t PermissionRuleAccess(AJ_PermissionRule* rule, AccessControlMember
     const char* obj;
     const char* ifn;
     const char* mbr;
-    uint8_t access = 0;
+    uint8_t acc = 0;
 
     obj = acm->obj;
     ifn = acm->ifn;
@@ -1121,32 +1121,32 @@ static uint8_t PermissionRuleAccess(AJ_PermissionRule* rule, AccessControlMember
                     switch (type) {
                     case SIGNAL:
                         if (AJ_ACTION_OBSERVE & member->action) {
-                            access |= POLICY_SIGNAL_OUTGOING;
+                            acc |= POLICY_SIGNAL_OUTGOING;
                         }
                         if (AJ_ACTION_PROVIDE & member->action) {
-                            access |= POLICY_SIGNAL_INCOMING;
+                            acc |= POLICY_SIGNAL_INCOMING;
                         }
                         break;
 
                     case METHOD:
                         if (AJ_ACTION_PROVIDE & member->action) {
-                            access |= POLICY_METHOD_OUTGOING;
+                            acc |= POLICY_METHOD_OUTGOING;
                         }
                         if (AJ_ACTION_MODIFY & member->action) {
-                            access |= POLICY_METHOD_INCOMING;
+                            acc |= POLICY_METHOD_INCOMING;
                         }
                         break;
 
                     case PROPERTY:
                         if (AJ_ACTION_PROVIDE & member->action) {
-                            access |= POLICY_PRPSET_OUTGOING;
-                            access |= POLICY_PRPGET_OUTGOING;
+                            acc |= POLICY_PRPSET_OUTGOING;
+                            acc |= POLICY_PRPGET_OUTGOING;
                         }
                         if (AJ_ACTION_MODIFY & member->action) {
-                            access |= POLICY_PRPSET_INCOMING;
+                            acc |= POLICY_PRPSET_INCOMING;
                         }
                         if (AJ_ACTION_OBSERVE & member->action) {
-                            access |= POLICY_PRPGET_INCOMING;
+                            acc |= POLICY_PRPGET_INCOMING;
                         }
                         break;
                     }
@@ -1162,14 +1162,14 @@ static uint8_t PermissionRuleAccess(AJ_PermissionRule* rule, AccessControlMember
         rule = rule->next;
     }
 
-    return access;
+    return acc;
 }
 
 AJ_Status AJ_ManifestApply(AJ_Manifest* manifest, const char* name)
 {
     AJ_Status status;
     uint32_t peer;
-    uint8_t access;
+    uint8_t acc;
     AccessControlMember* acm;
 
     AJ_InfoPrintf(("AJ_ManifestApply(manifest=%p, name=%s)\n", manifest, name));
@@ -1182,8 +1182,8 @@ AJ_Status AJ_ManifestApply(AJ_Manifest* manifest, const char* name)
 
     acm = g_access;
     while (acm) {
-        access = PermissionRuleAccess(manifest->rules, acm, peer, FALSE);
-        acm->allow[peer] |= (access << 4);
+        acc = PermissionRuleAccess(manifest->rules, acm, peer, FALSE);
+        acm->allow[peer] |= (acc << 4);
 #ifndef NDEBUG
         if (MANIFEST_INCOMING & acm->allow[peer]) {
             AJ_InfoPrintf(("INCOMING MANIFEST: %s %s %s\n", acm->obj, acm->ifn, acm->mbr));
@@ -1236,7 +1236,7 @@ AJ_Status AJ_PolicyApply(AJ_AuthenticationContext* ctx, const char* name)
     AJ_Status status;
     Policy policy;
     uint32_t peer;
-    uint8_t access;
+    uint8_t acc;
     AccessControlMember* acm;
     AJ_PermissionACL* acl;
     uint16_t state;
@@ -1278,11 +1278,11 @@ AJ_Status AJ_PolicyApply(AJ_AuthenticationContext* ctx, const char* name)
                     }
                 }
                 if (found) {
-                    access = PermissionRuleAccess(acl->rules, acm, peer, found >> 1);
-                    acm->allow[peer] |= access;
+                    acc = PermissionRuleAccess(acl->rules, acm, peer, found >> 1);
+                    acm->allow[peer] |= acc;
                     if (AUTH_SUITE_ECDHE_ECDSA != ctx->suite) {
                         /* We don't receive a manifest, so switch those bits on too */
-                        acm->allow[peer] |= (access << 4);
+                        acm->allow[peer] |= (acc << 4);
                     }
 #ifndef NDEBUG
                     if (acm->deny[peer]) {
@@ -1378,7 +1378,7 @@ AJ_Status AJ_MembershipApply(X509CertificateChain* head, AJ_ECCPublicKey* issuer
     AJ_Status status;
     Policy policy;
     uint32_t peer;
-    uint8_t access;
+    uint8_t acc;
     AccessControlMember* acm;
     AJ_PermissionACL* acl;
     uint8_t found;
@@ -1407,8 +1407,8 @@ AJ_Status AJ_MembershipApply(X509CertificateChain* head, AJ_ECCPublicKey* issuer
                     }
                 }
                 if (found) {
-                    access = PermissionRuleAccess(acl->rules, acm, peer, FALSE);
-                    acm->allow[peer] |= access;
+                    acc = PermissionRuleAccess(acl->rules, acm, peer, FALSE);
+                    acm->allow[peer] |= acc;
 #ifndef NDEBUG
                     if (POLICY_INCOMING & acm->allow[peer]) {
                         AJ_InfoPrintf(("INCOMING POLICY  : %s %s %s\n", acm->obj, acm->ifn, acm->mbr));
