@@ -42,6 +42,10 @@
 uint8_t dbgINTROSPECT = 0;
 #endif
 
+#if defined(_WIN32)
+#define strcasecmp _stricmp
+#endif
+
 /**
  * The various object lists
  */
@@ -445,6 +449,43 @@ static uint32_t SecurityApplies(const char* ifc, const AJ_Object* obj)
     return FALSE;
 }
 
+/*
+ * Find the best matching language tag, using the lookup algorithm in
+ * RFC 4647 section 3.4.  This algorithm requires that the "supported"
+ * languages be the least specific they can (e.g., "en" in order to match
+ * both "en" and "en-US" if requested), and the "requested" language be
+ * the most specific it can (e.g., "en-US" in order to match either "en-US"
+ * or "en" if supported).
+ */
+#define MAX_LANG_SIZE 63
+static const char* GetBestLanguage(const char* requested)
+{
+    if ((requested != NULL) && (*requested != 0)) {
+        char languageToCheck[MAX_LANG_SIZE + 1];
+        strncpy(languageToCheck, requested, MAX_LANG_SIZE);
+        languageToCheck[MAX_LANG_SIZE] = '\0';
+        for (;;) {
+            // Look for a supported language matching the language to check.
+            size_t index;
+            for (index = 0; languageList[index] != NULL; index++) {
+                if (strcasecmp(languageList[index], languageToCheck) == 0) {
+                    return languageList[index];
+                }
+            }
+
+            // Drop the last subtag and try again.
+            char* pos = strrchr(languageToCheck, '-');
+            if (pos == NULL) {
+                break;
+            }
+            *pos = 0;
+        }
+    }
+
+    // No match found, so return the default language.
+    return (languageList != NULL) ? languageList[0] : NULL;
+}
+
 static AJ_Status GenXML(XMLWriterFunc XMLWriter, void* context, const AJ_ObjectIterator* objIter, const AJ_Object* virtualObject, const char* languageTag)
 {
     AJ_Status status = AJ_OK;
@@ -477,6 +518,7 @@ static AJ_Status GenXML(XMLWriterFunc XMLWriter, void* context, const AJ_ObjectI
             if (objIter != NULL) {
                 descLookup = descriptionLookups[objIter->l];
             }
+            languageTag = GetBestLanguage(languageTag);
         }
         /*
          * Generate object's XML
