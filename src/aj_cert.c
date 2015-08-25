@@ -962,12 +962,6 @@ AJ_Status AJ_X509VerifyChain(const X509CertificateChain* chain, const AJ_ECCPubl
                 AJ_InfoPrintf(("AJ_X509VerifyChain(chain=%p, key=%p): Issuer is not a CA\n", chain, key));
                 return AJ_ERR_SECURITY;
             }
-        } else {
-            /* This is the end entity cert. It must not be unrestricted. */
-            if (AJ_CERTIFICATE_UNR_X509 == chain->certificate.tbs.extensions.type) {
-                AJ_InfoPrintf(("AJ_X509VerifyChain(chain=%p, key=%p): End entity certificate is unrestricted\n", chain, key));
-                return AJ_ERR_SECURITY;
-            }
         }
         key = &chain->certificate.tbs.publickey;
         chain = chain->next;

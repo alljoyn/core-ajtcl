@@ -181,9 +181,43 @@ static const char pem_x509[] = {
     "-----END CERTIFICATE-----"
 };
 
+// Security 1.0 certificates without EKUs
+static const char pem_prv_noekus[] = {
+    "-----BEGIN EC PRIVATE KEY-----"
+    "MDECAQEEINAmL3v0wNo5EfMqzB/GiVturVDGGefg9bPY/rZ5cM1GoAoGCCqGSM49"
+    "AwEH"
+    "-----END EC PRIVATE KEY-----"
+};
+
+static const char pem_x509_noekus[] = {
+    "-----BEGIN CERTIFICATE-----"
+    "MIIBajCCARCgAwIBAgIUYB6roPAvFLNLCDrHmQB+pD8LjbkwCgYIKoZIzj0EAwIw"
+    "NTEzMDEGA1UEAwwqQWxsSm95biBFQ0RIRSBTYW1wbGUgQ2VydGlmaWNhdGUgQXV0"
+    "aG9yaXR5MB4XDTE1MDUwNzIyMTY0NVoXDTIwMDUwNTIyMTY0NVowJjEkMCIGA1UE"
+    "AwwbQWxsSm95biBFQ0RIRSBTYW1wbGUgQ2xpZW50MFkwEwYHKoZIzj0CAQYIKoZI"
+    "zj0DAQcDQgAEzE6Fox8LU/Cbi9+KI+6wQsFA8RhOv44JxTa1PY13xQGgzL0h+KKq"
+    "DrHleThtYqL8rFXFtuDMtYo1T/lOMIcz86MNMAswCQYDVR0TBAIwADAKBggqhkjO"
+    "PQQDAgNIADBFAiEA3KmONKSK9ebMUnBxDTYZMilW1QNqyR04KB3TUuI1MvcCIDTZ"
+    "MzxxFqMIDDaGUzqd4g1t/W9h+G+alwj3KemLkD3T"
+    "-----END CERTIFICATE-----"
+    ""
+    "-----BEGIN CERTIFICATE-----"
+    "MIIBezCCASKgAwIBAgIUDrFhHE80+zbEUOCNTxw219Nd1qwwCgYIKoZIzj0EAwIw"
+    "NTEzMDEGA1UEAwwqQWxsSm95biBFQ0RIRSBTYW1wbGUgQ2VydGlmaWNhdGUgQXV0"
+    "aG9yaXR5MB4XDTE1MDUwNzIyMTYzNloXDTI1MDUwNDIyMTYzNlowNTEzMDEGA1UE"
+    "AwwqQWxsSm95biBFQ0RIRSBTYW1wbGUgQ2VydGlmaWNhdGUgQXV0aG9yaXR5MFkw"
+    "EwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE6AsCTTviTBWX0Jw2e8Cs8DhwxfRd37Yp"
+    "IH5ALzBqwUN2sfG1odcthe6GKdE/9oVfy12SXOL3X2bi3yg1XFoWnaMQMA4wDAYD"
+    "VR0TBAUwAwEB/zAKBggqhkjOPQQDAgNHADBEAiASuD0OrpDM8ziC5GzMbZWKNE/X"
+    "eboedc0p6YsAZmry2AIgR23cKM4cKkc2bgUDbETNbDcOcwm+EWaK9E4CkOO/tBc="
+    "-----END CERTIFICATE-----"
+};
+
 static const char psk_hint[] = "<anonymous>";
 static const char psk_char[] = "faaa0af3dd3f1e0379da046a3ab6ca44";
 static X509CertificateChain* chain = NULL;
+static uint8_t noekus = FALSE;
+
 static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, AJ_Credential*cred)
 {
     AJ_Status status = AJ_ERR_INVALID;
@@ -219,7 +253,7 @@ static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, 
         switch (command) {
         case AJ_CRED_PRV_KEY:
             AJ_ASSERT(sizeof (AJ_ECCPrivateKey) == cred->len);
-            status = AJ_DecodePrivateKeyPEM((AJ_ECCPrivateKey*) cred->data, pem_prv);
+            status = AJ_DecodePrivateKeyPEM((AJ_ECCPrivateKey*) cred->data, noekus ? pem_prv_noekus : pem_prv);
             cred->expiration = keyexpiration;
             break;
 
@@ -228,7 +262,7 @@ static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, 
             case AJ_CRED_REQUEST:
                 // Free previous certificate chain
                 AJ_X509FreeDecodedCertificateChain(chain);
-                chain = AJ_X509DecodeCertificateChainPEM(pem_x509);
+                chain = AJ_X509DecodeCertificateChainPEM(noekus ? pem_x509_noekus : pem_x509);
                 if (NULL == chain) {
                     return AJ_ERR_INVALID;
                 }
@@ -239,11 +273,11 @@ static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, 
 
             case AJ_CRED_RESPONSE:
                 node = (X509CertificateChain*) cred->data;
+                status = AJ_X509VerifyChain(node, NULL);
                 while (node) {
                     AJ_DumpBytes("CERTIFICATE", node->certificate.der.data, node->certificate.der.size);
                     node = node->next;
                 }
-                status = AJ_OK;
                 break;
             }
             break;
@@ -285,38 +319,46 @@ int AJ_Main(void)
     /*
      * Enable authentication mechanism by command line
      */
-    if (ac) {
-        if (0 == strncmp(*av, "-ek", 3)) {
-            clearkeys = TRUE;
+    while (ac) {
+        if (0 == strncmp(*av, "-noekus", 7)) {
+            noekus = TRUE;
             ac--;
             av++;
         } else if (0 == strncmp(*av, "-e", 2)) {
-            ac--;
-            av++;
-        } else {
-            AJ_Printf("SecureClientECDHE [-e|-ek] <encryption suite>\n"
-                      "-e <encryption suite>\n"
-                      "   Specify an encryption suite to use: ECDHE_ECDSA, ECDHE_PSK, or ECDHE_NULL\n"
-                      "   -e can be specified multiple times to support multiple encryption suites\n"
-                      "-ek <encryption suite>\n"
-                      "    Same as -e, except that any existing authentication keys are cleared. This \n"
-                      "    will ensure a new key exchange occurs.\n");
-            return AJ_ERR_NULL;
-        }
-        if (!ac) {
-            AJ_Printf("-e(k) requires an auth mechanism.\n");
-            return 1;
-        }
-        while (ac) {
-            if (0 == strncmp(*av, "ECDHE_ECDSA", 11)) {
-                suites[numsuites++] = AUTH_SUITE_ECDHE_ECDSA;
-            } else if (0 == strncmp(*av, "ECDHE_PSK", 9)) {
-                suites[numsuites++] = AUTH_SUITE_ECDHE_PSK;
-            } else if (0 == strncmp(*av, "ECDHE_NULL", 10)) {
-                suites[numsuites++] = AUTH_SUITE_ECDHE_NULL;
+            if (0 == strncmp(*av, "-ek", 3)) {
+                clearkeys = TRUE;
             }
             ac--;
             av++;
+
+            if (!ac) {
+                AJ_Printf("-e(k) requires an auth mechanism.\n");
+                return 1;
+            }
+            while (ac) {
+                if (0 == strncmp(*av, "ECDHE_ECDSA", 11)) {
+                    suites[numsuites++] = AUTH_SUITE_ECDHE_ECDSA;
+                } else if (0 == strncmp(*av, "ECDHE_PSK", 9)) {
+                    suites[numsuites++] = AUTH_SUITE_ECDHE_PSK;
+                } else if (0 == strncmp(*av, "ECDHE_NULL", 10)) {
+                    suites[numsuites++] = AUTH_SUITE_ECDHE_NULL;
+                }
+                ac--;
+                av++;
+            }
+        } else {
+            AJ_Printf("SecureClientECDHE [-noekus] [-e|-ek] <encryption suites>\n"
+                      "-noekus\n"
+                      "   For ECDHE_ECDSA, present a Security 1.0-style certificate chain without EKUs\n"
+                      "   For all other auth suites, this option has no effect.\n"
+                      "-e <encryption suites>\n"
+                      "   Specify one or more encryption suites to use: ECDHE_ECDSA, ECDHE_PSK, or ECDHE_NULL\n"
+                      "   Encryption suites should be listed in desired order of attempting, separated by spaces.\n"
+                      "-ek <encryption suites>\n"
+                      "    Same as -e, except that any existing authentication keys are cleared. This \n"
+                      "    will ensure a new key exchange occurs.\n"
+                      "-e or -ek must be the last option on the command line.\n");
+            return AJ_ERR_NULL;
         }
     }
 #else
@@ -324,6 +366,7 @@ int AJ_Main(void)
      * Allow all authentication mechanisms
      */
     clearkeys = FALSE;
+    noekus = FALSE;
     suites[numsuites++] = AUTH_SUITE_ECDHE_ECDSA;
     suites[numsuites++] = AUTH_SUITE_ECDHE_PSK;
     suites[numsuites++] = AUTH_SUITE_ECDHE_NULL;
