@@ -76,14 +76,14 @@ static const char* MyTranslator(uint32_t descId, const char* lang) {
 
     /* Compute the location of lang in our languages array */
     langIndex = 0;
-    while (lang && langIndex < (sizeof(languages) / sizeof(char*))) {
+    while (lang && languages[langIndex] != NULL) {
         if (strlen(lang) > 0 && strcmp(lang, languages[langIndex]) == 0) {
             break;
         }
         ++langIndex;
     }
     /* If all languages in list did not match, then set index to 0 (default) language */
-    if (langIndex >= (sizeof(languages) / sizeof(char*))) {
+    if (languages[langIndex] == NULL) {
         langIndex = 0;
     }
 
@@ -293,6 +293,12 @@ int AJ_Main(void)
     AJ_PrintXMLWithDescriptions(AppObjects, languages[0]);
     AJ_AlwaysPrintf(("XML with Descriptions using language: %s\n", languages[1]));
     AJ_PrintXMLWithDescriptions(AppObjects, languages[1]);
+    AJ_AlwaysPrintf(("XML with empty language\n"));
+    AJ_PrintXMLWithDescriptions(AppObjects, "");
+    AJ_AlwaysPrintf(("XML with unsupported language (fr)\n"));
+    AJ_PrintXMLWithDescriptions(AppObjects, "fr");
+    AJ_AlwaysPrintf(("XML with sublanguage (EN-US)\n"));
+    AJ_PrintXMLWithDescriptions(AppObjects, "EN-US");
 
     while (TRUE) {
         AJ_Message msg;
