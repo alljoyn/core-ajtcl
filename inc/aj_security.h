@@ -87,6 +87,15 @@ void AJ_SecurityGetClaimConfig(uint16_t* state, uint16_t* capabilities, uint16_t
 AJ_Status AJ_SecurityInit(AJ_BusAttachment* bus);
 
 /**
+ * Closes security module
+ * Unbinds the permission management port
+ *
+ * @param bus        The bus attachment
+ *
+ */
+void AJ_SecurityClose(AJ_BusAttachment* bus);
+
+/**
  * Send application state signal
  *
  * @param bus        The bus attachment

@@ -476,3 +476,24 @@ TEST_F(SecurityTest, DecodeAndVerifyCertificateChainTest)
     ASSERT_EQ(AJ_OK, AJ_X509VerifyChain(chain, NULL));
     AJ_X509FreeDecodedCertificateChain(chain);
 }
+
+class RegisterACLTest : public testing::Test {
+  public:
+    RegisterACLTest() { }
+};
+
+TEST_F(RegisterACLTest, Test1)
+{
+    AJ_AuthorisationRegister(AppObjects, AJ_APP_ID_FLAG);
+    AJ_AuthorisationDeregister(AJ_APP_ID_FLAG);
+    AJ_AuthorisationRegister(AJ_StandardObjects, AJ_BUS_ID_FLAG);
+    AJ_AuthorisationDeregister(AJ_BUS_ID_FLAG);
+    AJ_AuthorisationRegister(AJ_StandardObjects, AJ_BUS_ID_FLAG);
+    AJ_AuthorisationRegister(AppObjects, AJ_APP_ID_FLAG);
+    AJ_AuthorisationDeregister(AJ_BUS_ID_FLAG);
+    AJ_AuthorisationDeregister(AJ_APP_ID_FLAG);
+    AJ_AuthorisationRegister(AJ_StandardObjects, AJ_BUS_ID_FLAG);
+    AJ_AuthorisationRegister(AppObjects, AJ_APP_ID_FLAG);
+    AJ_AuthorisationDeregister(AJ_APP_ID_FLAG);
+    AJ_AuthorisationDeregister(AJ_BUS_ID_FLAG);
+}
