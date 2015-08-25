@@ -109,6 +109,8 @@ typedef struct {
     const MessageHandlerEntry* message_handlers;    /**< An array of message handlers */
     const PropHandlerEntry* prop_handlers;          /**< An array of property get/set handlers */
 
+    AJ_FactoryResetFunc factory_reset_callback;     /**< The factory reset callback */
+    AJ_PolicyChangedFunc policy_changed_callback;   /**< The policy changed callback */
 } AllJoynConfiguration;
 
 /**

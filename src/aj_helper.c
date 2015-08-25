@@ -138,6 +138,12 @@ AJ_Status AJ_RunAllJoynService(AJ_BusAttachment* bus, AllJoynConfiguration* conf
             /* Register a callback for providing bus authentication password */
             AJ_BusSetPasswordCallback(bus, config->password_callback);
 
+            /* Register a callback for handling factory reset requests */
+            AJ_BusSetFactoryResetCallback(bus, config->factory_reset_callback);
+
+            /* Register a callback for handling policy change notifications */
+            AJ_BusSetPolicyChangedCallback(bus, config->policy_changed_callback);
+
             /* Configure timeout for the link to the daemon bus */
             AJ_SetBusLinkTimeout(bus, config->link_timeout);
 

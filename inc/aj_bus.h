@@ -52,13 +52,27 @@ typedef uint32_t (*AJ_AuthPwdFunc)(uint8_t* buffer, uint32_t bufLen);
 /**
  * Callback function prototype for authentication listener
  *
- * @param authmechansim The authentication mechanism used
+ * @param authmechanism The authentication mechanism used
  * @param command The listener command
  * @param creds The credentials
  *
  * @return  Returns true if authorized; false otherwise.
  */
 typedef AJ_Status (*AJ_AuthListenerFunc)(uint32_t authmechanism, uint32_t command, AJ_Credential* creds);
+
+/**
+ * Callback function prototype for handling a factory reset request
+ *
+ * @return
+ *         - AJ_OK if the application was able to reset its own state
+ *         - An error status otherwise
+ */
+typedef AJ_Status (*AJ_FactoryResetFunc)();
+
+/**
+ * Callback function prototype for handling a local policy change notification
+ */
+typedef void (*AJ_PolicyChangedFunc)();
 
 #define AJ_MAX_NAME_SIZE 20  /**< Maximum length for a bus unique name */
 
@@ -76,6 +90,8 @@ typedef struct _AJ_BusAttachment {
     uint8_t isAuthenticated;                   /**< Has authentication already occured? */
     uint32_t aboutSerial;                      /**< Serial number for About announcement */
     uint8_t isProbeRequired;                   /**< Are probe requests required for the live transport? */
+    AJ_FactoryResetFunc factoryResetCallback;  /**< Callback for handling a factory reset request */
+    AJ_PolicyChangedFunc policyChangedCallback;/**< Callback for handling a local policy change notification */
 } AJ_BusAttachment;
 
 /**
@@ -467,7 +483,26 @@ void AJ_BusSetPasswordCallback(AJ_BusAttachment* bus, AJ_AuthPwdFunc pwdCallback
  * @param bus          The bus attachment struct
  * @param authListenerCallback  The auth listener callback function.
  */
+AJ_EXPORT
 void AJ_BusSetAuthListenerCallback(AJ_BusAttachment* bus, AJ_AuthListenerFunc authListenerCallback);
+
+/**
+ * Set a callback for handling requests to factory reset any application state.
+ *
+ * @param bus                   The bus attachment struct
+ * @param factoryResetCallback  The factory reset callback function.
+ */
+AJ_EXPORT
+void AJ_BusSetFactoryResetCallback(AJ_BusAttachment* bus, AJ_FactoryResetFunc factoryResetCallback);
+
+/**
+ * Set a callback for handling security policy change notifications.
+ *
+ * @param bus                    The bus attachment struct
+ * @param policyChangedCallback  The policy changed callback function.
+ */
+AJ_EXPORT
+void AJ_BusSetPolicyChangedCallback(AJ_BusAttachment* bus, AJ_PolicyChangedFunc policyChangedCallback);
 
 /**
  * Callback function prototype for the function called when an authentication completes or fails.
@@ -484,7 +519,7 @@ typedef void (*AJ_BusAuthPeerCallback)(const void* context, AJ_Status status);
  * Initiate a secure connection to a remote peer authenticating if necessary.
  *
  * @param bus            The bus attachment
- * @param peerBusName    The bus name of the remove peer to secure.
+ * @param peerBusName    The bus name of the remote peer to secure.
  * @param callback       A function to be called when the authentication completes
  * @param cbContext      A caller provided context to pass to the callback function
  *

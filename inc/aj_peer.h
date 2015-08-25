@@ -111,7 +111,7 @@ typedef void (*AJ_PeerAuthenticateCallback)(const void* context, AJ_Status statu
  * Initiate a secure connection to a remote peer authenticating if necessary.
  *
  * @param bus        The bus attachment
- * @param peerName   The bus name of the remove peer to secure.
+ * @param peerName   The bus name of the remote peer to secure.
  * @param callback   A function to be called when the authentication completes
  * @param cbContext  A caller provided context to pass to the callback function
  *

@@ -147,6 +147,15 @@ static uint32_t PasswordCallback(uint8_t* buffer, uint32_t bufLen)
     return pinLength;
 }
 
+static uint32_t FactoryResetCallback()
+{
+    /* Delete any application-specific state here, and return
+     * a failure if we cannot.  In this sample, there is nothing
+     * to delete, so we can just return success.
+     */
+    return AJ_OK;
+}
+
 /* All times are expressed in milliseconds. */
 #define CONNECT_TIMEOUT     (1000 * 60)
 #define UNMARSHAL_TIMEOUT   (1000 * 5)
@@ -188,6 +197,7 @@ int AJ_Main(void)
 
             PasswordGenerate();
             AJ_BusSetPasswordCallback(&bus, PasswordCallback);
+            AJ_BusSetFactoryResetCallback(&bus, FactoryResetCallback);
         }
 
         status = AJ_UnmarshalMsg(&bus, &msg, UNMARSHAL_TIMEOUT);
