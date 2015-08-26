@@ -859,6 +859,13 @@ AJ_Status AJ_SecurityUpdateIdentityMethod(AJ_Message* msg, AJ_Message* reply)
     manifest = NULL;
     /* Store manifest as raw marshalled body */
     status = AJ_CredentialSet(AJ_CRED_TYPE_MANIFEST, NULL, 0xFFFFFFFF, &manifest_data);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+    /* After the need update has been answered, set back to claimed */
+    if (APP_STATE_NEED_UPDATE == claimState) {
+        status = SetClaimState(APP_STATE_CLAIMED);
+    }
 
 Exit:
     AJ_X509ChainFree(identity);
