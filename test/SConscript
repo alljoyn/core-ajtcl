@@ -26,6 +26,7 @@ progs.extend([
             test_env.Program('sigtest', ['sigtest.c']),
             test_env.Program('ctrdrbg', ['ctrdrbg.c']),
             test_env.Program('shatest', ['shatest.c']),
+            test_env.Program('doorsvc', ['doorsvc.c']),
             test_env.Program('ecctest', ['ecctest.c'])
         ])
 
