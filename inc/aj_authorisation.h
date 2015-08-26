@@ -266,17 +266,32 @@ AJ_Status AJ_MembershipApply(X509CertificateChain* head, AJ_ECCPublicKey* issuer
 AJ_Status AJ_PolicyVersion(uint32_t* version);
 
 /**
- * Search for a public key in the policy
+ * Search for the intermediate issuers amongst the stored authorities
  *
+ * @param head         The certificate chain
  * @param type         The certificate type
- * @param kid          The key identifier
+ * @param group        The membership group
  * @param pub          The output public key
  *
  * @return
  *          - AJ_OK on success
- *          - AJ_ERR_UNKNOWN otherwise
+ *          - AJ_ERR_SECURITY otherwise
  */
-AJ_Status AJ_PolicyGetCAPublicKey(uint16_t type, DER_Element* kid, AJ_ECCPublicKey* pub);
+AJ_Status AJ_PolicyFindAuthority(const X509CertificateChain* head, uint32_t type, const DER_Element* group);
+
+/**
+ * Attempt to verify certificate using stored authorities
+ *
+ * @param cert         The certificate
+ * @param type         The certificate type
+ * @param group        The membership group
+ * @param pub          The output public key
+ *
+ * @return
+ *          - AJ_OK on success
+ *          - AJ_ERR_SECURITY otherwise
+ */
+AJ_Status AJ_PolicyVerifyCertificate(const X509Certificate* cert, uint32_t type, const DER_Element* group, AJ_ECCPublicKey* pub);
 
 /**
  * Access control check for message

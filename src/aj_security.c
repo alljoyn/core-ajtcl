@@ -228,25 +228,23 @@ Exit:
     return AJ_ERR_INVALID;
 }
 
-AJ_Status AJ_GetCertificateId(X509CertificateChain* chain, AJ_CertificateId* id)
+AJ_Status AJ_GetCertificateId(X509CertificateChain* head, AJ_CertificateId* id)
 {
     AJ_Status status;
-    uint32_t type;
+    X509Certificate* leaf;
 
     AJ_ASSERT(id);
-    AJ_ASSERT(chain);
+    AJ_ASSERT(head);
+    leaf = AJ_X509LeafCertificate(head);
+    AJ_ASSERT(leaf);
     /* AKI and type is in the root certificate */
-    id->aki.data = chain->certificate.tbs.extensions.aki.data;
-    id->aki.size = chain->certificate.tbs.extensions.aki.size;
-    type = chain->certificate.tbs.extensions.type;
-    while (chain->next) {
-        chain = chain->next;
-    }
+    id->aki.data = head->certificate.tbs.extensions.aki.data;
+    id->aki.size = head->certificate.tbs.extensions.aki.size;
     /* Serial number is in the leaf certificate */
-    id->serial.data = chain->certificate.tbs.serial.data;
-    id->serial.size = chain->certificate.tbs.serial.size;
-    /* Authority PublicKey is in the policy */
-    status = AJ_PolicyGetCAPublicKey(type, &id->aki, &id->pub);
+    id->serial.data = leaf->tbs.serial.data;
+    id->serial.size = leaf->tbs.serial.size;
+    /* Authority PublicKey is in the policy, can't rely on AKI */
+    status = AJ_PolicyVerifyCertificate(&head->certificate, leaf->tbs.extensions.type, &leaf->tbs.extensions.group, &id->pub);
 
     return status;
 }
@@ -781,11 +779,9 @@ AJ_Status AJ_SecurityResetMethod(AJ_Message* msg, AJ_Message* reply)
     AJ_CredentialSetECCPublicKey(AJ_ECC_SIG, NULL, 0xFFFFFFFF, &pub);
     AJ_CredentialSetECCPrivateKey(AJ_ECC_SIG, NULL, 0xFFFFFFFF, &prv);
 
-    /* Set claim state and emit signal*/
-    status = SetClaimState(APP_STATE_CLAIMABLE);
-    if (AJ_OK != status) {
-        goto Exit;
-    }
+    /* Set claim state (without writing to NVRAM) and emit signal*/
+    claimState = APP_STATE_CLAIMABLE;
+    emit = TRUE;
     /* Clear session keys, can't do it now because we need to reply */
     clear = TRUE;
 

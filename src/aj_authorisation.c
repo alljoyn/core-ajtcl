@@ -286,7 +286,7 @@ AJ_Status AJ_AccessControlCheckMessage(AJ_Message* msg, const char* name, uint8_
         }
         break;
     }
-    AJ_InfoPrintf(("AJ_AccessControlCheck(msg=%p, name=%s, direction=%x): %s\n", msg, name, direction, AJ_StatusText(status)));
+    AJ_InfoPrintf(("AJ_AccessControlCheck(msg=%p, name=%s, direction=%x): %X %s\n", msg, name, direction, access, AJ_StatusText(status)));
 
     return status;
 }
@@ -1183,21 +1183,14 @@ AJ_Status AJ_ManifestApply(AJ_Manifest* manifest, const char* name)
     acm = g_access;
     while (acm) {
         access = PermissionRuleAccess(manifest->rules, acm, peer, FALSE);
-        acm->allow[peer] |= (access << 4);
+        /* Manifest permissions are stored in the most significant part of the byte */
+        access <<= 4;
 #ifndef NDEBUG
-        if (MANIFEST_INCOMING & acm->allow[peer]) {
-            AJ_InfoPrintf(("INCOMING MANIFEST: %s %s %s\n", acm->obj, acm->ifn, acm->mbr));
-        }
-        if (!(acm->deny[peer]) && (POLICY_INCOMING & acm->allow[peer]) && (MANIFEST_INCOMING & acm->allow[peer])) {
-            AJ_InfoPrintf(("INCOMING: %s %s %s\n", acm->obj, acm->ifn, acm->mbr));
-        }
-        if (MANIFEST_OUTGOING & acm->allow[peer]) {
-            AJ_InfoPrintf(("OUTGOING MANIFEST: %s %s %s\n", acm->obj, acm->ifn, acm->mbr));
-        }
-        if (!(acm->deny[peer]) && (POLICY_OUTGOING & acm->allow[peer]) && (MANIFEST_OUTGOING & acm->allow[peer])) {
-            AJ_InfoPrintf(("OUTGOING: %s %s %s\n", acm->obj, acm->ifn, acm->mbr));
+        if (access) {
+            AJ_InfoPrintf(("Access: %s %s %s %x\n", acm->obj, acm->ifn, acm->mbr, access));
         }
 #endif
+        acm->allow[peer] |= access;
         acm = acm->next;
     }
 
@@ -1279,31 +1272,16 @@ AJ_Status AJ_PolicyApply(AJ_AuthenticationContext* ctx, const char* name)
                 }
                 if (found) {
                     access = PermissionRuleAccess(acl->rules, acm, peer, found >> 1);
-                    acm->allow[peer] |= access;
                     if (AUTH_SUITE_ECDHE_ECDSA != ctx->suite) {
                         /* We don't receive a manifest, so switch those bits on too */
-                        acm->allow[peer] |= (access << 4);
+                        access |= (access << 4);
                     }
 #ifndef NDEBUG
-                    if (acm->deny[peer]) {
-                        AJ_InfoPrintf(("INCOMING DENY    : %s %s %s\n", acm->obj, acm->ifn, acm->mbr));
-                    }
-                    if (POLICY_INCOMING & acm->allow[peer]) {
-                        AJ_InfoPrintf(("INCOMING POLICY  : %s %s %s\n", acm->obj, acm->ifn, acm->mbr));
-                    }
-                    if (!(acm->deny[peer]) && (POLICY_INCOMING & acm->allow[peer]) && (MANIFEST_INCOMING & acm->allow[peer])) {
-                        AJ_InfoPrintf(("INCOMING: %s %s %s\n", acm->obj, acm->ifn, acm->mbr));
-                    }
-                    if (acm->deny[peer]) {
-                        AJ_InfoPrintf(("OUTGOING DENY    : %s %s %s\n", acm->obj, acm->ifn, acm->mbr));
-                    }
-                    if (POLICY_OUTGOING & acm->allow[peer]) {
-                        AJ_InfoPrintf(("OUTGOING POLICY  : %s %s %s\n", acm->obj, acm->ifn, acm->mbr));
-                    }
-                    if (!(acm->deny[peer]) && (POLICY_OUTGOING & acm->allow[peer]) && (MANIFEST_OUTGOING & acm->allow[peer])) {
-                        AJ_InfoPrintf(("OUTGOING: %s %s %s\n", acm->obj, acm->ifn, acm->mbr));
+                    if (access) {
+                        AJ_InfoPrintf(("Access: %s %s %s %x\n", acm->obj, acm->ifn, acm->mbr, access));
                     }
 #endif
+                    acm->allow[peer] |= access;
                 }
                 acl = acl->next;
             }
@@ -1397,8 +1375,11 @@ AJ_Status AJ_MembershipApply(X509CertificateChain* head, AJ_ECCPublicKey* issuer
         while (acm) {
             acl = policy.policy->acls;
             while (acl) {
+                found = 0;
                 /* Check if root issuer is in the peer list */
-                found = PermissionPeerFind(acl->peers, AJ_PEER_TYPE_WITH_MEMBERSHIP, issuer, group);
+                if (issuer) {
+                    found = PermissionPeerFind(acl->peers, AJ_PEER_TYPE_WITH_MEMBERSHIP, issuer, group);
+                }
                 if (NULL != head) {
                     /* Check if intermediate issuer is in the peer list */
                     while (!found && (NULL != head->next)) {
@@ -1408,21 +1389,12 @@ AJ_Status AJ_MembershipApply(X509CertificateChain* head, AJ_ECCPublicKey* issuer
                 }
                 if (found) {
                     access = PermissionRuleAccess(acl->rules, acm, peer, FALSE);
-                    acm->allow[peer] |= access;
 #ifndef NDEBUG
-                    if (POLICY_INCOMING & acm->allow[peer]) {
-                        AJ_InfoPrintf(("INCOMING POLICY  : %s %s %s\n", acm->obj, acm->ifn, acm->mbr));
-                    }
-                    if (!(acm->deny[peer]) && (POLICY_INCOMING & acm->allow[peer]) && (MANIFEST_INCOMING & acm->allow[peer])) {
-                        AJ_InfoPrintf(("INCOMING: %s %s %s\n", acm->obj, acm->ifn, acm->mbr));
-                    }
-                    if (POLICY_OUTGOING & acm->allow[peer]) {
-                        AJ_InfoPrintf(("OUTGOING POLICY  : %s %s %s\n", acm->obj, acm->ifn, acm->mbr));
-                    }
-                    if (!(acm->deny[peer]) && (POLICY_OUTGOING & acm->allow[peer]) && (MANIFEST_OUTGOING & acm->allow[peer])) {
-                        AJ_InfoPrintf(("OUTGOING: %s %s %s\n", acm->obj, acm->ifn, acm->mbr));
+                    if (access) {
+                        AJ_InfoPrintf(("Access: %s %s %s %x\n", acm->obj, acm->ifn, acm->mbr, access));
                     }
 #endif
+                    acm->allow[peer] |= access;
                 }
                 acl = acl->next;
             }
@@ -1450,45 +1422,129 @@ AJ_Status AJ_PolicyVersion(uint32_t* version)
     return AJ_OK;
 }
 
-AJ_Status AJ_PolicyGetCAPublicKey(uint16_t type, DER_Element* kid, AJ_ECCPublicKey* pub)
+static uint32_t CompareElements(const DER_Element* a, const DER_Element* b)
+{
+    if (a->size != b->size) {
+        return FALSE;
+    }
+    if (0 != memcmp(a->data, b->data, a->size)) {
+        return FALSE;
+    }
+    return TRUE;
+}
+
+AJ_Status AJ_PolicyFindAuthority(const X509CertificateChain* head, uint32_t type, const DER_Element* group)
 {
     AJ_Status status;
     Policy policy;
     AJ_PermissionACL* acl;
     AJ_PermissionPeer* peer;
+    const X509CertificateChain* node;
+    uint32_t found;
 
     status = PolicyLoad(&policy);
     if (AJ_OK != status) {
-        AJ_InfoPrintf(("AJ_PolicyGetCAPublicKey(kid=%p, pub=%p): Policy not loaded\n", kid, pub));
+        AJ_InfoPrintf(("AJ_PolicyFindAuthority(head=%p, type=%x): Policy not loaded\n", head, type));
         return AJ_ERR_INVALID;
     }
-    status = AJ_ERR_UNKNOWN;
+
+    status = AJ_ERR_SECURITY;
     acl = policy.policy->acls;
     while (acl) {
         peer = acl->peers;
         while (peer) {
-            switch (peer->type) {
-            case AJ_PEER_TYPE_FROM_CA:
-                /* This type of certificate authority can only issue Identity certificates */
-                if (AJ_CERTIFICATE_IDN_X509 & type) {
-                    if ((kid->size == peer->kid.size) && (0 == memcmp(kid->data, peer->kid.data, kid->size))) {
-                        status = AJ_OK;
-                        memcpy(pub, &peer->pub, sizeof (AJ_ECCPublicKey));
-                        goto Exit;
-                    }
+            found = 0;
+            switch (type) {
+            case AJ_CERTIFICATE_IDN_X509:
+                /* This type of certificate can be issued by Identity or Membership authorities */
+                if ((AJ_PEER_TYPE_FROM_CA == peer->type) || (AJ_PEER_TYPE_WITH_MEMBERSHIP == peer->type)) {
+                    found = 1;
                 }
                 break;
 
-            case AJ_PEER_TYPE_WITH_MEMBERSHIP:
-                /* This type of certificate authority can issue both Identity and Membership certificates */
-                if ((AJ_CERTIFICATE_IDN_X509 & type) || (AJ_CERTIFICATE_MBR_X509 & type)) {
-                    if ((kid->size == peer->kid.size) && (0 == memcmp(kid->data, peer->kid.data, kid->size))) {
-                        status = AJ_OK;
-                        memcpy(pub, &peer->pub, sizeof (AJ_ECCPublicKey));
-                        goto Exit;
-                    }
+            case AJ_CERTIFICATE_MBR_X509:
+                /* This type of certificate can be issued by Membership authorities only */
+                if ((AJ_PEER_TYPE_WITH_MEMBERSHIP == peer->type) && CompareElements(group, &peer->group)) {
+                    found = 1;
                 }
                 break;
+
+            default:
+                /* Only end up here on coding error */
+                AJ_ASSERT(0);
+                break;
+            }
+            if (found) {
+                node = head;
+                while (node && node->certificate.tbs.extensions.ca) {
+                    if (0 == memcmp(&node->certificate.tbs.publickey, &peer->pub, sizeof (AJ_ECCPublicKey))) {
+                        status = AJ_OK;
+                        goto Exit;
+                    }
+                    node = node->next;
+                }
+            }
+            peer = peer->next;
+        }
+        acl = acl->next;
+    }
+
+Exit:
+    PolicyUnload(&policy);
+    return status;
+}
+
+AJ_Status AJ_PolicyVerifyCertificate(const X509Certificate* cert, uint32_t type, const DER_Element* group, AJ_ECCPublicKey* pub)
+{
+    AJ_Status status;
+    Policy policy;
+    AJ_PermissionACL* acl;
+    AJ_PermissionPeer* peer;
+    uint32_t found;
+
+    /*
+     * Policy and/or certificate may not include AKI for CA,
+     * we need to try all keys.
+     */
+    status = PolicyLoad(&policy);
+    if (AJ_OK != status) {
+        AJ_InfoPrintf(("AJ_PolicyVerifyCertificate(cert=%p, type=%x, group=%p, pub=%p): Policy not loaded\n", cert, type, group, pub));
+        return AJ_ERR_INVALID;
+    }
+
+    status = AJ_ERR_SECURITY;
+    acl = policy.policy->acls;
+    while (acl) {
+        peer = acl->peers;
+        while (peer) {
+            found = 0;
+            switch (type) {
+            case AJ_CERTIFICATE_IDN_X509:
+                /* This type of certificate can be issued by Identity or Membership authorities */
+                if ((AJ_PEER_TYPE_FROM_CA == peer->type) || (AJ_PEER_TYPE_WITH_MEMBERSHIP == peer->type)) {
+                    found = 1;
+                }
+                break;
+
+            case AJ_CERTIFICATE_MBR_X509:
+                /* This type of certificate can be issued by Membership authorities only */
+                if ((AJ_PEER_TYPE_WITH_MEMBERSHIP == peer->type) && CompareElements(group, &peer->group)) {
+                    found = 1;
+                }
+                break;
+
+            default:
+                /* Only end up here on coding error */
+                AJ_ASSERT(0);
+                break;
+            }
+            if (found) {
+                /* Verify certificate */
+                status = AJ_X509Verify(cert, &peer->pub);
+                if (AJ_OK == status) {
+                    memcpy(pub, &peer->pub, sizeof (AJ_ECCPublicKey));
+                    goto Exit;
+                }
             }
             peer = peer->next;
         }

@@ -1850,7 +1850,7 @@ Exit:
     return AJ_ERR_SECURITY;
 }
 
-static AJ_Status UnmarshalCertificates(AJ_Message* msg)
+static void UnmarshalCertificates(AJ_Message* msg)
 {
     AJ_Status status;
     AJ_Arg container;
@@ -1858,7 +1858,7 @@ static AJ_Status UnmarshalCertificates(AJ_Message* msg)
     DER_Element der;
     X509CertificateChain* head = NULL;
     X509CertificateChain* node = NULL;
-    AJ_ECCPublicKey pub;
+    AJ_ECCPublicKey* pub = NULL;
     DER_Element* group;
 
     status = AJ_UnmarshalContainer(msg, &container, AJ_ARG_ARRAY);
@@ -1873,7 +1873,6 @@ static AJ_Status UnmarshalCertificates(AJ_Message* msg)
         node = (X509CertificateChain*) AJ_Malloc(sizeof (X509CertificateChain));
         if (NULL == node) {
             AJ_WarnPrintf(("UnmarshalCertificates(msg=%p): Resource error\n", msg));
-            status = AJ_ERR_RESOURCES;
             goto Exit;
         }
         node->next = head;
@@ -1912,30 +1911,37 @@ static AJ_Status UnmarshalCertificates(AJ_Message* msg)
         goto Exit;
     }
 
-    /* Lookup certificate authority public key */
-    status = AJ_PolicyGetCAPublicKey(head->certificate.tbs.extensions.type, &head->certificate.tbs.extensions.aki, &pub);
-    if (AJ_OK != status) {
-        AJ_InfoPrintf(("UnmarshalCertificates(msg=%p): Certificate authority unknown\n", msg));
-        goto Exit;
-    }
-    /* Verify the chain */
-    status = AJ_X509VerifyChain(head, &pub, AJ_CERTIFICATE_MBR_X509);
+    /* Initial chain verification to validate intermediate issuers */
+    status = AJ_X509VerifyChain(head, NULL, AJ_CERTIFICATE_MBR_X509);
     if (AJ_OK != status) {
         AJ_InfoPrintf(("UnmarshalCertificates(msg=%p): Certificate chain invalid\n", msg));
         goto Exit;
     }
-
-    /* Chain is trusted, apply the membership authorisation */
-    status = AJ_MembershipApply(head, &pub, group, msg->sender);
+    /* Search for the intermediate issuers in the stored authorities */
+    status = AJ_PolicyFindAuthority(head, AJ_CERTIFICATE_MBR_X509, group);
+    if (AJ_OK != status) {
+        /* Verify the root certificate against the stored authorities */
+        pub = (AJ_ECCPublicKey*) AJ_Malloc(sizeof (AJ_ECCPublicKey));
+        if (NULL == pub) {
+            AJ_InfoPrintf(("UnmarshalCertificates(msg=%p): AJ_ERR_RESOURCES\n", msg));
+            goto Exit;
+        }
+        status = AJ_PolicyVerifyCertificate(&head->certificate, AJ_CERTIFICATE_MBR_X509, group, pub);
+    }
+    if (AJ_OK != status) {
+        AJ_InfoPrintf(("UnmarshalCertificates(msg=%p): Certificate authority unknown\n", msg));
+        goto Exit;
+    }
+    AJ_MembershipApply(head, pub, group, msg->sender);
 
 Exit:
+    AJ_Free(pub);
     /* Free the cert chain */
     while (head) {
         node = head;
         head = head->next;
         AJ_Free(node);
     }
-    return status;
 }
 
 AJ_Status AJ_PeerHandleSendMemberships(AJ_Message* msg, AJ_Message* reply)
@@ -1961,7 +1967,7 @@ AJ_Status AJ_PeerHandleSendMemberships(AJ_Message* msg, AJ_Message* reply)
     if (SEND_MEMBERSHIPS_NONE != code) {
         /*
          * Unmarshal certificate chain, verify and apply membership rules
-         * If failure occured (eg. false certificate), the rules will not be applied. Do not fail here.
+         * If failure occured (eg. false certificate), the rules will not be applied.
          */
         UnmarshalCertificates(msg);
         if (SEND_MEMBERSHIPS_LAST == code) {
@@ -2020,7 +2026,7 @@ AJ_Status AJ_PeerHandleSendMembershipsReply(AJ_Message* msg)
     if (SEND_MEMBERSHIPS_NONE != code) {
         /*
          * Unmarshal certificate chain, verify and apply membership rules
-         * If failure occured (eg. false certificate), the rules will not be applied. Do not fail here.
+         * If failure occured (eg. false certificate), the rules will not be applied.
          */
         UnmarshalCertificates(msg);
         if (SEND_MEMBERSHIPS_LAST == code) {
