@@ -315,6 +315,74 @@ static void EndianSwap(AJ_Message* msg, uint8_t typeId, void* data, uint32_t num
     }
 }
 
+static uint32_t wrapped_offset(uint32_t a, uint32_t b)
+{
+    uint32_t offset;
+    if (b <= a) {
+        offset = a - b;
+    } else {
+        offset = (0xFFFFFFFFUL - b) + a + 1;
+    }
+
+    return offset;
+}
+
+/*
+ * Serial number on incoming methods and signals.
+ */
+
+AJ_Status AJ_CheckIncomingSerial(AJ_SerialNum* prev, uint32_t curr)
+{
+    uint32_t offset;
+    uint64_t mask;
+
+    AJ_ASSERT(prev);
+
+    if (curr == 0) {
+        /* 0 is never a valid serial number */
+        AJ_WarnPrintf(("AJ_CheckIncomingSerial: 0 is invalid\n"));
+        return AJ_ERR_INVALID;
+    }
+
+    if (prev->serial == 0) {
+        offset = 0;
+        prev->offset = 0;
+    } else {
+        offset = wrapped_offset(curr, prev->serial);
+        if (0 == offset) {
+            /* Current serial number matches highest recent serial */
+            AJ_WarnPrintf(("AJ_CheckIncomingSerial: Repeated serial %x %x %llx\n", curr, prev->serial, prev->offset));
+            return AJ_ERR_INVALID;
+        } else if (0xFFFFFFC0UL < offset) {
+            /* Current serial number is in the recent past. Check mask but don't move the window */
+            offset = (0xFFFFFFFFUL - offset) + 1;
+            mask = ((uint64_t) 1) << offset;
+            if (mask & prev->offset) {
+                AJ_WarnPrintf(("AJ_CheckIncomingSerial: Repeated serial %x %x %llx\n", curr, prev->serial, prev->offset));
+                return AJ_ERR_INVALID;
+            }
+            /* Switch this mask on to mark this serial number as "seen" */
+            prev->offset |= mask;
+            return AJ_OK;
+        } else if (0x80000000UL <= offset) {
+            /* Too far in the past */
+            AJ_WarnPrintf(("AJ_CheckIncomingSerial: Invalid serial %x %x %llx\n", curr, prev->serial, prev->offset));
+            return AJ_ERR_INVALID;
+        }
+
+        /* Moving window ahead. */
+        if (offset < 64) {
+            prev->offset <<= offset;
+        } else {
+            prev->offset = 0;
+        }
+    }
+
+    prev->serial = curr;
+    prev->offset |= 1;
+    return AJ_OK;
+}
+
 /*
  * Computes total size of a message - note header is padded to an 8 byte boundary
  */
@@ -390,6 +458,7 @@ static AJ_Status DecryptMessage(AJ_Message* msg)
     uint32_t nonceLen;
     uint32_t extraNonceLen;
     uint32_t cryptoValsLen;
+    AJ_SerialNum* incoming;
 
     /*
      * Use the group key for multicast and broadcast signals the session key otherwise.
@@ -403,6 +472,9 @@ static AJ_Status DecryptMessage(AJ_Message* msg)
          * We use the oppsite role when decrypting.
          */
         role ^= 3;
+        if (AJ_OK == status) {
+            status = AJ_GetSerialNumbers(msg->sender, &incoming);
+        }
     }
     if (status != AJ_OK) {
         AJ_ErrPrintf(("DecryptMessage(): AJ_ERR_NO_MATCH\n"));
@@ -416,6 +488,12 @@ static AJ_Status DecryptMessage(AJ_Message* msg)
         EndianSwap(msg, AJ_ARG_INT32, &msg->hdr->bodyLen, 3);
         status = AJ_Decrypt_CCM(key, ioBuf->bufStart, mlen - cryptoValsLen, hLen, macLen, nonce, nonceLen);
         EndianSwap(msg, AJ_ARG_INT32, &msg->hdr->bodyLen, 3);
+        if (AJ_OK == status) {
+            if ((AJ_MSG_METHOD_CALL == msg->hdr->msgType) || (AJ_MSG_SIGNAL == msg->hdr->msgType)) {
+                /* Methods and signals */
+                status = AJ_CheckIncomingSerial(incoming, msg->hdr->serialNum);
+            }
+        }
     }
     AJ_MemZeroSecure(key, 16);
     return status;

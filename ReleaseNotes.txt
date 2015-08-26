@@ -1,4 +1,4 @@
-AllJoyn Thin Core Library: Version 15.04a Release Notes
+AllJoyn Thin Core Library: Version 15.04b Release Notes
 =======================================================
 
 Fully Validated Platforms
@@ -11,7 +11,7 @@ verified, but may work:
 wiki.allseenalliance.org/core/core_15.04_release_review?&#regression_test
 
 
-Features added in Version 15.04a
+Features added in Version 15.04b
 --------------------------------
 * Allow the setting of the UNMARSHAL_TIMEOUT (ASACORE-695). This gives
   applications explicit control over how long unmarshalling waits for new input
@@ -28,7 +28,7 @@ Features added in Version 15.04a
   Node version of a UDP-based transport (ASACORE-1404).
 
 
-Issues Addressed in Version 15.04a
+Issues Addressed in Version 15.04b
 ----------------------------------
 ASACORE-1247 Thin Core Library basic samples fail under Windows
 ASACORE-1853 NGNS query responses for openly advertised names are sent as
@@ -37,14 +37,20 @@ ASACORE-1948 Debug flag left on in target/linux/aj_net.c
 ASACORE-1949 Don't send Probe requests when using ARDP
 ASACORE-1952 Double type does not work
 ASACORE-2008 Address issue with ECDSA authentication code
+ASACORE-2045 Unable to write more than 32764 bytes to an NVRAM item.
+ASACORE-2247 Allow little-endian CTR block counter to go past 511
+ASACORE-2248 scan-n-con off by one error
+ASACORE-2294 Always call AJ_DisconnectWiFi() if AJ_ConnectWifi() returns AJ_OK
+ASACORE-2299 Validate message serial numbers
+ASACORE-2332 Avoid long pauses in codisco stress test
+ASACORE-2365 C on Win32 attempts to do discovery over IP 0.0.0.0
 
 For a complete list of fixed issues:
-https://jira.allseenalliance.org/issues/?jql=project%20%3D%20ASACORE%20AND%20fixVersion%20in%20%28%2215.04a%22%2C%20%2215.04%22%29%20AND%20component%20%3D%20%22Thin%20Core%20Library%22%20order%20by%20priority%20DESC%2C%20id%20ASC
+https://jira.allseenalliance.org/issues/?jql=project%20%3D%20ASACORE%20AND%20fixVersion%20in%20%28%2215.04b%22%2C%20%2215.04a%22%2C%20%2215.04%22%29%20AND%20component%20%3D%20%22Thin%20Core%20Library%22%20ORDER%20BY%20fixVersion%20DESC%2C%20priority%20DESC%2C%20id%20ASC
 
 
-Known Issues in Version 15.04a
+Known Issues in Version 15.04b
 ------------------------------
-ASACORE-2045 Unable to write more than 32764 bytes to an NVRAM item.
 ASACORE-2051 TC: Possible to write beyond the capacity using AJ_NVRAM_Write
 ASACORE-2053 AJ_NVRAM_Read can read beyond the item's capacity
 
@@ -69,6 +75,8 @@ For details of previous releases/release families please see the release notes:
 
 Change history
 --------------
+15.05b - Critical bug fixes: ASACORE-2045, ASACORE-2247, ASACORE-2248,
+         ASACORE-2294, ASACORE-2299, ASACORE-2332, ASACORE-2365
 15.04a - Critical bug fixes: ASACORE-1948, ASACORE-1949, ASACORE-1952,
          ASACORE-2008
 15.04 -  Bug fixes, new features listed above.

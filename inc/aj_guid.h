@@ -40,6 +40,14 @@ typedef struct _AJ_GUID {
 } AJ_GUID;
 
 /**
+ * Type for tracking serial numbers
+ */
+typedef struct _AJ_SerialNum {
+    uint32_t serial; /**< base serial number */
+    uint64_t offset; /**< offset (from base) of allowed message */
+} AJ_SerialNum;
+
+/**
  * Return a pointer to an ASCII string representation of a GUID
  *
  * @param guid   The guid to convert
@@ -162,6 +170,30 @@ AJ_Status AJ_GetSessionKey(const char* name, uint8_t* key, uint8_t* role, uint32
  *          - AJ_ERR_NO_MATCH if there is no entry to the peer
  */
 AJ_Status AJ_GetPeerIndex(const char* name, uint32_t* peer);
+
+/**
+ * Gets serial numbers for an entry from the GUID map
+ *
+ * @param name         The unique or well-known name for a remote peer
+ * @param incoming     The incoming serial numbers
+ *
+ * @return  Return AJ_Status
+ *          - AJ_OK if the information was obtained
+ *          - AJ_ERR_NO_MATCH if there is no entry to the peer
+ */
+AJ_Status AJ_GetSerialNumbers(const char* name, AJ_SerialNum** incoming);
+
+/**
+ * Gets unique name for an entry from the GUID map
+ *
+ * @param name         The well-known name for a remote peer. Unique names are ok too.
+ * @param unique       Unique name corresponding to the requested name
+ *
+ * @return  Return AJ_Status
+ *          - AJ_OK if the information was obtained
+ *          - AJ_ERR_NO_MATCH if there is no entry to the peer
+ */
+AJ_Status AJ_GetRemoteUniqueName(const char* name, const char** unique);
 
 /**
  * Gets a group key for an entry from the GUID map
