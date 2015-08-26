@@ -118,6 +118,49 @@ static const char pem_x509[] = {
     "-----END CERTIFICATE-----"
 };
 
+/*
+ * Order of certificates is important.
+ * Generated using alljoyn/common/unit_test/CertificateECCTest.cc (CreateIdentityCertificateChain)
+ */
+static const char pem_x509_identity[] = {
+    "-----BEGIN CERTIFICATE-----"
+    "MIIBMDCB1qADAgECAgIwMzAKBggqhkjOPQQDAjAOMQwwCgYDVQQDDANjbjMwHhcN"
+    "MTUwODI2MTEzMDIzWhcNMTUwODI2MTQxNzAzWjAOMQwwCgYDVQQDDANjbjQwWTAT"
+    "BgcqhkjOPQIBBggqhkjOPQMBBwNCAASTTwSwpfZ2AD2G6L6IrLYQ2ilJaxf3egzh"
+    "3fuVdPgqopLCJydVei63lQsv2BbbpbKeKg+BAEeoi+MlAWkHBRLIoyQwIjAJBgNV"
+    "HRMEAjAAMBUGA1UdJQQOMAwGCisGAQQBgt58AQEwCgYIKoZIzj0EAwIDSQAwRgIh"
+    "ANxz/NwcmLw/9Unq/qZpmlCzuwGYh9lZV0S0k8N15MGDAiEAzuzWOBPbC1jXWBfa"
+    "q3I41fDrdnnEhV9PyXooXfe70bg="
+    "-----END CERTIFICATE-----"
+    "-----BEGIN CERTIFICATE-----"
+    "MIIBMzCB2aADAgECAgIwMzAKBggqhkjOPQQDAjAOMQwwCgYDVQQDDANjbjIwHhcN"
+    "MTUwODI2MTEzMDIzWhcNMTUwODI2MTQxNzAzWjAOMQwwCgYDVQQDDANjbjMwWTAT"
+    "BgcqhkjOPQIBBggqhkjOPQMBBwNCAASj7JGFzIBpVMDf63liqkquAW3sUi6GklEe"
+    "BJhdQDnmPfpVrmL90O73hRr0JC1O7NS/mDTmFRRrhwY5XrOwl3vdoycwJTAMBgNV"
+    "HRMEBTADAQH/MBUGA1UdJQQOMAwGCisGAQQBgt58AQEwCgYIKoZIzj0EAwIDSQAw"
+    "RgIhAIP2cJiWPSvcbMwTr7+OgwjeMVjWuppKtaJoCR8B+u/TAiEArBgP12n77UPO"
+    "MC2mZBbPOkdZf+1b76gHpUCLhJWC3ac="
+    "-----END CERTIFICATE-----"
+    "-----BEGIN CERTIFICATE-----"
+    "MIIBMTCB2aADAgECAgIwMjAKBggqhkjOPQQDAjAOMQwwCgYDVQQDDANjbjEwHhcN"
+    "MTUwODI2MTEzMDIzWhcNMTUwODI2MTQxNzAzWjAOMQwwCgYDVQQDDANjbjIwWTAT"
+    "BgcqhkjOPQIBBggqhkjOPQMBBwNCAAS3+VvzdzNb39HuMosBcy0GxH5nJ863Dldm"
+    "3nWAz3lTkpUZRdmdpp/g7l+W6P6MDWiISWZwQs6acq89iBzPhIvIoycwJTAMBgNV"
+    "HRMEBTADAQH/MBUGA1UdJQQOMAwGCisGAQQBgt58AQEwCgYIKoZIzj0EAwIDRwAw"
+    "RAIgM1EeCtOLEzHx2FLMkFSQnhDM1MdIsMuyFNarbcKWyxoCIFGdLoQu6GKL/HTS"
+    "G9Z66NDZHbjAWKcblpGPiR8DaKza"
+    "-----END CERTIFICATE-----"
+    "-----BEGIN CERTIFICATE-----"
+    "MIIBMjCB2aADAgECAgIwMTAKBggqhkjOPQQDAjAOMQwwCgYDVQQDDANjbjEwHhcN"
+    "MTUwODI2MTEzMDIzWhcNMTUwODI2MTQxNzAzWjAOMQwwCgYDVQQDDANjbjEwWTAT"
+    "BgcqhkjOPQIBBggqhkjOPQMBBwNCAAQdRwW/PnAh8S10PHNOyibARy3Ta1to5Lk6"
+    "9c7UkzaaTMNkxTXmuQZoVxa4W5McUTW38Ue5UqRlf54I3+iYtHPioycwJTAMBgNV"
+    "HRMEBTADAQH/MBUGA1UdJQQOMAwGCisGAQQBgt58AQEwCgYIKoZIzj0EAwIDSAAw"
+    "RQIhAJAOFdOy3PkaBAHNnrpPOqv/cZqnjEEjgfZ0Rlk/MkmAAiAqVRqMJG/TJ9x/"
+    "xTG8S3EeCxozIK59I0etjDH+pH+VkQ=="
+    "-----END CERTIFICATE-----"
+};
+
 static const char psk_hint[] = "<anonymous>";
 /*
  * The tests were changed at some point to make the psk longer.
@@ -472,6 +515,126 @@ TEST_F(SecurityTest, DecodeAndVerifyCertificateChainTest)
     ASSERT_EQ(AJ_OK, AJ_X509VerifyChain(chain, NULL, AJ_CERTIFICATE_IDN_X509));
     ASSERT_EQ(AJ_ERR_SECURITY, AJ_X509VerifyChain(chain, NULL, AJ_CERTIFICATE_MBR_X509));
     ASSERT_EQ(AJ_ERR_SECURITY, AJ_X509VerifyChain(chain, NULL, AJ_CERTIFICATE_UNR_X509));
+    AJ_X509FreeDecodedCertificateChain(chain);
+}
+
+TEST_F(SecurityTest, PolicyVerifyCertificateChainTest)
+{
+    X509CertificateChain* chain;
+    X509CertificateChain* head;
+    X509CertificateChain* intermediate1;
+    X509CertificateChain* intermediate2;
+    X509CertificateChain* last;
+    AJ_Status status = AJ_OK;
+    AJ_ECCPublicKey pub;
+    AJ_PermissionPeer peer;
+    AJ_PermissionACL acl;
+    AJ_Policy policy;
+    AJ_CredField field;
+    uint8_t buffer[1024];
+
+    AJ_Initialize();
+
+    chain = AJ_X509DecodeCertificateChainPEM(pem_x509_identity);
+
+    ASSERT_TRUE(chain != NULL);
+
+    /* AJ_X509VerifyChain expects cert chains in root..end entity order, but the pem_x509 string
+     * lists them in end entity..root order, which is the order used as a credential to be presented
+     * rather than verified. Reverse the list in place to provide the expected order.
+     */
+    head = chain;
+    last = NULL;
+    while (head) {
+        X509CertificateChain* temp = head->next;
+        head->next = last;
+        last = head;
+        head = temp;
+    }
+    chain = last;
+
+    /* This certificate chain has 4 certificates */
+    head = chain;
+    ASSERT_TRUE(NULL != head);
+    intermediate1 = head->next;
+    ASSERT_TRUE(NULL != intermediate1);
+    intermediate2 = intermediate1->next;
+    ASSERT_TRUE(NULL != intermediate2);
+    last = intermediate2->next;
+    ASSERT_TRUE(NULL != last);
+
+    /* This is an Identity certificate */
+    EXPECT_EQ(AJ_OK, AJ_X509VerifyChain(head, &head->certificate.tbs.publickey, AJ_CERTIFICATE_IDN_X509));
+    EXPECT_EQ(AJ_ERR_SECURITY, AJ_X509VerifyChain(head, &head->certificate.tbs.publickey, AJ_CERTIFICATE_MBR_X509));
+    EXPECT_EQ(AJ_ERR_SECURITY, AJ_X509VerifyChain(head, &head->certificate.tbs.publickey, AJ_CERTIFICATE_UNR_X509));
+
+    field.data = buffer;
+    field.size = sizeof (buffer);
+
+    policy.specification = 1;
+    policy.version = 1;
+    policy.acls = &acl;
+
+    acl.peers = &peer;
+    acl.rules = NULL;
+    acl.next = NULL;
+
+    peer.type = AJ_PEER_TYPE_FROM_CA;
+    peer.kid.data = NULL;
+    peer.kid.size = 0;
+    peer.group.data = NULL;
+    peer.group.size = 0;
+    peer.next = NULL;
+
+    /* Store root issuer */
+    memcpy(&peer.pub, &head->certificate.tbs.publickey, sizeof (AJ_ECCPublicKey));
+    ASSERT_EQ(AJ_OK, AJ_PolicyToBuffer(&policy, &field));
+    ASSERT_EQ(AJ_OK, AJ_CredentialSet(AJ_POLICY_INSTALLED | AJ_CRED_TYPE_POLICY, NULL, 0xFFFFFFFF, &field));
+    EXPECT_EQ(AJ_OK, AJ_PolicyVerifyCertificate(&head->certificate, AJ_CERTIFICATE_IDN_X509, NULL, &pub));
+    peer.type = AJ_PEER_TYPE_WITH_MEMBERSHIP;
+    ASSERT_EQ(AJ_OK, AJ_PolicyToBuffer(&policy, &field));
+    ASSERT_EQ(AJ_OK, AJ_CredentialSet(AJ_POLICY_INSTALLED | AJ_CRED_TYPE_POLICY, NULL, 0xFFFFFFFF, &field));
+    EXPECT_EQ(AJ_OK, AJ_PolicyVerifyCertificate(&head->certificate, AJ_CERTIFICATE_IDN_X509, NULL, &pub));
+
+    /* Store intermediate 1 issuer */
+    peer.type = AJ_PEER_TYPE_FROM_CA;
+    memcpy(&peer.pub, &intermediate1->certificate.tbs.publickey, sizeof (AJ_ECCPublicKey));
+    ASSERT_EQ(AJ_OK, AJ_PolicyToBuffer(&policy, &field));
+    ASSERT_EQ(AJ_OK, AJ_CredentialSet(AJ_POLICY_INSTALLED | AJ_CRED_TYPE_POLICY, NULL, 0xFFFFFFFF, &field));
+    EXPECT_EQ(AJ_ERR_SECURITY, AJ_PolicyVerifyCertificate(&head->certificate, AJ_CERTIFICATE_IDN_X509, NULL, &pub));
+    EXPECT_EQ(AJ_OK, AJ_PolicyFindAuthority(head, AJ_CERTIFICATE_IDN_X509, NULL));
+    peer.type = AJ_PEER_TYPE_WITH_MEMBERSHIP;
+    ASSERT_EQ(AJ_OK, AJ_PolicyToBuffer(&policy, &field));
+    ASSERT_EQ(AJ_OK, AJ_CredentialSet(AJ_POLICY_INSTALLED | AJ_CRED_TYPE_POLICY, NULL, 0xFFFFFFFF, &field));
+    EXPECT_EQ(AJ_ERR_SECURITY, AJ_PolicyVerifyCertificate(&head->certificate, AJ_CERTIFICATE_IDN_X509, NULL, &pub));
+    EXPECT_EQ(AJ_OK, AJ_PolicyFindAuthority(head, AJ_CERTIFICATE_IDN_X509, NULL));
+
+    /* Store intermediate 2 issuer */
+    peer.type = AJ_PEER_TYPE_FROM_CA;
+    memcpy(&peer.pub, &intermediate2->certificate.tbs.publickey, sizeof (AJ_ECCPublicKey));
+    ASSERT_EQ(AJ_OK, AJ_PolicyToBuffer(&policy, &field));
+    ASSERT_EQ(AJ_OK, AJ_CredentialSet(AJ_POLICY_INSTALLED | AJ_CRED_TYPE_POLICY, NULL, 0xFFFFFFFF, &field));
+    EXPECT_EQ(AJ_ERR_SECURITY, AJ_PolicyVerifyCertificate(&head->certificate, AJ_CERTIFICATE_IDN_X509, NULL, &pub));
+    EXPECT_EQ(AJ_OK, AJ_PolicyFindAuthority(head, AJ_CERTIFICATE_IDN_X509, NULL));
+    peer.type = AJ_PEER_TYPE_WITH_MEMBERSHIP;
+    ASSERT_EQ(AJ_OK, AJ_PolicyToBuffer(&policy, &field));
+    ASSERT_EQ(AJ_OK, AJ_CredentialSet(AJ_POLICY_INSTALLED | AJ_CRED_TYPE_POLICY, NULL, 0xFFFFFFFF, &field));
+    EXPECT_EQ(AJ_ERR_SECURITY, AJ_PolicyVerifyCertificate(&head->certificate, AJ_CERTIFICATE_IDN_X509, NULL, &pub));
+    EXPECT_EQ(AJ_OK, AJ_PolicyFindAuthority(head, AJ_CERTIFICATE_IDN_X509, NULL));
+
+    /* Store leaf issuer (non CA) */
+    peer.type = AJ_PEER_TYPE_FROM_CA;
+    memcpy(&peer.pub, &last->certificate.tbs.publickey, sizeof (AJ_ECCPublicKey));
+    ASSERT_EQ(AJ_OK, AJ_PolicyToBuffer(&policy, &field));
+    ASSERT_EQ(AJ_OK, AJ_CredentialSet(AJ_POLICY_INSTALLED | AJ_CRED_TYPE_POLICY, NULL, 0xFFFFFFFF, &field));
+    EXPECT_EQ(AJ_ERR_SECURITY, AJ_PolicyVerifyCertificate(&head->certificate, AJ_CERTIFICATE_IDN_X509, NULL, &pub));
+    EXPECT_EQ(AJ_ERR_SECURITY, AJ_PolicyFindAuthority(head, AJ_CERTIFICATE_IDN_X509, NULL));
+    peer.type = AJ_PEER_TYPE_WITH_MEMBERSHIP;
+    ASSERT_EQ(AJ_OK, AJ_PolicyToBuffer(&policy, &field));
+    ASSERT_EQ(AJ_OK, AJ_CredentialSet(AJ_POLICY_INSTALLED | AJ_CRED_TYPE_POLICY, NULL, 0xFFFFFFFF, &field));
+    EXPECT_EQ(AJ_ERR_SECURITY, AJ_PolicyVerifyCertificate(&head->certificate, AJ_CERTIFICATE_IDN_X509, NULL, &pub));
+    EXPECT_EQ(AJ_ERR_SECURITY, AJ_PolicyFindAuthority(head, AJ_CERTIFICATE_IDN_X509, NULL));
+
     AJ_X509FreeDecodedCertificateChain(chain);
 }
 

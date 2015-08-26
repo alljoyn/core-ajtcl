@@ -778,6 +778,7 @@ static AJ_Status ECDSAUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
     const char* variant;
     uint8_t fmt;
     DER_Element der;
+    AJ_ECCPublicKey pub;
     AJ_ECCSignature sig;
     uint8_t* sig_r;
     uint8_t* sig_s;
@@ -931,24 +932,33 @@ static AJ_Status ECDSAUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
         goto Exit;
     }
 
-    /* Copy the public key (issuer) */
-    ctx->kactx.ecdsa.num++;
-    ctx->kactx.ecdsa.key = (AJ_ECCPublicKey*) AJ_Realloc(ctx->kactx.ecdsa.key, ctx->kactx.ecdsa.num * sizeof (AJ_ECCPublicKey));
-    if (NULL == ctx->kactx.ecdsa.key) {
-        status = AJ_ERR_RESOURCES;
-        goto Exit;
-    }
-    status = AJ_PolicyGetCAPublicKey(head->certificate.tbs.extensions.type, &head->certificate.tbs.extensions.aki, &ctx->kactx.ecdsa.key[ctx->kactx.ecdsa.num - 1]);
+    /* Initial chain verification to validate intermediate issuers */
+    status = AJ_X509VerifyChain(head, NULL, AJ_CERTIFICATE_IDN_X509);
     if (AJ_OK == status) {
-        /* Verify the chain */
-        status = AJ_X509VerifyChain(head, &ctx->kactx.ecdsa.key[ctx->kactx.ecdsa.num - 1], AJ_CERTIFICATE_IDN_X509);
+        /* Search for the intermediate issuers in the stored authorities */
+        status = AJ_PolicyFindAuthority(head, AJ_CERTIFICATE_IDN_X509, NULL);
         if (AJ_OK != status) {
-            AJ_InfoPrintf(("ECDSAUnmarshal(ctx=%p, msg=%p): Certificate chain invalid\n", ctx, msg));
-            goto Exit;
+            /* Verify the root certificate against the stored authorities */
+            status = AJ_PolicyVerifyCertificate(&head->certificate, AJ_CERTIFICATE_IDN_X509, NULL, &pub);
+            if (AJ_OK == status) {
+                /* Copy the public key (issuer) */
+                ctx->kactx.ecdsa.num++;
+                ctx->kactx.ecdsa.key = (AJ_ECCPublicKey*) AJ_Realloc(ctx->kactx.ecdsa.key, ctx->kactx.ecdsa.num * sizeof (AJ_ECCPublicKey));
+                if (NULL == ctx->kactx.ecdsa.key) {
+                    status = AJ_ERR_RESOURCES;
+                    goto Exit;
+                }
+                memcpy(&ctx->kactx.ecdsa.key[ctx->kactx.ecdsa.num - 1], &pub, sizeof (pub));
+            }
         }
-        trusted = 1;
-    } else if (NULL != ctx->bus->authListenerCallback) {
-        AJ_InfoPrintf(("ECDSAUnmarshal(ctx=%p, msg=%p): Certificate authority unknown\n", ctx, msg));
+        if (AJ_OK == status) {
+            trusted = 1;
+        }
+    }
+
+    /* Last resort, ask the application to verify the chain */
+    if (!trusted && (NULL != ctx->bus->authListenerCallback)) {
+        AJ_InfoPrintf(("ECDSAUnmarshal(ctx=%p, msg=%p): Certificate authority unknown or chain invalid\n", ctx, msg));
         /* Ask the application to verify the chain */
         cred.direction = AJ_CRED_RESPONSE;
         cred.data = (uint8_t*) head;
