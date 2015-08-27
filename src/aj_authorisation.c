@@ -1327,7 +1327,6 @@ AJ_Status AJ_PolicyApply(AJ_AuthenticationContext* ctx, const char* name)
             case AJ_PROPERTY_SEC_CLAIM_CAPABILITIES:
             case AJ_PROPERTY_SEC_CLAIM_CAPABILITIES_INFO:
             case AJ_PROPERTY_CLAIMABLE_VERSION:
-            case AJ_PROPERTY_MANAGED_VERSION:
                 acm->allow[peer] = POLICY_INCOMING | MANIFEST_INCOMING;
                 break;
 
@@ -1346,6 +1345,7 @@ AJ_Status AJ_PolicyApply(AJ_AuthenticationContext* ctx, const char* name)
                 break;
 
             case AJ_METHOD_SECURITY_SET_PROP:
+            case AJ_PROPERTY_MANAGED_VERSION:
             case AJ_PROPERTY_MANAGED_IDENTITY:
             case AJ_PROPERTY_MANAGED_MANIFEST:
             case AJ_PROPERTY_MANAGED_IDENTITY_CERT_ID:
