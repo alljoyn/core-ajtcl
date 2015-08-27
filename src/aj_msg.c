@@ -440,37 +440,41 @@ static AJ_Status EncryptMessage(AJ_Message* msg)
      */
     if ((msg->hdr->msgType == AJ_MSG_SIGNAL) && !msg->destination) {
         status = AJ_GetGroupKey(NULL, key);
-        msg->authVersion = MIN_AUTH_FALLBACK_VERSION;
+        if (AJ_OK == status) {
+            msg->authVersion = MIN_AUTH_FALLBACK_VERSION;
+        }
     } else {
         status = AJ_GetSessionKey(msg->destination, key, &role, &msg->authVersion);
     }
-    macLen = GetMACLength(msg);
-    nonceLen = GetNonceLength(msg);
-    extraNonceLen = nonceLen - PREVIOUS_NONCE_LENGTH;
-    cryptoValsLen = macLen + extraNonceLen;
 
-    /*
-     * Check there is room to append the MAC and Nonce
-     */
-    if (AJ_IO_BUF_SPACE(ioBuf) < cryptoValsLen) {
-        AJ_ErrPrintf(("EncryptMessage(): AJ_ERR_RESOURCES\n"));
-        return AJ_ERR_RESOURCES;
-    }
-    msg->hdr->bodyLen += cryptoValsLen;
-    ioBuf->writePtr += cryptoValsLen;
+    if (AJ_OK == status) {
+        macLen = GetMACLength(msg);
+        nonceLen = GetNonceLength(msg);
+        extraNonceLen = nonceLen - PREVIOUS_NONCE_LENGTH;
+        cryptoValsLen = macLen + extraNonceLen;
 
+        /*
+         * Check there is room to append the MAC and Nonce
+         */
+        if (AJ_IO_BUF_SPACE(ioBuf) < cryptoValsLen) {
+            AJ_ErrPrintf(("EncryptMessage(): AJ_ERR_RESOURCES\n"));
+            AJ_MemZeroSecure(key, 16);
+            return AJ_ERR_RESOURCES;
+        }
+        msg->hdr->bodyLen += cryptoValsLen;
+        ioBuf->writePtr += cryptoValsLen;
 
-    if (status != AJ_OK) {
-        AJ_ErrPrintf(("EncryptMesssage(): peer %s not authenticated", msg->destination));
-        AJ_ErrPrintf(("EncryptMessage(): AJ_ERR_SECURITY\n"));
-        status = AJ_ERR_SECURITY;
-    } else {
         if (MessageRequiresLongerCryptoValues(msg, MIN_AUTH_FULL_NONCE_LENGTH)) {
             AJ_RandBytes(ioBuf->bufStart + mlen + macLen, extraNonceLen);
         }
         AJ_InfoPrintf(("EncryptMessage(): "));
         InitNonce(msg, role, nonce, sizeof(nonce), ioBuf->bufStart + mlen + macLen, extraNonceLen);
         status = AJ_Encrypt_CCM(key, ioBuf->bufStart, mlen, hlen, macLen, nonce, nonceLen);
+    } else {
+        AJ_ErrPrintf(("EncryptMesssage(): peer %s not authenticated", msg->destination));
+        /* Leave status from AJ_GetGroupKey/AJ_GetStatusKey unmodified.
+         * Caller checks for AJ_ERR_NO_MATCH.
+         */
     }
     AJ_MemZeroSecure(key, 16);
     return status;
@@ -498,6 +502,11 @@ AJ_Status AJ_DeliverMsg(AJ_Message* msg)
         AJ_DumpMsg("SENDING", msg, TRUE);
         if (msg->hdr->flags & AJ_FLAG_ENCRYPTED) {
             status = EncryptMessage(msg);
+
+            if (AJ_ERR_NO_MATCH == status && AJ_MSG_ERROR == msg->hdr->msgType && msg->error == AJ_ErrSecurityViolation) {
+                /* Allow an unencrypted reply in this specific key-not-found error case. */
+                status = AJ_OK;
+            }
         }
     } else {
         /*
@@ -1938,23 +1947,16 @@ static AJ_Status MarshalMsg(AJ_Message* msg, uint8_t msgType, uint32_t msgId, ui
     msg->hdr->msgType = msgType;
     msg->hdr->flags = flags;
     if (secure) {
+        msg->hdr->flags |= AJ_FLAG_ENCRYPTED;
         /*
-         * If we are reporing a security violation we cannot encrypt the result
+         * Check outgoing policy
          */
-        if ((msgType == AJ_MSG_ERROR) && (msg->error == AJ_ErrSecurityViolation)) {
-            secure = FALSE;
-        } else {
-            msg->hdr->flags |= AJ_FLAG_ENCRYPTED;
-            /*
-             * Check outgoing policy
-             */
-            if ((msgType == AJ_MSG_METHOD_CALL) || (msgType == AJ_MSG_SIGNAL)) {
-                if (msg->destination) {
-                    /* Method or session based signal */
-                    status = AJ_AccessControlCheckMessage(msg, msg->destination, AJ_ACCESS_OUTGOING);
-                    if (AJ_OK != status) {
-                        return status;
-                    }
+        if ((msgType == AJ_MSG_METHOD_CALL) || (msgType == AJ_MSG_SIGNAL)) {
+            if (msg->destination) {
+                /* Method or session based signal */
+                status = AJ_AccessControlCheckMessage(msg, msg->destination, AJ_ACCESS_OUTGOING);
+                if (AJ_OK != status) {
+                    return status;
                 }
             }
         }
