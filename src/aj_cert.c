@@ -767,16 +767,13 @@ AJ_Status AJ_X509DecodeCertificateDER(X509Certificate* certificate, DER_Element*
     if (AJ_OK != status) {
         return status;
     }
+    /* Signed TBS section starts here */
+    certificate->raw.data = seq.data;
     status = AJ_ASN1DecodeElements(&seq, tags2, sizeof (tags2), &tbs, &tmp, &sig);
     if (AJ_OK != status) {
         return status;
     }
-
-    /*
-     * The signed TBS includes the sequence and length fields.
-     */
-    certificate->raw.data = tbs.data - 4;
-    certificate->raw.size = tbs.size + 4;
+    certificate->raw.size = tbs.size + (tbs.data - certificate->raw.data);
 
     status = DecodeCertificateTBS(&certificate->tbs, &tbs);
     if (AJ_OK != status) {
