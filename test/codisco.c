@@ -37,7 +37,7 @@ static const uint8_t minRouterProtocolVersion = 9;
 static const uint32_t CONNECT_TIMEOUT = 1000 * 5;
 
 /* To stress the underlying target's socket creation, set the value to zero */
-static const uint16_t ROUTER_SELECTION_TIMEOUT = 1000 * 2;
+static const uint16_t ROUTER_SELECTION_TIMEOUT = 5;
 
 /* PAUSE is the delay between connection attempts */
 static const uint16_t PAUSE_MAX   = 1000 * 4; /* Four seconds */
@@ -79,6 +79,9 @@ void AJ_Main(void)
 
     AJ_SetMinProtoVersion(minRouterProtocolVersion);
 
+    /*
+     * Set the selection timeout to a different value from the default.
+     */
     AJ_SetSelectionTimeout(ROUTER_SELECTION_TIMEOUT);
 
     /* Connect and disconnect forever */

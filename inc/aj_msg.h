@@ -26,6 +26,7 @@
 #include <ajtcl/aj_status.h>
 #include <ajtcl/aj_bus.h>
 #include <ajtcl/aj_util.h>
+#include <ajtcl/aj_guid.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -700,6 +701,18 @@ AJ_Status AJ_MarshalVariant(AJ_Message* msg, const char* sig);
  * @param size The buffer size
  */
 void AJ_LocalMsg(AJ_BusAttachment* bus, AJ_MsgHeader* hdr, AJ_Message* msg, const char* sig, uint8_t* data, size_t size);
+
+/**
+ * Checks an incoming method or signal for a valid serial number.
+ *
+ * @param prev Previous serial number struct for sending peer.
+ * @param curr Current serial number.
+ *
+ * @return   Return AJ_Status
+ *          - AJ_OK if serial number is valid.
+ *          - AJ_ERR_INVALID if serial number is invalid.
+ */
+AJ_Status AJ_CheckIncomingSerial(AJ_SerialNum* prev, uint32_t curr);
 
 #ifdef __cplusplus
 }
