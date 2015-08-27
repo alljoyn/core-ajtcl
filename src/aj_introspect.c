@@ -1481,19 +1481,32 @@ AJ_Status AJ_IdentifyMessage(AJ_Message* msg)
 
 void AJ_RegisterObjects(const AJ_Object* localObjects, const AJ_Object* proxyObjects)
 {
-    AJ_Status status;
-
     AJ_ASSERT(AJ_PRX_ID_FLAG < ArraySize(objectLists));
     objectLists[AJ_APP_ID_FLAG] = localObjects;
     objectLists[AJ_PRX_ID_FLAG] = proxyObjects;
-    status = AJ_AuthorisationRegister(localObjects, AJ_APP_ID_FLAG);
+}
+
+AJ_Status AJ_RegisterObjectsACL()
+{
+    AJ_Status status;
+
+    status = AJ_AuthorisationRegister(objectLists[AJ_BUS_ID_FLAG], AJ_BUS_ID_FLAG);
     if (AJ_OK != status) {
-        AJ_WarnPrintf(("AJ_RegisterObjects(localObjects=%p, proxyObjects=%p): %s\n", localObjects, proxyObjects, AJ_StatusText(status)));
+        AJ_WarnPrintf(("AJ_RegisterObjectsACL(): AJ_BUS_ID_FLAG %s\n", AJ_StatusText(status)));
+        return status;
     }
-    status = AJ_AuthorisationRegister(proxyObjects, AJ_PRX_ID_FLAG);
+    status = AJ_AuthorisationRegister(objectLists[AJ_APP_ID_FLAG], AJ_APP_ID_FLAG);
     if (AJ_OK != status) {
-        AJ_WarnPrintf(("AJ_RegisterObjects(localObjects=%p, proxyObjects=%p): %s\n", localObjects, proxyObjects, AJ_StatusText(status)));
+        AJ_WarnPrintf(("AJ_RegisterObjectsACL(): AJ_APP_ID_FLAG %s\n", AJ_StatusText(status)));
+        return status;
     }
+    status = AJ_AuthorisationRegister(objectLists[AJ_PRX_ID_FLAG], AJ_PRX_ID_FLAG);
+    if (AJ_OK != status) {
+        AJ_WarnPrintf(("AJ_RegisterObjectsACL(): AJ_PRX_ID_FLAG %s\n", AJ_StatusText(status)));
+        return status;
+    }
+
+    return AJ_OK;
 }
 
 void AJ_RegisterDescriptionLanguages(const char* const* languages) {
@@ -1507,7 +1520,6 @@ AJ_Status AJ_RegisterObjectListWithDescriptions(const AJ_Object* objList, uint8_
     }
     objectLists[idx] = objList;
     descriptionLookups[idx] = descLookup;
-    AJ_AuthorisationDeregister(idx);
     return AJ_AuthorisationRegister(objList, idx);
 }
 
@@ -1613,6 +1625,7 @@ AJ_Status AJ_SetObjectFlags(const char* objPath, uint8_t setFlags, uint8_t clear
 {
     AJ_Status status = AJ_ERR_NO_MATCH;
     AJ_Object* list = (AJ_Object*)objectLists[AJ_APP_ID_FLAG];
+    uint32_t secure = FALSE;
 
     if (list && objPath) {
         /*
@@ -1624,9 +1637,16 @@ AJ_Status AJ_SetObjectFlags(const char* objPath, uint8_t setFlags, uint8_t clear
                 list->flags |= setFlags;
                 AJ_InfoPrintf(("Setting flags for %s to 0x%02x\n", list->path, list->flags));
                 status = AJ_OK;
+                if (AJ_OBJ_FLAG_SECURE & setFlags) {
+                    secure = TRUE;
+                }
             }
             ++list;
         }
+    }
+    if (secure) {
+        /* Object became secure, register with the ACL */
+        status = AJ_AuthorisationRegister(objectLists[AJ_APP_ID_FLAG], AJ_APP_ID_FLAG);
     }
     return status;
 }

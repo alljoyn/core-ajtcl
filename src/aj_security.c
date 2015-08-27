@@ -148,9 +148,9 @@ AJ_Status AJ_SecurityInit(AJ_BusAttachment* bus)
         claimCapabilities = CLAIM_CAPABILITY_ECDHE_NULL | CLAIM_CAPABILITY_ECDHE_PSK;
     }
 
-    status = AJ_AuthorisationRegister(AJ_StandardObjects, AJ_BUS_ID_FLAG);
+    status = AJ_RegisterObjectsACL();
     if (AJ_OK != status) {
-        AJ_InfoPrintf(("AJ_SecurityInit(bus=%p): %s\n", bus, AJ_StatusText(status)));
+        AJ_WarnPrintf(("AJ_SecurityInit(bus=%p): %s\n", bus, AJ_StatusText(status)));
         return status;
     }
 

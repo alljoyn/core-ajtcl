@@ -641,17 +641,11 @@ TEST_F(SecurityTest, PolicyVerifyCertificateChainTest)
 TEST_F(SecurityTest, RegisterACLTest)
 {
     AJ_AuthorisationRegister(AppObjects, AJ_APP_ID_FLAG);
-    AJ_AuthorisationDeregister(AJ_APP_ID_FLAG);
     AJ_AuthorisationRegister(AJ_StandardObjects, AJ_BUS_ID_FLAG);
-    AJ_AuthorisationDeregister(AJ_BUS_ID_FLAG);
     AJ_AuthorisationRegister(AJ_StandardObjects, AJ_BUS_ID_FLAG);
     AJ_AuthorisationRegister(AppObjects, AJ_APP_ID_FLAG);
-    AJ_AuthorisationDeregister(AJ_BUS_ID_FLAG);
-    AJ_AuthorisationDeregister(AJ_APP_ID_FLAG);
     AJ_AuthorisationRegister(AJ_StandardObjects, AJ_BUS_ID_FLAG);
     AJ_AuthorisationRegister(AppObjects, AJ_APP_ID_FLAG);
-    AJ_AuthorisationDeregister(AJ_APP_ID_FLAG);
-    AJ_AuthorisationDeregister(AJ_BUS_ID_FLAG);
 }
 
 class SerialNumberTest : public testing::Test {

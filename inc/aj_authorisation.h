@@ -100,13 +100,6 @@ typedef struct _AJ_Policy {
 AJ_Status AJ_AuthorisationRegister(const AJ_Object* list, uint8_t l);
 
 /**
- * Remove objects from the access control list
- *
- * @param l            The std, app, prx identifier
- */
-void AJ_AuthorisationDeregister(uint8_t l);
-
-/**
  * Cleanup access control memory
  */
 void AJ_AuthorisationClose(void);

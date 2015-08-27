@@ -1030,14 +1030,9 @@ Exit:
 
 AJ_Status AJ_AuthorisationRegister(const AJ_Object* list, uint8_t l)
 {
-    /* Register objects on the access control list */
-    return AccessControlRegister(list, l);
-}
-
-void AJ_AuthorisationDeregister(uint8_t l)
-{
-    /* Deregister objects on the access control list */
+    /* Register objects on the access control list, deregister any old entries first */
     AccessControlDeregister(l);
+    return AccessControlRegister(list, l);
 }
 
 void AJ_AuthorisationClose(void)

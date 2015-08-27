@@ -267,6 +267,15 @@ AJ_EXPORT
 AJ_Status AJ_RegisterObjectList(const AJ_Object* objList, uint8_t index);
 
 /**
+ * Add all currently registered object list to the access control list.
+ *
+ * @return  - AJ_OK on success
+ *          - AJ_ERR_RESOURCES otherwise
+ */
+AJ_EXPORT
+AJ_Status AJ_RegisterObjectsACL();
+
+/**
  * Register an object list with a specific index providing also a lookup function for the descriptions of objects in the list.
  * This overrides any existing object list and lookup function registered at the specified index.
  *
