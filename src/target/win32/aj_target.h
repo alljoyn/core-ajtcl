@@ -23,6 +23,7 @@
 #include <stddef.h>
 #include <windows.h>
 #include <crtdbg.h>
+#include <winsock2.h>
 
 #if _MSC_VER >= 1600   /* MSVC 2010 or higher */
 #include <stdint.h>
