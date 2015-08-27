@@ -673,7 +673,7 @@ AJ_Status AJ_BusHandleBusMessage(AJ_Message* msg)
 
 void AJ_BusSetPasswordCallback(AJ_BusAttachment* bus, AJ_AuthPwdFunc pwdCallback)
 {
-    AJ_InfoPrintf(("AJ_BusSetPasswordCallback(bus=0x%p, pwdCallback=0x%p)\n", bus, pwdCallback));
+    AJ_WarnPrintf(("AJ_BusSetPasswordCallback(bus=0x%p, pwdCallback=0x%p): This call is being deprecated.\n", bus, pwdCallback));
     bus->pwdCallback = pwdCallback;
 }
 
