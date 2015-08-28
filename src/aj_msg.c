@@ -38,6 +38,7 @@
 #include <ajtcl/aj_introspect.h>
 #include <ajtcl/aj_std.h>
 #include <ajtcl/aj_bus.h>
+#include <ajtcl/aj_bus_priv.h>
 #include <ajtcl/aj_debug.h>
 #include <ajtcl/aj_config.h>
 #include <ajtcl/aj_authorisation.h>
@@ -1077,6 +1078,7 @@ AJ_Status AJ_ResetArgs(AJ_Message* msg)
  *
  * @param msg   The message
  */
+
 static AJ_Status ProcessBusMessages(AJ_Message* msg)
 {
     AJ_Status status = AJ_OK;
@@ -1121,6 +1123,54 @@ static AJ_Status ProcessBusMessages(AJ_Message* msg)
     case AJ_SIGNAL_NAME_OWNER_CHANGED:
         AJ_InfoPrintf(("ProcessBusMessages(): AJ_SIGNAL_NAME_OWNER_CHANGED)\n"));
         status = AJ_GUID_HandleNameOwnerChanged(msg);
+        /*
+         * Reset so the application can handle this too.  Don't overwrite any
+         * error detected during AJ_GUID_HandleNameOwnerChanged() above.
+         */
+        if (status == AJ_OK) {
+            status = AJ_ResetArgs(msg);
+        }
+        break;
+
+    case AJ_SIGNAL_SESSION_JOINED:
+        AJ_InfoPrintf(("ProcessBusMessages(): AJ_SIGNAL_SESSION_JOINED\n"));
+        status = AJ_BusHandleSessionJoined(msg);
+        /*
+         * Reset so the application can handle this too.  Don't overwrite any
+         * error detected during AJ_GUID_HandleNameOwnerChanged() above.
+         */
+        if (status == AJ_OK) {
+            status = AJ_ResetArgs(msg);
+        }
+        break;
+
+    case AJ_SIGNAL_SESSION_LOST:
+        AJ_InfoPrintf(("ProcessBusMessages(): AJ_SIGNAL_SESSION_LOST\n"));
+        status = AJ_BusHandleSessionLost(msg);
+        /*
+         * Reset so the application can handle this too.  Don't overwrite any
+         * error detected during AJ_GUID_HandleNameOwnerChanged() above.
+         */
+        if (status == AJ_OK) {
+            status = AJ_ResetArgs(msg);
+        }
+        break;
+
+    case AJ_SIGNAL_SESSION_LOST_WITH_REASON:
+        AJ_InfoPrintf(("ProcessBusMessages(): AJ_SIGNAL_SESSION_LOST_WITH_REASON\n"));
+        status = AJ_BusHandleSessionLostWithReason(msg);
+        /*
+         * Reset so the application can handle this too.  Don't overwrite any
+         * error detected during AJ_GUID_HandleNameOwnerChanged() above.
+         */
+        if (status == AJ_OK) {
+            status = AJ_ResetArgs(msg);
+        }
+        break;
+
+    case AJ_REPLY_ID(AJ_METHOD_JOIN_SESSION):
+        AJ_InfoPrintf(("ProcessBusMessages(): AJ_REPLY_ID(AJ_METHOD_JOIN_SESSION)\n"));
+        status = AJ_BusHandleJoinSessionReply(msg);
         /*
          * Reset so the application can handle this too.  Don't overwrite any
          * error detected during AJ_GUID_HandleNameOwnerChanged() above.
@@ -2514,6 +2564,18 @@ AJ_Status AJ_MarshalSignal(AJ_BusAttachment* bus, AJ_Message* msg, uint32_t msgI
     msg->bus = bus;
     msg->destination = destination;
     msg->sessionId = sessionId;
+    /* Special case: if destination == NULL and sessionId != 0 and the corresponding session
+     * is unicast, this is functionally equivalent to a unicast signal over that session.
+     * As a matter of fact, it is common practice to emit signals in this way. The Security 2.0
+     * policy checking code treats both cases differently, though, and to preserve the
+     * equivalent behavior of before, we just fill in the destination here, if it's NULL.
+     */
+    if (destination == NULL && sessionId != 0) {
+        AJ_Session* session = AJ_BusGetOngoingSession(bus, sessionId);
+        if (session && !session->multipoint) {
+            msg->destination = session->otherParticipant;
+        }
+    }
     msg->ttl = ttl;
     return MarshalMsg(msg, AJ_MSG_SIGNAL, msgId, flags);
 }

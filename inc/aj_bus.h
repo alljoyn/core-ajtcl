@@ -77,6 +77,31 @@ typedef void (*AJ_PolicyChangedFunc)();
 #define AJ_MAX_NAME_SIZE 20  /**< Maximum length for a bus unique name */
 
 /**
+ * Session description.
+ *
+ * This is a linked list, maintained within AJ_BusAttachment. There are actually
+ * three kinds of sessions here:
+ *   - truly ongoing sessions (sessionId != 0)
+ *   - bound session ports (sessionId == 0 && host == TRUE)
+ *   - pending JoinSession calls (sessionId == 0 && host == FALSE)
+ *
+ * Note: we only keep track of the bus name at the other end of the session if
+ * we're dealing with a point-to-point session. It's not too hard to extend
+ * this to a list of other participants for a multipoint session, but we don't
+ * have a good use case for this at the moment, so we don't want to waste
+ * memory on this.
+ */
+typedef struct __AJ_Session {
+    int host;                                  /**< Are we hosting this session? */
+    int multipoint;                            /**< Is this a multipoint session? */
+    uint32_t sessionId;                        /**< The session id */
+    char* otherParticipant;                    /**< Other end of the session, in case of a point-to-point session */
+    uint16_t sessionPort;                      /**< session port */
+    uint32_t joinCallSerial;                   /**< call serial for pending JoinSession call */
+    struct __AJ_Session* next;                 /**< Next element in the linked list */
+} AJ_Session;
+
+/**
  * Type for a bus attachment
  */
 typedef struct _AJ_BusAttachment {
@@ -92,6 +117,7 @@ typedef struct _AJ_BusAttachment {
     uint8_t isProbeRequired;                   /**< Are probe requests required for the live transport? */
     AJ_FactoryResetFunc factoryResetCallback;  /**< Callback for handling a factory reset request */
     AJ_PolicyChangedFunc policyChangedCallback;/**< Callback for handling a local policy change notification */
+    AJ_Session* sessions;                      /**< Linked list describing all ongoing sessions this bus attachment is involved in */
 } AJ_BusAttachment;
 
 /**
