@@ -719,19 +719,10 @@ AJ_Status AJ_SecurityClaimMethod(AJ_Message* msg, AJ_Message* reply)
         goto Exit;
     }
 
-    /* Clear master secrets */
-    status = AJ_ClearCredentials(AJ_GENERIC_MASTER_SECRET | AJ_CRED_TYPE_GENERIC);
-    if (AJ_OK != status) {
-        goto Exit;
-    }
-    status = AJ_ClearCredentials(AJ_GENERIC_ECDSA_MANIFEST | AJ_CRED_TYPE_GENERIC);
-    if (AJ_OK != status) {
-        goto Exit;
-    }
-    status = AJ_ClearCredentials(AJ_GENERIC_ECDSA_KEYS | AJ_CRED_TYPE_GENERIC);
-    if (AJ_OK != status) {
-        goto Exit;
-    }
+    /* Clear master secrets, do not fail on error (missing entries) */
+    AJ_ClearCredentials(AJ_GENERIC_MASTER_SECRET | AJ_CRED_TYPE_GENERIC);
+    AJ_ClearCredentials(AJ_GENERIC_ECDSA_MANIFEST | AJ_CRED_TYPE_GENERIC);
+    AJ_ClearCredentials(AJ_GENERIC_ECDSA_KEYS | AJ_CRED_TYPE_GENERIC);
 
     /* Set claim state and save to nvram */
     status = SetClaimState(APP_STATE_CLAIMED);
@@ -915,19 +906,11 @@ AJ_Status AJ_SecurityUpdatePolicyMethod(AJ_Message* msg, AJ_Message* reply)
     }
     AJ_CredFieldFree(&policy_data);
 
-    /* Clear master secrets */
-    status = AJ_ClearCredentials(AJ_GENERIC_MASTER_SECRET | AJ_CRED_TYPE_GENERIC);
-    if (AJ_OK != status) {
-        goto Exit;
-    }
-    status = AJ_ClearCredentials(AJ_GENERIC_ECDSA_MANIFEST | AJ_CRED_TYPE_GENERIC);
-    if (AJ_OK != status) {
-        goto Exit;
-    }
-    status = AJ_ClearCredentials(AJ_GENERIC_ECDSA_KEYS | AJ_CRED_TYPE_GENERIC);
-    if (AJ_OK != status) {
-        goto Exit;
-    }
+    /* Clear master secrets, do not fail on error (missing entries) */
+    AJ_ClearCredentials(AJ_GENERIC_MASTER_SECRET | AJ_CRED_TYPE_GENERIC);
+    AJ_ClearCredentials(AJ_GENERIC_ECDSA_MANIFEST | AJ_CRED_TYPE_GENERIC);
+    AJ_ClearCredentials(AJ_GENERIC_ECDSA_KEYS | AJ_CRED_TYPE_GENERIC);
+
     /* Clear session keys, can't do it now because we need to reply */
     clear = TRUE;
 
@@ -943,37 +926,20 @@ Exit:
 
 AJ_Status AJ_SecurityResetPolicyMethod(AJ_Message* msg, AJ_Message* reply)
 {
-    AJ_Status status;
-
     AJ_InfoPrintf(("AJ_SecurityResetPolicyMethod(msg=%p, reply=%p)\n", msg, reply));
 
-    /* Delete installed policy */
-    status = AJ_CredentialDelete(AJ_POLICY_INSTALLED | AJ_CRED_TYPE_POLICY, NULL);
-    if (AJ_OK != status) {
-        goto Exit;
-    }
-    /* Clear master secrets */
-    status = AJ_ClearCredentials(AJ_GENERIC_MASTER_SECRET | AJ_CRED_TYPE_GENERIC);
-    if (AJ_OK != status) {
-        goto Exit;
-    }
-    status = AJ_ClearCredentials(AJ_GENERIC_ECDSA_MANIFEST | AJ_CRED_TYPE_GENERIC);
-    if (AJ_OK != status) {
-        goto Exit;
-    }
-    status = AJ_ClearCredentials(AJ_GENERIC_ECDSA_KEYS | AJ_CRED_TYPE_GENERIC);
-    if (AJ_OK != status) {
-        goto Exit;
-    }
+    /* Delete installed policy, do not fail on error (missing entry) */
+    AJ_CredentialDelete(AJ_POLICY_INSTALLED | AJ_CRED_TYPE_POLICY, NULL);
+
+    /* Clear master secrets, do not fail on error (missing entries) */
+    AJ_ClearCredentials(AJ_GENERIC_MASTER_SECRET | AJ_CRED_TYPE_GENERIC);
+    AJ_ClearCredentials(AJ_GENERIC_ECDSA_MANIFEST | AJ_CRED_TYPE_GENERIC);
+    AJ_ClearCredentials(AJ_GENERIC_ECDSA_KEYS | AJ_CRED_TYPE_GENERIC);
+
     /* Clear session keys, can't do it now because we need to reply */
     clear = TRUE;
 
-Exit:
-    if (AJ_OK == status) {
-        return AJ_MarshalReplyMsg(msg, reply);
-    } else {
-        return AJ_MarshalErrorMsg(msg, reply, AJ_ErrSecurityViolation);
-    }
+    return AJ_MarshalReplyMsg(msg, reply);
 }
 
 AJ_Status AJ_SecurityInstallMembershipMethod(AJ_Message* msg, AJ_Message* reply)
