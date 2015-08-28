@@ -280,13 +280,7 @@ static AJ_Status ExpandInterfaces(XMLWriterFunc XMLWriter, void* context, const 
                  * Advance so that we do not return a '&' character
                  */
                 member++;
-                if (descLookup != NULL) {
-                    /*
-                     * If we have a descLookup function pointer it implies that we entered the method
-                     * through the org.allseen.Introspect interface
-                     */
-                    isSessionless = TRUE;
-                }
+                isSessionless = TRUE;
             }
             attr = ExpandAttribute(XMLWriter, context, &member, nameAttr, "\"");
             if (memberType == PROPERTY) {
@@ -460,7 +454,7 @@ static uint32_t SecurityApplies(const char* ifc, const AJ_Object* obj)
 #define MAX_LANG_SIZE 63
 static const char* GetBestLanguage(const char* requested)
 {
-    if ((requested != NULL) && (*requested != 0)) {
+    if ((requested != NULL) && (*requested != 0) && (languageList != NULL)) {
         char languageToCheck[MAX_LANG_SIZE + 1];
         strncpy(languageToCheck, requested, MAX_LANG_SIZE);
         languageToCheck[MAX_LANG_SIZE] = '\0';
