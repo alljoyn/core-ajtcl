@@ -1090,6 +1090,7 @@ COND_STATIC boolean_t in_curveP(affine_point_t const* P)
 
     fValid = (boolean_t)ecpoint_validation(&Pt, &curve);
 
+    ec_freecurve(&curve);
     return(fInfinity | fValid);
 
 }
@@ -1125,6 +1126,7 @@ Exit:
     fpzero_p256(r);
     fpzero_p256(Q.x);
     fpzero_p256(Q.y);
+    ec_freecurve(&curve);
     return status;
 }
 
@@ -1169,6 +1171,7 @@ Exit:
     fpzero_p256(sharedSecret.x);
     fpzero_p256(sharedSecret.y);
     fpzero_p256(ourPrivate);
+    ec_freecurve(&curve);
     return status;
 }
 
@@ -1260,6 +1263,7 @@ static verify_res_t ECDSA_verify_inner(bigval_t const* msgdgst,
        check that out before doing it. */
 
 
+    verify_res_t res;
     bigval_t v;
     bigval_t w;
     bigval_t u1;
@@ -1278,6 +1282,7 @@ static verify_res_t ECDSA_verify_inner(bigval_t const* msgdgst,
 
     ajstatus = ec_getcurve(&curve, NISTP256r1);
     if (ajstatus != AJ_OK) {
+        /* curve has already been free'd */
         return (V_INTERNAL);
     }
 
@@ -1287,20 +1292,25 @@ static verify_res_t ECDSA_verify_inner(bigval_t const* msgdgst,
     status = status && bigval_to_digit256(&(pubkey->y), Q.y);
     status = status && ecpoint_validation(&Q, &curve);
     if (!status) {
-        return (V_INTERNAL);
+        res = (V_INTERNAL);
+        goto Exit;
     }
 
     if (big_cmp(&sig->r, &big_one) < 0) {
-        return (V_R_ZERO);
+        res = (V_R_ZERO);
+        goto Exit;
     }
     if (big_cmp(&sig->r, &orderP) >= 0) {
-        return(V_R_BIG);
+        res = (V_R_BIG);
+        goto Exit;
     }
     if (big_cmp(&sig->s, &big_one) < 0) {
-        return (V_S_ZERO);
+        res = (V_S_ZERO);
+        goto Exit;
     }
     if (big_cmp(&sig->s, &orderP) >= 0) {
-        return(V_S_BIG);
+        res = (V_S_BIG);
+        goto Exit;
     }
 
     big_divide(&w, &big_one, &sig->s, &orderP);
@@ -1312,7 +1322,8 @@ static verify_res_t ECDSA_verify_inner(bigval_t const* msgdgst,
     status = bigval_to_digit256(&u1, digU1);
     status = status && bigval_to_digit256(&u2, digU2);
     if (!status) {
-        return (V_INTERNAL);
+        res = (V_INTERNAL);
+        goto Exit;
     }
 
     ec_scalarmul(&(curve.generator), digU1, &P1, &curve);
@@ -1325,14 +1336,20 @@ static verify_res_t ECDSA_verify_inner(bigval_t const* msgdgst,
     ec_add(&X, &P2, &curve);
 
     if (ec_is_infinity(&X, &curve)) {
-        return (V_INFINITY);
+        res = (V_INFINITY);
+        goto Exit;
     }
 
     digit256_to_bigval(X.x, &v);
     if (big_cmp(&v, &sig->r) != 0) {
-        return (V_UNEQUAL);
+        res = (V_UNEQUAL);
+        goto Exit;
     }
-    return (V_SUCCESS);
+    res = (V_SUCCESS);
+
+Exit:
+    ec_freecurve(&curve);
+    return res;
 }
 
 boolean_t ECDSA_verify(bigval_t const* msgdgst,
