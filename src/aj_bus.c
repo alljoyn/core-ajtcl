@@ -28,6 +28,7 @@
 #include <ajtcl/aj_msg.h>
 #include <ajtcl/aj_bufio.h>
 #include <ajtcl/aj_bus.h>
+#include <ajtcl/aj_bus_priv.h>
 #include <ajtcl/aj_util.h>
 #include <ajtcl/aj_creds.h>
 #include <ajtcl/aj_std.h>
@@ -45,6 +46,17 @@
 #ifndef NDEBUG
 uint8_t dbgBUS = 0;
 #endif
+
+static AJ_Session* AJ_BusGetOngoingHostedSessionByPort(AJ_BusAttachment* bus, uint16_t port);
+static AJ_Session* AJ_BusGetPendingSession(AJ_BusAttachment* bus, uint32_t serial);
+static AJ_Session* AJ_BusGetBoundSession(AJ_BusAttachment* bus, uint16_t port);
+static void AJ_BusAddPendingSession(AJ_BusAttachment* bus, const char* host, uint16_t port, uint32_t serial);
+static void AJ_BusRemovePendingSession(AJ_BusAttachment* bus, uint32_t serial);
+static void AJ_BusAddBoundSession(AJ_BusAttachment* bus, uint32_t port, int multipoint);
+static void AJ_BusRemoveBoundSession(AJ_BusAttachment* bus, uint16_t port);
+static void AJ_BusAddOngoingSession(AJ_BusAttachment* bus, uint32_t sessionId, uint16_t port, int host, int multipoint, const char* otherParticipant);
+static void AJ_BusReleaseOngoingSession(AJ_Session* session);
+static void AJ_BusRemoveOngoingSession(AJ_BusAttachment* bus, uint32_t sessionId);
 
 const char* AJ_GetUniqueName(AJ_BusAttachment* bus)
 {
@@ -156,6 +168,48 @@ static AJ_Status MarshalSessionOpts(AJ_Message* msg, const AJ_SessionOpts* opts)
     return AJ_OK;
 }
 
+static AJ_Status UnmarshalSessionOpts(AJ_Message* msg, AJ_SessionOpts* opts)
+{
+    AJ_Status status;
+    AJ_Arg dictionary;
+    AJ_UnmarshalContainer(msg, &dictionary, AJ_ARG_ARRAY);
+    while (TRUE) {
+        const char* key;
+        AJ_Arg entry;
+        status = AJ_UnmarshalContainer(msg, &entry, AJ_ARG_DICT_ENTRY);
+        if (status != AJ_OK) {
+            break;
+        }
+        status = AJ_UnmarshalArgs(msg, "s", &key);
+        if (status != AJ_OK) {
+            break;
+        }
+        if (strcmp(key, "traf") == 0) {
+            status = AJ_UnmarshalArgs(msg, "v", "y", &opts->traffic);
+        } else if (strcmp(key, "multi") == 0) {
+            status = AJ_UnmarshalArgs(msg, "v", "b", &opts->isMultipoint);
+        } else if (strcmp(key, "prox") == 0) {
+            status = AJ_UnmarshalArgs(msg, "v", "y", &opts->proximity);
+        } else if (strcmp(key, "trans") == 0) {
+            status = AJ_UnmarshalArgs(msg, "v", "q", &opts->transports);
+        } else {
+            AJ_SkipArg(msg);
+        }
+        if (status != AJ_OK) {
+            break;
+        }
+        status = AJ_UnmarshalCloseContainer(msg, &entry);
+        if (status != AJ_OK) {
+            break;
+        }
+    }
+    AJ_UnmarshalCloseContainer(msg, &dictionary);
+    if (status == AJ_ERR_NO_MORE) {
+        status = AJ_OK;
+    }
+    return status;
+}
+
 /*
  * Default session options
  */
@@ -184,6 +238,10 @@ AJ_Status AJ_BusBindSessionPort(AJ_BusAttachment* bus, uint16_t port, const AJ_S
     if (status == AJ_OK) {
         status = AJ_DeliverMsg(&msg);
     }
+
+    if (status == AJ_OK) {
+        AJ_BusAddBoundSession(bus, port, opts->isMultipoint);
+    }
     return status;
 }
 
@@ -200,6 +258,9 @@ AJ_Status AJ_BusUnbindSession(AJ_BusAttachment* bus, uint16_t port)
     }
     if (status == AJ_OK) {
         status = AJ_DeliverMsg(&msg);
+    }
+    if (status == AJ_OK) {
+        AJ_BusRemoveBoundSession(bus, port);
     }
     return status;
 }
@@ -225,6 +286,7 @@ AJ_Status AJ_BusJoinSession(AJ_BusAttachment* bus, const char* sessionHost, uint
 {
     AJ_Status status;
     AJ_Message msg;
+    uint32_t serialNum;
 
     AJ_InfoPrintf(("AJ_BusJoinSession(bus=0x%p, sessionHost=\"%s\", port=%d., opts=0x%p)\n", bus, sessionHost, port, opts));
 
@@ -239,8 +301,12 @@ AJ_Status AJ_BusJoinSession(AJ_BusAttachment* bus, const char* sessionHost, uint
             status = MarshalSessionOpts(&msg, opts);
         }
     }
+    serialNum = msg.hdr->serialNum;
     if (status == AJ_OK) {
         status = AJ_DeliverMsg(&msg);
+    }
+    if (status == AJ_OK) {
+        AJ_BusAddPendingSession(bus, sessionHost, port, serialNum);
     }
     return status;
 }
@@ -835,4 +901,330 @@ AJ_Status AJ_BusEnableSecurity(AJ_BusAttachment* bus, const uint32_t* suites, si
     }
 
     return AJ_SecurityInit(bus);
+}
+
+AJ_Session* AJ_BusGetOngoingSession(AJ_BusAttachment* bus, uint32_t sessionId)
+{
+    AJ_Session* iter;
+    for (iter = bus->sessions; iter; iter = iter->next) {
+        if (iter->sessionId == sessionId) {
+            return iter;
+        }
+    }
+    return NULL;
+}
+
+static AJ_Session* AJ_BusGetOngoingHostedSessionByPort(AJ_BusAttachment* bus, uint16_t port)
+{
+    AJ_Session* iter;
+    for (iter = bus->sessions; iter; iter = iter->next) {
+        if (iter->sessionId != 0 && iter->host && iter->sessionPort == port) {
+            return iter;
+        }
+    }
+    return NULL;
+}
+
+static AJ_Session* AJ_BusGetPendingSession(AJ_BusAttachment* bus, uint32_t serial)
+{
+    AJ_Session* iter;
+    for (iter = bus->sessions; iter; iter = iter->next) {
+        if (iter->sessionId == 0 && !iter->host && iter->joinCallSerial == serial) {
+            return iter;
+        }
+    }
+    return NULL;
+}
+
+static AJ_Session* AJ_BusGetBoundSession(AJ_BusAttachment* bus, uint16_t port)
+{
+    AJ_Session* iter;
+    for (iter = bus->sessions; iter; iter = iter->next) {
+        if (iter->sessionId == 0 && iter->host && iter->sessionPort == port) {
+            return iter;
+        }
+    }
+    return NULL;
+}
+
+static AJ_Session* SessionAlloc()
+{
+    AJ_Session* session = AJ_Malloc(sizeof(AJ_Session));
+    if (session) {
+        AJ_MemZeroSecure(session, sizeof(AJ_Session));
+    } else {
+        AJ_ErrPrintf(("Could not allocate Session structure -- out of memory.\n"));
+    }
+    return session;
+}
+
+static void AJ_BusAddPendingSession(AJ_BusAttachment* bus, const char* host, uint16_t port, uint32_t serial)
+{
+    size_t hostlen = strlen(host);
+    AJ_Session* session = SessionAlloc();
+    if (!session) {
+        return;
+    }
+    session->host = FALSE;
+    session->sessionPort = port;
+    session->joinCallSerial = serial;
+
+    /*
+     * We leave multipoint as FALSE and always fill in otherParticipant.
+     * If the session turns out to be multipoint, we'll correct this in
+     * the JoinSession reply handler (see ProcessBusMessages)
+     */
+    session->multipoint = FALSE;
+    session->otherParticipant = AJ_Malloc(hostlen + 1);
+    if (!session->otherParticipant) {
+        AJ_ErrPrintf(("Could not allocate Session structure -- out of memory.\n"));
+        AJ_BusReleaseOngoingSession(session);
+        return;
+    }
+    strncpy(session->otherParticipant, host, hostlen);
+    session->otherParticipant[hostlen] = '\0';
+
+    session->next = bus->sessions;
+    bus->sessions = session;
+}
+
+static void AJ_BusRemovePendingSession(AJ_BusAttachment* bus, uint32_t serial)
+{
+    AJ_Session* iter;
+    AJ_Session* prev = NULL;
+
+    for (iter = bus->sessions; iter; prev = iter, iter = iter->next) {
+        if (iter->sessionId == 0 && !iter->host && iter->joinCallSerial == serial) {
+            break;
+        }
+    }
+
+    if (!iter) {
+        return;
+    }
+
+    if (prev) {
+        prev->next = iter->next;
+    } else {
+        bus->sessions = iter->next;
+    }
+
+    AJ_BusReleaseOngoingSession(iter);
+}
+
+static void AJ_BusAddBoundSession(AJ_BusAttachment* bus, uint32_t port, int multipoint)
+{
+    AJ_Session* session = SessionAlloc();
+    if (!session) {
+        return;
+    }
+
+    session->host = TRUE;
+    session->sessionPort = port;
+    session->multipoint = multipoint;
+
+    session->next = bus->sessions;
+    bus->sessions = session;
+}
+
+static void AJ_BusRemoveBoundSession(AJ_BusAttachment* bus, uint16_t port)
+{
+    AJ_Session* iter;
+    AJ_Session* prev = NULL;
+
+    for (iter = bus->sessions; iter; prev = iter, iter = iter->next) {
+        if (iter->sessionId == 0 && iter->host && iter->sessionPort == port) {
+            break;
+        }
+    }
+
+    if (!iter) {
+        return;
+    }
+
+    if (prev) {
+        prev->next = iter->next;
+    } else {
+        bus->sessions = iter->next;
+    }
+
+    AJ_BusReleaseOngoingSession(iter);
+}
+
+static void AJ_BusAddOngoingSession(AJ_BusAttachment* bus, uint32_t sessionId, uint16_t port, int host, int multipoint, const char* otherParticipant)
+{
+    AJ_Session* session = SessionAlloc();
+    if (!session) {
+        return;
+    }
+
+    session->sessionId = sessionId;
+    session->sessionPort = port;
+    session->host = host;
+    session->multipoint = multipoint;
+    if (otherParticipant) {
+        size_t otherlen = strlen(otherParticipant);
+        session->otherParticipant = AJ_Malloc(otherlen + 1);
+        if (!session->otherParticipant) {
+            AJ_ErrPrintf(("Could not allocate Session structure -- out of memory.\n"));
+            AJ_BusReleaseOngoingSession(session);
+            return;
+        }
+        strncpy(session->otherParticipant, otherParticipant, otherlen);
+        session->otherParticipant[otherlen] = '\0';
+    } else {
+        session->otherParticipant = NULL;
+    }
+
+    session->next = bus->sessions;
+    bus->sessions = session;
+}
+
+static void AJ_BusReleaseOngoingSession(AJ_Session* session)
+{
+    if (session->otherParticipant) {
+        AJ_Free(session->otherParticipant);
+    }
+    AJ_Free(session);
+}
+
+static void AJ_BusRemoveOngoingSession(AJ_BusAttachment* bus, uint32_t sessionId)
+{
+    AJ_Session* iter;
+    AJ_Session* prev = NULL;
+
+    for (iter = bus->sessions; iter; prev = iter, iter = iter->next) {
+        if (iter->sessionId == sessionId) {
+            break;
+        }
+    }
+
+    if (!iter) {
+        return;
+    }
+
+    if (prev) {
+        prev->next = iter->next;
+    } else {
+        bus->sessions = iter->next;
+    }
+
+    AJ_BusReleaseOngoingSession(iter);
+}
+
+void AJ_BusRemoveAllSessions(AJ_BusAttachment* bus)
+{
+    while (bus->sessions) {
+        AJ_Session* session = bus->sessions;
+        bus->sessions = session->next;
+        AJ_BusReleaseOngoingSession(session);
+    }
+}
+
+AJ_Status AJ_BusHandleSessionJoined(AJ_Message* msg)
+{
+    uint16_t sessionPort;
+    uint32_t sessionId;
+    char* joiner;
+
+    AJ_Status status = AJ_UnmarshalArgs(msg, "qus", &sessionPort, &sessionId, &joiner);
+    if (status != AJ_OK) {
+        AJ_ErrPrintf(("AJ_BusHandleSessionJoined(msg=0x%p): Unmarshal error\n", msg));
+        return status;
+    }
+
+    AJ_Session* boundsession = AJ_BusGetBoundSession(msg->bus, sessionPort);
+    if (boundsession) {
+        int multipoint = boundsession->multipoint;
+        if (multipoint) {
+            /* if there already is an OngoingSession entry for this session,
+             * we don't have to add another one. */
+            AJ_Session* ongoing = AJ_BusGetOngoingHostedSessionByPort(msg->bus, sessionPort);
+            if (ongoing != NULL) {
+                return AJ_OK;
+            } else {
+                AJ_BusAddOngoingSession(msg->bus, sessionId, sessionPort, TRUE, TRUE, NULL);
+            }
+        } else {
+            AJ_BusAddOngoingSession(msg->bus, sessionId, sessionPort, TRUE, FALSE, joiner);
+        }
+    } else {
+        AJ_ErrPrintf(("AJ_BusHandleSessionJoined(msg=0x%p): unknown session port\n", msg));
+        return AJ_ERR_FAILURE;
+    }
+    return AJ_OK;
+}
+
+AJ_Status AJ_BusHandleSessionLost(AJ_Message* msg)
+{
+    uint32_t sessionId;
+
+    AJ_Status status = AJ_UnmarshalArgs(msg, "u", &sessionId);
+    if (status != AJ_OK) {
+        AJ_ErrPrintf(("AJ_BusHandleSessionLost(msg=0x%p): Unmarshal error\n", msg));
+        return status;
+    }
+    AJ_BusRemoveOngoingSession(msg->bus, sessionId);
+    return AJ_OK;
+}
+
+AJ_Status AJ_BusHandleSessionLostWithReason(AJ_Message* msg)
+{
+    uint32_t sessionId;
+    uint32_t reason;
+
+    AJ_Status status = AJ_UnmarshalArgs(msg, "uu", &sessionId, &reason);
+    if (status != AJ_OK) {
+        AJ_ErrPrintf(("AJ_BusHandleSessionLostWithReason(msg=0x%p): Unmarshal error\n", msg));
+        return status;
+    }
+    AJ_BusRemoveOngoingSession(msg->bus, sessionId);
+    return AJ_OK;
+}
+
+AJ_Status AJ_BusHandleJoinSessionReply(AJ_Message* msg)
+{
+    uint32_t resultCode;
+    uint32_t sessionId;
+    AJ_SessionOpts opts = { 0 };
+    AJ_Arg arr;
+    AJ_Status status;
+
+    if (msg->hdr->msgType == AJ_MSG_ERROR) {
+        AJ_InfoPrintf(("AJ_BusHandleSessionJoinSessionReply(msg=0x%p): error=%s.\n", msg, msg->error));
+        /* it's OK for the JoinSession reply to be an error message - it simply means
+         * we can remove the pending session here */
+        AJ_BusRemovePendingSession(msg->bus, msg->replySerial);
+        return AJ_OK;
+    }
+
+    status = AJ_UnmarshalArgs(msg, "uu", &resultCode, &sessionId);
+    if (status != AJ_OK) {
+        goto unmarshal_error;
+    }
+
+    status = UnmarshalSessionOpts(msg, &opts);
+    if (status != AJ_OK) {
+        goto unmarshal_error;
+    }
+
+    /* now we can fill in the pending AJ_Session structure */
+    AJ_Session* session = AJ_BusGetPendingSession(msg->bus, msg->replySerial);
+    if (session) {
+        session->sessionId = sessionId;
+        session->multipoint = opts.isMultipoint;
+        if (opts.isMultipoint) {
+            AJ_Free(session->otherParticipant);
+            session->otherParticipant = NULL;
+        }
+    } else {
+        AJ_ErrPrintf(("AJ_BusHandleSessionJoinSessionReply(msg=0x%p): JoinSession reply for unknown JoinSession call\n", msg));
+        return AJ_ERR_FAILURE;
+    }
+
+    return AJ_OK;
+
+unmarshal_error:
+    AJ_ErrPrintf(("AJ_BusHandleJoinSessionReply(msg=0x%p): Unmarshal error\n", msg));
+    return status;
 }
