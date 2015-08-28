@@ -31,6 +31,7 @@
 #include <ajtcl/aj_introspect.h>
 #include <ajtcl/aj_net.h>
 #include <ajtcl/aj_bus.h>
+#include <ajtcl/aj_bus_priv.h>
 #include <ajtcl/aj_disco.h>
 #include <ajtcl/aj_std.h>
 #include <ajtcl/aj_debug.h>
@@ -708,6 +709,11 @@ void AJ_Disconnect(AJ_BusAttachment* bus)
      * Set the routing nodes proto version to zero (not connected)
      */
     routingProtoVersion = 0;
+
+    /*
+     * Clean up the ongoing session bookkeeping
+     */
+    AJ_BusRemoveAllSessions(bus);
 }
 
 static uint32_t RNBlacklistIP[AJ_ROUTING_NODE_BLACKLIST_SIZE];
