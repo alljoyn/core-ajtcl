@@ -82,7 +82,7 @@ char* AJ_GetLine(char* str, size_t num, void* fp)
     return p;
 }
 
-static boolean ioThreadRunning = FALSE;
+static uint8_t ioThreadRunning = FALSE;
 static char cmdline[1024];
 static const uint32_t stacksize = 80 * 1024;
 static uint8_t consumed = TRUE;

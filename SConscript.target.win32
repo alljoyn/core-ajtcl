@@ -1,14 +1,27 @@
 import os
+import platform
 
 Import('env')
 
+default_target_os = 'win7'
+allowed_target_oss = ('win7', 'win10')
+
+if platform.machine() == 'x86_64':
+    default_target_cpu = 'x86_64'
+else:
+    default_target_cpu = 'x86'
+allowed_target_cpus = ('x86', 'x86_64', 'arm')
+
 # Target specific SCons command line variables
 default_msvc_version = os.environ.get('AJ_MSVC_VERSION', '12.0')
-supported_msvc_versions = [ '8.0', '9.0', '10.0', '11.0', '11.0Exp', '12.0', '12.0Exp' ]
+supported_msvc_versions = [ '8.0', '9.0', '10.0', '11.0', '11.0Exp', '12.0', '12.0Exp', '14.0', '14.0Exp' ]
+
 vars = Variables()
-vars.Add(EnumVariable('MSVC_VERSION', 'MSVC compiler version - Windows',                        default_msvc_version, allowed_values = supported_msvc_versions))
-vars.Add(BoolVariable('FORCE32',      'Force building 32 bit on 64 bit architecture',           os.environ.get('AJ_FORCE32', False)))
-vars.Add(BoolVariable('NO_AUTH',      "Compile in authentication mechanism's to the code base", os.environ.get('AJ_NO_AUTH', False)))
+vars.Add(EnumVariable('OS', 'Target OS', default_target_os, allowed_values = allowed_target_oss))
+vars.Add(EnumVariable('CPU', 'Target CPU', default_target_cpu, allowed_values = allowed_target_cpus))
+vars.Add(EnumVariable('MSVC_VERSION', 'MSVC compiler version - Windows', default_msvc_version, allowed_values = supported_msvc_versions))
+vars.Add(BoolVariable('FORCE32', 'Force building 32 bit on 64 bit architecture', os.environ.get('AJ_FORCE32', False)))
+vars.Add(BoolVariable('NO_AUTH', "Compile in authentication mechanism's to the code base", os.environ.get('AJ_NO_AUTH', False)))
 vars.Update(env)
 Help(vars.GenerateHelpText(env))
 
@@ -34,3 +47,23 @@ else:
 
 #env['build_shared'] = True
 env['connectivity_options'] = [ 'tcp', 'ardp' ]
+
+# More Windows specific compiler flags
+env.Append(CPPDEFINES=['UNICODE', '_UNICODE', 'WIN32_LEAN_AND_MEAN', ('_VARIADIC_MAX','10')])
+
+# Set MS OS version number
+if env['OS'] == 'win10':
+    # Windows 10
+    env.Append(CPPDEFINES=[('_WIN32_WINNT', '_WIN32_WINNT_WIN10')])
+elif env['OS'] == 'win7':
+    # Windows 7
+    env.Append(CPPDEFINES=[('_WIN32_WINNT', '_WIN32_WINNT_WIN7')])
+else:
+    print 'Error: Unknown Windows OS type: ' + env['OS']
+    Exit(1)
+
+# This is needed in order to build with Scons and Visual Studio multiple targets
+# in parallel using the -j option. See alljoyn\build_core\conf\windows\SConscript.
+env['CCPDBFLAGS'] = '/Z7'
+env['PDB'] = '${TARGET.base}.pdb'
+env.Append(LINKFLAGS=['/PDB:${TARGET.base}.pdb'])
