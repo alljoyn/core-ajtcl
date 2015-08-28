@@ -57,13 +57,6 @@ static const AJ_Object AppObjects[] = {
 };
 
 
-static uint32_t MyBusAuthPwdCB(uint8_t* buf, uint32_t bufLen)
-{
-    const char* myPwd = "1234";
-    strncpy((char*)buf, myPwd, bufLen);
-    return (uint32_t)strlen(myPwd);
-}
-
 static const char serviceName[] = "org.alljoyn.BusNode";
 
 static AJ_Status ConnectToBus(AJ_BusAttachment* bus)
@@ -192,8 +185,6 @@ int AJ_Main(void)
 
     AJ_PrintXML(AppObjects);
     AJ_RegisterObjects(AppObjects, NULL);
-
-    SetBusAuthPwdCallback(MyBusAuthPwdCB);
 
 // Windows, Linux and Arduino are already connected to the network when we get to this point.
 #if !(defined(ARDUINO) || defined(__linux) || defined(_WIN32) || defined(__MACH__))
