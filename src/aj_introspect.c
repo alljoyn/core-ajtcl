@@ -281,13 +281,7 @@ static AJ_Status ExpandInterfaces(XMLWriterFunc XMLWriter, void* context, const 
                  * Advance so that we do not return a '&' character
                  */
                 member++;
-                if (descLookup != NULL) {
-                    /*
-                     * If we have a descLookup function pointer it implies that we entered the method
-                     * through the org.allseen.Introspect interface
-                     */
-                    isSessionless = TRUE;
-                }
+                isSessionless = TRUE;
             }
             attr = ExpandAttribute(XMLWriter, context, &member, nameAttr, "\"");
             if (memberType == PROPERTY) {
