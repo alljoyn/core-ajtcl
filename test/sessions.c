@@ -42,8 +42,6 @@ uint8_t dbgSESSIONS = 0;
 #define METHOD_TIMEOUT     (1000ul * 3)
 
 /// globals
-AJ_Status status = AJ_OK;
-AJ_BusAttachment bus;
 uint8_t connected = FALSE;
 uint32_t g_sessionId = 0ul;
 AJ_Status authStatus = AJ_ERR_NULL;
@@ -85,13 +83,57 @@ void AppDoWork()
     AJ_InfoPrintf(("AppDoWork\n"));
 }
 
+static const char psk_hint[] = "<anonymous>";
+/*
+ * The tests were changed at some point to make the psk longer.
+ * If doing backcompatibility testing with previous versions (14.06 or before),
+ * define LITE_TEST_BACKCOMPAT to use the old version of the password.
+ */
+#ifndef LITE_TEST_BACKCOMPAT
+static const char psk_char[] = "faaa0af3dd3f1e0379da046a3ab6ca44";
+#else
+static const char psk_char[] = "1234";
+#endif
 
-static const char PWD[] = "1234";
+/*
+ * Default key expiration
+ */
+static const uint32_t keyexpiration = 0xFFFFFFFF;
 
-static uint32_t PasswordCallback(uint8_t* buffer, uint32_t bufLen)
+static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, AJ_Credential* cred)
 {
-    memcpy(buffer, PWD, sizeof(PWD));
-    return sizeof(PWD) - 1;
+    AJ_Status status = AJ_ERR_INVALID;
+
+    AJ_AlwaysPrintf(("AuthListenerCallback authmechanism %08X command %d\n", authmechanism, command));
+
+    switch (authmechanism) {
+    case AUTH_SUITE_ECDHE_NULL:
+        cred->expiration = keyexpiration;
+        status = AJ_OK;
+        break;
+
+    case AUTH_SUITE_ECDHE_PSK:
+        switch (command) {
+        case AJ_CRED_PUB_KEY:
+            cred->data = (uint8_t*) psk_hint;
+            cred->len = strlen(psk_hint);
+            cred->expiration = keyexpiration;
+            status = AJ_OK;
+            break;
+
+        case AJ_CRED_PRV_KEY:
+            cred->data = (uint8_t*) psk_char;
+            cred->len = strlen(psk_char);
+            cred->expiration = keyexpiration;
+            status = AJ_OK;
+            break;
+        }
+        break;
+
+    default:
+        break;
+    }
+    return status;
 }
 
 void AuthCallback(const void* context, AJ_Status status)
@@ -126,12 +168,12 @@ AJ_Status AppHandleChatSignal(AJ_Message* msg)
     return status;
 }
 
-void Do_Connect()
+void Do_Connect(AJ_BusAttachment* bus)
 {
     while (!connected) {
         AJ_Status status;
         AJ_AlwaysPrintf(("Attempting to connect to bus\n"));
-        status = AJ_FindBusAndConnect(&bus, NULL, CONNECT_TIMEOUT);
+        status = AJ_FindBusAndConnect(bus, NULL, CONNECT_TIMEOUT);
         if (status != AJ_OK) {
             AJ_AlwaysPrintf(("Failed to connect to bus sleeping for %lu seconds\n", CONNECT_PAUSE / 1000));
             AJ_Sleep(CONNECT_PAUSE);
@@ -139,20 +181,23 @@ void Do_Connect()
         }
         connected = TRUE;
         AJ_AlwaysPrintf(("AllJoyn service connected to bus\n"));
-        AJ_AlwaysPrintf(("Connected to Daemon:%s\n", AJ_GetUniqueName(&bus)));
+        AJ_AlwaysPrintf(("Connected to Daemon:%s\n", AJ_GetUniqueName(bus)));
     }
 }
 
 int AJ_Main()
 {
+    AJ_Status status;
+    AJ_BusAttachment bus;
+
     AJ_Initialize();
     AJ_PrintXML(AppObjects);
     AJ_RegisterObjects(AppObjects, NULL);
 
-    Do_Connect();
+    Do_Connect(&bus);
 
     if (authenticate) {
-        AJ_BusSetPasswordCallback(&bus, PasswordCallback);
+        AJ_BusSetAuthListenerCallback(&bus, AuthListenerCallback);
     } else {
         authStatus = AJ_OK;
     }
@@ -558,8 +603,8 @@ int AJ_Main()
                 {
                     char* name;
                     char* namePrefix;
-                    uint16_t status;
-                    AJ_UnmarshalArgs(&msg, "sqs", &name, &status, &namePrefix);
+                    uint16_t transport;
+                    AJ_UnmarshalArgs(&msg, "sqs", &name, &transport, &namePrefix);
                     AJ_AlwaysPrintf(("FoundAdvertisedName name=%s, namePrefix=%s\n", name, namePrefix));
                 }
                 break;
@@ -586,7 +631,7 @@ int AJ_Main()
              * Sleep a little while before trying to reconnect
              */
             AJ_Sleep(10 * 1000);
-            Do_Connect();
+            Do_Connect(&bus);
         }
     }
 

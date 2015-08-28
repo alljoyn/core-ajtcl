@@ -210,7 +210,7 @@ static void AppDoWork(AJ_BusAttachment* bus, uint32_t sessionId, const char* ser
 static const char psk_hint[] = "<anonymous>";
 /*
  * The tests were changed at some point to make the psk longer.
- * If doing backcompatibility testing with previous versions (14.08 or before),
+ * If doing backcompatibility testing with previous versions (14.06 or before),
  * define LITE_TEST_BACKCOMPAT to use the old version of the password.
  */
 #ifndef LITE_TEST_BACKCOMPAT
@@ -218,11 +218,6 @@ static const char psk_char[] = "faaa0af3dd3f1e0379da046a3ab6ca44";
 #else
 static const char psk_char[] = "123456";
 #endif
-static uint32_t PasswordCallback(uint8_t* buffer, uint32_t bufLen)
-{
-    memcpy(buffer, psk_char, sizeof(psk_char));
-    return sizeof(psk_char) - 1;
-}
 
 // Copied from alljoyn/alljoyn_core/unit_test/AuthListenerECDHETest.cc with
 // newlines removed
@@ -486,12 +481,9 @@ int AJ_Main()
                 AJ_BusEnableSecurity(&bus, suites, numsuites);
                 AJ_BusSetAuthListenerCallback(&bus, AuthListenerCallback);
                 if (clearkeys) {
-                    status = AJ_ClearCredentials(AJ_GENERIC_MASTER_SECRET | AJ_CRED_TYPE_GENERIC);
-                    AJ_ASSERT(AJ_OK == status);
-                    status = AJ_ClearCredentials(AJ_GENERIC_ECDSA_MANIFEST | AJ_CRED_TYPE_GENERIC);
-                    AJ_ASSERT(AJ_OK == status);
-                    status = AJ_ClearCredentials(AJ_GENERIC_ECDSA_KEYS | AJ_CRED_TYPE_GENERIC);
-                    AJ_ASSERT(AJ_OK == status);
+                    AJ_ClearCredentials(AJ_GENERIC_MASTER_SECRET | AJ_CRED_TYPE_GENERIC);
+                    AJ_ClearCredentials(AJ_GENERIC_ECDSA_MANIFEST | AJ_CRED_TYPE_GENERIC);
+                    AJ_ClearCredentials(AJ_GENERIC_ECDSA_KEYS | AJ_CRED_TYPE_GENERIC);
                 }
                 status = AJ_BusAuthenticatePeer(&bus, g_peerServiceName, AuthCallback, &authStatus);
                 if (status != AJ_OK) {

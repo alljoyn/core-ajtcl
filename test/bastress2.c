@@ -26,8 +26,6 @@
 #define METHOD_TIMEOUT     (1000ul * 3)
 
 /// globals
-AJ_Status status = AJ_OK;
-AJ_BusAttachment bus;
 uint8_t connected = FALSE;
 uint32_t sessionId = 0ul;
 AJ_Status authStatus = AJ_ERR_NULL;
@@ -67,20 +65,63 @@ void AppDoWork()
     AJ_AlwaysPrintf(("AppDoWork\n"));
 }
 
+static const char psk_hint[] = "<anonymous>";
+/*
+ * The tests were changed at some point to make the psk longer.
+ * If doing backcompatibility testing with previous versions (14.06 or before),
+ * define LITE_TEST_BACKCOMPAT to use the old version of the password.
+ */
+#ifndef LITE_TEST_BACKCOMPAT
+static const char psk_char[] = "faaa0af3dd3f1e0379da046a3ab6ca44";
+#else
+static const char psk_char[] = "1234";
+#endif
 
-static const char PWD[] = "1234";
+/*
+ * Default key expiration
+ */
+static const uint32_t keyexpiration = 0xFFFFFFFF;
 
-static uint32_t PasswordCallback(uint8_t* buffer, uint32_t bufLen)
+static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, AJ_Credential* cred)
 {
-    memcpy(buffer, PWD, sizeof(PWD));
-    return sizeof(PWD) - 1;
+    AJ_Status status = AJ_ERR_INVALID;
+
+    AJ_AlwaysPrintf(("AuthListenerCallback authmechanism %08X command %d\n", authmechanism, command));
+
+    switch (authmechanism) {
+    case AUTH_SUITE_ECDHE_NULL:
+        cred->expiration = keyexpiration;
+        status = AJ_OK;
+        break;
+
+    case AUTH_SUITE_ECDHE_PSK:
+        switch (command) {
+        case AJ_CRED_PUB_KEY:
+            cred->data = (uint8_t*) psk_hint;
+            cred->len = strlen(psk_hint);
+            cred->expiration = keyexpiration;
+            status = AJ_OK;
+            break;
+
+        case AJ_CRED_PRV_KEY:
+            cred->data = (uint8_t*) psk_char;
+            cred->len = strlen(psk_char);
+            cred->expiration = keyexpiration;
+            status = AJ_OK;
+            break;
+        }
+        break;
+
+    default:
+        break;
+    }
+    return status;
 }
 
 void AuthCallback(const void* context, AJ_Status status)
 {
     *((AJ_Status*)context) = status;
 }
-
 
 AJ_Status AppHandleCat(AJ_Message* msg)
 {
@@ -110,6 +151,8 @@ AJ_Status AppHandleCat(AJ_Message* msg)
 
 int AJ_Main()
 {
+    AJ_Status status;
+    AJ_BusAttachment bus;
     // you're connected now, so print out the data:
     AJ_AlwaysPrintf(("You're connected to the network\n"));
     AJ_Initialize();
@@ -125,7 +168,7 @@ int AJ_Main()
                 AJ_AlwaysPrintf(("StartService returned %d\n", status));
                 connected = TRUE;
                 if (authenticate) {
-                    AJ_BusSetPasswordCallback(&bus, PasswordCallback);
+                    AJ_BusSetAuthListenerCallback(&bus, AuthListenerCallback);
                 } else {
                     authStatus = AJ_OK;
                 }
