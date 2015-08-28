@@ -1149,6 +1149,13 @@ void AJ_ARDP_Disconnect(uint8_t forced)
         conn->state = CLOSE_WAIT;
         /* Block here  to give data retransmits a chance to go through */
         AJ_ARDP_Recv(&conn->netSock->rx, 0, UDP_DISCONNECT_TIMEOUT);
+        /*
+         * If, while we are waiting, the remote disconnected, the connection is torn down at this point.
+         * Nothing to do, just return.
+         */
+        if (conn == NULL) {
+            return;
+        }
     }
 
     AJ_WarnPrintf(("ARDP_Disconnect: Send RST\n"));
