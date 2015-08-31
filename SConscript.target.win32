@@ -29,38 +29,26 @@ Help(vars.GenerateHelpText(env))
 env.Append(LIBS = ['advapi32'])
 
 # Compiler flags
-env.Append(CFLAGS = [ '/J', '/W3', '/nologo' ])
-env.Append(CPPDEFINES = [ '_CRT_SECURE_NO_WARNINGS', 'AJ_MAIN' ])
+env.Append(CFLAGS = ['/J', '/W3', '/nologo'])
+env.Append(CPPDEFINES = ['_CRT_SECURE_NO_WARNINGS', 'AJ_MAIN'])
 if env['FORCE32']:
     env['TARGET_ARCH'] = 'x86'
 if env['NO_AUTH']:
-    env.Append(CPPDEFINES = [ 'NO_SECURITY' ])
+    env.Append(CPPDEFINES = ['NO_SECURITY'])
 
 # Debug/Release Variants
 if env['VARIANT'] == 'debug':
-    env.Append(CFLAGS = [ '/Zi', '/Od', '/MDd' ])
-    env.Append(CPPDEFINES = [ '_DEBUG' ])
-    env.Append(LINKFLAGS = [ '/debug' ])
+    env.Append(CFLAGS = ['/Zi', '/Od', '/MDd'])
+    env.Append(CPPDEFINES = ['_DEBUG'])
+    env.Append(LINKFLAGS = ['/debug'])
 else:
-    env.Append(CFLAGS = [ '/Gy', '/O1', '/GF', '/MD' ])
-    env.Append(LINKFLAGS = [ '/opt:ref', '/NODEFAULTLIB:libcmt.lib' ])
+   env.Append(CFLAGS = ['/Gy', '/O1', '/GF', '/MD'])
+   env.Append(LINKFLAGS = ['/opt:ref', '/NODEFAULTLIB:libcmt.lib'])
 
-#env['build_shared'] = True
-env['connectivity_options'] = [ 'tcp', 'ardp' ]
+env['connectivity_options'] = ['tcp', 'ardp']
 
-# More Windows specific compiler flags
-env.Append(CPPDEFINES=['UNICODE', '_UNICODE', 'WIN32_LEAN_AND_MEAN', ('_VARIADIC_MAX','10')])
-
-# Set MS OS version number
-if env['OS'] == 'win10':
-    # Windows 10
-    env.Append(CPPDEFINES=[('_WIN32_WINNT', '_WIN32_WINNT_WIN10')])
-elif env['OS'] == 'win7':
-    # Windows 7
-    env.Append(CPPDEFINES=[('_WIN32_WINNT', '_WIN32_WINNT_WIN7')])
-else:
-    print 'Error: Unknown Windows OS type: ' + env['OS']
-    Exit(1)
+# Support running on Win7 and newer Windows versions.
+env.Append(CPPDEFINES = [('_WIN32_WINNT', '_WIN32_WINNT_WIN7')])
 
 # This is needed in order to build with Scons and Visual Studio multiple targets
 # in parallel using the -j option. See alljoyn\build_core\conf\windows\SConscript.
