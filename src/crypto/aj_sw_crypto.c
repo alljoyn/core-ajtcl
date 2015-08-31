@@ -19,6 +19,7 @@
 
 #include <ajtcl/aj_target.h>
 #include <ajtcl/aj_crypto.h>
+#include <ajtcl/aj_util.h>
 
 
 #define MAX_SCHEDULE_LEN 48

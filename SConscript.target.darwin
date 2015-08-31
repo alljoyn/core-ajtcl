@@ -10,7 +10,7 @@ vars.Update(env)
 Help(vars.GenerateHelpText(env))
 
 # Platform libraries
-env.Append(LIBS = ['crypto', 'pthread'])
+env.Append(LIBS = ['pthread'])
 
 # Cross compile setup
 if os.environ.has_key('CROSS_PREFIX'):
