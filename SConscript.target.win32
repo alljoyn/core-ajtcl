@@ -34,7 +34,7 @@ env.Append(CPPDEFINES = [ '_CRT_SECURE_NO_WARNINGS', 'AJ_MAIN' ])
 if env['FORCE32']:
     env['TARGET_ARCH'] = 'x86'
 if env['NO_AUTH']:
-    env.Append(CPPDEFINES = [ 'NO_SECURITY' ])
+    env.Append(CPPDEFINES = [ 'TEST_DISABLE_SECURITY' ])
 
 # Debug/Release Variants
 if env['VARIANT'] == 'debug':
