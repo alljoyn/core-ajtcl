@@ -453,6 +453,13 @@ int AJ_Main()
     clearkeys = TRUE;
 #endif
 
+#ifdef SECURE_INTERFACE
+    if (numsuites == 0) {
+        /* Default security to ECDHE_NULL, if not explicit elsewhere */
+        suites[numsuites++] = AUTH_SUITE_ECDHE_NULL;
+    }
+#endif
+
     /*
      * One time initialization before calling any other AllJoyn APIs
      */
