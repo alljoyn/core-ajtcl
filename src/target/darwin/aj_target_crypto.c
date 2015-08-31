@@ -28,7 +28,6 @@
 #include <ajtcl/aj_crypto_aes_priv.h>
 #include <ajtcl/aj_crypto_drbg.h>
 #include <ajtcl/aj_debug.h>
-#include <openssl/aes.h>
 
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
@@ -42,48 +41,6 @@ uint8_t dbgTARGET_CRYPTO = 0;
  * Context for AES-128 CTR DRBG
  */
 static CTR_DRBG_CTX drbgctx;
-
-static AES_KEY keyState;
-
-void AJ_AES_Enable(const uint8_t* key)
-{
-    AES_set_encrypt_key(key, 16 * 8, &keyState);
-}
-
-void AJ_AES_Disable(void)
-{
-}
-
-void AJ_AES_CTR_128(const uint8_t* key, const uint8_t* in, uint8_t* out, uint32_t len, uint8_t* ctr)
-{
-    /*
-       Counter mode the hard way because the SSL CTR-mode API is just wierd.
-     */
-    while (len) {
-        size_t n = min(len, 16);
-        uint8_t enc[16];
-        uint8_t* p = enc;
-        uint16_t counter = (ctr[14] << 8) | ctr[15];
-        len -= n;
-        AES_encrypt(ctr, enc, &keyState);
-        while (n--) {
-            *out++ = *p++ ^ *in++;
-        }
-        ++counter;
-        ctr[15] = counter;
-        ctr[14] = counter >> 8;
-    }
-}
-
-void AJ_AES_CBC_128_ENCRYPT(const uint8_t* key, const uint8_t* in, uint8_t* out, uint32_t len, uint8_t* iv)
-{
-    AES_cbc_encrypt(in, out, len, &keyState, iv, AES_ENCRYPT);
-}
-
-void AJ_AES_ECB_128_ENCRYPT(const uint8_t* key, const uint8_t* in, uint8_t* out)
-{
-    AES_encrypt(in, out, &keyState);
-}
 
 uint32_t AJ_PlatformEntropy(uint8_t* data, uint32_t size)
 {

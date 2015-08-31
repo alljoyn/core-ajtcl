@@ -2,7 +2,6 @@ Import('src_env')
 
 # Enable common components for Linux
 src_env['crypto'] = True
-src_env['crypto_sw_aes'] = True
 src_env['external_sha2'] = True
 src_env['malloc'] = True
 src_env['nvram'] = True
