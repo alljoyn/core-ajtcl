@@ -91,7 +91,7 @@ typedef struct _PeerContext {
 } PeerContext;
 
 static PeerContext peerContext;
-static AJ_AuthenticationContext authContext;
+static AJ_AuthenticationContext authContext = { 0 };
 
 static uint32_t GetAcceptableVersion(uint32_t srcV)
 {
@@ -164,10 +164,18 @@ static AJ_Status KeyGen(const char* peerName, uint8_t role, const char* nonce1, 
 
 void AJ_ClearAuthContext()
 {
-    /* Free issuers and hash */
+    /* Free issuers, hash, and PSK */
     AJ_Free(authContext.kactx.ecdsa.key);
     if (authContext.hash) {
         AJ_SHA256_Final(authContext.hash, NULL);
+    }
+    AJ_ASSERT(((NULL == authContext.kactx.psk.hint) && (authContext.kactx.psk.hintSize == 0)) ||
+              ((NULL != authContext.kactx.psk.hint) && (authContext.kactx.psk.hintSize > 0)));
+    AJ_Free(authContext.kactx.psk.hint);
+    if (NULL != authContext.kactx.psk.key) {
+        AJ_ASSERT(authContext.kactx.psk.keySize > 0);
+        AJ_MemZeroSecure(authContext.kactx.psk.key, authContext.kactx.psk.keySize);
+        AJ_Free(authContext.kactx.psk.key);
     }
 
     memset(&peerContext, 0, sizeof (PeerContext));

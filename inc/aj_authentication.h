@@ -68,15 +68,19 @@ typedef struct _KeyExchangeContext {
 } KeyExchangeContext;
 
 /**
+ * Size of buffer provided for the PSK when using the V1 callback.
+ */
+#define PSK_V1_CALLBACK_BUFFER_SIZE ((size_t)128)
+
+/**
  * Context for PSK authentication
- * Memory is not allocated and copied
- * The pointer addresses memory that exists in the lifetime of its usage
+ * Memory is allocated and copied, and is cleared and freed by AJ_ClearAuthContext
  */
 typedef struct _PSKContext {
     uint8_t* hint;                                 /**< PSK hint */
-    size_t hintSize;                              /**< Size of PSK hint */
+    size_t hintSize;                               /**< Size of PSK hint */
     uint8_t* key;                                  /**< PSK */
-    size_t keySize;                               /**< Size of PSK */
+    size_t keySize;                                /**< Size of PSK */
 } PSKContext;
 
 typedef struct _ECDSAContext {

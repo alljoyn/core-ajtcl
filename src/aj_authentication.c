@@ -90,6 +90,11 @@ static AJ_Status ComputePSKVerifier(AJ_AuthenticationContext* ctx, const char* l
     uint8_t digest[AJ_SHA256_DIGEST_LENGTH];
     AJ_Status status;
 
+    /* Use the old method for < CONVERSATION_V4. */
+    if ((ctx->version >> 16) < CONVERSATION_V4) {
+        return ComputeVerifier(ctx, label, buffer, bufferlen);
+    }
+
     status = AJ_ConversationHash_GetDigest(ctx, digest);
     if (status != AJ_OK) {
         return status;
@@ -462,27 +467,65 @@ static AJ_Status NULLUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
     return status;
 }
 
+static AJ_Status PSKSetHint(AJ_AuthenticationContext* ctx, const uint8_t* hint, size_t hintSize)
+{
+    AJ_ASSERT(((NULL == ctx->kactx.psk.hint) && (ctx->kactx.psk.hintSize == 0)) ||
+              ((NULL != ctx->kactx.psk.hint) && (ctx->kactx.psk.hintSize > 0)));
+    AJ_Free(ctx->kactx.psk.hint);
+
+    ctx->kactx.psk.hint = AJ_Malloc(hintSize);
+    if (NULL == ctx->kactx.psk.hint) {
+        ctx->kactx.psk.hintSize = 0;
+        return AJ_ERR_RESOURCES;
+    }
+    ctx->kactx.psk.hintSize = hintSize;
+    memcpy(ctx->kactx.psk.hint, hint, hintSize);
+
+    return AJ_OK;
+}
+
+static AJ_Status PSKSetKey(AJ_AuthenticationContext* ctx, const uint8_t* key, size_t keySize)
+{
+    if (NULL != ctx->kactx.psk.key) {
+        AJ_ASSERT(ctx->kactx.psk.keySize > 0);
+        AJ_MemZeroSecure(ctx->kactx.psk.key, ctx->kactx.psk.keySize);
+        AJ_Free(ctx->kactx.psk.key);
+    }
+
+    ctx->kactx.psk.key = AJ_Malloc(keySize);
+    if (NULL == ctx->kactx.psk.key) {
+        ctx->kactx.psk.keySize = 0;
+        return AJ_ERR_RESOURCES;
+    }
+    ctx->kactx.psk.keySize = keySize;
+    memcpy(ctx->kactx.psk.key, key, keySize);
+
+    return AJ_OK;
+}
+
 static AJ_Status PSKCallbackV1(AJ_AuthenticationContext* ctx, AJ_Message* msg)
 {
-    uint8_t data[128];
+    AJ_Status status;
+    uint8_t data[PSK_V1_CALLBACK_BUFFER_SIZE];
     size_t size = sizeof (data);
 
     /*
      * Assume application does not copy in more than this size buffer
      * Expiration not set by application
      */
-    size = ctx->bus->pwdCallback(data, size);
+    size = ctx->bus->pwdCallback(data, (uint32_t)size);
     if (sizeof (data) < size) {
+        AJ_MemZeroSecure(data, sizeof(data));
         return AJ_ERR_RESOURCES;
+    }
+    status = PSKSetKey(ctx, data, size);
+    AJ_MemZeroSecure(data, sizeof (data));
+    if (AJ_OK != status) {
+        return status;
     }
     ctx->expiration = 0xFFFFFFFF;
     AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, ctx->kactx.psk.hint, ctx->kactx.psk.hintSize);
-    AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, data, size);
-
-    // CONVERSATION_V4 computes the PSK verifier based on these instead of including it in the conversation
-    // hash, so save them for later.
-    ctx->kactx.psk.key = data;
-    ctx->kactx.psk.keySize = size;
+    AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, ctx->kactx.psk.key, ctx->kactx.psk.keySize);
 
     return AJ_OK;
 }
@@ -497,8 +540,7 @@ static AJ_Status PSKCallbackV2(AJ_AuthenticationContext* ctx, AJ_Message* msg)
         cred.direction = AJ_CRED_REQUEST;
         status = ctx->bus->authListenerCallback(AUTH_SUITE_ECDHE_PSK, AJ_CRED_PUB_KEY, &cred);
         if (AJ_OK == status) {
-            ctx->kactx.psk.hint = cred.data;
-            ctx->kactx.psk.hintSize = cred.len;
+            status = PSKSetHint(ctx, cred.data, cred.len);
         }
         break;
 
@@ -508,6 +550,9 @@ static AJ_Status PSKCallbackV2(AJ_AuthenticationContext* ctx, AJ_Message* msg)
         cred.len = ctx->kactx.psk.hintSize;
         status = ctx->bus->authListenerCallback(AUTH_SUITE_ECDHE_PSK, AJ_CRED_PUB_KEY, &cred);
         break;
+    }
+    if (AJ_OK != status) {
+        return AJ_ERR_SECURITY;
     }
     cred.direction = AJ_CRED_REQUEST;
     status = ctx->bus->authListenerCallback(AUTH_SUITE_ECDHE_PSK, AJ_CRED_PRV_KEY, &cred);
@@ -521,8 +566,7 @@ static AJ_Status PSKCallbackV2(AJ_AuthenticationContext* ctx, AJ_Message* msg)
 
     // CONVERSATION_V4 computes the PSK verifier based on these instead of including it in the conversation
     // hash, so save them for later.
-    ctx->kactx.psk.key = cred.data;
-    ctx->kactx.psk.keySize = cred.len;
+    status = PSKSetKey(ctx, cred.data, cred.len);
 
     return status;
 }
@@ -555,8 +599,10 @@ static AJ_Status PSKMarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
     switch (ctx->role) {
     case AUTH_CLIENT:
         // Default to anonymous
-        ctx->kactx.psk.hint = (uint8_t*) anon;
-        ctx->kactx.psk.hintSize = strlen(anon);
+        status = PSKSetHint(ctx, (const uint8_t*) anon, strlen(anon));
+        if (AJ_OK != status) {
+            return AJ_ERR_SECURITY;
+        }
         status = PSKCallback(ctx, msg);
         if (AJ_OK != status) {
             return AJ_ERR_SECURITY;
@@ -583,16 +629,22 @@ static AJ_Status PSKUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
 {
     AJ_Status status;
     uint8_t verifier[AUTH_VERIFIER_LEN];
+    uint8_t* hint;
+    size_t hintSize;
     uint8_t* data;
     size_t size;
 
     AJ_InfoPrintf(("PSKUnmarshal(ctx=%p, msg=%p)\n", ctx, msg));
 
-    status = AJ_UnmarshalArgs(msg, "v", "(ayay)", &ctx->kactx.psk.hint, &ctx->kactx.psk.hintSize, &data, &size);
+    status = AJ_UnmarshalArgs(msg, "v", "(ayay)", &hint, &hintSize, &data, &size);
     if (AJ_OK != status) {
         return AJ_ERR_SECURITY;
     }
     if (AUTH_VERIFIER_LEN != size) {
+        return AJ_ERR_SECURITY;
+    }
+    status = PSKSetHint(ctx, hint, hintSize);
+    if (AJ_OK != status) {
         return AJ_ERR_SECURITY;
     }
 
