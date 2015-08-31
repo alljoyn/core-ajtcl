@@ -59,7 +59,7 @@ if env['FORCE32']:
     env.Append(LINKFLAGS = '-m32')
 env.Append(CPPDEFINES = [ 'AJ_MAIN' ])
 if env['NO_AUTH']:
-    env.Append(CPPDEFINES = [ 'NO_SECURITY' ])
+    env.Append(CPPDEFINES = [ 'TEST_DISABLE_SECURITY' ])
 
 # Debug/Release Variants
 if env['VARIANT'] == 'debug':
