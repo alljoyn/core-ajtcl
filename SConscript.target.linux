@@ -70,3 +70,7 @@ else:
 
 env['build_shared'] = True
 env['connectivity_options'] = [ 'tcp', 'ardp' ]
+
+# Large Memory Platform
+env.Append(CPPDEFINES = ['AJ_NVRAM_SIZE=64000'])
+env.Append(CPPDEFINES = ['AJ_NUM_REPLY_CONTEXTS=8'])

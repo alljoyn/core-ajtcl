@@ -55,3 +55,7 @@ env.Append(CPPDEFINES = [('_WIN32_WINNT', '_WIN32_WINNT_WIN7')])
 env['CCPDBFLAGS'] = '/Z7'
 env['PDB'] = '${TARGET.base}.pdb'
 env.Append(LINKFLAGS=['/PDB:${TARGET.base}.pdb'])
+
+# Large Memory Platform
+env.Append(CPPDEFINES = ['AJ_NVRAM_SIZE=64000'])
+env.Append(CPPDEFINES = ['AJ_NUM_REPLY_CONTEXTS=8'])
