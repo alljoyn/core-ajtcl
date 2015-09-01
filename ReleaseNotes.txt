@@ -75,7 +75,7 @@ For details of previous releases/release families please see the release notes:
 
 Change history
 --------------
-15.05b - Critical bug fixes: ASACORE-2045, ASACORE-2247, ASACORE-2248,
+15.04b - Critical bug fixes: ASACORE-2045, ASACORE-2247, ASACORE-2248,
          ASACORE-2294, ASACORE-2299, ASACORE-2332, ASACORE-2365
 15.04a - Critical bug fixes: ASACORE-1948, ASACORE-1949, ASACORE-1952,
          ASACORE-2008
