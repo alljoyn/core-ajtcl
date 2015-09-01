@@ -321,7 +321,7 @@ void AJ_Main(void)
             }
         }
 
-        if ((AJ_ERR_READ == status) || g_error) {
+        if ((AJ_ERR_READ == status) || (status == AJ_ERR_WRITE) || g_error) {
             AJ_Printf("AllJoyn disconnect %s  \n", AJ_StatusText(status));
             AJ_Printf("Disconnected from Daemon:%s\n", AJ_GetUniqueName(&g_bus));
             AJ_Disconnect(&g_bus);

@@ -439,7 +439,7 @@ int AJ_Main(int ac, char** av)
          */
         AJ_CloseMsg(&msg);
 
-        if (status == AJ_ERR_READ) {
+        if ((status == AJ_ERR_READ) || (status == AJ_ERR_WRITE)) {
             AJ_Printf("AllJoyn disconnect.\n");
             AJ_Disconnect(&bus);
             break;

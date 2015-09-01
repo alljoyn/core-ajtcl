@@ -186,7 +186,7 @@ int AJ_Main(void)
         /* Messages MUST be discarded to free resources. */
         AJ_CloseMsg(&msg);
 
-        if (status == AJ_ERR_SESSION_LOST) {
+        if ((status == AJ_ERR_READ) || (status == AJ_ERR_WRITE) || (status == AJ_ERR_SESSION_LOST)) {
             AJ_AlwaysPrintf(("AllJoyn disconnect.\n"));
             AJ_Disconnect(&bus);
             exit(0);
