@@ -322,7 +322,7 @@ int AJ_Main(void)
         /* Messages MUST be discarded to free resources. */
         AJ_CloseMsg(&msg);
 
-        if (status == AJ_ERR_READ) {
+        if ((status == AJ_ERR_READ) || (status == AJ_ERR_WRITE)) {
             AJ_Printf("AllJoyn disconnect.\n");
             AJ_Disconnect(&bus);
             connected = FALSE;
