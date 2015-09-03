@@ -232,7 +232,7 @@ int AJ_Main()
          */
         AJ_CloseMsg(&msg);
 
-        if ((status == AJ_ERR_READ) || (status == AJ_ERR_LINK_DEAD)) {
+        if ((status == AJ_ERR_READ) || (status == AJ_ERR_WRITE) || (status == AJ_ERR_LINK_DEAD)) {
             AJ_AlwaysPrintf(("AllJoyn disconnect\n"));
             AJ_Disconnect(&bus);
             connected = FALSE;
