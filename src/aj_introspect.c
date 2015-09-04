@@ -462,6 +462,7 @@ static const char* GetBestLanguage(const char* requested)
         for (;;) {
             // Look for a supported language matching the language to check.
             size_t idx;
+            char* pos;
             for (idx = 0; languageList[idx] != NULL; idx++) {
                 if (strcasecmp(languageList[idx], languageToCheck) == 0) {
                     return languageList[idx];
@@ -469,7 +470,7 @@ static const char* GetBestLanguage(const char* requested)
             }
 
             // Drop the last subtag and try again.
-            char* pos = strrchr(languageToCheck, '-');
+            pos = strrchr(languageToCheck, '-');
             if (pos == NULL) {
                 break;
             }

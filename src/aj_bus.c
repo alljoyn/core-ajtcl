@@ -1126,6 +1126,7 @@ AJ_Status AJ_BusHandleSessionJoined(AJ_Message* msg)
     uint16_t sessionPort;
     uint32_t sessionId;
     char* joiner;
+    AJ_Session* boundsession;
 
     AJ_Status status = AJ_UnmarshalArgs(msg, "qus", &sessionPort, &sessionId, &joiner);
     if (status != AJ_OK) {
@@ -1133,7 +1134,7 @@ AJ_Status AJ_BusHandleSessionJoined(AJ_Message* msg)
         return status;
     }
 
-    AJ_Session* boundsession = AJ_BusGetBoundSession(msg->bus, sessionPort);
+    boundsession = AJ_BusGetBoundSession(msg->bus, sessionPort);
     if (boundsession) {
         int multipoint = boundsession->multipoint;
         if (multipoint) {
@@ -1189,6 +1190,7 @@ AJ_Status AJ_BusHandleJoinSessionReply(AJ_Message* msg)
     AJ_SessionOpts opts = { 0 };
     AJ_Arg arr;
     AJ_Status status;
+    AJ_Session* session;
 
     if (msg->hdr->msgType == AJ_MSG_ERROR) {
         AJ_InfoPrintf(("AJ_BusHandleSessionJoinSessionReply(msg=0x%p): error=%s.\n", msg, msg->error));
@@ -1209,7 +1211,7 @@ AJ_Status AJ_BusHandleJoinSessionReply(AJ_Message* msg)
     }
 
     /* now we can fill in the pending AJ_Session structure */
-    AJ_Session* session = AJ_BusGetPendingSession(msg->bus, msg->replySerial);
+    session = AJ_BusGetPendingSession(msg->bus, msg->replySerial);
     if (session) {
         session->sessionId = sessionId;
         session->multipoint = opts.isMultipoint;
