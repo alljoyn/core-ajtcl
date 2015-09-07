@@ -843,11 +843,6 @@ static AJ_Status ECDSAUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
 
     AJ_InfoPrintf(("ECDSAUnmarshal(ctx=%p, msg=%p)\n", ctx, msg));
 
-    if (NULL == ctx->bus->authListenerCallback) {
-        status = AJ_ERR_SECURITY;
-        goto Exit;
-    }
-
     if (AUTH_CLIENT == ctx->role) {
         status = ComputeVerifier(ctx, "server finished", digest, sizeof (digest));
     } else {
