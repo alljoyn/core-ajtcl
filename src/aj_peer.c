@@ -1731,19 +1731,25 @@ Exit:
 
 static AJ_Status CommonIssuer(X509CertificateChain* root)
 {
-    AJ_Status status;
-    AJ_CertificateId id;
+    AJ_Status status = AJ_ERR_UNKNOWN;
+    X509CertificateChain* node;
     size_t i;
 
-    status = AJ_GetCertificateId(root, &id);
-    if (AJ_OK != status) {
-        goto Exit;
-    }
-    status = AJ_ERR_UNKNOWN;
+    AJ_ASSERT(root);
     for (i = 1; i < authContext.kactx.ecdsa.num; i++) {
-        if (0 == memcmp((uint8_t*) &id.pub, (uint8_t*) &authContext.kactx.ecdsa.key[i], sizeof (AJ_ECCPublicKey))) {
+        node = root;
+        /* Check if intermediate issuer signed the root */
+        if (AJ_OK == AJ_X509Verify(&node->certificate, &authContext.kactx.ecdsa.key[i])) {
             status = AJ_OK;
-            break;
+            goto Exit;
+        }
+        /* Check if intermediate issuer is a subject */
+        while (node && node->certificate.tbs.extensions.ca) {
+            if (0 == memcmp(&node->certificate.tbs.publickey, &authContext.kactx.ecdsa.key[i], sizeof (AJ_ECCPublicKey))) {
+                status = AJ_OK;
+                goto Exit;
+            }
+            node = node->next;
         }
     }
 
