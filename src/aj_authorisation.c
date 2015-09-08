@@ -378,6 +378,72 @@ void AJ_ManifestTemplateSet(AJ_Manifest* manifest)
     g_manifest = manifest;
 }
 
+#ifndef NDEBUG
+static void PermissionMemberDump(AJ_PermissionMember* member)
+{
+    while (member) {
+        AJ_InfoPrintf(("    Member %s (%x:%x)\n", member->mbr, member->type, member->action));
+        member = member->next;
+    }
+}
+
+static void PermissionRuleDump(AJ_PermissionRule* rule)
+{
+    while (rule) {
+        AJ_InfoPrintf(("  Rule : %s : %s\n", rule->obj, rule->ifn));
+        PermissionMemberDump(rule->members);
+        rule = rule->next;
+    }
+}
+
+static void ManifestDump(AJ_Manifest* manifest)
+{
+    if (manifest) {
+        AJ_InfoPrintf(("Manifest\n"));
+        PermissionRuleDump(manifest->rules);
+    }
+}
+
+static void PermissionPeerDump(AJ_PermissionPeer* peer)
+{
+    while (peer) {
+        AJ_InfoPrintf(("  Peer : Type %x\n", peer->type));
+        switch (peer->type) {
+        case AJ_PEER_TYPE_FROM_CA:
+        case AJ_PEER_TYPE_WITH_PUBLIC_KEY:
+            AJ_InfoPrintf(("    ECC PublicKey (algorithm %x, curve %x)\n", peer->pub.alg, peer->pub.crv));
+            AJ_DumpBytes("X", peer->pub.x, KEY_ECC_SZ);
+            AJ_DumpBytes("Y", peer->pub.y, KEY_ECC_SZ);
+            break;
+
+        case AJ_PEER_TYPE_WITH_MEMBERSHIP:
+            AJ_InfoPrintf(("    ECC PublicKey (algorithm %x, curve %x)\n", peer->pub.alg, peer->pub.crv));
+            AJ_DumpBytes("X", peer->pub.x, KEY_ECC_SZ);
+            AJ_DumpBytes("Y", peer->pub.y, KEY_ECC_SZ);
+            AJ_DumpBytes("GROUP", peer->group.data, peer->group.size);
+            break;
+        }
+        peer = peer->next;
+    }
+}
+
+static void PermissionACLDump(AJ_PermissionACL* acl)
+{
+    while (acl) {
+        PermissionPeerDump(acl->peers);
+        PermissionRuleDump(acl->rules);
+        acl = acl->next;
+    }
+}
+
+static void PolicyDump(AJ_Policy* policy)
+{
+    if (policy) {
+        AJ_InfoPrintf(("Policy : Specification %x : Version %x\n", policy->specification, policy->version));
+        PermissionACLDump(policy->acls);
+    }
+}
+#endif
 static void AJ_PermissionMemberFree(AJ_PermissionMember* head)
 {
     AJ_PermissionMember* node;
@@ -443,8 +509,6 @@ static AJ_Status AJ_PermissionMemberMarshal(const AJ_PermissionMember* head, AJ_
     AJ_Status status;
     AJ_Arg container;
 
-    AJ_InfoPrintf(("AJ_PermissionMemberMarshal(head=%p, msg=%p)\n", head, msg));
-
     status = AJ_MarshalContainer(msg, &container, AJ_ARG_ARRAY);
     if (AJ_OK != status) {
         return status;
@@ -467,8 +531,6 @@ static AJ_Status AJ_PermissionRuleMarshal(const AJ_PermissionRule* head, AJ_Mess
     AJ_Status status;
     AJ_Arg container1;
     AJ_Arg container2;
-
-    AJ_InfoPrintf(("AJ_PermissionRuleMarshal(head=%p, msg=%p)\n", head, msg));
 
     status = AJ_MarshalContainer(msg, &container1, AJ_ARG_ARRAY);
     if (AJ_OK != status) {
@@ -501,7 +563,6 @@ static AJ_Status AJ_PermissionRuleMarshal(const AJ_PermissionRule* head, AJ_Mess
 //SIG = a(ssa(syy))
 AJ_Status AJ_ManifestMarshal(AJ_Manifest* manifest, AJ_Message* msg)
 {
-    AJ_InfoPrintf(("AJ_ManifestMarshal(manifest=%p, msg=%p)\n", manifest, msg));
     if (NULL == manifest) {
         return AJ_ERR_INVALID;
     }
@@ -549,8 +610,6 @@ static AJ_Status AJ_PermissionPeerMarshal(const AJ_PermissionPeer* head, AJ_Mess
     AJ_Arg container1;
     AJ_Arg container2;
     AJ_Arg container3;
-
-    AJ_InfoPrintf(("AJ_PermissionPeerMarshal(head=%p, msg=%p)\n", head, msg));
 
     status = AJ_MarshalContainer(msg, &container1, AJ_ARG_ARRAY);
     if (AJ_OK != status) {
@@ -614,8 +673,6 @@ static AJ_Status AJ_PermissionACLMarshal(const AJ_PermissionACL* head, AJ_Messag
     AJ_Arg container1;
     AJ_Arg container2;
 
-    AJ_InfoPrintf(("AJ_PermissionACLMarshal(head=%p, msg=%p)\n", head, msg));
-
     status = AJ_MarshalContainer(msg, &container1, AJ_ARG_ARRAY);
     if (AJ_OK != status) {
         return status;
@@ -650,8 +707,6 @@ AJ_Status AJ_PolicyMarshal(const AJ_Policy* policy, AJ_Message* msg)
     AJ_Status status;
     AJ_Arg container;
 
-    AJ_InfoPrintf(("AJ_PolicyMarshal(policy=%p, msg=%p)\n", policy, msg));
-
     if (NULL == policy) {
         return AJ_ERR_INVALID;
     }
@@ -679,8 +734,6 @@ static AJ_Status AJ_PermissionMemberUnmarshal(AJ_PermissionMember** head, AJ_Mes
     AJ_Arg container1;
     AJ_Arg container2;
     AJ_PermissionMember* node;
-
-    AJ_InfoPrintf(("AJ_PermissionMemberUnmarshal(head=%p, msg=%p)\n", head, msg));
 
     status = AJ_UnmarshalContainer(msg, &container1, AJ_ARG_ARRAY);
     if (AJ_OK != status) {
@@ -727,8 +780,6 @@ static AJ_Status AJ_PermissionRuleUnmarshal(AJ_PermissionRule** head, AJ_Message
     AJ_Arg container1;
     AJ_Arg container2;
     AJ_PermissionRule* node;
-
-    AJ_InfoPrintf(("AJ_PermissionRuleUnmarshal(head=%p, msg=%p)\n", head, msg));
 
     status = AJ_UnmarshalContainer(msg, &container1, AJ_ARG_ARRAY);
     if (AJ_OK != status) {
@@ -779,8 +830,6 @@ AJ_Status AJ_ManifestUnmarshal(AJ_Manifest** manifest, AJ_Message* msg)
     AJ_Status status;
     AJ_Manifest* tmp;
 
-    AJ_InfoPrintf(("AJ_ManifestUnmarshal(manifest=%p, msg=%p)\n", manifest, msg));
-
     tmp = (AJ_Manifest*) AJ_Malloc(sizeof (AJ_Manifest));
     if (NULL == tmp) {
         goto Exit;
@@ -809,8 +858,6 @@ static AJ_Status AJ_PermissionPeerUnmarshal(AJ_PermissionPeer** head, AJ_Message
     AJ_Arg container2;
     AJ_Arg container3;
     AJ_PermissionPeer* node;
-
-    AJ_InfoPrintf(("AJ_PermissionPeerUnmarshal(head=%p, msg=%p)\n", head, msg));
 
     status = AJ_UnmarshalContainer(msg, &container1, AJ_ARG_ARRAY);
     if (AJ_OK != status) {
@@ -885,8 +932,6 @@ static AJ_Status AJ_PermissionACLUnmarshal(AJ_PermissionACL** head, AJ_Message* 
     AJ_Arg container2;
     AJ_PermissionACL* node;
 
-    AJ_InfoPrintf(("AJ_PermissionACLUnmarshal(head=%p, msg=%p)\n", head, msg));
-
     status = AJ_UnmarshalContainer(msg, &container1, AJ_ARG_ARRAY);
     if (AJ_OK != status) {
         goto Exit;
@@ -937,8 +982,6 @@ AJ_Status AJ_PolicyUnmarshal(AJ_Policy** policy, AJ_Message* msg)
     AJ_Status status;
     AJ_Arg container;
     AJ_Policy* tmp = NULL;
-
-    AJ_InfoPrintf(("AJ_PolicyUnmarshal(policy=%p, msg=%p)\n", policy, msg));
 
     tmp = (AJ_Policy*) AJ_Malloc(sizeof (AJ_Policy));
     if (NULL == tmp) {
@@ -1020,6 +1063,10 @@ static AJ_Status PolicyLoad(Policy* policy)
         AJ_InfoPrintf(("PolicyLoad(policy=%p): Unmarshal failed\n", policy));
         goto Exit;
     }
+
+#ifndef NDEBUG
+    PolicyDump(policy->policy);
+#endif
 
     return AJ_OK;
 
@@ -1174,6 +1221,10 @@ AJ_Status AJ_ManifestApply(AJ_Manifest* manifest, const char* name)
         AJ_WarnPrintf(("AJ_ManifestApply(manifest=%p, name=%s): Peer not in table\n", manifest, name));
         return AJ_ERR_ACCESS;
     }
+
+#ifndef NDEBUG
+    ManifestDump(manifest);
+#endif
 
     acm = g_access;
     while (acm) {
