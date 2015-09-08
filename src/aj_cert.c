@@ -856,8 +856,7 @@ AJ_Status AJ_X509DecodeCertificatePEM(X509Certificate* certificate, const char* 
 X509CertificateChain* AJ_X509DecodeCertificateChainPEM(const char* pem)
 {
     AJ_Status status;
-    X509CertificateChain* head = NULL;
-    X509CertificateChain* curr = NULL;
+    X509CertificateChain* root = NULL;
     X509CertificateChain* node;
     const char* beg = pem;
 
@@ -868,17 +867,11 @@ X509CertificateChain* AJ_X509DecodeCertificateChainPEM(const char* pem)
             goto Exit;
         }
         /*
-         * Push the node on to the tail.
+         * Push the node on to the head.
          * We do this before decoding so that it is cleaned up in case of error.
          */
-        node->next = NULL;
-        if (curr) {
-            curr->next = node;
-            curr = node;
-        } else {
-            head = node;
-            curr = node;
-        }
+        node->next = root;
+        root = node;
         status = AJ_X509DecodeCertificatePEM(&node->certificate, beg);
         if (AJ_OK != status) {
             goto Exit;
@@ -889,19 +882,19 @@ X509CertificateChain* AJ_X509DecodeCertificateChainPEM(const char* pem)
         beg = strstr(beg + 1, PEM_CERT_BEG);
     }
 
-    return head;
+    return root;
 
 Exit:
     /* Free the cert chain */
-    AJ_X509FreeDecodedCertificateChain(head);
+    AJ_X509FreeDecodedCertificateChain(root);
     return NULL;
 }
 
-void AJ_X509FreeDecodedCertificateChain(X509CertificateChain* head)
+void AJ_X509FreeDecodedCertificateChain(X509CertificateChain* root)
 {
-    while (head) {
-        X509CertificateChain* node = head;
-        head = head->next;
+    while (root) {
+        X509CertificateChain* node = root;
+        root = root->next;
         /* Free the der memory if it was created */
         if (node->certificate.der.data) {
             AJ_Free(node->certificate.der.data);
@@ -922,16 +915,16 @@ AJ_Status AJ_X509Verify(const X509Certificate* certificate, const AJ_ECCPublicKe
     return AJ_ECDSAVerify(certificate->raw.data, certificate->raw.size, &certificate->signature, key);
 }
 
-AJ_Status AJ_X509VerifyChain(const X509CertificateChain* chain, const AJ_ECCPublicKey* key, uint32_t type)
+AJ_Status AJ_X509VerifyChain(const X509CertificateChain* root, const AJ_ECCPublicKey* key, uint32_t type)
 {
     AJ_Status status;
     uint32_t chainValidForType = AJ_CERTIFICATE_UNR_X509;
 
-    AJ_InfoPrintf(("AJ_X509VerifyChain(chain=%p, key=%p, type=%x)\n", chain, key, type));
+    AJ_InfoPrintf(("AJ_X509VerifyChain(root=%p, key=%p, type=%x)\n", root, key, type));
 
-    while (chain) {
+    while (root) {
         if (key) {
-            status = AJ_X509Verify(&chain->certificate, key);
+            status = AJ_X509Verify(&root->certificate, key);
             if (AJ_OK != status) {
                 return status;
             }
@@ -941,77 +934,84 @@ AJ_Status AJ_X509VerifyChain(const X509CertificateChain* chain, const AJ_ECCPubl
          * to catch problems if the values of these constants are ever changed in the future.
          */
         AJ_ASSERT((AJ_CERTIFICATE_UNR_X509 & AJ_CERTIFICATE_INV_X509) == 0);
-        if ((chainValidForType & chain->certificate.tbs.extensions.type) != chain->certificate.tbs.extensions.type) {
-            AJ_InfoPrintf(("AJ_X509VerifyChain(chain=%p, key=%p, type=%x): Certificate fails transitive EKU check; chain so far is valid for type %X, current certificate has type %X\n", chain, key, type, chainValidForType, chain->certificate.tbs.extensions.type));
+        if ((chainValidForType & root->certificate.tbs.extensions.type) != root->certificate.tbs.extensions.type) {
+            AJ_InfoPrintf(("AJ_X509VerifyChain(root=%p, key=%p, type=%x): Certificate fails transitive EKU check; chain so far is valid for type %X, current certificate has type %X\n", root, key, type, chainValidForType, root->certificate.tbs.extensions.type));
             return AJ_ERR_SECURITY;
         }
-        chainValidForType &= chain->certificate.tbs.extensions.type;
+        chainValidForType &= root->certificate.tbs.extensions.type;
 
         /* The subject field of the current certificate must equal the issuer field of the next certificate
          * in the chain.
          */
-        if (NULL != chain->next) {
-            if (!AJ_X509CompareNames(chain->certificate.tbs.subject, chain->next->certificate.tbs.issuer)) {
-                AJ_InfoPrintf(("AJ_X509VerifyChain(chain=%p, key=%p, type=%x): Subject/Issuer name mismatch\n", chain, key, type));
+        if (NULL != root->next) {
+            if (!AJ_X509CompareNames(root->certificate.tbs.subject, root->next->certificate.tbs.issuer)) {
+                AJ_InfoPrintf(("AJ_X509VerifyChain(root=%p, key=%p, type=%x): Subject/Issuer name mismatch\n", root, key, type));
                 return AJ_ERR_SECURITY;
             }
-            if (0 == chain->certificate.tbs.extensions.ca) {
-                AJ_InfoPrintf(("AJ_X509VerifyChain(chain=%p, key=%p, type=%x): Issuer is not a CA\n", chain, key, type));
+            if (0 == root->certificate.tbs.extensions.ca) {
+                AJ_InfoPrintf(("AJ_X509VerifyChain(root=%p, key=%p, type=%x): Issuer is not a CA\n", root, key, type));
                 return AJ_ERR_SECURITY;
             }
         } else {
             /* This is the end entity cert. It must be the expected type. */
-            if (type != chain->certificate.tbs.extensions.type) {
-                AJ_InfoPrintf(("AJ_X509VerifyChain(chain=%p, key=%p, type=%x): End entity certificate has incorrect EKU\n", chain, key, type));
+            if (type != root->certificate.tbs.extensions.type) {
+                AJ_InfoPrintf(("AJ_X509VerifyChain(root=%p, key=%p, type=%x): End entity certificate has incorrect EKU\n", root, key, type));
                 return AJ_ERR_SECURITY;
             }
         }
-        key = &chain->certificate.tbs.publickey;
-        chain = chain->next;
+        key = &root->certificate.tbs.publickey;
+        root = root->next;
     }
 
     return AJ_OK;
 }
 
-void AJ_X509ChainFree(X509CertificateChain* head)
+void AJ_X509ChainFree(X509CertificateChain* root)
 {
     X509CertificateChain* node;
 
-    while (head) {
-        node = head;
-        head = head->next;
+    while (root) {
+        node = root;
+        root = root->next;
         AJ_Free(node);
     }
 }
 
-AJ_Status AJ_X509ChainMarshal(X509CertificateChain* chain, AJ_Message* msg)
+AJ_Status AJ_X509ChainMarshal(X509CertificateChain* root, AJ_Message* msg)
 {
     AJ_Status status;
     AJ_Arg container;
+    X509CertificateChain* node;
 
+    /*
+     * X509CertificateChain is root first.
+     * The wire protocol requires leaf first,
+     * reverse it here, then reverse it back after marshalling.
+     */
+    root = AJ_X509ReverseChain(root);
     status = AJ_MarshalContainer(msg, &container, AJ_ARG_ARRAY);
     if (AJ_OK != status) {
         goto Exit;
     }
-    while (chain) {
-        status = AJ_MarshalArgs(msg, "(yay)", CERT_FMT_X509_DER, chain->certificate.der.data, chain->certificate.der.size);
+    node = root;
+    while (node) {
+        status = AJ_MarshalArgs(msg, "(yay)", CERT_FMT_X509_DER, node->certificate.der.data, node->certificate.der.size);
         if (AJ_OK != status) {
             goto Exit;
         }
-        chain = chain->next;
+        node = node->next;
     }
     status = AJ_MarshalCloseContainer(msg, &container);
     if (AJ_OK != status) {
         goto Exit;
     }
 
-    return status;
-
 Exit:
-    return AJ_ERR_FAILURE;
+    root = AJ_X509ReverseChain(root);
+    return status;
 }
 
-AJ_Status AJ_X509ChainUnmarshal(X509CertificateChain** chain, AJ_Message* msg)
+AJ_Status AJ_X509ChainUnmarshal(X509CertificateChain** root, AJ_Message* msg)
 {
     AJ_Status status;
     AJ_Arg container;
@@ -1030,7 +1030,7 @@ AJ_Status AJ_X509ChainUnmarshal(X509CertificateChain** chain, AJ_Message* msg)
             break;
         }
         if (CERT_FMT_X509_DER != fmt) {
-            AJ_WarnPrintf(("AJ_X509ChainUnmarshal(chain=%p, msg=%p): Certificate format unknown\n", chain, msg));
+            AJ_WarnPrintf(("AJ_X509ChainUnmarshal(root=%p, msg=%p): Certificate format unknown\n", root, msg));
             goto Exit;
         }
         node = (X509CertificateChain*) AJ_Malloc(sizeof (X509CertificateChain));
@@ -1043,7 +1043,7 @@ AJ_Status AJ_X509ChainUnmarshal(X509CertificateChain** chain, AJ_Message* msg)
         head = node;
         status = AJ_X509DecodeCertificateDER(&node->certificate, &der);
         if (AJ_OK != status) {
-            AJ_WarnPrintf(("AJ_X509ChainUnmarshal(chain=%p, msg=%p): Certificate decode failed\n", chain, msg));
+            AJ_WarnPrintf(("AJ_X509ChainUnmarshal(root=%p, msg=%p): Certificate decode failed\n", root, msg));
             goto Exit;
         }
     }
@@ -1055,7 +1055,7 @@ AJ_Status AJ_X509ChainUnmarshal(X509CertificateChain** chain, AJ_Message* msg)
         goto Exit;
     }
 
-    *chain = head;
+    *root = head;
     return status;
 
 Exit:
@@ -1064,7 +1064,7 @@ Exit:
     return AJ_ERR_FAILURE;
 }
 
-AJ_Status AJ_X509ChainToBuffer(X509CertificateChain* chain, AJ_CredField* field)
+AJ_Status AJ_X509ChainToBuffer(X509CertificateChain* root, AJ_CredField* field)
 {
     AJ_Status status;
     AJ_BusAttachment bus;
@@ -1072,13 +1072,13 @@ AJ_Status AJ_X509ChainToBuffer(X509CertificateChain* chain, AJ_CredField* field)
     AJ_Message msg;
 
     AJ_LocalMsg(&bus, &hdr, &msg, "a(yay)", field->data, field->size);
-    status = AJ_X509ChainMarshal(chain, &msg);
+    status = AJ_X509ChainMarshal(root, &msg);
     field->size = bus.sock.tx.writePtr - field->data;
 
     return status;
 }
 
-AJ_Status AJ_X509ChainFromBuffer(X509CertificateChain** chain, AJ_CredField* field)
+AJ_Status AJ_X509ChainFromBuffer(X509CertificateChain** root, AJ_CredField* field)
 {
     AJ_Status status;
     AJ_BusAttachment bus;
@@ -1086,18 +1086,31 @@ AJ_Status AJ_X509ChainFromBuffer(X509CertificateChain** chain, AJ_CredField* fie
     AJ_Message msg;
 
     AJ_LocalMsg(&bus, &hdr, &msg, "a(yay)", field->data, field->size);
-    status = AJ_X509ChainUnmarshal(chain, &msg);
+    status = AJ_X509ChainUnmarshal(root, &msg);
 
     return status;
 }
 
-X509Certificate* AJ_X509LeafCertificate(X509CertificateChain* chain)
+X509Certificate* AJ_X509LeafCertificate(X509CertificateChain* root)
 {
-    if (NULL == chain) {
+    if (NULL == root) {
         return NULL;
     }
-    while (chain->next) {
-        chain = chain->next;
+    while (root->next) {
+        root = root->next;
     }
-    return &chain->certificate;
+    return &root->certificate;
+}
+
+X509CertificateChain* AJ_X509ReverseChain(X509CertificateChain* root)
+{
+    X509CertificateChain* temp;
+    X509CertificateChain* last = NULL;
+    while (root) {
+        temp = root->next;
+        root->next = last;
+        last = root;
+        root = temp;
+    }
+    return last;
 }

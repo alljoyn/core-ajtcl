@@ -236,7 +236,7 @@ AJ_Status AJ_PolicyApply(AJ_AuthenticationContext* ctx, const char* name);
 /**
  * Apply the policy access rules for a group membership
  *
- * @param head         The membership certificate chain
+ * @param root         The membership certificate chain
  * @param issuer       The root certificate authority
  * @param group        The membership group
  * @param name         The peer's name
@@ -245,7 +245,7 @@ AJ_Status AJ_PolicyApply(AJ_AuthenticationContext* ctx, const char* name);
  *          - AJ_OK on success
  *          - AJ_ERR_INVALID otherwise
  */
-AJ_Status AJ_MembershipApply(X509CertificateChain* head, AJ_ECCPublicKey* issuer, DER_Element* group, const char* name);
+AJ_Status AJ_MembershipApply(X509CertificateChain* root, AJ_ECCPublicKey* issuer, DER_Element* group, const char* name);
 
 /**
  * Get the policy version
@@ -261,30 +261,25 @@ AJ_Status AJ_PolicyVersion(uint32_t* version);
 /**
  * Search for the intermediate issuers amongst the stored authorities
  *
- * @param head         The certificate chain
- * @param type         The certificate type
- * @param group        The membership group
- * @param pub          The output public key
+ * @param root         The certificate chain
  *
  * @return
  *          - AJ_OK on success
  *          - AJ_ERR_SECURITY otherwise
  */
-AJ_Status AJ_PolicyFindAuthority(const X509CertificateChain* head, uint32_t type, const DER_Element* group);
+AJ_Status AJ_PolicyFindAuthority(const X509CertificateChain* root);
 
 /**
  * Attempt to verify certificate using stored authorities
  *
  * @param cert         The certificate
- * @param type         The certificate type
- * @param group        The membership group
  * @param pub          The output public key
  *
  * @return
  *          - AJ_OK on success
  *          - AJ_ERR_SECURITY otherwise
  */
-AJ_Status AJ_PolicyVerifyCertificate(const X509Certificate* cert, uint32_t type, const DER_Element* group, AJ_ECCPublicKey* pub);
+AJ_Status AJ_PolicyVerifyCertificate(const X509Certificate* cert, AJ_ECCPublicKey* pub);
 
 /**
  * Access control check for message
