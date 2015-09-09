@@ -54,6 +54,7 @@ typedef struct _Policy {
     AJ_CredField buffer;
     AJ_Policy* policy;
 } Policy;
+Policy g_policy = { { 0, NULL }, NULL };
 
 #define POLICY_METHOD_INCOMING      0x01
 #define POLICY_METHOD_OUTGOING      0x02
@@ -1028,51 +1029,50 @@ AJ_Status AJ_ManifestDigest(AJ_CredField* manifest, uint8_t digest[AJ_SHA256_DIG
     return AJ_SHA256_Final(ctx, digest);
 }
 
-static void PolicyUnload(Policy* policy)
+void AJ_PolicyUnload(void)
 {
-    AJ_CredFieldFree(&policy->buffer);
-    policy->buffer.data = NULL;
-    AJ_PolicyFree(policy->policy);
-    policy->policy = NULL;
+    AJ_CredFieldFree(&g_policy.buffer);
+    g_policy.buffer.data = NULL;
+    AJ_PolicyFree(g_policy.policy);
+    g_policy.policy = NULL;
 }
 
-static AJ_Status PolicyLoad(Policy* policy)
+AJ_Status AJ_PolicyLoad(void)
 {
     AJ_Status status;
 
-    AJ_InfoPrintf(("PolicyLoad(policy=%p)\n", policy));
+    AJ_InfoPrintf(("PolicyLoad()\n"));
 
-    policy->buffer.data = NULL;
-    policy->buffer.size = 0;
-    policy->policy = NULL;
+    /* Unload any previously loaded policy */
+    AJ_PolicyUnload();
 
     /* Read the installed policy from NVRAM */
-    status = AJ_CredentialGet(AJ_POLICY_INSTALLED | AJ_CRED_TYPE_POLICY, NULL, NULL, &policy->buffer);
+    status = AJ_CredentialGet(AJ_POLICY_INSTALLED | AJ_CRED_TYPE_POLICY, NULL, NULL, &g_policy.buffer);
     if (AJ_OK != status) {
-        AJ_InfoPrintf(("PolicyLoad(policy=%p): No installed policy\n", policy));
+        AJ_InfoPrintf(("PolicyLoad(): No installed policy\n"));
         /* Read the default policy from NVRAM */
-        status = AJ_CredentialGet(AJ_POLICY_DEFAULT | AJ_CRED_TYPE_POLICY, NULL, NULL, &policy->buffer);
+        status = AJ_CredentialGet(AJ_POLICY_DEFAULT | AJ_CRED_TYPE_POLICY, NULL, NULL, &g_policy.buffer);
     }
     if (AJ_OK != status) {
-        AJ_InfoPrintf(("PolicyLoad(policy=%p): No default policy\n", policy));
+        AJ_InfoPrintf(("PolicyLoad(): No default policy\n"));
         goto Exit;
     }
 
     /* Unmarshal the policy */
-    status = AJ_PolicyFromBuffer(&policy->policy, &policy->buffer);
+    status = AJ_PolicyFromBuffer(&g_policy.policy, &g_policy.buffer);
     if (AJ_OK != status) {
-        AJ_InfoPrintf(("PolicyLoad(policy=%p): Unmarshal failed\n", policy));
+        AJ_InfoPrintf(("PolicyLoad(): Unmarshal failed\n"));
         goto Exit;
     }
 
 #ifndef NDEBUG
-    PolicyDump(policy->policy);
+    PolicyDump(g_policy.policy);
 #endif
 
     return AJ_OK;
 
 Exit:
-    PolicyUnload(policy);
+    AJ_PolicyUnload();
     return AJ_ERR_INVALID;
 }
 
@@ -1087,6 +1087,8 @@ void AJ_AuthorisationClose(void)
 {
     /* Unload access control list */
     AccessControlClose();
+    /* Unload policy (if not unloaded during last handshake) */
+    AJ_PolicyUnload();
 }
 
 uint8_t AJ_CommonPath(const char* name, const char* desc, uint8_t type)
@@ -1274,7 +1276,7 @@ static uint8_t PermissionPeerFind(AJ_PermissionPeer* head, uint8_t type, AJ_ECCP
 AJ_Status AJ_PolicyApply(AJ_AuthenticationContext* ctx, const char* name)
 {
     AJ_Status status;
-    Policy policy;
+    Policy* policy = &g_policy;
     uint32_t peer;
     uint8_t acc;
     AccessControlMember* acm;
@@ -1293,13 +1295,12 @@ AJ_Status AJ_PolicyApply(AJ_AuthenticationContext* ctx, const char* name)
         return AJ_ERR_ACCESS;
     }
 
-    status = PolicyLoad(&policy);
-    if (AJ_OK == status) {
+    if (policy->policy) {
         acm = g_access;
         while (acm) {
             /* Default to no access */
             acm->allow[peer] = 0;
-            acl = policy.policy->acls;
+            acl = policy->policy->acls;
             while (acl) {
                 found = 0;
                 /* Look for a match in the peer list */
@@ -1334,7 +1335,6 @@ AJ_Status AJ_PolicyApply(AJ_AuthenticationContext* ctx, const char* name)
             }
             acm = acm->next;
         }
-        PolicyUnload(&policy);
     } else {
         AJ_InfoPrintf(("AJ_PolicyApply(ctx=%p, name=%p): No stored policy\n", ctx, name));
         /* Initial restricted access rights */
@@ -1401,7 +1401,7 @@ AJ_Status AJ_PolicyApply(AJ_AuthenticationContext* ctx, const char* name)
 AJ_Status AJ_MembershipApply(X509CertificateChain* root, AJ_ECCPublicKey* issuer, DER_Element* group, const char* name)
 {
     AJ_Status status;
-    Policy policy;
+    Policy* policy = &g_policy;
     uint32_t peer;
     uint8_t acc;
     AccessControlMember* acm;
@@ -1416,11 +1416,10 @@ AJ_Status AJ_MembershipApply(X509CertificateChain* root, AJ_ECCPublicKey* issuer
         return AJ_ERR_ACCESS;
     }
 
-    status = PolicyLoad(&policy);
-    if (AJ_OK == status) {
+    if (policy->policy) {
         acm = g_access;
         while (acm) {
-            acl = policy.policy->acls;
+            acl = policy->policy->acls;
             while (acl) {
                 found = 0;
                 /* Check if root issuer is in the peer list */
@@ -1447,7 +1446,6 @@ AJ_Status AJ_MembershipApply(X509CertificateChain* root, AJ_ECCPublicKey* issuer
             }
             acm = acm->next;
         }
-        PolicyUnload(&policy);
     }
 
     return AJ_OK;
@@ -1456,15 +1454,15 @@ AJ_Status AJ_MembershipApply(X509CertificateChain* root, AJ_ECCPublicKey* issuer
 AJ_Status AJ_PolicyVersion(uint32_t* version)
 {
     AJ_Status status;
-    Policy policy;
+    Policy* policy = &g_policy;
 
-    status = PolicyLoad(&policy);
+    status = AJ_PolicyLoad();
     if (AJ_OK != status) {
         AJ_InfoPrintf(("AJ_PolicyVersion(version=%p): Policy not loaded\n", version));
         return AJ_ERR_INVALID;
     }
-    *version = policy.policy->version;
-    PolicyUnload(&policy);
+    *version = policy->policy->version;
+    AJ_PolicyUnload();
 
     return AJ_OK;
 }
@@ -1487,19 +1485,18 @@ AJ_Status AJ_PolicyFindAuthority(const X509CertificateChain* root)
 {
     AJ_ASSERT(root);
     AJ_Status status;
-    Policy policy;
+    Policy* policy = &g_policy;
     AJ_PermissionACL* acl;
     AJ_PermissionPeer* peer;
     const X509CertificateChain* node;
 
-    status = PolicyLoad(&policy);
-    if (AJ_OK != status) {
+    if (NULL == policy->policy) {
         AJ_InfoPrintf(("AJ_PolicyFindAuthority(root=%p): Policy not loaded\n", root));
         return AJ_ERR_INVALID;
     }
 
     status = AJ_ERR_SECURITY;
-    acl = policy.policy->acls;
+    acl = policy->policy->acls;
     while (acl) {
         peer = acl->peers;
         while (peer) {
@@ -1519,7 +1516,6 @@ AJ_Status AJ_PolicyFindAuthority(const X509CertificateChain* root)
     }
 
 Exit:
-    PolicyUnload(&policy);
     return status;
 }
 
@@ -1527,7 +1523,7 @@ AJ_Status AJ_PolicyVerifyCertificate(const X509Certificate* cert, AJ_ECCPublicKe
 {
     AJ_ASSERT(cert);
     AJ_Status status;
-    Policy policy;
+    Policy* policy = &g_policy;
     AJ_PermissionACL* acl;
     AJ_PermissionPeer* peer;
 
@@ -1535,14 +1531,13 @@ AJ_Status AJ_PolicyVerifyCertificate(const X509Certificate* cert, AJ_ECCPublicKe
      * Policy and/or certificate may not include AKI for CA,
      * we need to try all keys.
      */
-    status = PolicyLoad(&policy);
-    if (AJ_OK != status) {
+    if (NULL == policy->policy) {
         AJ_InfoPrintf(("AJ_PolicyVerifyCertificate(cert=%p, pub=%p): Policy not loaded\n", cert, pub));
         return AJ_ERR_INVALID;
     }
 
     status = AJ_ERR_SECURITY;
-    acl = policy.policy->acls;
+    acl = policy->policy->acls;
     while (acl) {
         peer = acl->peers;
         while (peer) {
@@ -1560,7 +1555,6 @@ AJ_Status AJ_PolicyVerifyCertificate(const X509Certificate* cert, AJ_ECCPublicKe
     }
 
 Exit:
-    PolicyUnload(&policy);
     return status;
 }
 

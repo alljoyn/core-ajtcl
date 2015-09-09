@@ -191,6 +191,8 @@ static void HandshakeComplete(AJ_Status status)
         (AUTH_SUITE_ECDHE_NULL != authContext.suite) &&
         (AUTH_CLIENT == authContext.role) &&
         AJ_IsSuiteEnabled(authContext.bus, AUTH_SUITE_ECDHE_NULL, authContext.version >> 16)) {
+        /* Policy no longer needed in memory */
+        AJ_PolicyUnload();
         authContext.suite = AUTH_SUITE_ECDHE_NULL;
         KeyExchange(authContext.bus);
         return;
@@ -212,6 +214,8 @@ static void HandshakeComplete(AJ_Status status)
     }
 
 Exit:
+    /* Policy no longer needed in memory */
+    AJ_PolicyUnload();
     if (peerContext.callback) {
         peerContext.callback(peerContext.cbContext, status);
     }
@@ -1446,6 +1450,11 @@ AJ_Status AJ_PeerHandleExchangeGroupKeys(AJ_Message* msg, AJ_Message* reply)
     if (AJ_OK != status) {
         goto Exit;
     }
+    /* Load policy into memory */
+    status = AJ_PolicyLoad();
+    if (AJ_OK != status) {
+        AJ_InfoPrintf(("AJ_PeerHandleExchangeGroupKeys(): No policy\n"));
+    }
     status = AJ_PolicyApply(&authContext, msg->sender);
     if (AUTH_SUITE_ECDHE_ECDSA != authContext.suite) {
         HandshakeComplete(status);
@@ -1487,6 +1496,11 @@ AJ_Status AJ_PeerHandleExchangeGroupKeysReply(AJ_Message* msg)
         goto Exit;
     }
 
+    /* Load policy into memory */
+    status = AJ_PolicyLoad();
+    if (AJ_OK != status) {
+        AJ_InfoPrintf(("AJ_PeerHandleExchangeGroupKeys(): No policy\n"));
+    }
     status = AJ_PolicyApply(&authContext, msg->sender);
     if (AJ_OK != status) {
         goto Exit;

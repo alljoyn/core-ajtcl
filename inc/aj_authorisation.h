@@ -381,6 +381,16 @@ AJ_Status AJ_PolicyFromBuffer(AJ_Policy** policy, AJ_CredField* field);
  */
 uint8_t AJ_CommonPath(const char* name, const char* desc, uint8_t type);
 
+/*
+ * Load policy into memory
+ */
+AJ_Status AJ_PolicyLoad(void);
+
+/*
+ * Unload policy from memory
+ */
+void AJ_PolicyUnload(void);
+
 #ifdef __cplusplus
 }
 #endif
