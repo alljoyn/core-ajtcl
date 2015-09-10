@@ -32,6 +32,8 @@ const char AJ_ErrInvalidValue[] = "org.alljoyn.Error.InvalidValue";
 const char AJ_ErrFeatureNotAvailable[] = "org.alljoyn.Error.FeatureNotAvailable";
 const char AJ_ErrMaxSizeExceeded[] = "org.alljoyn.Error.MaxSizeExceeded";
 const char AJ_ErrLanguageNotSuppored[] = "org.alljoyn.Error.LanguageNotSupported";
+const char AJ_ErrMethodNotAllowed[] = "org.alljoyn.Error.MethodNotAllowed";
+
 /* Security specific errors */
 const char AJ_ErrSecurityViolation[] = "org.alljoyn.Bus.SecurityViolation";
 const char AJ_ErrPermissionDenied[] = "org.alljoyn.Bus.Security.Error.PermissionDenied";

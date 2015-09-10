@@ -221,6 +221,7 @@ extern const char AJ_ErrInvalidValue[31];          /**< Error invalid value stri
 extern const char AJ_ErrFeatureNotAvailable[38];   /**< Error feature not available string */
 extern const char AJ_ErrMaxSizeExceeded[34];       /**< Error max size exceeded string */
 extern const char AJ_ErrLanguageNotSuppored[39];   /**< Error language not supported string */
+extern const char AJ_ErrMethodNotAllowed[35];      /**< Error method not allowed string */
 
 /**
  * The properties interface. This interface must be included in the property lists of all local and
