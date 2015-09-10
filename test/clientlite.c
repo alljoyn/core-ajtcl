@@ -308,11 +308,11 @@ static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, 
 
             case AJ_CRED_RESPONSE:
                 node = (X509CertificateChain*) cred->data;
+                status = AJ_X509VerifyChain(node, NULL, AJ_CERTIFICATE_IDN_X509);
                 while (node) {
                     AJ_DumpBytes("CERTIFICATE", node->certificate.der.data, node->certificate.der.size);
                     node = node->next;
                 }
-                status = AJ_OK;
                 break;
             }
             break;

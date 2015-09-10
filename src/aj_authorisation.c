@@ -444,6 +444,7 @@ static void PolicyDump(AJ_Policy* policy)
     }
 }
 #endif
+
 static void AJ_PermissionMemberFree(AJ_PermissionMember* head)
 {
     AJ_PermissionMember* node;
@@ -1397,7 +1398,7 @@ AJ_Status AJ_PolicyApply(AJ_AuthenticationContext* ctx, const char* name)
     return AJ_OK;
 }
 
-AJ_Status AJ_MembershipApply(X509CertificateChain* head, AJ_ECCPublicKey* issuer, DER_Element* group, const char* name)
+AJ_Status AJ_MembershipApply(X509CertificateChain* root, AJ_ECCPublicKey* issuer, DER_Element* group, const char* name)
 {
     AJ_Status status;
     Policy policy;
@@ -1407,11 +1408,11 @@ AJ_Status AJ_MembershipApply(X509CertificateChain* head, AJ_ECCPublicKey* issuer
     AJ_PermissionACL* acl;
     uint8_t found;
 
-    AJ_InfoPrintf(("AJ_MembershipApply(head=%p, issuer=%p, group=%p, name=%s)\n", head, issuer, group, name));
+    AJ_InfoPrintf(("AJ_MembershipApply(root=%p, issuer=%p, group=%p, name=%s)\n", root, issuer, group, name));
 
     status = AJ_GetPeerIndex(name, &peer);
     if (AJ_OK != status) {
-        AJ_WarnPrintf(("AJ_MembershipApply(head=%p, issuer=%p, group=%p, name=%s): Peer not in table\n", head, issuer, group, name));
+        AJ_WarnPrintf(("AJ_MembershipApply(root=%p, issuer=%p, group=%p, name=%s): Peer not in table\n", root, issuer, group, name));
         return AJ_ERR_ACCESS;
     }
 
@@ -1426,11 +1427,11 @@ AJ_Status AJ_MembershipApply(X509CertificateChain* head, AJ_ECCPublicKey* issuer
                 if (issuer) {
                     found = PermissionPeerFind(acl->peers, AJ_PEER_TYPE_WITH_MEMBERSHIP, issuer, group);
                 }
-                if (NULL != head) {
+                if (NULL != root) {
                     /* Check if intermediate issuer is in the peer list */
-                    while (!found && (NULL != head->next)) {
-                        found = PermissionPeerFind(acl->peers, AJ_PEER_TYPE_WITH_MEMBERSHIP, &head->certificate.tbs.publickey, group);
-                        head = head->next;
+                    while (!found && (NULL != root->next)) {
+                        found = PermissionPeerFind(acl->peers, AJ_PEER_TYPE_WITH_MEMBERSHIP, &root->certificate.tbs.publickey, group);
+                        root = root->next;
                     }
                 }
                 if (found) {
@@ -1468,29 +1469,32 @@ AJ_Status AJ_PolicyVersion(uint32_t* version)
     return AJ_OK;
 }
 
-static uint32_t CompareElements(const DER_Element* a, const DER_Element* b)
+static uint32_t ValidIssuer(const X509Certificate* cert, uint32_t type)
 {
-    if (a->size != b->size) {
-        return FALSE;
+    uint32_t eku = cert->tbs.extensions.type;
+    /* This peer type can issue Identity and Unrestricted certificates */
+    if ((AJ_PEER_TYPE_FROM_CA == type) && (AJ_CERTIFICATE_IDN_X509 & eku)) {
+        return TRUE;
     }
-    if (0 != memcmp(a->data, b->data, a->size)) {
-        return FALSE;
+    /* This peer type can issue Identity, Membership and Unrestricted certificates */
+    if ((AJ_PEER_TYPE_WITH_MEMBERSHIP == type) && (AJ_CERTIFICATE_UNR_X509 & eku)) {
+        return TRUE;
     }
-    return TRUE;
+    return FALSE;
 }
 
-AJ_Status AJ_PolicyFindAuthority(const X509CertificateChain* head, uint32_t type, const DER_Element* group)
+AJ_Status AJ_PolicyFindAuthority(const X509CertificateChain* root)
 {
+    AJ_ASSERT(root);
     AJ_Status status;
     Policy policy;
     AJ_PermissionACL* acl;
     AJ_PermissionPeer* peer;
     const X509CertificateChain* node;
-    uint32_t found;
 
     status = PolicyLoad(&policy);
     if (AJ_OK != status) {
-        AJ_InfoPrintf(("AJ_PolicyFindAuthority(head=%p, type=%x): Policy not loaded\n", head, type));
+        AJ_InfoPrintf(("AJ_PolicyFindAuthority(root=%p): Policy not loaded\n", root));
         return AJ_ERR_INVALID;
     }
 
@@ -1499,36 +1503,15 @@ AJ_Status AJ_PolicyFindAuthority(const X509CertificateChain* head, uint32_t type
     while (acl) {
         peer = acl->peers;
         while (peer) {
-            found = 0;
-            switch (type) {
-            case AJ_CERTIFICATE_IDN_X509:
-                /* This type of certificate can be issued by Identity or Membership authorities */
-                if ((AJ_PEER_TYPE_FROM_CA == peer->type) || (AJ_PEER_TYPE_WITH_MEMBERSHIP == peer->type)) {
-                    found = 1;
-                }
-                break;
-
-            case AJ_CERTIFICATE_MBR_X509:
-                /* This type of certificate can be issued by Membership authorities only */
-                if ((AJ_PEER_TYPE_WITH_MEMBERSHIP == peer->type) && CompareElements(group, &peer->group)) {
-                    found = 1;
-                }
-                break;
-
-            default:
-                /* Only end up here on coding error */
-                AJ_ASSERT(0);
-                break;
-            }
-            if (found) {
-                node = head;
-                while (node && node->certificate.tbs.extensions.ca) {
+            node = root;
+            while ((node->next) && (node->certificate.tbs.extensions.ca)) {
+                if (ValidIssuer(&node->next->certificate, peer->type)) {
                     if (0 == memcmp(&node->certificate.tbs.publickey, &peer->pub, sizeof (AJ_ECCPublicKey))) {
                         status = AJ_OK;
                         goto Exit;
                     }
-                    node = node->next;
                 }
+                node = node->next;
             }
             peer = peer->next;
         }
@@ -1540,13 +1523,13 @@ Exit:
     return status;
 }
 
-AJ_Status AJ_PolicyVerifyCertificate(const X509Certificate* cert, uint32_t type, const DER_Element* group, AJ_ECCPublicKey* pub)
+AJ_Status AJ_PolicyVerifyCertificate(const X509Certificate* cert, AJ_ECCPublicKey* pub)
 {
+    AJ_ASSERT(cert);
     AJ_Status status;
     Policy policy;
     AJ_PermissionACL* acl;
     AJ_PermissionPeer* peer;
-    uint32_t found;
 
     /*
      * Policy and/or certificate may not include AKI for CA,
@@ -1554,7 +1537,7 @@ AJ_Status AJ_PolicyVerifyCertificate(const X509Certificate* cert, uint32_t type,
      */
     status = PolicyLoad(&policy);
     if (AJ_OK != status) {
-        AJ_InfoPrintf(("AJ_PolicyVerifyCertificate(cert=%p, type=%x, group=%p, pub=%p): Policy not loaded\n", cert, type, group, pub));
+        AJ_InfoPrintf(("AJ_PolicyVerifyCertificate(cert=%p, pub=%p): Policy not loaded\n", cert, pub));
         return AJ_ERR_INVALID;
     }
 
@@ -1563,28 +1546,7 @@ AJ_Status AJ_PolicyVerifyCertificate(const X509Certificate* cert, uint32_t type,
     while (acl) {
         peer = acl->peers;
         while (peer) {
-            found = 0;
-            switch (type) {
-            case AJ_CERTIFICATE_IDN_X509:
-                /* This type of certificate can be issued by Identity or Membership authorities */
-                if ((AJ_PEER_TYPE_FROM_CA == peer->type) || (AJ_PEER_TYPE_WITH_MEMBERSHIP == peer->type)) {
-                    found = 1;
-                }
-                break;
-
-            case AJ_CERTIFICATE_MBR_X509:
-                /* This type of certificate can be issued by Membership authorities only */
-                if ((AJ_PEER_TYPE_WITH_MEMBERSHIP == peer->type) && CompareElements(group, &peer->group)) {
-                    found = 1;
-                }
-                break;
-
-            default:
-                /* Only end up here on coding error */
-                AJ_ASSERT(0);
-                break;
-            }
-            if (found) {
+            if (ValidIssuer(cert, peer->type)) {
                 /* Verify certificate */
                 status = AJ_X509Verify(cert, &peer->pub);
                 if (AJ_OK == status) {

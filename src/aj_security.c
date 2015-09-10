@@ -228,23 +228,23 @@ Exit:
     return AJ_ERR_INVALID;
 }
 
-AJ_Status AJ_GetCertificateId(X509CertificateChain* head, AJ_CertificateId* id)
+AJ_Status AJ_GetCertificateId(X509CertificateChain* root, AJ_CertificateId* id)
 {
     AJ_Status status;
     X509Certificate* leaf;
 
     AJ_ASSERT(id);
-    AJ_ASSERT(head);
-    leaf = AJ_X509LeafCertificate(head);
+    AJ_ASSERT(root);
+    leaf = AJ_X509LeafCertificate(root);
     AJ_ASSERT(leaf);
-    /* AKI and type is in the root certificate */
-    id->aki.data = head->certificate.tbs.extensions.aki.data;
-    id->aki.size = head->certificate.tbs.extensions.aki.size;
+    /* AKI is in the root certificate */
+    id->aki.data = root->certificate.tbs.extensions.aki.data;
+    id->aki.size = root->certificate.tbs.extensions.aki.size;
     /* Serial number is in the leaf certificate */
     id->serial.data = leaf->tbs.serial.data;
     id->serial.size = leaf->tbs.serial.size;
     /* Authority PublicKey is in the policy, can't rely on AKI */
-    status = AJ_PolicyVerifyCertificate(&head->certificate, leaf->tbs.extensions.type, &leaf->tbs.extensions.group, &id->pub);
+    status = AJ_PolicyVerifyCertificate(&root->certificate, &id->pub);
 
     return status;
 }
@@ -278,7 +278,7 @@ static AJ_Status MarshalMembershipIds(AJ_Message* msg)
     AJ_Status status;
     AJ_Arg container;
     AJ_CredField data = { 0, NULL };
-    X509CertificateChain* chain = NULL;
+    X509CertificateChain* root = NULL;
     AJ_CertificateId certificate;
     uint16_t slot = AJ_CREDS_NV_ID_BEGIN;
 
@@ -291,16 +291,16 @@ static AJ_Status MarshalMembershipIds(AJ_Message* msg)
         status = AJ_CredentialGetNext(AJ_CERTIFICATE_MBR_X509 | AJ_CRED_TYPE_CERTIFICATE, NULL, NULL, &data, &slot);
         slot++;
         if (AJ_OK == status) {
-            status = AJ_X509ChainFromBuffer(&chain, &data);
+            status = AJ_X509ChainFromBuffer(&root, &data);
             if (AJ_OK != status) {
                 goto Exit;
             }
-            status = AJ_GetCertificateId(chain, &certificate);
+            status = AJ_GetCertificateId(root, &certificate);
             if (AJ_OK != status) {
                 goto Exit;
             }
-            AJ_X509ChainFree(chain);
-            chain = NULL;
+            AJ_X509ChainFree(root);
+            root = NULL;
             status = AJ_MarshalArgs(msg, "(ayay(yyayay))",
                                     certificate.serial.data, certificate.serial.size,
                                     certificate.aki.data, certificate.aki.size,
@@ -316,7 +316,7 @@ static AJ_Status MarshalMembershipIds(AJ_Message* msg)
     status = AJ_MarshalCloseContainer(msg, &container);
 
 Exit:
-    AJ_X509ChainFree(chain);
+    AJ_X509ChainFree(root);
     AJ_CredFieldFree(&data);
     return status;
 }
@@ -374,7 +374,7 @@ static AJ_Status SecurityGetProperty(AJ_Message* reply, uint32_t id, void* conte
     AJ_Manifest* manifest = NULL;
     AJ_Policy* policy = NULL;
     AJ_CertificateId certificate;
-    X509CertificateChain* chain = NULL;
+    X509CertificateChain* root = NULL;
 
     AJ_InfoPrintf(("SecurityGetProperty(reply=%p, id=%x, context=%p)\n", reply, id, context));
 
@@ -416,11 +416,11 @@ static AJ_Status SecurityGetProperty(AJ_Message* reply, uint32_t id, void* conte
         if (AJ_OK != status) {
             break;
         }
-        status = AJ_X509ChainFromBuffer(&chain, &field);
+        status = AJ_X509ChainFromBuffer(&root, &field);
         if (AJ_OK != status) {
             break;
         }
-        status = AJ_X509ChainMarshal(chain, reply);
+        status = AJ_X509ChainMarshal(root, reply);
         break;
 
     case AJ_PROPERTY_SEC_MANIFEST_TEMPLATE:
@@ -448,11 +448,11 @@ static AJ_Status SecurityGetProperty(AJ_Message* reply, uint32_t id, void* conte
         if (AJ_OK != status) {
             break;
         }
-        status = AJ_X509ChainFromBuffer(&chain, &field);
+        status = AJ_X509ChainFromBuffer(&root, &field);
         if (AJ_OK != status) {
             break;
         }
-        status = AJ_X509ChainMarshal(chain, reply);
+        status = AJ_X509ChainMarshal(root, reply);
         break;
 
     case AJ_PROPERTY_MANAGED_MANIFEST:
@@ -475,11 +475,11 @@ static AJ_Status SecurityGetProperty(AJ_Message* reply, uint32_t id, void* conte
         if (AJ_OK != status) {
             break;
         }
-        status = AJ_X509ChainFromBuffer(&chain, &field);
+        status = AJ_X509ChainFromBuffer(&root, &field);
         if (AJ_OK != status) {
             break;
         }
-        status = AJ_GetCertificateId(chain, &certificate);
+        status = AJ_GetCertificateId(root, &certificate);
         if (AJ_OK != status) {
             break;
         }
@@ -542,7 +542,7 @@ static AJ_Status SecurityGetProperty(AJ_Message* reply, uint32_t id, void* conte
     }
 
     AJ_CredFieldFree(&field);
-    AJ_X509ChainFree(chain);
+    AJ_X509ChainFree(root);
     AJ_ManifestFree(manifest);
     AJ_PolicyFree(policy);
 
@@ -568,7 +568,7 @@ AJ_Status AJ_SecurityClaimMethod(AJ_Message* msg, AJ_Message* reply)
     AJ_CredField identity_data = { 0, NULL };
     AJ_Manifest* manifest = NULL;
     AJ_CredField manifest_data = { 0, NULL };
-    X509Certificate* certificate;
+    X509Certificate* leaf;
     uint8_t digest[AJ_SHA256_DIGEST_LENGTH];
 
     AJ_InfoPrintf(("AJ_SecurityClaimMethod(msg=%p, reply=%p)\n", msg, reply));
@@ -643,8 +643,8 @@ AJ_Status AJ_SecurityClaimMethod(AJ_Message* msg, AJ_Message* reply)
         goto Exit;
     }
     /* Check leaf certificate public key is mine */
-    certificate = AJ_X509LeafCertificate(identity);
-    if (NULL == certificate) {
+    leaf = AJ_X509LeafCertificate(identity);
+    if (NULL == leaf) {
         status = AJ_ERR_SECURITY;
         goto Exit;
     }
@@ -652,7 +652,7 @@ AJ_Status AJ_SecurityClaimMethod(AJ_Message* msg, AJ_Message* reply)
     if (AJ_OK != status) {
         goto Exit;
     }
-    if (0 != memcmp((uint8_t*) &pub, &certificate->tbs.publickey, sizeof (pub))) {
+    if (0 != memcmp((uint8_t*) &pub, &leaf->tbs.publickey, sizeof (pub))) {
         AJ_InfoPrintf(("AJ_SecurityClaimMethod(msg=%p, reply=%p): Unknown certificate\n", msg, reply));
         status = AJ_ERR_SECURITY_UNKNOWN_CERTIFICATE;
         goto Exit;
@@ -685,12 +685,12 @@ AJ_Status AJ_SecurityClaimMethod(AJ_Message* msg, AJ_Message* reply)
     }
     /* Check digest of manifest matches that in certificate */
     AJ_ManifestDigest(&manifest_data, digest);
-    if (sizeof (digest) != certificate->tbs.extensions.digest.size) {
+    if (sizeof (digest) != leaf->tbs.extensions.digest.size) {
         AJ_InfoPrintf(("AJ_SecurityClaimMethod(msg=%p, reply=%p): Digest mismatch\n", msg, reply));
         status = AJ_ERR_SECURITY_DIGEST_MISMATCH;
         goto Exit;
     }
-    if (0 != memcmp(digest, certificate->tbs.extensions.digest.data, sizeof (digest))) {
+    if (0 != memcmp(digest, leaf->tbs.extensions.digest.data, sizeof (digest))) {
         AJ_InfoPrintf(("AJ_SecurityClaimMethod(msg=%p, reply=%p): Digest mismatch\n", msg, reply));
         status = AJ_ERR_SECURITY_DIGEST_MISMATCH;
         goto Exit;

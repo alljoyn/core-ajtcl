@@ -683,12 +683,19 @@ static AJ_Status PSKUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
 /*
  * KeyAuthentication call expects yv = ya(ay)
  */
-static AJ_Status MarshalCertificates(AJ_AuthenticationContext* ctx, X509CertificateChain* head, AJ_Message* msg)
+static AJ_Status MarshalCertificates(AJ_AuthenticationContext* ctx, X509CertificateChain* root, AJ_Message* msg)
 {
     AJ_Status status;
     AJ_Arg container;
+    X509CertificateChain* head;
     uint8_t fmt = CERT_FMT_X509_DER;
 
+    /*
+     * X509CertificateChain is root first.
+     * The wire protocol requires leaf first,
+     * reverse it here, then reverse it back after marshalling.
+     */
+    root = AJ_X509ReverseChain(root);
     AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, &fmt, sizeof(fmt));
     status = AJ_MarshalArgs(msg, "y", fmt);
     if (AJ_OK != status) {
@@ -702,6 +709,7 @@ static AJ_Status MarshalCertificates(AJ_AuthenticationContext* ctx, X509Certific
     if (AJ_OK != status) {
         goto Exit;
     }
+    head = root;
     while (head) {
         status = AJ_MarshalArgs(msg, "(ay)", head->certificate.der.data, head->certificate.der.size);
         if (AJ_OK != status) {
@@ -713,6 +721,7 @@ static AJ_Status MarshalCertificates(AJ_AuthenticationContext* ctx, X509Certific
     status = AJ_MarshalCloseContainer(msg, &container);
 
 Exit:
+    root = AJ_X509ReverseChain(root);
     return status;
 }
 
@@ -723,7 +732,7 @@ static AJ_Status ECDSAMarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
     AJ_ECCPrivateKey prv;
     AJ_ECCSignature sig;
     uint8_t verifier[AJ_SHA256_DIGEST_LENGTH];
-    X509CertificateChain* chain = NULL;
+    X509CertificateChain* root = NULL;
     AJ_CredField field;
     uint8_t owns_data = FALSE;
     AJ_Credential cred;
@@ -747,7 +756,7 @@ static AJ_Status ECDSAMarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
     /* Get certificate chain from keystore */
     status = AJ_CredentialGet(AJ_CERTIFICATE_IDN_X509 | AJ_CRED_TYPE_CERTIFICATE, NULL, NULL, &field);
     if (AJ_OK == status) {
-        status = AJ_X509ChainFromBuffer(&chain, &field);
+        status = AJ_X509ChainFromBuffer(&root, &field);
         if (AJ_OK != status) {
             goto Exit;
         }
@@ -766,7 +775,7 @@ static AJ_Status ECDSAMarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
             AJ_WarnPrintf(("ECDSAMarshal(ctx=%p, msg=%p): certificate chain missing\n", ctx, msg));
             goto Exit;
         }
-        chain = (X509CertificateChain*) cred.data;
+        root = (X509CertificateChain*) cred.data;
         /* Get private key from application */
         cred.direction = AJ_CRED_REQUEST;
         cred.len = sizeof (AJ_ECCPrivateKey);
@@ -806,7 +815,7 @@ static AJ_Status ECDSAMarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
     }
 
     /* Marshal certificate chain */
-    status = MarshalCertificates(ctx, chain, msg);
+    status = MarshalCertificates(ctx, root, msg);
     if (AJ_OK != status) {
         AJ_WarnPrintf(("ECDSAMarshal(ctx=%p, msg=%p): Marshal certificate chain error\n", ctx, msg));
         goto Exit;
@@ -815,7 +824,7 @@ static AJ_Status ECDSAMarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
 
 Exit:
     if (owns_data) {
-        AJ_X509ChainFree(chain);
+        AJ_X509ChainFree(root);
     }
     AJ_CredFieldFree(&field);
     return status;
@@ -836,7 +845,7 @@ static AJ_Status ECDSAUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
     uint8_t* sig_s;
     size_t len_r;
     size_t len_s;
-    X509CertificateChain* head = NULL;
+    X509CertificateChain* root = NULL;
     X509CertificateChain* node = NULL;
     AJ_Credential cred;
     uint8_t trusted = 0;
@@ -924,8 +933,8 @@ static AJ_Status ECDSAUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
          * Push the certificate on to the front of the chain.
          * We do this before decoding so that it is cleaned up in case of error.
          */
-        node->next = head;
-        head = node;
+        node->next = root;
+        root = node;
         /* Set the der before its consumed */
         node->certificate.der.size = der.size;
         node->certificate.der.data = der.data;
@@ -973,30 +982,29 @@ static AJ_Status ECDSAUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
     if (AJ_OK != status) {
         goto Exit;
     }
-    if (NULL == head) {
+    if (NULL == root) {
         AJ_InfoPrintf(("ECDSAUnmarshal(ctx=%p, msg=%p): Certificate chain missing\n", ctx, msg));
         status = AJ_ERR_SECURITY;
         goto Exit;
     }
 
     /* Initial chain verification to validate intermediate issuers */
-    status = AJ_X509VerifyChain(head, NULL, AJ_CERTIFICATE_IDN_X509);
+    status = AJ_X509VerifyChain(root, NULL, AJ_CERTIFICATE_IDN_X509);
     if (AJ_OK == status) {
-        /* Search for the intermediate issuers in the stored authorities */
-        status = AJ_PolicyFindAuthority(head, AJ_CERTIFICATE_IDN_X509, NULL);
-        if (AJ_OK != status) {
-            /* Verify the root certificate against the stored authorities */
-            status = AJ_PolicyVerifyCertificate(&head->certificate, AJ_CERTIFICATE_IDN_X509, NULL, &pub);
-            if (AJ_OK == status) {
-                /* Copy the public key (issuer) */
-                ctx->kactx.ecdsa.num++;
-                ctx->kactx.ecdsa.key = (AJ_ECCPublicKey*) AJ_Realloc(ctx->kactx.ecdsa.key, ctx->kactx.ecdsa.num * sizeof (AJ_ECCPublicKey));
-                if (NULL == ctx->kactx.ecdsa.key) {
-                    status = AJ_ERR_RESOURCES;
-                    goto Exit;
-                }
-                memcpy(&ctx->kactx.ecdsa.key[ctx->kactx.ecdsa.num - 1], &pub, sizeof (pub));
+        /* Verify the root certificate against the stored authorities */
+        status = AJ_PolicyVerifyCertificate(&root->certificate, &pub);
+        if (AJ_OK == status) {
+            /* Copy the public key (issuer) */
+            ctx->kactx.ecdsa.num++;
+            ctx->kactx.ecdsa.key = (AJ_ECCPublicKey*) AJ_Realloc(ctx->kactx.ecdsa.key, ctx->kactx.ecdsa.num * sizeof (AJ_ECCPublicKey));
+            if (NULL == ctx->kactx.ecdsa.key) {
+                status = AJ_ERR_RESOURCES;
+                goto Exit;
             }
+            memcpy(&ctx->kactx.ecdsa.key[ctx->kactx.ecdsa.num - 1], &pub, sizeof (pub));
+        } else {
+            /* Search for the intermediate issuers in the stored authorities */
+            status = AJ_PolicyFindAuthority(root);
         }
         if (AJ_OK == status) {
             trusted = 1;
@@ -1008,7 +1016,7 @@ static AJ_Status ECDSAUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
         AJ_InfoPrintf(("ECDSAUnmarshal(ctx=%p, msg=%p): Certificate authority unknown or chain invalid\n", ctx, msg));
         /* Ask the application to verify the chain */
         cred.direction = AJ_CRED_RESPONSE;
-        cred.data = (uint8_t*) head;
+        cred.data = (uint8_t*) root;
         status = ctx->bus->authListenerCallback(AUTH_SUITE_ECDHE_ECDSA, AJ_CRED_CERT_CHAIN, &cred);
         if (AJ_OK != status) {
             AJ_InfoPrintf(("ECDSAUnmarshal(ctx=%p, msg=%p): Certificate chain invalid\n", ctx, msg));
@@ -1019,9 +1027,9 @@ static AJ_Status ECDSAUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
 
 Exit:
     /* Free the cert chain */
-    while (head) {
-        node = head;
-        head = head->next;
+    while (root) {
+        node = root;
+        root = root->next;
         AJ_Free(node);
     }
     if (AJ_OK != status) {

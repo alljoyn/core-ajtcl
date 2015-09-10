@@ -221,6 +221,8 @@ static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, 
                     AJ_Free(node->certificate.der.data);
                     AJ_Free(node);
                 }
+                /* PEM string is end entity..root order */
+                /* Decoded chain is root..end entity order */
                 chain = AJ_X509DecodeCertificateChainPEM(pem_x509);
                 if (NULL == chain) {
                     return AJ_ERR_INVALID;
@@ -487,43 +489,29 @@ TEST_F(SecurityTest, CommonPathTest)
 
 TEST_F(SecurityTest, DecodeAndVerifyCertificateChainTest)
 {
-    X509CertificateChain* chain;
-    X509CertificateChain* head;
-    X509CertificateChain* last;
+    X509CertificateChain* root;
     AJ_Status status = AJ_OK;
 
-    chain = AJ_X509DecodeCertificateChainPEM(pem_x509);
+    /* PEM string is end entity..root order */
+    /* Decoded chain is root..end entity order, order required for AJ_X509VerifyChain */
+    root = AJ_X509DecodeCertificateChainPEM(pem_x509);
 
-    ASSERT_TRUE(chain != NULL);
-
-    /* AJ_X509VerifyChain expects cert chains in root..end entity order, but the pem_x509 string
-     * lists them in end entity..root order, which is the order used as a credential to be presented
-     * rather than verified. Reverse the list in place to provide the expected order.
-     */
-    head = chain;
-    last = NULL;
-    while (head) {
-        X509CertificateChain* temp = head->next;
-        head->next = last;
-        last = head;
-        head = temp;
-    }
-    chain = last;
+    ASSERT_TRUE(root != NULL);
 
     /* This is an Identity certificate */
-    ASSERT_EQ(AJ_OK, AJ_X509VerifyChain(chain, NULL, AJ_CERTIFICATE_IDN_X509));
-    ASSERT_EQ(AJ_ERR_SECURITY, AJ_X509VerifyChain(chain, NULL, AJ_CERTIFICATE_MBR_X509));
-    ASSERT_EQ(AJ_ERR_SECURITY, AJ_X509VerifyChain(chain, NULL, AJ_CERTIFICATE_UNR_X509));
-    AJ_X509FreeDecodedCertificateChain(chain);
+    ASSERT_EQ(AJ_OK, AJ_X509VerifyChain(root, NULL, AJ_CERTIFICATE_IDN_X509));
+    ASSERT_EQ(AJ_ERR_SECURITY, AJ_X509VerifyChain(root, NULL, AJ_CERTIFICATE_MBR_X509));
+    ASSERT_EQ(AJ_ERR_SECURITY, AJ_X509VerifyChain(root, NULL, AJ_CERTIFICATE_UNR_X509));
+    AJ_X509FreeDecodedCertificateChain(root);
 }
 
 TEST_F(SecurityTest, PolicyVerifyCertificateChainTest)
 {
-    X509CertificateChain* chain;
+    X509CertificateChain* root;
     X509CertificateChain* head;
     X509CertificateChain* intermediate1;
     X509CertificateChain* intermediate2;
-    X509CertificateChain* last;
+    X509CertificateChain* leaf;
     AJ_Status status = AJ_OK;
     AJ_ECCPublicKey pub;
     AJ_PermissionPeer peer;
@@ -534,33 +522,20 @@ TEST_F(SecurityTest, PolicyVerifyCertificateChainTest)
 
     AJ_Initialize();
 
-    chain = AJ_X509DecodeCertificateChainPEM(pem_x509_identity);
+    /* PEM string is end entity..root order */
+    /* Decoded chain is root..end entity order, order required for AJ_X509VerifyChain */
+    root = AJ_X509DecodeCertificateChainPEM(pem_x509_identity);
 
-    ASSERT_TRUE(chain != NULL);
+    ASSERT_TRUE(root != NULL);
 
-    /* AJ_X509VerifyChain expects cert chains in root..end entity order, but the pem_x509 string
-     * lists them in end entity..root order, which is the order used as a credential to be presented
-     * rather than verified. Reverse the list in place to provide the expected order.
-     */
-    head = chain;
-    last = NULL;
-    while (head) {
-        X509CertificateChain* temp = head->next;
-        head->next = last;
-        last = head;
-        head = temp;
-    }
-    chain = last;
-
-    /* This certificate chain has 4 certificates */
-    head = chain;
+    head = root;
     ASSERT_TRUE(NULL != head);
     intermediate1 = head->next;
     ASSERT_TRUE(NULL != intermediate1);
     intermediate2 = intermediate1->next;
     ASSERT_TRUE(NULL != intermediate2);
-    last = intermediate2->next;
-    ASSERT_TRUE(NULL != last);
+    leaf = intermediate2->next;
+    ASSERT_TRUE(NULL != leaf);
 
     /* This is an Identity certificate */
     EXPECT_EQ(AJ_OK, AJ_X509VerifyChain(head, &head->certificate.tbs.publickey, AJ_CERTIFICATE_IDN_X509));
@@ -589,52 +564,52 @@ TEST_F(SecurityTest, PolicyVerifyCertificateChainTest)
     memcpy(&peer.pub, &head->certificate.tbs.publickey, sizeof (AJ_ECCPublicKey));
     ASSERT_EQ(AJ_OK, AJ_PolicyToBuffer(&policy, &field));
     ASSERT_EQ(AJ_OK, AJ_CredentialSet(AJ_POLICY_INSTALLED | AJ_CRED_TYPE_POLICY, NULL, 0xFFFFFFFF, &field));
-    EXPECT_EQ(AJ_OK, AJ_PolicyVerifyCertificate(&head->certificate, AJ_CERTIFICATE_IDN_X509, NULL, &pub));
+    EXPECT_EQ(AJ_OK, AJ_PolicyVerifyCertificate(&head->certificate, &pub));
     peer.type = AJ_PEER_TYPE_WITH_MEMBERSHIP;
     ASSERT_EQ(AJ_OK, AJ_PolicyToBuffer(&policy, &field));
     ASSERT_EQ(AJ_OK, AJ_CredentialSet(AJ_POLICY_INSTALLED | AJ_CRED_TYPE_POLICY, NULL, 0xFFFFFFFF, &field));
-    EXPECT_EQ(AJ_OK, AJ_PolicyVerifyCertificate(&head->certificate, AJ_CERTIFICATE_IDN_X509, NULL, &pub));
+    EXPECT_EQ(AJ_OK, AJ_PolicyVerifyCertificate(&head->certificate, &pub));
 
     /* Store intermediate 1 issuer */
     peer.type = AJ_PEER_TYPE_FROM_CA;
     memcpy(&peer.pub, &intermediate1->certificate.tbs.publickey, sizeof (AJ_ECCPublicKey));
     ASSERT_EQ(AJ_OK, AJ_PolicyToBuffer(&policy, &field));
     ASSERT_EQ(AJ_OK, AJ_CredentialSet(AJ_POLICY_INSTALLED | AJ_CRED_TYPE_POLICY, NULL, 0xFFFFFFFF, &field));
-    EXPECT_EQ(AJ_ERR_SECURITY, AJ_PolicyVerifyCertificate(&head->certificate, AJ_CERTIFICATE_IDN_X509, NULL, &pub));
-    EXPECT_EQ(AJ_OK, AJ_PolicyFindAuthority(head, AJ_CERTIFICATE_IDN_X509, NULL));
+    EXPECT_EQ(AJ_ERR_SECURITY, AJ_PolicyVerifyCertificate(&head->certificate, &pub));
+    EXPECT_EQ(AJ_OK, AJ_PolicyFindAuthority(head));
     peer.type = AJ_PEER_TYPE_WITH_MEMBERSHIP;
     ASSERT_EQ(AJ_OK, AJ_PolicyToBuffer(&policy, &field));
     ASSERT_EQ(AJ_OK, AJ_CredentialSet(AJ_POLICY_INSTALLED | AJ_CRED_TYPE_POLICY, NULL, 0xFFFFFFFF, &field));
-    EXPECT_EQ(AJ_ERR_SECURITY, AJ_PolicyVerifyCertificate(&head->certificate, AJ_CERTIFICATE_IDN_X509, NULL, &pub));
-    EXPECT_EQ(AJ_OK, AJ_PolicyFindAuthority(head, AJ_CERTIFICATE_IDN_X509, NULL));
+    EXPECT_EQ(AJ_ERR_SECURITY, AJ_PolicyVerifyCertificate(&head->certificate, &pub));
+    EXPECT_EQ(AJ_OK, AJ_PolicyFindAuthority(head));
 
     /* Store intermediate 2 issuer */
     peer.type = AJ_PEER_TYPE_FROM_CA;
     memcpy(&peer.pub, &intermediate2->certificate.tbs.publickey, sizeof (AJ_ECCPublicKey));
     ASSERT_EQ(AJ_OK, AJ_PolicyToBuffer(&policy, &field));
     ASSERT_EQ(AJ_OK, AJ_CredentialSet(AJ_POLICY_INSTALLED | AJ_CRED_TYPE_POLICY, NULL, 0xFFFFFFFF, &field));
-    EXPECT_EQ(AJ_ERR_SECURITY, AJ_PolicyVerifyCertificate(&head->certificate, AJ_CERTIFICATE_IDN_X509, NULL, &pub));
-    EXPECT_EQ(AJ_OK, AJ_PolicyFindAuthority(head, AJ_CERTIFICATE_IDN_X509, NULL));
+    EXPECT_EQ(AJ_ERR_SECURITY, AJ_PolicyVerifyCertificate(&head->certificate, &pub));
+    EXPECT_EQ(AJ_OK, AJ_PolicyFindAuthority(head));
     peer.type = AJ_PEER_TYPE_WITH_MEMBERSHIP;
     ASSERT_EQ(AJ_OK, AJ_PolicyToBuffer(&policy, &field));
     ASSERT_EQ(AJ_OK, AJ_CredentialSet(AJ_POLICY_INSTALLED | AJ_CRED_TYPE_POLICY, NULL, 0xFFFFFFFF, &field));
-    EXPECT_EQ(AJ_ERR_SECURITY, AJ_PolicyVerifyCertificate(&head->certificate, AJ_CERTIFICATE_IDN_X509, NULL, &pub));
-    EXPECT_EQ(AJ_OK, AJ_PolicyFindAuthority(head, AJ_CERTIFICATE_IDN_X509, NULL));
+    EXPECT_EQ(AJ_ERR_SECURITY, AJ_PolicyVerifyCertificate(&head->certificate, &pub));
+    EXPECT_EQ(AJ_OK, AJ_PolicyFindAuthority(head));
 
     /* Store leaf issuer (non CA) */
     peer.type = AJ_PEER_TYPE_FROM_CA;
-    memcpy(&peer.pub, &last->certificate.tbs.publickey, sizeof (AJ_ECCPublicKey));
+    memcpy(&peer.pub, &leaf->certificate.tbs.publickey, sizeof (AJ_ECCPublicKey));
     ASSERT_EQ(AJ_OK, AJ_PolicyToBuffer(&policy, &field));
     ASSERT_EQ(AJ_OK, AJ_CredentialSet(AJ_POLICY_INSTALLED | AJ_CRED_TYPE_POLICY, NULL, 0xFFFFFFFF, &field));
-    EXPECT_EQ(AJ_ERR_SECURITY, AJ_PolicyVerifyCertificate(&head->certificate, AJ_CERTIFICATE_IDN_X509, NULL, &pub));
-    EXPECT_EQ(AJ_ERR_SECURITY, AJ_PolicyFindAuthority(head, AJ_CERTIFICATE_IDN_X509, NULL));
+    EXPECT_EQ(AJ_ERR_SECURITY, AJ_PolicyVerifyCertificate(&head->certificate, &pub));
+    EXPECT_EQ(AJ_ERR_SECURITY, AJ_PolicyFindAuthority(head));
     peer.type = AJ_PEER_TYPE_WITH_MEMBERSHIP;
     ASSERT_EQ(AJ_OK, AJ_PolicyToBuffer(&policy, &field));
     ASSERT_EQ(AJ_OK, AJ_CredentialSet(AJ_POLICY_INSTALLED | AJ_CRED_TYPE_POLICY, NULL, 0xFFFFFFFF, &field));
-    EXPECT_EQ(AJ_ERR_SECURITY, AJ_PolicyVerifyCertificate(&head->certificate, AJ_CERTIFICATE_IDN_X509, NULL, &pub));
-    EXPECT_EQ(AJ_ERR_SECURITY, AJ_PolicyFindAuthority(head, AJ_CERTIFICATE_IDN_X509, NULL));
+    EXPECT_EQ(AJ_ERR_SECURITY, AJ_PolicyVerifyCertificate(&head->certificate, &pub));
+    EXPECT_EQ(AJ_ERR_SECURITY, AJ_PolicyFindAuthority(head));
 
-    AJ_X509FreeDecodedCertificateChain(chain);
+    AJ_X509FreeDecodedCertificateChain(root);
 }
 
 TEST_F(SecurityTest, RegisterACLTest)

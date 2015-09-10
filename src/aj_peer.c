@@ -1697,16 +1697,24 @@ Exit:
     }
 }
 
-static AJ_Status MarshalCertificates(X509CertificateChain* head, AJ_Message* msg)
+static AJ_Status MarshalCertificates(X509CertificateChain* root, AJ_Message* msg)
 {
     AJ_Status status;
     AJ_Arg container;
+    X509CertificateChain* head;
     uint8_t fmt = CERT_FMT_X509_DER;
 
+    /*
+     * X509CertificateChain is root first.
+     * The wire protocol requires leaf first,
+     * reverse it here, then reverse it back after marshalling.
+     */
+    root = AJ_X509ReverseChain(root);
     status = AJ_MarshalContainer(msg, &container, AJ_ARG_ARRAY);
     if (AJ_OK != status) {
         goto Exit;
     }
+    head = root;
     while (head) {
         status = AJ_MarshalArgs(msg, "(yay)", fmt, head->certificate.der.data, head->certificate.der.size);
         if (AJ_OK != status) {
@@ -1717,24 +1725,31 @@ static AJ_Status MarshalCertificates(X509CertificateChain* head, AJ_Message* msg
     status = AJ_MarshalCloseContainer(msg, &container);
 
 Exit:
+    root = AJ_X509ReverseChain(root);
     return status;
 }
 
-static AJ_Status CommonIssuer(X509CertificateChain* chain)
+static AJ_Status CommonIssuer(X509CertificateChain* root)
 {
-    AJ_Status status;
-    AJ_CertificateId id;
+    AJ_Status status = AJ_ERR_UNKNOWN;
+    X509CertificateChain* node;
     size_t i;
 
-    status = AJ_GetCertificateId(chain, &id);
-    if (AJ_OK != status) {
-        goto Exit;
-    }
-    status = AJ_ERR_UNKNOWN;
+    AJ_ASSERT(root);
     for (i = 1; i < authContext.kactx.ecdsa.num; i++) {
-        if (0 == memcmp((uint8_t*) &id.pub, (uint8_t*) &authContext.kactx.ecdsa.key[i], sizeof (AJ_ECCPublicKey))) {
+        node = root;
+        /* Check if intermediate issuer signed the root */
+        if (AJ_OK == AJ_X509Verify(&node->certificate, &authContext.kactx.ecdsa.key[i])) {
             status = AJ_OK;
-            break;
+            goto Exit;
+        }
+        /* Check if intermediate issuer is a subject */
+        while (node && node->certificate.tbs.extensions.ca) {
+            if (0 == memcmp(&node->certificate.tbs.publickey, &authContext.kactx.ecdsa.key[i], sizeof (AJ_ECCPublicKey))) {
+                status = AJ_OK;
+                goto Exit;
+            }
+            node = node->next;
         }
     }
 
@@ -1747,13 +1762,13 @@ static AJ_Status MarshalMembership(AJ_Message* msg)
     AJ_Status status = AJ_ERR_UNKNOWN;
     AJ_Arg container;
     AJ_CredField data;
-    X509CertificateChain* chain = NULL;
+    X509CertificateChain* root = NULL;
 
     AJ_ASSERT(SEND_MEMBERSHIPS_LAST != authContext.code);
 
     data.size = 0;
     data.data = NULL;
-    while (AJ_ERR_UNKNOWN == status) {
+    while ((AJ_ERR_UNKNOWN == status) && (SEND_MEMBERSHIPS_MORE == authContext.code)) {
         /*
          * Read membership certificate at current slot, there should be one.
          * We then check if the root issuer is the same as any of the issuers
@@ -1762,25 +1777,21 @@ static AJ_Status MarshalMembership(AJ_Message* msg)
         status = AJ_CredentialGetNext(AJ_CERTIFICATE_MBR_X509 | AJ_CRED_TYPE_CERTIFICATE, NULL, NULL, &data, &authContext.slot);
         authContext.slot++;
         if (AJ_OK == status) {
-            status = AJ_X509ChainFromBuffer(&chain, &data);
+            status = AJ_X509ChainFromBuffer(&root, &data);
             if (AJ_OK == status) {
-                status = CommonIssuer(chain);
+                status = CommonIssuer(root);
                 AJ_InfoPrintf(("MarshalMembership(msg=%p): Common issuer %s\n", msg, AJ_StatusText(status)));
             }
             if (AJ_OK != status) {
                 AJ_CredFieldFree(&data);
-                AJ_X509ChainFree(chain);
-                chain = NULL;
+                AJ_X509ChainFree(root);
+                root = NULL;
                 status = AJ_ERR_UNKNOWN;
             }
         } else {
             authContext.code = SEND_MEMBERSHIPS_NONE;
             status = AJ_OK;
         }
-    }
-    if (AJ_OK != status) {
-        AJ_InfoPrintf(("MarshalMembership(msg=%p): Error finding membership\n", msg));
-        goto Exit;
     }
 
     if (SEND_MEMBERSHIPS_NONE == authContext.code) {
@@ -1818,7 +1829,7 @@ static AJ_Status MarshalMembership(AJ_Message* msg)
         AJ_InfoPrintf(("MarshalMembership(msg=%p): Marshal error\n", msg));
         goto Exit;
     }
-    status = MarshalCertificates(chain, msg);
+    status = MarshalCertificates(root, msg);
     if (AJ_OK != status) {
         AJ_InfoPrintf(("MarshalMembership(msg=%p): Marshal error\n", msg));
         goto Exit;
@@ -1829,7 +1840,7 @@ static AJ_Status MarshalMembership(AJ_Message* msg)
     }
 
 Exit:
-    AJ_X509ChainFree(chain);
+    AJ_X509ChainFree(root);
     AJ_CredFieldFree(&data);
     return status;
 }
@@ -1866,7 +1877,7 @@ static void UnmarshalCertificates(AJ_Message* msg)
     AJ_Arg container;
     uint8_t alg;
     DER_Element der;
-    X509CertificateChain* head = NULL;
+    X509CertificateChain* root = NULL;
     X509CertificateChain* node = NULL;
     AJ_ECCPublicKey* pub = NULL;
     DER_Element* group;
@@ -1885,8 +1896,8 @@ static void UnmarshalCertificates(AJ_Message* msg)
             AJ_WarnPrintf(("UnmarshalCertificates(msg=%p): Resource error\n", msg));
             goto Exit;
         }
-        node->next = head;
-        head = node;
+        node->next = root;
+        root = node;
         /* Set the der before its consumed */
         node->certificate.der.size = der.size;
         node->certificate.der.data = der.data;
@@ -1922,35 +1933,40 @@ static void UnmarshalCertificates(AJ_Message* msg)
     }
 
     /* Initial chain verification to validate intermediate issuers */
-    status = AJ_X509VerifyChain(head, NULL, AJ_CERTIFICATE_MBR_X509);
+    status = AJ_X509VerifyChain(root, NULL, AJ_CERTIFICATE_MBR_X509);
     if (AJ_OK != status) {
         AJ_InfoPrintf(("UnmarshalCertificates(msg=%p): Certificate chain invalid\n", msg));
         goto Exit;
     }
-    /* Search for the intermediate issuers in the stored authorities */
-    status = AJ_PolicyFindAuthority(head, AJ_CERTIFICATE_MBR_X509, group);
+
+    /* Verify the root certificate against the stored authorities */
+    pub = (AJ_ECCPublicKey*) AJ_Malloc(sizeof (AJ_ECCPublicKey));
+    if (NULL == pub) {
+        AJ_InfoPrintf(("UnmarshalCertificates(msg=%p): AJ_ERR_RESOURCES\n", msg));
+        goto Exit;
+    }
+    status = AJ_PolicyVerifyCertificate(&root->certificate, pub);
     if (AJ_OK != status) {
-        /* Verify the root certificate against the stored authorities */
-        pub = (AJ_ECCPublicKey*) AJ_Malloc(sizeof (AJ_ECCPublicKey));
-        if (NULL == pub) {
-            AJ_InfoPrintf(("UnmarshalCertificates(msg=%p): AJ_ERR_RESOURCES\n", msg));
-            goto Exit;
+        AJ_Free(pub);
+        pub = NULL;
+        /* Search for the intermediate issuers in the stored authorities */
+        status = AJ_PolicyFindAuthority(root);
+        if (AJ_OK != status) {
         }
-        status = AJ_PolicyVerifyCertificate(&head->certificate, AJ_CERTIFICATE_MBR_X509, group, pub);
     }
     if (AJ_OK != status) {
         AJ_InfoPrintf(("UnmarshalCertificates(msg=%p): Certificate authority unknown\n", msg));
         goto Exit;
     }
     AJ_InfoPrintf(("UnmarshalCertificates(msg=%p): Certificate chain valid\n", msg));
-    AJ_MembershipApply(head, pub, group, msg->sender);
+    AJ_MembershipApply(root, pub, group, msg->sender);
 
 Exit:
     AJ_Free(pub);
     /* Free the cert chain */
-    while (head) {
-        node = head;
-        head = head->next;
+    while (root) {
+        node = root;
+        root = root->next;
         AJ_Free(node);
     }
 }

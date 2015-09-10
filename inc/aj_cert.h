@@ -131,6 +131,7 @@ typedef struct _X509Certificate {
 
 /**
  * Certificate chain: linked list of certificates
+ * These are always root..end entity order.
  */
 typedef struct _X509CertificateChain {
     X509Certificate certificate;         /**< The certificate */
@@ -176,8 +177,8 @@ AJ_Status AJ_X509DecodeCertificatePEM(X509Certificate* certificate, const char* 
 /**
  * Decode a PEM encoded X.509 certificate chain.
  * The order of certificates is important.
- * This puts the child first, then parents follow.
- * That is the same order that should be in the pem.
+ * PEM strings are stored as end entity...root order.
+ * This decodes to a linked list that is root...end entity order.
  *
  * On success, caller must later free the chain with a call
  * to AJ_X509FreeDecodedCertificateChain.
@@ -192,9 +193,9 @@ X509CertificateChain* AJ_X509DecodeCertificateChainPEM(const char* pem);
  * Free the memory allocated to an X509CertificateChain* as returned
  * by AJ_X509DecodeCertificateChainPEM.
  *
- * @param head       Head of the certificate chain. If this is NULL, this function does nothing.
+ * @param root       Root of the certificate chain. If this is NULL, this function does nothing.
  */
-void AJ_X509FreeDecodedCertificateChain(X509CertificateChain* head);
+void AJ_X509FreeDecodedCertificateChain(X509CertificateChain* root);
 
 /**
  * Verify a self-signed X.509 certificate.
@@ -231,14 +232,14 @@ AJ_Status AJ_X509Verify(const X509Certificate* certificate, const AJ_ECCPublicKe
  *          - AJ_OK on success
  *          - AJ_ERR_SECURITY on failure
  */
-AJ_Status AJ_X509VerifyChain(const X509CertificateChain* chain, const AJ_ECCPublicKey* key, uint32_t type);
+AJ_Status AJ_X509VerifyChain(const X509CertificateChain* root, const AJ_ECCPublicKey* key, uint32_t type);
 
 /**
  * Free memory associated with X.509 chain.
  *
- * @param head        The input certificate chain.
+ * @param root        The input certificate chain.
  */
-void AJ_X509ChainFree(X509CertificateChain* head);
+void AJ_X509ChainFree(X509CertificateChain* root);
 
 /**
  * Marshal a X.509 certificate chain.
@@ -250,7 +251,7 @@ void AJ_X509ChainFree(X509CertificateChain* head);
  *          - AJ_OK on success
  *          - AJ_ERR_SECURITY on failure
  */
-AJ_Status AJ_X509ChainMarshal(X509CertificateChain* chain, AJ_Message* msg);
+AJ_Status AJ_X509ChainMarshal(X509CertificateChain* root, AJ_Message* msg);
 
 /**
  * Unmarshal a X.509 certificate chain.
@@ -262,7 +263,7 @@ AJ_Status AJ_X509ChainMarshal(X509CertificateChain* chain, AJ_Message* msg);
  *          - AJ_OK on success
  *          - AJ_ERR_SECURITY on failure
  */
-AJ_Status AJ_X509ChainUnmarshal(X509CertificateChain** chain, AJ_Message* msg);
+AJ_Status AJ_X509ChainUnmarshal(X509CertificateChain** root, AJ_Message* msg);
 
 /**
  * Marshal a X.509 certificate chain to a local buffer.
@@ -274,7 +275,7 @@ AJ_Status AJ_X509ChainUnmarshal(X509CertificateChain** chain, AJ_Message* msg);
  *          - AJ_OK on success
  *          - AJ_ERR_SECURITY on failure
  */
-AJ_Status AJ_X509ChainToBuffer(X509CertificateChain* chain, AJ_CredField* field);
+AJ_Status AJ_X509ChainToBuffer(X509CertificateChain* root, AJ_CredField* field);
 
 /**
  * Unmarshal a X.509 certificate chain from a local buffer.
@@ -286,8 +287,27 @@ AJ_Status AJ_X509ChainToBuffer(X509CertificateChain* chain, AJ_CredField* field)
  *          - AJ_OK on success
  *          - AJ_ERR_SECURITY on failure
  */
-AJ_Status AJ_X509ChainFromBuffer(X509CertificateChain** chain, AJ_CredField* field);
-X509Certificate* AJ_X509LeafCertificate(X509CertificateChain* chain);
+AJ_Status AJ_X509ChainFromBuffer(X509CertificateChain** root, AJ_CredField* field);
+
+/**
+ * Return a reference to the leaf certificate in a chain.
+ *
+ * @param root         The certificate chain.
+ *
+ * @return Return the head of the reversed linked list.
+ */
+X509Certificate* AJ_X509LeafCertificate(X509CertificateChain* root);
+
+/**
+ * Reverse the certificate chain linked list.
+ * The order for certificates in memory is root first.
+ * The wire protocol expects leaf certificate first.
+ *
+ * @param root         The certificate chain.
+ *
+ * @return Return the head of the reversed linked list.
+ */
+X509CertificateChain* AJ_X509ReverseChain(X509CertificateChain* root);
 
 #ifdef __cplusplus
 }
