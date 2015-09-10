@@ -189,7 +189,7 @@ if found_ws:
         return whitespace.main([ env['WS'], os.getcwd() + '/tools/ajuncrustify.cfg' ])
 
     vars = Variables()
-    vars.Add(EnumVariable('WS', 'Whitespace Policy Checker', os.environ.get('AJ_WS', 'check'), allowed_values = ('check', 'detail', 'fix', 'off')))
+    vars.Add(EnumVariable('WS', 'Whitespace Policy Checker', os.environ.get('AJ_WS', 'off'), allowed_values = ('check', 'detail', 'fix', 'off')))
 
     vars.Update(config.env)
     Help(vars.GenerateHelpText(config.env))
