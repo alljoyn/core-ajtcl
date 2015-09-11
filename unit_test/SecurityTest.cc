@@ -18,6 +18,15 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
+/**
+ *      DEPENDENCY!!!!
+ *
+ *      Some of the tests in this file will attempt to establish a session with org.alljoyn.svclite.
+ *      This won't be running unless you explicitly run:
+ *          bbservice -n org.alljoyn.svclite
+ */
+
+
 #include <gtest/gtest.h>
 
 #define AJ_MODULE SECURITYTEST
