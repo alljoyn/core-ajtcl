@@ -39,8 +39,10 @@ extern "C" {
 /* Network options */
 #define AJ_CONNECT_LOCALHOST        0           //Enable to bypass discovery and connect locally
 #define AJ_MAX_TIMERS               4           //maximum number of timers              (aj_helper.c)
-#define AJ_ROUTING_NODE_BLACKLIST_SIZE 16       // maximum number of blacklisted routing nodes
-#define AJ_ROUTING_NODE_RESPONSELIST_SIZE 3     // maximum number of routing node responses to track
+#define AJ_ROUTING_NODE_BLACKLIST_SIZE 16       //maximum number of blacklisted routing nodes
+#define AJ_ROUTING_NODE_RESPONSELIST_SIZE 3     //maximum number of routing node responses to track
+#define AJ_TX_DATA_SIZE             3000        //minimum size of network transmit buffer
+#define AJ_RX_DATA_SIZE             3000        //minimum size of network receive buffer
 
 /* Auth options */
 #define AJ_NONCE_LEN                28          //Length of the nonce.

@@ -250,8 +250,8 @@ static AJ_Status AJ_Net_Recv(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)
 /*
  * Statically sized buffers for I/O
  */
-static uint8_t rxData[2048];
-static uint8_t txData[2048];
+static uint8_t rxData[AJ_RX_DATA_SIZE];
+static uint8_t txData[AJ_TX_DATA_SIZE];
 
 #ifdef AJ_TCP
 static AJ_Status AJ_TCP_Connect(AJ_BusAttachment* bus, const AJ_Service* service)

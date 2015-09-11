@@ -39,6 +39,7 @@
 #include <netdb.h>
 #include <ifaddrs.h>
 
+#include <ajtcl/aj_config.h>
 #include <ajtcl/aj_target.h>
 #include <ajtcl/aj_bufio.h>
 #include <ajtcl/aj_net.h>
@@ -252,8 +253,8 @@ AJ_Status AJ_Net_Recv(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)
     return status;
 }
 
-static uint8_t rxData[1024];
-static uint8_t txData[1500];
+static uint8_t rxData[AJ_RX_DATA_SIZE];
+static uint8_t txData[AJ_TX_DATA_SIZE];
 
 AJ_Status AJ_Net_Connect(AJ_BusAttachment* bus, const AJ_Service* service)
 {
