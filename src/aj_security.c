@@ -244,7 +244,9 @@ AJ_Status AJ_GetCertificateId(X509CertificateChain* root, AJ_CertificateId* id)
     id->serial.data = leaf->tbs.serial.data;
     id->serial.size = leaf->tbs.serial.size;
     /* Authority PublicKey is in the policy, can't rely on AKI */
+    AJ_PolicyLoad();
     status = AJ_PolicyVerifyCertificate(&root->certificate, &id->pub);
+    AJ_PolicyUnload();
 
     return status;
 }
@@ -491,7 +493,9 @@ static AJ_Status SecurityGetProperty(AJ_Message* reply, uint32_t id, void* conte
         break;
 
     case AJ_PROPERTY_MANAGED_POLICY_VERSION:
+        AJ_PolicyLoad();
         status = AJ_PolicyVersion(&version);
+        AJ_PolicyUnload();
         if (AJ_OK != status) {
             break;
         }

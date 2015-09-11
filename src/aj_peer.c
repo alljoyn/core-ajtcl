@@ -414,6 +414,12 @@ AJ_Status AJ_PeerAuthenticate(AJ_BusAttachment* bus, const char* peerName, AJ_Pe
     authContext.bus = bus;
     authContext.role = AUTH_CLIENT;
 
+    /* Load policy into memory */
+    status = AJ_PolicyLoad();
+    if (AJ_OK != status) {
+        AJ_InfoPrintf(("PeerAuthenticate(): No policy\n"));
+    }
+
     status = AJ_ConversationHash_Initialize(&authContext);
     if (AJ_OK == status) {
         if (bus->pwdCallback) {
@@ -479,6 +485,12 @@ AJ_Status AJ_PeerHandleExchangeGUIDs(AJ_Message* msg, AJ_Message* reply)
     AJ_InitTimer(&peerContext.timer);
     authContext.bus = msg->bus;
     authContext.role = AUTH_SERVER;
+
+    /* Load policy into memory */
+    status = AJ_PolicyLoad();
+    if (AJ_OK != status) {
+        AJ_InfoPrintf(("AJ_PeerHandleExchangeGuids(msg=%p, reply=%p): No policy\n", msg, reply));
+    }
 
     status = AJ_ConversationHash_Initialize(&authContext);
     if (AJ_OK == status) {
@@ -1450,11 +1462,6 @@ AJ_Status AJ_PeerHandleExchangeGroupKeys(AJ_Message* msg, AJ_Message* reply)
     if (AJ_OK != status) {
         goto Exit;
     }
-    /* Load policy into memory */
-    status = AJ_PolicyLoad();
-    if (AJ_OK != status) {
-        AJ_InfoPrintf(("AJ_PeerHandleExchangeGroupKeys(): No policy\n"));
-    }
     status = AJ_PolicyApply(&authContext, msg->sender);
     if (AUTH_SUITE_ECDHE_ECDSA != authContext.suite) {
         HandshakeComplete(status);
@@ -1496,11 +1503,6 @@ AJ_Status AJ_PeerHandleExchangeGroupKeysReply(AJ_Message* msg)
         goto Exit;
     }
 
-    /* Load policy into memory */
-    status = AJ_PolicyLoad();
-    if (AJ_OK != status) {
-        AJ_InfoPrintf(("AJ_PeerHandleExchangeGroupKeys(): No policy\n"));
-    }
     status = AJ_PolicyApply(&authContext, msg->sender);
     if (AJ_OK != status) {
         goto Exit;
