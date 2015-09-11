@@ -18,6 +18,15 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
+/**
+ *      DEPENDENCY!!!!
+ *
+ *      Some of the tests in this file will attempt to establish a session with org.alljoyn.svclite.
+ *      This won't be running unless you explicitly run:
+ *          bbservice -n org.alljoyn.svclite
+ */
+
+
 #include <gtest/gtest.h>
 
 #define AJ_MODULE SECURITYTEST
@@ -267,6 +276,7 @@ TEST_F(SecurityTest, Test_ECDHE_NULL)
     // Register bus objects and proxy bus objects
     AJ_RegisterObjects(NULL, AppObjects);
 
+    AJ_Printf("NOTE: this test will hang; please run 'bbservice -n %s'\n", ServiceName);
     status = AJ_StartClientByName(&testBus, NULL, CONNECT_TIMEOUT, FALSE, ServiceName, ServicePort, &session, NULL, g_ServiceName);
     ASSERT_EQ(AJ_OK, status) << "Unable to connect to the daemon. " << "The status returned is " << AJ_StatusText(status);
     if (AJ_OK == status) {
@@ -321,6 +331,7 @@ TEST_F(SecurityTest, Test_ECDHE_PSK)
     // Register bus objects and proxy bus objects
     AJ_RegisterObjects(NULL, AppObjects);
 
+    AJ_Printf("NOTE: this test will hang; please run 'bbservice -n %s'\n", ServiceName);
     status = AJ_StartClientByName(&testBus, NULL, CONNECT_TIMEOUT, FALSE, ServiceName, ServicePort, &session, NULL, g_ServiceName);
     ASSERT_EQ(AJ_OK, status) << "Unable to connect to the daemon. " << "The status returned is " << AJ_StatusText(status);
     if (AJ_OK == status) {
@@ -374,6 +385,7 @@ TEST_F(SecurityTest, Test_ECDHE_ECDSA)
     // Register bus objects and proxy bus objects
     AJ_RegisterObjects(NULL, AppObjects);
 
+    AJ_Printf("NOTE: this test will hang; please run 'bbservice -n %s'\n", ServiceName);
     status = AJ_StartClientByName(&testBus, NULL, CONNECT_TIMEOUT, FALSE, ServiceName, ServicePort, &session, NULL, g_ServiceName);
     ASSERT_EQ(AJ_OK, status) << "Unable to connect to the daemon" << "The status returned is " << AJ_StatusText(status);
     if (AJ_OK == status) {
