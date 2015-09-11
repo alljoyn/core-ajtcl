@@ -1507,7 +1507,7 @@ AJ_Status AJ_PeerHandleExchangeGroupKeysReply(AJ_Message* msg)
     if (AJ_OK != status) {
         goto Exit;
     }
-    if (AUTH_SUITE_ECDHE_ECDSA == authContext.suite) {
+    if ((AUTH_SUITE_ECDHE_ECDSA == authContext.suite) && ((authContext.version >> 16) >= 4)) {
         status = SendManifest(msg);
     } else {
         HandshakeComplete(status);
@@ -1897,6 +1897,7 @@ static void UnmarshalCertificates(AJ_Message* msg)
     X509CertificateChain* node = NULL;
     AJ_ECCPublicKey* pub = NULL;
     DER_Element* group;
+    uint32_t type;
 
     status = AJ_UnmarshalContainer(msg, &container, AJ_ARG_ARRAY);
     if (AJ_OK != status) {
@@ -1948,8 +1949,15 @@ static void UnmarshalCertificates(AJ_Message* msg)
         goto Exit;
     }
 
-    /* Initial chain verification to validate intermediate issuers */
-    status = AJ_X509VerifyChain(root, NULL, AJ_CERTIFICATE_MBR_X509);
+    /* Initial chain verification to validate intermediate issuers.
+     * Type is ignored for auth version < 4.
+     */
+    if ((authContext.version >> 16) < 4) {
+        type = 0;
+    } else {
+        type = AJ_CERTIFICATE_MBR_X509;
+    }
+    status = AJ_X509VerifyChain(root, NULL, type);
     if (AJ_OK != status) {
         AJ_InfoPrintf(("UnmarshalCertificates(msg=%p): Certificate chain invalid\n", msg));
         goto Exit;
