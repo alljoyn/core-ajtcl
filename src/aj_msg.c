@@ -559,6 +559,24 @@ static AJ_Status EncryptMessage(AJ_Message* msg)
     return status;
 }
 
+static AJ_Status AuthoriseOutgoingMessage(const AJ_Message* msg)
+{
+    if ((msg->hdr->msgType != AJ_MSG_METHOD_CALL) && (msg->hdr->msgType != AJ_MSG_SIGNAL)) {
+        return AJ_OK;
+    }
+
+    return AJ_AccessControlCheckMessage(msg, msg->destination, AJ_ACCESS_OUTGOING);
+}
+
+static AJ_Status AuthoriseIncomingMessage(const AJ_Message* msg)
+{
+    if ((msg->hdr->msgType != AJ_MSG_METHOD_CALL) && (msg->hdr->msgType != AJ_MSG_SIGNAL)) {
+        return AJ_OK;
+    }
+
+    return AJ_AccessControlCheckMessage(msg, msg->sender, AJ_ACCESS_INCOMING);
+}
+
 AJ_Status AJ_DeliverMsg(AJ_Message* msg)
 {
     AJ_Status status = AJ_OK;
@@ -580,7 +598,10 @@ AJ_Status AJ_DeliverMsg(AJ_Message* msg)
         msg->hdr->bodyLen = msg->bodyBytes;
         AJ_DumpMsg("SENDING", msg, TRUE);
         if (msg->hdr->flags & AJ_FLAG_ENCRYPTED) {
-            status = EncryptMessage(msg);
+            status = AuthoriseOutgoingMessage(msg);
+            if (AJ_OK == status) {
+                status = EncryptMessage(msg);
+            }
 
             if (AJ_ERR_NO_MATCH == status && AJ_MSG_ERROR == msg->hdr->msgType && msg->error == AJ_ErrSecurityViolation) {
                 /* Allow an unencrypted reply in this specific key-not-found error case. */
@@ -1428,20 +1449,18 @@ AJ_Status AJ_UnmarshalMsg(AJ_BusAttachment* bus, AJ_Message* msg, uint32_t timeo
         /*
          * Check incoming policy
          */
-        if ((AJ_OK == status) && (msg->hdr) && (msg->hdr->flags & AJ_FLAG_ENCRYPTED)) {
-            if ((msg->hdr->msgType == AJ_MSG_METHOD_CALL) || (msg->hdr->msgType == AJ_MSG_SIGNAL)) {
-                status = AJ_AccessControlCheckMessage(msg, msg->sender, AJ_ACCESS_INCOMING);
-                if ((AJ_OK != status) && (msg->hdr->msgType == AJ_MSG_METHOD_CALL) && !(msg->hdr->flags & AJ_FLAG_NO_REPLY_EXPECTED)) {
-                    AJ_Message reply;
-                    AJ_Status replyStatus;
-                    replyStatus = AJ_MarshalStatusMsg(msg, &reply, status);
-                    if (AJ_OK == replyStatus) {
-                        replyStatus = AJ_DeliverMsg(&reply);
-                    }
-                    if (AJ_OK != replyStatus) {
-                        /* Fail to send an error reply, log and continue */
-                        AJ_InfoPrintf(("AJ_UnmarshalMsg(): %s\n", AJ_StatusText(replyStatus)));
-                    }
+        if ((AJ_OK == status) && (msg->hdr->flags & AJ_FLAG_ENCRYPTED)) {
+            status = AuthoriseIncomingMessage(msg);
+            if ((AJ_OK != status) && (msg->hdr->msgType == AJ_MSG_METHOD_CALL) && !(msg->hdr->flags & AJ_FLAG_NO_REPLY_EXPECTED)) {
+                AJ_Message reply;
+                AJ_Status replyStatus;
+                replyStatus = AJ_MarshalStatusMsg(msg, &reply, status);
+                if (AJ_OK == replyStatus) {
+                    replyStatus = AJ_DeliverMsg(&reply);
+                }
+                if (AJ_OK != replyStatus) {
+                    /* Fail to send an error reply, log and continue */
+                    AJ_InfoPrintf(("AJ_UnmarshalMsg(): %s\n", AJ_StatusText(replyStatus)));
                 }
             }
         }
@@ -2030,20 +2049,7 @@ static AJ_Status MarshalMsg(AJ_Message* msg, uint8_t msgType, uint32_t msgId, ui
     msg->hdr->flags = flags;
     if (secure) {
         msg->hdr->flags |= AJ_FLAG_ENCRYPTED;
-        /*
-         * Check outgoing policy
-         */
-        if ((msgType == AJ_MSG_METHOD_CALL) || (msgType == AJ_MSG_SIGNAL)) {
-            if (msg->destination) {
-                /* Method or session based signal */
-                status = AJ_AccessControlCheckMessage(msg, msg->destination, AJ_ACCESS_OUTGOING);
-                if (AJ_OK != status) {
-                    return status;
-                }
-            }
-        }
     }
-
 
     /*
      * The wire-protocol calls this flag NO_AUTO_START we toggle the meaning in the API
