@@ -619,6 +619,9 @@ TEST_F(SecurityTest, PolicyVerifyCertificateChainTest)
 
     AJ_X509FreeDecodedCertificateChain(root);
     AJ_PolicyUnload();
+
+    /* Remove policy from keystore */
+    AJ_CredentialDelete(AJ_POLICY_INSTALLED | AJ_CRED_TYPE_POLICY, NULL);
 }
 
 TEST_F(SecurityTest, RegisterACLTest)
