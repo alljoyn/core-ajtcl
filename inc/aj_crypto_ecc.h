@@ -41,7 +41,7 @@ typedef enum {B_FALSE, B_TRUE} boolean_t;
 #define KEY_ECC_SIG_SZ (2 * KEY_ECC_SZ)
 
 /* Size of affine_point_t */
-#define KEY_ECC_OLD_SZ (2 * 19 * sizeof (uint32_t))
+#define KEY_ECC_OLD_SZ (19 * sizeof (uint32_t))
 
 /**
  * We currently only support one type of key
