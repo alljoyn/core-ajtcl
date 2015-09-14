@@ -715,7 +715,7 @@ AJ_Status AJ_MarshalDefaultPolicy(AJ_CredField* field, AJ_PermissionPeer* peer_c
         AJ_PermissionACL acl_admin = { peer_admin, &rule_admin, &acl_ca };
         AJ_PermissionACL acl_any = { &peer_any, &rule_any, &acl_admin };
 
-        AJ_Policy policy = { POLICY_SPECIFICATION_VERSION, 1, &acl_any };
+        AJ_Policy policy = { POLICY_SPECIFICATION_VERSION, 0, &acl_any };
 
         /* Marshal the policy */
         status = AJ_PolicyToBuffer(&policy, field);

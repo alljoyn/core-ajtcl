@@ -211,6 +211,10 @@ extern const char AJ_ErrSecurityViolation[34];     /**< Error security violation
 extern const char AJ_ErrPermissionDenied[48];      /**< Error permission denied string */
 extern const char AJ_ErrDigestMismatch[46];        /**< Error digest mismatch string */
 extern const char AJ_ErrUnknownCertificate[50];    /**< Error unknown certificate string */
+extern const char AJ_ErrInvalidCertificate[50];    /**< Error invalid certificate string */
+extern const char AJ_ErrDuplicateCertificate[52];  /**< Error duplicate certificate string */
+extern const char AJ_ErrCertificateNotFound[51];   /**< Error certificate not found string */
+extern const char AJ_ErrPolicyNotNewer[46];        /**< Error invalid policy string */
 extern const char AJ_ErrTimeout[24];               /**< Error timeout string */
 extern const char AJ_ErrRejected[25];              /**< Error rejected string */
 extern const char AJ_ErrResources[26];             /**< Error resource string */

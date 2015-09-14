@@ -77,12 +77,16 @@ typedef enum {
     AJ_ERR_ARDP_SEND_EXPIRED            = 48, /**< The outgoing message has expired */
     AJ_ERR_ARDP_RECV_EXPIRED            = 49, /**< The incoming message has expired */
     AJ_ERR_ARDP_VERSION_NOT_SUPPORTED   = 50, /**< Error to indicate ARDP protocol mismatch */
-    AJ_ERR_SECURITY_DIGEST_MISMATCH     = 51, /**< Security error for digest mismatch */
-    AJ_ERR_SECURITY_UNKNOWN_CERTIFICATE = 52, /**< Security error for unknown certificate */
+    AJ_ERR_SECURITY_DIGEST_MISMATCH       = 51, /**< Security error for digest mismatch */
+    AJ_ERR_SECURITY_UNKNOWN_CERTIFICATE   = 52, /**< Security error for unknown certificate */
+    AJ_ERR_SECURITY_INVALID_CERTIFICATE   = 53, /**< Security error for invalid certificate */
+    AJ_ERR_SECURITY_DUPLICATE_CERTIFICATE = 54, /**< Security error for duplicate certificate */
+    AJ_ERR_SECURITY_POLICY_NOT_NEWER      = 55, /**< Security error for invalid policy update */
+    AJ_ERR_SECURITY_CERTIFICATE_NOT_FOUND = 56, /**< Security error for certificate not found */
     /*
      * REMINDER: Update AJ_StatusText in aj_debug.c if adding a new status code.
      */
-    AJ_STATUS_LAST      = 53  /**< The last error status code */
+    AJ_STATUS_LAST      = 57  /**< The last error status code */
 
 } AJ_Status;
 
