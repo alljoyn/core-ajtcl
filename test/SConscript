@@ -34,7 +34,7 @@ progs.extend([
 if test_env['TARG'] == 'win32' or test_env['TARG'] == 'linux':
     progs.extend([
         test_env.Program('sessions', ['sessions.c']),
-        test_env.Program('marshall_unmarshall_test', ['marshall_unmarshall_test.c'])
+        test_env.Program('marshal_unmarshal_test', ['marshal_unmarshal_test.c'])
     ])
 
 #     if test_env['TARG'] == 'linux-uart':

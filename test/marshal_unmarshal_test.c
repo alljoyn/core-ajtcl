@@ -1,6 +1,6 @@
 /**
  * @file
- * Alljoyn client that marshals and unmarshalls different data types.
+ * Alljoyn client that marshals and unmarshals different data types.
  */
 
 /******************************************************************************
@@ -18,6 +18,9 @@
  *    ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
+
+#define AJ_MODULE MARSHAL_UNMARSHAL
+
 #include <stdio.h>
 #include <ajtcl/aj_debug.h>
 #include <ajtcl/alljoyn.h>
@@ -34,9 +37,12 @@ static const uint16_t ServicePort = 25;
  */
 static char fullServiceName[AJ_MAX_SERVICE_NAME_SIZE];
 
-uint8_t dbgBASIC_CLIENT = 0;
+/**
+ * Turn on per-module debug printing by setting this variable to non-zero value
+ * (usually in debugger).
+ */
+uint8_t dbgMARSHAL_UNMARSHAL = 0;
 
-uint8_t dbgBASIC_SERVICE = 0;
 /**
  * The interface name followed by the method signatures.
  *
@@ -370,7 +376,7 @@ void Int16MethodCall(AJ_BusAttachment* bus, uint32_t sessionId) {
 void UInt64MethodCall(AJ_BusAttachment* bus, uint32_t sessionId) {
     AJ_Status status;
     AJ_Message msg;
-    uint64_t inputUInt64 = 18446744073709551610;
+    uint64_t inputUInt64 = 18446744073709551610ULL;
 
     status = AJ_MarshalMethodCall(bus, &msg, BASIC_SERVICE_UINT64_CLIENT, fullServiceName, sessionId, 0, METHOD_TIMEOUT);
 
@@ -388,7 +394,7 @@ void UInt64MethodCall(AJ_BusAttachment* bus, uint32_t sessionId) {
 void Int64MethodCall(AJ_BusAttachment* bus, uint32_t sessionId) {
     AJ_Status status;
     AJ_Message msg;
-    int64_t inputUInt64 = -92233720368547758;
+    int64_t inputUInt64 = -92233720368547758LL;
 
     status = AJ_MarshalMethodCall(bus, &msg, BASIC_SERVICE_INT64_CLIENT, fullServiceName, sessionId, 0, METHOD_TIMEOUT);
 
@@ -3507,12 +3513,12 @@ int AJ_ServiceMain(void) {
 
 static void usage(void)
 {
-    printf("Usage: bbclient [-h] [-s] [-c]\n\n");
+    printf("Usage: marshal_unmarshal_test [-h] [-s] [-c]\n\n");
     printf("Options:\n");
     printf("   -h   = Print this help message\n");
-    printf("   -s   = Rut the program as a service\n");
-    printf("   -c   = Number of pings to send to the server\n");
-    printf("   -p   = Number of pings to send to the server\n");
+    printf("   -s   = Run the program as a service\n");
+    printf("   -c   = Run the program as a client\n");
+    printf("   -p   = Run padding tests\n");
     printf("\n");
 }
 #ifdef AJ_MAIN
