@@ -279,11 +279,11 @@ static AJ_Status SaveECDSAContext(const AJ_GUID* peerGuid, uint32_t expiration)
     }
 
     if ((AJ_AUTH_SUCCESS == peerContext.state) && authContext.kactx.ecdsa.size) {
-        status = AJ_CredentialSetPeer(AJ_GENERIC_ECDSA_MANIFEST, peerGuid, expiration, authContext.kactx.ecdsa.manifest, authContext.kactx.ecdsa.size);
+        status = AJ_CredentialSetPeer(AJ_GENERIC_ECDSA_MANIFEST, peerGuid, expiration, authContext.kactx.ecdsa.manifest, (uint16_t)authContext.kactx.ecdsa.size);
         if (AJ_OK != status) {
             return status;
         }
-        status = AJ_CredentialSetPeer(AJ_GENERIC_ECDSA_KEYS, peerGuid, expiration, (uint8_t*) authContext.kactx.ecdsa.key, authContext.kactx.ecdsa.num * sizeof (AJ_ECCPublicKey));
+        status = AJ_CredentialSetPeer(AJ_GENERIC_ECDSA_KEYS, peerGuid, expiration, (uint8_t*) authContext.kactx.ecdsa.key, (uint16_t) (authContext.kactx.ecdsa.num * sizeof (AJ_ECCPublicKey)));
         if (AJ_OK != status) {
             return status;
         }
@@ -382,6 +382,30 @@ static AJ_Status HandshakeValid(const AJ_GUID* peerGuid)
     return AJ_OK;
 }
 
+AJ_Status HashGuids(AJ_AuthenticationContext* ctx, const AJ_GUID* remoteGuid, uint8_t localFirst)
+{
+    AJ_GUID localGuid;
+    AJ_Status status;
+
+    AJ_ASSERT(remoteGuid != NULL);
+    AJ_ASSERT(AJ_ConversationHash_IsInitialized(ctx));
+
+    status = AJ_GetLocalGUID(&localGuid);
+    if (AJ_OK != status) {
+        return status;
+    }
+
+    if (localFirst) {
+        AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V4, (uint8_t*)&localGuid, AJ_GUID_LEN);
+        AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V4, (uint8_t*)remoteGuid, AJ_GUID_LEN);
+    } else {
+        AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V4, (uint8_t*)remoteGuid, AJ_GUID_LEN);
+        AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V4, (uint8_t*)&localGuid, AJ_GUID_LEN);
+    }
+
+    return AJ_OK;
+}
+
 AJ_Status AJ_PeerAuthenticate(AJ_BusAttachment* bus, const char* peerName, AJ_PeerAuthenticateCallback callback, void* cbContext)
 {
     AJ_Status status;
@@ -420,17 +444,14 @@ AJ_Status AJ_PeerAuthenticate(AJ_BusAttachment* bus, const char* peerName, AJ_Pe
         AJ_InfoPrintf(("PeerAuthenticate(): No policy\n"));
     }
 
-    status = AJ_ConversationHash_Initialize(&authContext);
-    if (AJ_OK == status) {
-        if (bus->pwdCallback) {
-            AJ_EnableSuite(bus, AUTH_SUITE_ECDHE_PSK);
-        }
-
-        /*
-         * Kick off authentication with an ExchangeGUIDS method call
-         */
-        status = AJ_MarshalMethodCall(bus, &msg, AJ_METHOD_EXCHANGE_GUIDS, peerName, 0, AJ_NO_FLAGS, AJ_CALL_TIMEOUT);
+    if (bus->pwdCallback) {
+        AJ_EnableSuite(bus, AUTH_SUITE_ECDHE_PSK);
     }
+
+    /*
+     * Kick off authentication with an ExchangeGUIDS method call
+     */
+    status = AJ_MarshalMethodCall(bus, &msg, AJ_METHOD_EXCHANGE_GUIDS, peerName, 0, AJ_NO_FLAGS, AJ_CALL_TIMEOUT);
 
     if (AJ_OK != status) {
         return status;
@@ -448,12 +469,14 @@ AJ_Status AJ_PeerAuthenticate(AJ_BusAttachment* bus, const char* peerName, AJ_Pe
     if (AJ_OK != status) {
         return status;
     }
-    /* At this point, we don't know for sure if we're using CONVERSATION_V4. For now we're assuming
-     * so and hashing, since we won't have this message content after the call to AJ_DeliverMsg.
-     * When we get the ExchangeGuids reply, if we discover the peer doesn't support CONVERSATION_V4,
-     * we'll clear the hash and fall back to the older version at that point.
+
+    /*
+     * The ExchangeGuids call must be idempotent, so the conversation hash state is not initialized
+     * until later.  Depending on the state of the peers (i.e., whether they share a key), the conversation
+     * hash is initialized in either ExchangeSuites or GenSessionKey. At that time both GUIDs are hashed
+     * as well, captuing the information from ExchangeGuids in the conversation hash.
      */
-    AJ_ConversationHash_Update_Message(&authContext, CONVERSATION_V4, &msg, HASH_MSG_MARSHALED);
+
     return AJ_DeliverMsg(&msg);
 }
 
@@ -492,15 +515,11 @@ AJ_Status AJ_PeerHandleExchangeGUIDs(AJ_Message* msg, AJ_Message* reply)
         AJ_InfoPrintf(("AJ_PeerHandleExchangeGuids(msg=%p, reply=%p): No policy\n", msg, reply));
     }
 
-    status = AJ_ConversationHash_Initialize(&authContext);
-    if (AJ_OK == status) {
-        if (msg->bus->pwdCallback) {
-            AJ_EnableSuite(msg->bus, AUTH_SUITE_ECDHE_PSK);
-        }
-
-        status = AJ_UnmarshalArgs(msg, "su", &str, &authContext.version);
+    if (msg->bus->pwdCallback) {
+        AJ_EnableSuite(msg->bus, AUTH_SUITE_ECDHE_PSK);
     }
 
+    status = AJ_UnmarshalArgs(msg, "su", &str, &authContext.version);
     if (AJ_OK != status) {
         AJ_InfoPrintf(("AJ_PeerHandleExchangeGuids(msg=%p, reply=%p): Unmarshal error\n", msg, reply));
         HandshakeComplete(AJ_ERR_SECURITY);
@@ -563,12 +582,6 @@ AJ_Status AJ_PeerHandleExchangeGUIDs(AJ_Message* msg, AJ_Message* reply)
     if (AJ_OK != status) {
         goto Exit;
     }
-
-    /*
-     * Now that we know the authentication version, update the conversation hash.
-     */
-    AJ_ConversationHash_Update_Message(&authContext, CONVERSATION_V4, msg, HASH_MSG_UNMARSHALED);
-    AJ_ConversationHash_Update_Message(&authContext, CONVERSATION_V4, reply, HASH_MSG_MARSHALED);
 
     return status;
 
@@ -640,21 +653,6 @@ AJ_Status AJ_PeerHandleExchangeGUIDsReply(AJ_Message* msg)
     AJ_AccessControlReset(msg->sender);
 
     /*
-     * Now that we know the auth version, determine if we're operating at at least
-     * CONVERSATION_V4. If we aren't, we already put the exchange GUIDs request
-     * into the hash in AJ_PeerAuthenticate, so reset it.
-     */
-    if ((authContext.version >> 16) < CONVERSATION_V4) {
-        status = AJ_ConversationHash_Reset(&authContext);
-        if (AJ_OK != status) {
-            AJ_WarnPrintf(("AJ_PeerHandleExchangeGUIDsReply(msg=%p): SHA256 error\n", msg));
-            goto Exit;
-        }
-    } else {
-        AJ_ConversationHash_Update_Message(&authContext, CONVERSATION_V4, msg, HASH_MSG_UNMARSHALED);
-    }
-
-    /*
      * If we have a mastersecret stored - use it
      */
     status = LoadMasterSecret(peerContext.peerGuid);
@@ -720,6 +718,21 @@ static AJ_Status ExchangeSuites(AJ_Message* msg)
         goto Exit;
     }
 
+    /*
+     * Initialize conversation hash and hash GUIDs.
+     * May have already been done by GenSessionKey.
+     */
+    if (!AJ_ConversationHash_IsInitialized(&authContext)) {
+        status = AJ_ConversationHash_Initialize(&authContext);
+        if (AJ_OK != status) {
+            goto Exit;
+        }
+        status = HashGuids(&authContext, peerContext.peerGuid, 1);  /* hash local guid first */
+        if (AJ_OK != status) {
+            goto Exit;
+        }
+    }
+
     AJ_ConversationHash_Update_Message(&authContext, CONVERSATION_V4, &call, HASH_MSG_MARSHALED);
 
     return AJ_DeliverMsg(&call);
@@ -743,6 +756,21 @@ AJ_Status AJ_PeerHandleExchangeSuites(AJ_Message* msg, AJ_Message* reply)
     status = HandshakeValid(peerGuid);
     if (AJ_OK != status) {
         return AJ_MarshalErrorMsg(msg, reply, AJ_ErrResources);
+    }
+
+    /*
+     * Initialize the conversation hash and hash the GUIDs.
+     * May have already been done by GenSessionKey.
+     */
+    if (!AJ_ConversationHash_IsInitialized(&authContext)) {
+        status = AJ_ConversationHash_Initialize(&authContext);
+        if (AJ_OK != status) {
+            goto Exit;
+        }
+        status = HashGuids(&authContext, peerGuid, 0);  /* hash remote guid first */
+        if (AJ_OK != status) {
+            goto Exit;
+        }
     }
 
     AJ_ConversationHash_Update_Message(&authContext, CONVERSATION_V4, msg, HASH_MSG_UNMARSHALED);
@@ -1232,6 +1260,22 @@ static AJ_Status GenSessionKey(AJ_Message* msg)
         return status;
     }
 
+    /*
+     * Initialize the conversation hash and hash the GUIDs.
+     * May have already been done by ExchangeSuites.
+     */
+    if (!AJ_ConversationHash_IsInitialized(&authContext)) {
+        status = AJ_ConversationHash_Initialize(&authContext);
+        if (AJ_OK != status) {
+            return status;
+        }
+        status = HashGuids(&authContext, peerContext.peerGuid, 1);  /* hash local guid first */
+        if (AJ_OK != status) {
+            return status;
+        }
+    }
+
+    /* Hash the message */
     AJ_ConversationHash_Update_Message(&authContext, CONVERSATION_V4, &call, HASH_MSG_MARSHALED);
 
     return AJ_DeliverMsg(&call);
@@ -1263,6 +1307,21 @@ AJ_Status AJ_PeerHandleGenSessionKey(AJ_Message* msg, AJ_Message* reply)
         return AJ_MarshalErrorMsg(msg, reply, AJ_ErrResources);
     }
 
+    /*
+     * Initialize conversation hash and hash GUIDs.
+     * May have already been done by ExchangeSuites.
+     */
+    if (!AJ_ConversationHash_IsInitialized(&authContext)) {
+        status = AJ_ConversationHash_Initialize(&authContext);
+        if (AJ_OK != status) {
+            goto Exit;
+        }
+        status = HashGuids(&authContext, peerGuid, 0);  /* hash remote guid first */
+        if (AJ_OK != status) {
+            goto Exit;
+        }
+    }
+
     AJ_ConversationHash_Update_Message(&authContext, CONVERSATION_V4, msg, HASH_MSG_UNMARSHALED);
 
     if (AJ_AUTH_SUCCESS != peerContext.state) {
@@ -1284,7 +1343,6 @@ AJ_Status AJ_PeerHandleGenSessionKey(AJ_Message* msg, AJ_Message* reply)
     if (AJ_OK != status) {
         goto Exit;
     }
-
 
     /*
      * We expect arg[1] to be the local GUID
