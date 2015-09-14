@@ -564,10 +564,12 @@ TEST_F(SecurityTest, PolicyVerifyCertificateChainTest)
     memcpy(&peer.pub, &head->certificate.tbs.publickey, sizeof (AJ_ECCPublicKey));
     ASSERT_EQ(AJ_OK, AJ_PolicyToBuffer(&policy, &field));
     ASSERT_EQ(AJ_OK, AJ_CredentialSet(AJ_POLICY_INSTALLED | AJ_CRED_TYPE_POLICY, NULL, 0xFFFFFFFF, &field));
+    ASSERT_EQ(AJ_OK, AJ_PolicyLoad());
     EXPECT_EQ(AJ_OK, AJ_PolicyVerifyCertificate(&head->certificate, &pub));
     peer.type = AJ_PEER_TYPE_WITH_MEMBERSHIP;
     ASSERT_EQ(AJ_OK, AJ_PolicyToBuffer(&policy, &field));
     ASSERT_EQ(AJ_OK, AJ_CredentialSet(AJ_POLICY_INSTALLED | AJ_CRED_TYPE_POLICY, NULL, 0xFFFFFFFF, &field));
+    ASSERT_EQ(AJ_OK, AJ_PolicyLoad());
     EXPECT_EQ(AJ_OK, AJ_PolicyVerifyCertificate(&head->certificate, &pub));
 
     /* Store intermediate 1 issuer */
@@ -575,11 +577,13 @@ TEST_F(SecurityTest, PolicyVerifyCertificateChainTest)
     memcpy(&peer.pub, &intermediate1->certificate.tbs.publickey, sizeof (AJ_ECCPublicKey));
     ASSERT_EQ(AJ_OK, AJ_PolicyToBuffer(&policy, &field));
     ASSERT_EQ(AJ_OK, AJ_CredentialSet(AJ_POLICY_INSTALLED | AJ_CRED_TYPE_POLICY, NULL, 0xFFFFFFFF, &field));
+    ASSERT_EQ(AJ_OK, AJ_PolicyLoad());
     EXPECT_EQ(AJ_ERR_SECURITY, AJ_PolicyVerifyCertificate(&head->certificate, &pub));
     EXPECT_EQ(AJ_OK, AJ_PolicyFindAuthority(head));
     peer.type = AJ_PEER_TYPE_WITH_MEMBERSHIP;
     ASSERT_EQ(AJ_OK, AJ_PolicyToBuffer(&policy, &field));
     ASSERT_EQ(AJ_OK, AJ_CredentialSet(AJ_POLICY_INSTALLED | AJ_CRED_TYPE_POLICY, NULL, 0xFFFFFFFF, &field));
+    ASSERT_EQ(AJ_OK, AJ_PolicyLoad());
     EXPECT_EQ(AJ_ERR_SECURITY, AJ_PolicyVerifyCertificate(&head->certificate, &pub));
     EXPECT_EQ(AJ_OK, AJ_PolicyFindAuthority(head));
 
@@ -588,11 +592,13 @@ TEST_F(SecurityTest, PolicyVerifyCertificateChainTest)
     memcpy(&peer.pub, &intermediate2->certificate.tbs.publickey, sizeof (AJ_ECCPublicKey));
     ASSERT_EQ(AJ_OK, AJ_PolicyToBuffer(&policy, &field));
     ASSERT_EQ(AJ_OK, AJ_CredentialSet(AJ_POLICY_INSTALLED | AJ_CRED_TYPE_POLICY, NULL, 0xFFFFFFFF, &field));
+    ASSERT_EQ(AJ_OK, AJ_PolicyLoad());
     EXPECT_EQ(AJ_ERR_SECURITY, AJ_PolicyVerifyCertificate(&head->certificate, &pub));
     EXPECT_EQ(AJ_OK, AJ_PolicyFindAuthority(head));
     peer.type = AJ_PEER_TYPE_WITH_MEMBERSHIP;
     ASSERT_EQ(AJ_OK, AJ_PolicyToBuffer(&policy, &field));
     ASSERT_EQ(AJ_OK, AJ_CredentialSet(AJ_POLICY_INSTALLED | AJ_CRED_TYPE_POLICY, NULL, 0xFFFFFFFF, &field));
+    ASSERT_EQ(AJ_OK, AJ_PolicyLoad());
     EXPECT_EQ(AJ_ERR_SECURITY, AJ_PolicyVerifyCertificate(&head->certificate, &pub));
     EXPECT_EQ(AJ_OK, AJ_PolicyFindAuthority(head));
 
@@ -601,15 +607,18 @@ TEST_F(SecurityTest, PolicyVerifyCertificateChainTest)
     memcpy(&peer.pub, &leaf->certificate.tbs.publickey, sizeof (AJ_ECCPublicKey));
     ASSERT_EQ(AJ_OK, AJ_PolicyToBuffer(&policy, &field));
     ASSERT_EQ(AJ_OK, AJ_CredentialSet(AJ_POLICY_INSTALLED | AJ_CRED_TYPE_POLICY, NULL, 0xFFFFFFFF, &field));
+    ASSERT_EQ(AJ_OK, AJ_PolicyLoad());
     EXPECT_EQ(AJ_ERR_SECURITY, AJ_PolicyVerifyCertificate(&head->certificate, &pub));
     EXPECT_EQ(AJ_ERR_SECURITY, AJ_PolicyFindAuthority(head));
     peer.type = AJ_PEER_TYPE_WITH_MEMBERSHIP;
     ASSERT_EQ(AJ_OK, AJ_PolicyToBuffer(&policy, &field));
     ASSERT_EQ(AJ_OK, AJ_CredentialSet(AJ_POLICY_INSTALLED | AJ_CRED_TYPE_POLICY, NULL, 0xFFFFFFFF, &field));
+    ASSERT_EQ(AJ_OK, AJ_PolicyLoad());
     EXPECT_EQ(AJ_ERR_SECURITY, AJ_PolicyVerifyCertificate(&head->certificate, &pub));
     EXPECT_EQ(AJ_ERR_SECURITY, AJ_PolicyFindAuthority(head));
 
     AJ_X509FreeDecodedCertificateChain(root);
+    AJ_PolicyUnload();
 }
 
 TEST_F(SecurityTest, RegisterACLTest)
