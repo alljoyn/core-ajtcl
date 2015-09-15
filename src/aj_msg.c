@@ -2601,6 +2601,22 @@ static const char* StatusToErrorStrings(AJ_Status status, const char** info)
         *info = NULL;
         return AJ_ErrUnknownCertificate;
 
+    case  AJ_ERR_SECURITY_INVALID_CERTIFICATE:
+        *info = NULL;
+        return AJ_ErrInvalidCertificate;
+
+    case  AJ_ERR_SECURITY_DUPLICATE_CERTIFICATE:
+        *info = NULL;
+        return AJ_ErrDuplicateCertificate;
+
+    case  AJ_ERR_SECURITY_CERTIFICATE_NOT_FOUND:
+        *info = NULL;
+        return AJ_ErrCertificateNotFound;
+
+    case  AJ_ERR_SECURITY_POLICY_NOT_NEWER:
+        *info = NULL;
+        return AJ_ErrPolicyNotNewer;
+
     default:
         *info = AJ_StatusText(status);
         return AJ_ErrRejected;

@@ -493,9 +493,7 @@ static AJ_Status SecurityGetProperty(AJ_Message* reply, uint32_t id, void* conte
         break;
 
     case AJ_PROPERTY_MANAGED_POLICY_VERSION:
-        AJ_PolicyLoad();
         status = AJ_PolicyVersion(&version);
-        AJ_PolicyUnload();
         if (AJ_OK != status) {
             break;
         }
@@ -558,6 +556,97 @@ AJ_Status AJ_SecurityGetProperty(AJ_Message* msg)
     return AJ_BusPropGet(msg, SecurityGetProperty, NULL);
 }
 
+static AJ_Status CheckManifestDigest(X509Certificate* certificate, AJ_CredField* manifest)
+{
+    uint8_t digest[AJ_SHA256_DIGEST_LENGTH];
+
+    AJ_ManifestDigest(manifest, digest);
+    if (sizeof (digest) != certificate->tbs.extensions.digest.size) {
+        return AJ_ERR_SECURITY_DIGEST_MISMATCH;
+    }
+    if (0 != memcmp(digest, certificate->tbs.extensions.digest.data, sizeof (digest))) {
+        return AJ_ERR_SECURITY_DIGEST_MISMATCH;
+    }
+
+    return AJ_OK;
+}
+
+static AJ_Status VerifyIdentityCertificateChain(X509CertificateChain* root, AJ_ECCPublicKey* issuer, AJ_CredField* manifest)
+{
+    AJ_Status status;
+    AJ_ECCPublicKey pub;
+    X509Certificate* leaf;
+
+    leaf = AJ_X509LeafCertificate(root);
+    if (NULL == leaf) {
+        status = AJ_ERR_SECURITY;
+        goto Exit;
+    }
+
+    /* Check digest of manifest matches that in certificate */
+    status = CheckManifestDigest(leaf, manifest);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+
+    /* Verify certificate in case of buggy security manager */
+    status = AJ_X509VerifyChain(root, issuer, AJ_CERTIFICATE_IDN_X509);
+    if (AJ_OK != status) {
+        status = AJ_ERR_SECURITY_INVALID_CERTIFICATE;
+        goto Exit;
+    }
+
+    /* Check leaf certificate public key is mine */
+    status = AJ_CredentialGetECCPublicKey(AJ_ECC_SIG, NULL, NULL, &pub);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+    if (0 != memcmp((uint8_t*) &pub, &leaf->tbs.publickey, sizeof (pub))) {
+        status = AJ_ERR_SECURITY_UNKNOWN_CERTIFICATE;
+        goto Exit;
+    }
+
+    status = AJ_OK;
+
+Exit:
+    return status;
+}
+
+static AJ_Status VerifyMembershipCertificateChain(X509CertificateChain* root)
+{
+    AJ_Status status;
+    AJ_ECCPublicKey pub;
+    X509Certificate* leaf;
+
+    leaf = AJ_X509LeafCertificate(root);
+    if (NULL == leaf) {
+        status = AJ_ERR_SECURITY;
+        goto Exit;
+    }
+
+    /* Verify certificate in case of buggy security manager */
+    status = AJ_X509VerifyChain(root, NULL, AJ_CERTIFICATE_MBR_X509);
+    if (AJ_OK != status) {
+        status = AJ_ERR_SECURITY_INVALID_CERTIFICATE;
+        goto Exit;
+    }
+
+    /* Check leaf certificate public key is mine */
+    status = AJ_CredentialGetECCPublicKey(AJ_ECC_SIG, NULL, NULL, &pub);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+    if (0 != memcmp((uint8_t*) &pub, &leaf->tbs.publickey, sizeof (pub))) {
+        status = AJ_ERR_SECURITY_UNKNOWN_CERTIFICATE;
+        goto Exit;
+    }
+
+    status = AJ_OK;
+
+Exit:
+    return status;
+}
+
 /*
  * org.alljoyn.Bus.Security.ClaimableApplication implementation
  */
@@ -566,14 +655,11 @@ AJ_Status AJ_SecurityClaimMethod(AJ_Message* msg, AJ_Message* reply)
     AJ_Status status = AJ_OK;
     AJ_PermissionPeer ca;
     AJ_PermissionPeer admin;
-    AJ_ECCPublicKey pub;
     AJ_CredField data;
     X509CertificateChain* identity = NULL;
     AJ_CredField identity_data = { 0, NULL };
     AJ_Manifest* manifest = NULL;
     AJ_CredField manifest_data = { 0, NULL };
-    X509Certificate* leaf;
-    uint8_t digest[AJ_SHA256_DIGEST_LENGTH];
 
     AJ_InfoPrintf(("AJ_SecurityClaimMethod(msg=%p, reply=%p)\n", msg, reply));
 
@@ -646,27 +732,6 @@ AJ_Status AJ_SecurityClaimMethod(AJ_Message* msg, AJ_Message* reply)
     if (AJ_OK != status) {
         goto Exit;
     }
-    /* Check leaf certificate public key is mine */
-    leaf = AJ_X509LeafCertificate(identity);
-    if (NULL == leaf) {
-        status = AJ_ERR_SECURITY;
-        goto Exit;
-    }
-    status = AJ_CredentialGetECCPublicKey(AJ_ECC_SIG, NULL, NULL, &pub);
-    if (AJ_OK != status) {
-        goto Exit;
-    }
-    if (0 != memcmp((uint8_t*) &pub, &leaf->tbs.publickey, sizeof (pub))) {
-        AJ_InfoPrintf(("AJ_SecurityClaimMethod(msg=%p, reply=%p): Unknown certificate\n", msg, reply));
-        status = AJ_ERR_SECURITY_UNKNOWN_CERTIFICATE;
-        goto Exit;
-    }
-
-    /* Store identity certificate as raw marshalled body */
-    status = AJ_CredentialSet(AJ_CERTIFICATE_IDN_X509 | AJ_CRED_TYPE_CERTIFICATE, NULL, 0xFFFFFFFF, &identity_data);
-    if (AJ_OK != status) {
-        goto Exit;
-    }
 
     /* Unmarshal manifest */
     manifest_data.data = msg->bus->sock.rx.readPtr;
@@ -687,16 +752,17 @@ AJ_Status AJ_SecurityClaimMethod(AJ_Message* msg, AJ_Message* reply)
     if (AJ_OK != status) {
         goto Exit;
     }
-    /* Check digest of manifest matches that in certificate */
-    AJ_ManifestDigest(&manifest_data, digest);
-    if (sizeof (digest) != leaf->tbs.extensions.digest.size) {
-        AJ_InfoPrintf(("AJ_SecurityClaimMethod(msg=%p, reply=%p): Digest mismatch\n", msg, reply));
-        status = AJ_ERR_SECURITY_DIGEST_MISMATCH;
+
+    /* Validate Identity chain */
+    status = VerifyIdentityCertificateChain(identity, &ca.pub, &manifest_data);
+    if (AJ_OK != status) {
+        AJ_InfoPrintf(("AJ_SecurityClaimMethod(msg=%p, reply=%p): %s\n", msg, reply, AJ_StatusText(status)));
         goto Exit;
     }
-    if (0 != memcmp(digest, leaf->tbs.extensions.digest.data, sizeof (digest))) {
-        AJ_InfoPrintf(("AJ_SecurityClaimMethod(msg=%p, reply=%p): Digest mismatch\n", msg, reply));
-        status = AJ_ERR_SECURITY_DIGEST_MISMATCH;
+
+    /* Store identity certificate as raw marshalled body */
+    status = AJ_CredentialSet(AJ_CERTIFICATE_IDN_X509 | AJ_CRED_TYPE_CERTIFICATE, NULL, 0xFFFFFFFF, &identity_data);
+    if (AJ_OK != status) {
         goto Exit;
     }
     /* Store manifest as raw marshalled body */
@@ -704,12 +770,6 @@ AJ_Status AJ_SecurityClaimMethod(AJ_Message* msg, AJ_Message* reply)
     if (AJ_OK != status) {
         goto Exit;
     }
-    AJ_X509ChainFree(identity);
-    identity = NULL;
-    AJ_ManifestFree(manifest);
-    manifest = NULL;
-    AJ_CredFieldFree(&identity_data);
-    AJ_CredFieldFree(&manifest_data);
 
     /* Set default policy */
     ca.type = AJ_PEER_TYPE_FROM_CA;
@@ -818,14 +878,6 @@ AJ_Status AJ_SecurityUpdateIdentityMethod(AJ_Message* msg, AJ_Message* reply)
     if (AJ_OK != status) {
         goto Exit;
     }
-    AJ_X509ChainFree(identity);
-    identity = NULL;
-    /* Store identity certificate as raw marshalled body */
-    status = AJ_CredentialSet(AJ_CERTIFICATE_IDN_X509 | AJ_CRED_TYPE_CERTIFICATE, NULL, 0xFFFFFFFF, &identity_data);
-    if (AJ_OK != status) {
-        goto Exit;
-    }
-    AJ_CredFieldFree(&identity_data);
 
     /* Unmarshal manifest */
     manifest_data.data = msg->bus->sock.rx.readPtr;
@@ -846,13 +898,25 @@ AJ_Status AJ_SecurityUpdateIdentityMethod(AJ_Message* msg, AJ_Message* reply)
     if (AJ_OK != status) {
         goto Exit;
     }
-    AJ_ManifestFree(manifest);
-    manifest = NULL;
+
+    /* Validate Identity chain */
+    status = VerifyIdentityCertificateChain(identity, NULL, &manifest_data);
+    if (AJ_OK != status) {
+        AJ_InfoPrintf(("AJ_SecurityUpdateIdentityMethod(msg=%p, reply=%p): %s\n", msg, reply, AJ_StatusText(status)));
+        goto Exit;
+    }
+
+    /* Store identity certificate as raw marshalled body */
+    status = AJ_CredentialSet(AJ_CERTIFICATE_IDN_X509 | AJ_CRED_TYPE_CERTIFICATE, NULL, 0xFFFFFFFF, &identity_data);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
     /* Store manifest as raw marshalled body */
     status = AJ_CredentialSet(AJ_CRED_TYPE_MANIFEST, NULL, 0xFFFFFFFF, &manifest_data);
     if (AJ_OK != status) {
         goto Exit;
     }
+
     /* After the need update has been answered, set back to claimed */
     if (APP_STATE_NEED_UPDATE == claimState) {
         status = SetClaimState(APP_STATE_CLAIMED);
@@ -866,7 +930,7 @@ Exit:
     if (AJ_OK == status) {
         return AJ_MarshalReplyMsg(msg, reply);
     } else {
-        return AJ_MarshalErrorMsg(msg, reply, AJ_ErrPermissionDenied);
+        return AJ_MarshalStatusMsg(msg, reply, status);
     }
 }
 
@@ -875,13 +939,26 @@ AJ_Status AJ_SecurityUpdatePolicyMethod(AJ_Message* msg, AJ_Message* reply)
     AJ_Status status;
     AJ_Policy* policy = NULL;
     AJ_CredField policy_data = { 0, NULL };
+    uint32_t version = 0;
 
     AJ_InfoPrintf(("AJ_SecurityUpdatePolicyMethod(msg=%p, reply=%p)\n", msg, reply));
+
+    /* Get current version */
+    status = AJ_PolicyVersion(&version);
+    if (AJ_OK != status) {
+        AJ_InfoPrintf(("AJ_SecurityUpdatePolicyMethod(msg=%p, reply=%p): No installed or default policy\n", msg, reply));
+    }
 
     /* Unmarshal policy */
     policy_data.data = msg->bus->sock.rx.readPtr;
     status = AJ_PolicyUnmarshal(&policy, msg);
     if (AJ_OK != status) {
+        policy_data.data = NULL;
+        goto Exit;
+    }
+    AJ_ASSERT(policy);
+    if (policy->version <= version) {
+        status = AJ_ERR_SECURITY_POLICY_NOT_NEWER;
         policy_data.data = NULL;
         goto Exit;
     }
@@ -920,7 +997,7 @@ Exit:
     if (AJ_OK == status) {
         return AJ_MarshalReplyMsg(msg, reply);
     } else {
-        return AJ_MarshalErrorMsg(msg, reply, AJ_ErrSecurityViolation);
+        return AJ_MarshalStatusMsg(msg, reply, status);
     }
 }
 
@@ -975,8 +1052,17 @@ AJ_Status AJ_SecurityInstallMembershipMethod(AJ_Message* msg, AJ_Message* reply)
 
     status = AJ_GetCertificateId(membership, &certificate);
     if (AJ_OK != status) {
+        status = AJ_ERR_SECURITY_INVALID_CERTIFICATE;
         goto Exit;
     }
+
+    /* Validate Membership chain */
+    status = VerifyMembershipCertificateChain(membership);
+    if (AJ_OK != status) {
+        AJ_InfoPrintf(("AJ_SecurityInstallMembershipMethod(msg=%p, reply=%p): %s\n", msg, reply, AJ_StatusText(status)));
+        goto Exit;
+    }
+
     id.size = certificate.serial.size + certificate.aki.size;
     id.data = AJ_Malloc(id.size);
     if (NULL == id.data) {
@@ -987,6 +1073,12 @@ AJ_Status AJ_SecurityInstallMembershipMethod(AJ_Message* msg, AJ_Message* reply)
     tmp += certificate.serial.size;
     memcpy(tmp, certificate.aki.data, certificate.aki.size);
     tmp += certificate.aki.size;
+    /* Do not allow duplication/replacement */
+    status = AJ_CredentialGet(AJ_CERTIFICATE_MBR_X509 | AJ_CRED_TYPE_CERTIFICATE, &id, NULL, NULL);
+    if (AJ_OK == status) {
+        status = AJ_ERR_SECURITY_DUPLICATE_CERTIFICATE;
+        goto Exit;
+    }
     /* Store membership certificate as raw marshalled body */
     status = AJ_CredentialSet(AJ_CERTIFICATE_MBR_X509 | AJ_CRED_TYPE_CERTIFICATE, &id, 0xFFFFFFFF, &membership_data);
 
@@ -996,7 +1088,7 @@ Exit:
     if (AJ_OK == status) {
         return AJ_MarshalReplyMsg(msg, reply);
     } else {
-        return AJ_MarshalErrorMsg(msg, reply, AJ_ErrSecurityViolation);
+        return AJ_MarshalStatusMsg(msg, reply, status);
     }
 }
 
@@ -1013,7 +1105,7 @@ AJ_Status AJ_SecurityRemoveMembershipMethod(AJ_Message* msg, AJ_Message* reply)
 
     AJ_InfoPrintf(("AJ_SecurityRemoveMembershipMethod(msg=%p, reply=%p)\n", msg, reply));
 
-    status = AJ_UnmarshalArgs(reply, "(ayay(yyayay))",
+    status = AJ_UnmarshalArgs(msg, "(ayay(yyayay))",
                               &certificate.serial.data, &certificate.serial.size,
                               &certificate.aki.data, &certificate.aki.size,
                               &certificate.pub.alg, &certificate.pub.crv,
@@ -1045,12 +1137,16 @@ AJ_Status AJ_SecurityRemoveMembershipMethod(AJ_Message* msg, AJ_Message* reply)
     memcpy(tmp, certificate.aki.data, certificate.aki.size);
     tmp += certificate.aki.size;
     status = AJ_CredentialDelete(AJ_CERTIFICATE_MBR_X509 | AJ_CRED_TYPE_CERTIFICATE, &id);
+    if (AJ_OK != status) {
+        AJ_InfoPrintf(("AJ_SecurityRemoveMembershipMethod(msg=%p, reply=%p): Certificate not found\n", msg, reply));
+        status = AJ_ERR_SECURITY_CERTIFICATE_NOT_FOUND;
+    }
 
 Exit:
     AJ_CredFieldFree(&id);
     if (AJ_OK == status) {
         return AJ_MarshalReplyMsg(msg, reply);
     } else {
-        return AJ_MarshalErrorMsg(msg, reply, AJ_ErrSecurityViolation);
+        return AJ_MarshalStatusMsg(msg, reply, status);
     }
 }
