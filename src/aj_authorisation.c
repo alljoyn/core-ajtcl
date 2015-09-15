@@ -854,6 +854,7 @@ static AJ_Status AJ_PermissionMemberUnmarshal(AJ_PermissionMember** head, AJ_Mes
     AJ_Arg container1;
     AJ_Arg container2;
     AJ_PermissionMember* node;
+    AJ_PermissionMember* curr = NULL;
 
     status = AJ_UnmarshalContainer(msg, &container1, AJ_ARG_ARRAY);
     if (AJ_OK != status) {
@@ -868,8 +869,14 @@ static AJ_Status AJ_PermissionMemberUnmarshal(AJ_PermissionMember** head, AJ_Mes
         if (NULL == node) {
             goto Exit;
         }
-        node->next = *head;
-        *head = node;
+        /* Push onto tail to maintain order */
+        node->next = NULL;
+        if (curr) {
+            curr->next = node;
+        } else {
+            *head = node;
+        }
+        curr = node;
         status = AJ_UnmarshalArgs(msg, "syy", &node->mbr, &node->type, &node->action);
         if (AJ_OK != status) {
             goto Exit;
@@ -900,6 +907,7 @@ static AJ_Status AJ_PermissionRuleUnmarshal(AJ_PermissionRule** head, AJ_Message
     AJ_Arg container1;
     AJ_Arg container2;
     AJ_PermissionRule* node;
+    AJ_PermissionRule* curr = NULL;
 
     status = AJ_UnmarshalContainer(msg, &container1, AJ_ARG_ARRAY);
     if (AJ_OK != status) {
@@ -915,8 +923,14 @@ static AJ_Status AJ_PermissionRuleUnmarshal(AJ_PermissionRule** head, AJ_Message
             goto Exit;
         }
         node->members = NULL;
-        node->next = *head;
-        *head = node;
+        /* Push onto tail to maintain order */
+        node->next = NULL;
+        if (curr) {
+            curr->next = node;
+        } else {
+            *head = node;
+        }
+        curr = node;
         status = AJ_UnmarshalArgs(msg, "ss", &node->obj, &node->ifn);
         if (AJ_OK != status) {
             goto Exit;
@@ -978,6 +992,7 @@ static AJ_Status AJ_PermissionPeerUnmarshal(AJ_PermissionPeer** head, AJ_Message
     AJ_Arg container2;
     AJ_Arg container3;
     AJ_PermissionPeer* node;
+    AJ_PermissionPeer* curr = NULL;
 
     status = AJ_UnmarshalContainer(msg, &container1, AJ_ARG_ARRAY);
     if (AJ_OK != status) {
@@ -993,8 +1008,14 @@ static AJ_Status AJ_PermissionPeerUnmarshal(AJ_PermissionPeer** head, AJ_Message
             status = AJ_ERR_RESOURCES;
             goto Exit;
         }
-        node->next = *head;
-        *head = node;
+        /* Push onto tail to maintain order */
+        node->next = NULL;
+        if (curr) {
+            curr->next = node;
+        } else {
+            *head = node;
+        }
+        curr = node;
         status = AJ_UnmarshalArgs(msg, "y", &node->type);
         if (AJ_OK != status) {
             goto Exit;
@@ -1051,6 +1072,7 @@ static AJ_Status AJ_PermissionACLUnmarshal(AJ_PermissionACL** head, AJ_Message* 
     AJ_Arg container1;
     AJ_Arg container2;
     AJ_PermissionACL* node;
+    AJ_PermissionACL* curr = NULL;
 
     status = AJ_UnmarshalContainer(msg, &container1, AJ_ARG_ARRAY);
     if (AJ_OK != status) {
@@ -1067,8 +1089,14 @@ static AJ_Status AJ_PermissionACLUnmarshal(AJ_PermissionACL** head, AJ_Message* 
         }
         node->peers = NULL;
         node->rules = NULL;
-        node->next = *head;
-        *head = node;
+        /* Push onto tail to maintain order */
+        node->next = NULL;
+        if (curr) {
+            curr->next = node;
+        } else {
+            *head = node;
+        }
+        curr = node;
         status = AJ_PermissionPeerUnmarshal(&node->peers, msg);
         if (AJ_OK != status) {
             break;

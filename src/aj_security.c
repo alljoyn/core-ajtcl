@@ -902,7 +902,7 @@ AJ_Status AJ_SecurityUpdateIdentityMethod(AJ_Message* msg, AJ_Message* reply)
     /* Validate Identity chain */
     status = VerifyIdentityCertificateChain(identity, NULL, &manifest_data);
     if (AJ_OK != status) {
-        AJ_InfoPrintf(("AJ_SecurityClaimMethod(msg=%p, reply=%p): %s\n", msg, reply, AJ_StatusText(status)));
+        AJ_InfoPrintf(("AJ_SecurityUpdateIdentityMethod(msg=%p, reply=%p): %s\n", msg, reply, AJ_StatusText(status)));
         goto Exit;
     }
 
