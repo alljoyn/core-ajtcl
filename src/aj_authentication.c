@@ -1140,6 +1140,14 @@ AJ_Status AJ_ConversationHash_Initialize(AJ_AuthenticationContext* ctx)
     }
 }
 
+uint8_t AJ_ConversationHash_IsInitialized(AJ_AuthenticationContext* ctx)
+{
+    if (ctx->hash) {
+        return 1;
+    }
+    return 0;
+}
+
 static inline int ConversationVersionDoesNotApply(uint32_t conversationVersion, uint32_t currentAuthVersion)
 {
     AJ_ASSERT((CONVERSATION_V1 == conversationVersion) || (CONVERSATION_V4 == conversationVersion));
