@@ -237,7 +237,9 @@ int AJ_Main(void)
     AJ_BusAttachment bus;
     uint8_t connected = FALSE;
     uint32_t sessionId = 0;
-    X509CertificateChain* node;
+    uint16_t state;
+    uint16_t capabilities;
+    uint16_t info;
 
     /* One time initialization before calling any other AllJoyn APIs. */
     AJ_Initialize();
@@ -269,7 +271,11 @@ int AJ_Main(void)
             AJ_BusEnableSecurity(&bus, suites, numsuites);
             AJ_BusSetAuthListenerCallback(&bus, AuthListenerCallback);
             AJ_ManifestTemplateSet(&manifest);
-            AJ_SecuritySetClaimConfig(&bus, APP_STATE_CLAIMABLE, CLAIM_CAPABILITY_ECDHE_PSK, 0);
+            AJ_SecurityGetClaimConfig(&state, &capabilities, &info);
+            /* Set app claimable if not already claimed */
+            if (APP_STATE_CLAIMED != state) {
+                AJ_SecuritySetClaimConfig(&bus, APP_STATE_CLAIMABLE, CLAIM_CAPABILITY_ECDHE_PSK, 0);
+            }
         }
 
         status = AJ_UnmarshalMsg(&bus, &msg, UNMARSHAL_TIMEOUT);
