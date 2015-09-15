@@ -55,59 +55,70 @@ uint8_t dbgSECURITY = 0;
 static uint8_t initialised = FALSE;
 static uint8_t emit = FALSE;
 static uint8_t clear = FALSE;
-static uint16_t claimState = APP_STATE_NOT_CLAIMABLE;
-static uint16_t claimCapabilities = 0;
-static uint16_t claimInfo = 0;
 
-static AJ_Status SetClaimState(uint16_t state)
+typedef struct _ClaimConfig {
+    uint16_t state;
+    uint16_t capabilities;
+    uint16_t info;
+} ClaimConfig;
+static ClaimConfig g_config = { APP_STATE_NOT_CLAIMABLE, 0, 0 };
+
+static AJ_Status SaveClaimConfig()
 {
     AJ_Status status;
     AJ_CredField data;
 
-    /* If app not claimed and manifest template changes, do not update */
-    if ((APP_STATE_CLAIMED != claimState) && (APP_STATE_NEED_UPDATE == state)) {
-        return AJ_OK;
-    }
-
-    data.size = sizeof (uint16_t);
-    data.data = (uint8_t*) &state;
+    data.size = sizeof (g_config);
+    data.data = (uint8_t*) &g_config;
     status = AJ_CredentialSet(AJ_CONFIG_CLAIMSTATE | AJ_CRED_TYPE_CONFIG, NULL, 0xFFFFFFFF, &data);
 
-    if (AJ_OK == status) {
-        /* Set in memory state */
-        claimState = state;
-        /* State changed, emit signal */
-        emit = TRUE;
+    return status;
+}
+
+static AJ_Status LoadClaimConfig()
+{
+    AJ_Status status;
+    AJ_CredField data;
+
+    data.size = sizeof (g_config);
+    data.data = (uint8_t*) &g_config;
+    status = AJ_CredentialGet(AJ_CONFIG_CLAIMSTATE | AJ_CRED_TYPE_CONFIG, NULL, NULL, &data);
+    if (AJ_OK != status) {
+        AJ_InfoPrintf(("LoadClaimConfig(): No stored config - using defaults\n"));
+        g_config.state = APP_STATE_NOT_CLAIMABLE;
+        g_config.capabilities = 0;
+        g_config.info = 0;
     }
 
     return status;
 }
 
-static AJ_Status GetClaimState(uint16_t* state)
+static AJ_Status SetClaimState(uint16_t state)
 {
-    AJ_Status status;
-    AJ_CredField data;
+    /* If claimed or manifest template changes, update */
+    if ((APP_STATE_CLAIMED == g_config.state) || (APP_STATE_NEED_UPDATE != state)) {
+        g_config.state = state;
+        emit = TRUE;
+        return SaveClaimConfig();
+    }
 
-    data.size = sizeof (uint16_t);
-    data.data = (uint8_t*) state;
-    status = AJ_CredentialGet(AJ_CONFIG_CLAIMSTATE | AJ_CRED_TYPE_CONFIG, NULL, NULL, &data);
-
-    return status;
+    return AJ_OK;
 }
 
 void AJ_SecuritySetClaimConfig(AJ_BusAttachment* bus, uint16_t state, uint16_t capabilities, uint16_t info)
 {
-    claimCapabilities = capabilities;
-    claimInfo = info;
+    g_config.capabilities = capabilities;
+    g_config.info = info;
     SetClaimState(state);
+    /* Explicitly emit the signal */
     AJ_ApplicationStateSignal(bus);
 }
 
 void AJ_SecurityGetClaimConfig(uint16_t* state, uint16_t* capabilities, uint16_t* info)
 {
-    *state = claimState;
-    *capabilities = claimCapabilities;
-    *info = claimInfo;
+    *state = g_config.state;
+    *capabilities = g_config.capabilities;
+    *info = g_config.info;
 }
 
 AJ_Status AJ_SecurityInit(AJ_BusAttachment* bus)
@@ -140,13 +151,8 @@ AJ_Status AJ_SecurityInit(AJ_BusAttachment* bus)
         }
     }
 
-    /* Get the initial claim state */
-    status = GetClaimState(&claimState);
-    if (AJ_OK != status) {
-        /* If not stored, default to claimable */
-        claimState = APP_STATE_CLAIMABLE;
-        claimCapabilities = CLAIM_CAPABILITY_ECDHE_NULL | CLAIM_CAPABILITY_ECDHE_PSK;
-    }
+    /* Load the initial claim config */
+    LoadClaimConfig();
 
     status = AJ_RegisterObjectsACL();
     if (AJ_OK != status) {
@@ -354,7 +360,7 @@ AJ_Status AJ_ApplicationStateSignal(AJ_BusAttachment* bus)
     if (AJ_OK != status) {
         return status;
     }
-    status = AJ_MarshalArgs(&msg, "q", claimState);
+    status = AJ_MarshalArgs(&msg, "q", g_config.state);
     if (AJ_OK != status) {
         return status;
     }
@@ -390,7 +396,7 @@ static AJ_Status SecurityGetProperty(AJ_Message* reply, uint32_t id, void* conte
         break;
 
     case AJ_PROPERTY_SEC_APPLICATION_STATE:
-        status = AJ_MarshalArgs(reply, "q", claimState);
+        status = AJ_MarshalArgs(reply, "q", g_config.state);
         break;
 
     case AJ_PROPERTY_SEC_MANIFEST_DIGEST:
@@ -430,11 +436,11 @@ static AJ_Status SecurityGetProperty(AJ_Message* reply, uint32_t id, void* conte
         break;
 
     case AJ_PROPERTY_SEC_CLAIM_CAPABILITIES:
-        status = AJ_MarshalArgs(reply, "q", claimCapabilities);
+        status = AJ_MarshalArgs(reply, "q", g_config.capabilities);
         break;
 
     case AJ_PROPERTY_SEC_CLAIM_CAPABILITIES_INFO:
-        status = AJ_MarshalArgs(reply, "q", claimInfo);
+        status = AJ_MarshalArgs(reply, "q", g_config.info);
         break;
 
     case AJ_PROPERTY_CLAIMABLE_VERSION:
@@ -663,7 +669,7 @@ AJ_Status AJ_SecurityClaimMethod(AJ_Message* msg, AJ_Message* reply)
 
     AJ_InfoPrintf(("AJ_SecurityClaimMethod(msg=%p, reply=%p)\n", msg, reply));
 
-    if (APP_STATE_CLAIMABLE != claimState) {
+    if (APP_STATE_CLAIMABLE != g_config.state) {
         AJ_InfoPrintf(("AJ_SecurityClaimMethod(msg=%p, reply=%p): Not in claimable state\n", msg, reply));
         return AJ_MarshalErrorMsg(msg, reply, AJ_ErrPermissionDenied);
     }
@@ -787,7 +793,7 @@ AJ_Status AJ_SecurityClaimMethod(AJ_Message* msg, AJ_Message* reply)
     AJ_ClearCredentials(AJ_GENERIC_ECDSA_KEYS | AJ_CRED_TYPE_GENERIC);
 
     /* Set claim state and save to nvram */
-    status = SetClaimState(APP_STATE_CLAIMED);
+    SetClaimState(APP_STATE_CLAIMED);
 
 Exit:
     AJ_X509ChainFree(identity);
@@ -834,9 +840,8 @@ AJ_Status AJ_SecurityResetMethod(AJ_Message* msg, AJ_Message* reply)
     AJ_CredentialSetECCPublicKey(AJ_ECC_SIG, NULL, 0xFFFFFFFF, &pub);
     AJ_CredentialSetECCPrivateKey(AJ_ECC_SIG, NULL, 0xFFFFFFFF, &prv);
 
-    /* Set claim state (without writing to NVRAM) and emit signal*/
-    claimState = APP_STATE_CLAIMABLE;
-    emit = TRUE;
+    /* Set claim state and emit signal*/
+    SetClaimState(APP_STATE_NOT_CLAIMABLE);
     /* Clear session keys, can't do it now because we need to reply */
     clear = TRUE;
 
@@ -918,8 +923,8 @@ AJ_Status AJ_SecurityUpdateIdentityMethod(AJ_Message* msg, AJ_Message* reply)
     }
 
     /* After the need update has been answered, set back to claimed */
-    if (APP_STATE_NEED_UPDATE == claimState) {
-        status = SetClaimState(APP_STATE_CLAIMED);
+    if (APP_STATE_NEED_UPDATE == g_config.state) {
+        SetClaimState(APP_STATE_CLAIMED);
     }
 
 Exit:

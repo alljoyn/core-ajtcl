@@ -33,6 +33,8 @@
 #include <ajtcl/aj_auth_listener.h>
 #include <ajtcl/aj_authentication.h>
 #include <ajtcl/aj_util.h>
+#include <ajtcl/aj_security.h>
+#include <ajtcl/aj_authorisation.h>
 
 uint8_t dbgSECURE_CLIENT = 0;
 
@@ -70,6 +72,10 @@ static const AJ_Object ProxyObjects[] = {
     { ServicePath, secureInterfaces },
     { NULL }
 };
+
+static AJ_PermissionMember members[] = { { "*", AJ_MEMBER_TYPE_ANY, AJ_ACTION_MODIFY | AJ_ACTION_OBSERVE, NULL } };
+static AJ_PermissionRule rules[] = { { ServicePath, InterfaceName, members, NULL } };
+static AJ_Manifest manifest = { rules };
 
 #define PRX_PING   AJ_PRX_MESSAGE_ID(0, 0, 0)
 
@@ -298,7 +304,7 @@ void AuthCallback(const void* context, AJ_Status status)
 int AJ_Main(int ac, char** av)
 #else
 int AJ_Main(void)
-#endif MAIN_ALLOWS_ARGS
+#endif
 {
     int done = FALSE;
     AJ_Status status = AJ_OK;
@@ -306,7 +312,9 @@ int AJ_Main(void)
     uint8_t connected = FALSE;
     uint32_t sessionId = 0;
     AJ_Status authStatus = AJ_ERR_NULL;
-    X509CertificateChain* node;
+    uint16_t state;
+    uint16_t capabilities;
+    uint16_t info;
 
     uint32_t suites[16];
     size_t numsuites = 0;
@@ -396,6 +404,12 @@ int AJ_Main(void)
                         AJ_Printf("AJ_ClearCredentials returned %d\n", status);
                         break;
                     }
+                }
+                AJ_ManifestTemplateSet(&manifest);
+                AJ_SecurityGetClaimConfig(&state, &capabilities, &info);
+                /* Set app claimable if not already claimed */
+                if (APP_STATE_CLAIMED != state) {
+                    AJ_SecuritySetClaimConfig(&bus, APP_STATE_CLAIMABLE, CLAIM_CAPABILITY_ECDHE_PSK, 0);
                 }
 
                 status = AJ_BusAuthenticatePeer(&bus, fullServiceName, AuthCallback, &authStatus);
