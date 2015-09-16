@@ -24,7 +24,14 @@
 #include <stdio.h>
 #include <ajtcl/aj_debug.h>
 #include <ajtcl/alljoyn.h>
-#include <stdbool.h>
+
+
+#ifndef bool    /* These tests were written to use stdbool.h, but VS2012 does not support it. */
+#define bool unsigned int
+#define false 0
+#define true 1
+#endif
+
 
 #define CONNECT_ATTEMPTS   10
 static const char ServiceName[] = "org.datatypes.test";
