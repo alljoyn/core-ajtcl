@@ -257,9 +257,10 @@ static AccessControlMember* FindAccessControlMember(uint32_t id)
 
 static uint32_t IsInterface(const char* std, const char* ifn)
 {
+    const char* s = std;
+
     AJ_ASSERT(std);
     AJ_ASSERT(ifn);
-    const char* s = std;
     if (SECURE_OFF == *std) {
         s++;
     }
@@ -1627,12 +1628,13 @@ static uint32_t ValidIssuer(const X509Certificate* cert, uint32_t type)
 
 AJ_Status AJ_PolicyFindAuthority(const X509CertificateChain* root)
 {
-    AJ_ASSERT(root);
     AJ_Status status;
     Policy* policy = &g_policy;
     AJ_PermissionACL* acl;
     AJ_PermissionPeer* peer;
     const X509CertificateChain* node;
+
+    AJ_ASSERT(root);
 
     if (NULL == policy->policy) {
         AJ_InfoPrintf(("AJ_PolicyFindAuthority(root=%p): Policy not loaded\n", root));
@@ -1665,11 +1667,12 @@ Exit:
 
 AJ_Status AJ_PolicyVerifyCertificate(const X509Certificate* cert, AJ_ECCPublicKey* pub)
 {
-    AJ_ASSERT(cert);
     AJ_Status status;
     Policy* policy = &g_policy;
     AJ_PermissionACL* acl;
     AJ_PermissionPeer* peer;
+
+    AJ_ASSERT(cert);
 
     /*
      * Policy and/or certificate may not include AKI for CA,
