@@ -210,7 +210,10 @@ static AJ_Status AboutPropGetter(AJ_Message* reply, const char* language)
     AJ_Status status = AJ_OK;
     AJ_Arg array;
     AJ_GUID theAJ_GUID;
+    AJ_Arg dict;
+    AJ_Arg languageListArray;
     char machineIdValue[UUID_LENGTH * 2 + 1];
+
     machineIdValue[UUID_LENGTH * 2] = '\0';
 
     /* Here, "en" is the only supported language, so we always return it
@@ -244,8 +247,6 @@ static AJ_Status AboutPropGetter(AJ_Message* reply, const char* language)
         }
         //SupportedLanguages
         if (status == AJ_OK) {
-            AJ_Arg dict;
-            AJ_Arg languageListArray;
             status = AJ_MarshalContainer(reply, &dict, AJ_ARG_DICT_ENTRY);
             if (status == AJ_OK) {
                 status = AJ_MarshalArgs(reply, "s", "SupportedLanguages");
@@ -309,6 +310,12 @@ int AJ_Main()
     AJ_BusAttachment bus;
     uint8_t connected = FALSE;
     uint32_t sessionId = 0;
+    AJ_Message msg;
+    uint16_t port;
+    char* joiner;
+    AJ_Message signal;
+    uint32_t id, reason;
+    uint32_t disposition, idleTo, probeTo;
 
     /*
      * One time initialization before calling any other AllJoyn APIs
@@ -320,7 +327,6 @@ int AJ_Main()
     AJ_AboutRegisterPropStoreGetter(AboutPropGetter);
 
     while (TRUE) {
-        AJ_Message msg;
 
         if (!connected) {
             status = AJ_StartService(&bus, NULL, CONNECT_TIMEOUT, FALSE, ServicePort, ServiceName, AJ_NAME_REQ_DO_NOT_QUEUE, NULL);
@@ -369,8 +375,6 @@ int AJ_Main()
 
             case AJ_METHOD_ACCEPT_SESSION:
                 {
-                    uint16_t port;
-                    char* joiner;
                     AJ_UnmarshalArgs(&msg, "qus", &port, &sessionId, &joiner);
                     if (port == ServicePort) {
                         status = AJ_BusReplyAcceptSession(&msg, TRUE);
@@ -391,7 +395,6 @@ int AJ_Main()
                 AJ_DeliverMsg(&reply);
                 if (CLOSED == state) {
                     state = OPEN;
-                    AJ_Message signal;
                     AJ_MarshalSignal(&bus, &signal, APP_STATE_CHANGED, msg.sender, msg.sessionId, 0, 0);
                     AJ_MarshalArgs(&signal, "b", state);
                     AJ_DeliverMsg(&signal);
@@ -405,7 +408,6 @@ int AJ_Main()
                 AJ_DeliverMsg(&reply);
                 if (OPEN == state) {
                     state = CLOSED;
-                    AJ_Message signal;
                     AJ_MarshalSignal(&bus, &signal, APP_STATE_CHANGED, msg.sender, msg.sessionId, 0, 0);
                     AJ_MarshalArgs(&signal, "b", state);
                     AJ_DeliverMsg(&signal);
@@ -429,7 +431,6 @@ int AJ_Main()
 
             case AJ_SIGNAL_SESSION_LOST_WITH_REASON:
                 {
-                    uint32_t id, reason;
                     AJ_UnmarshalArgs(&msg, "uu", &id, &reason);
                     AJ_InfoPrintf(("Session lost. ID = %u, reason = %u", id, reason));
                     status = AJ_ERR_SESSION_LOST;
@@ -448,7 +449,6 @@ int AJ_Main()
 
             case AJ_REPLY_ID(AJ_METHOD_BUS_SET_IDLE_TIMEOUTS):
                 {
-                    uint32_t disposition, idleTo, probeTo;
                     if (msg.hdr->msgType == AJ_MSG_ERROR) {
                         status = AJ_ERR_FAILURE;
                     }
