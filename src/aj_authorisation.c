@@ -257,9 +257,10 @@ static AccessControlMember* FindAccessControlMember(uint32_t id)
 
 static uint32_t IsInterface(const char* std, const char* ifn)
 {
-    AJ_ASSERT(std);
-    AJ_ASSERT(ifn);
     const char* s = std;
+	
+	AJ_ASSERT(std);
+	AJ_ASSERT(ifn);
     if (SECURE_OFF == *std) {
         s++;
     }
