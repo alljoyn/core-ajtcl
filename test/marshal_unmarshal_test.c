@@ -1,6 +1,6 @@
 /**
  * @file
- * Alljoyn client that marshals and unmarshalls different data types.
+ * Alljoyn client that marshals and unmarshals different data types.
  */
 
 /******************************************************************************
@@ -18,10 +18,20 @@
  *    ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
+
+#define AJ_MODULE MARSHAL_UNMARSHAL
+
 #include <stdio.h>
 #include <ajtcl/aj_debug.h>
 #include <ajtcl/alljoyn.h>
-#include <stdbool.h>
+
+
+#ifndef bool    /* These tests were written to use stdbool.h, but VS2012 does not support it. */
+#define bool int
+#define false (0)
+#define true (1)
+#endif
+
 
 #define CONNECT_ATTEMPTS   10
 static const char ServiceName[] = "org.datatypes.test";
@@ -34,9 +44,12 @@ static const uint16_t ServicePort = 25;
  */
 static char fullServiceName[AJ_MAX_SERVICE_NAME_SIZE];
 
-uint8_t dbgBASIC_CLIENT = 0;
+/**
+ * Turn on per-module debug printing by setting this variable to non-zero value
+ * (usually in debugger).
+ */
+uint8_t dbgMARSHAL_UNMARSHAL = 0;
 
-uint8_t dbgBASIC_SERVICE = 0;
 /**
  * The interface name followed by the method signatures.
  *
@@ -370,7 +383,7 @@ void Int16MethodCall(AJ_BusAttachment* bus, uint32_t sessionId) {
 void UInt64MethodCall(AJ_BusAttachment* bus, uint32_t sessionId) {
     AJ_Status status;
     AJ_Message msg;
-    uint64_t inputUInt64 = 18446744073709551610;
+    uint64_t inputUInt64 = 18446744073709551610ULL;
 
     status = AJ_MarshalMethodCall(bus, &msg, BASIC_SERVICE_UINT64_CLIENT, fullServiceName, sessionId, 0, METHOD_TIMEOUT);
 
@@ -388,7 +401,7 @@ void UInt64MethodCall(AJ_BusAttachment* bus, uint32_t sessionId) {
 void Int64MethodCall(AJ_BusAttachment* bus, uint32_t sessionId) {
     AJ_Status status;
     AJ_Message msg;
-    int64_t inputUInt64 = -92233720368547758;
+    int64_t inputUInt64 = -92233720368547758LL;
 
     status = AJ_MarshalMethodCall(bus, &msg, BASIC_SERVICE_INT64_CLIENT, fullServiceName, sessionId, 0, METHOD_TIMEOUT);
 
@@ -416,8 +429,8 @@ void StructMethodCall(AJ_BusAttachment* bus, uint32_t sessionId) {
     structData.stringValue = (char*)"Hello Struct";
     structData.uint16 = 65535;
     structData.int16 = -32768;
-    structData.int64 = -5223372036854775808LLU;
-    structData.uint64 = 6223372036854775808LLU;
+    structData.int64 = -5223372036854775808LL;
+    structData.uint64 = 6223372036854775808ULL;
 
     status = AJ_MarshalMethodCall(bus, &msg, BASIC_SERVICE_STRUCT_CLIENT, fullServiceName, sessionId, 0, METHOD_TIMEOUT);
 
@@ -742,6 +755,7 @@ void StructArrayMethodCall(AJ_BusAttachment* bus, uint32_t sessionId) {
     struct ArrayStruct struct1;
     struct ArrayStruct struct2;
     struct ArrayStruct struct3;
+    struct ArrayStruct inputArray [3];
 
     struct1.intVar = 509;
     struct1.stringValue = "Le First Line";
@@ -752,7 +766,6 @@ void StructArrayMethodCall(AJ_BusAttachment* bus, uint32_t sessionId) {
     struct3.intVar = 3409;
     struct3.stringValue = "Le AllIoT Cool Line";
 
-    struct ArrayStruct inputArray [3];
     inputArray[0] =  struct1;
     inputArray[1] = struct2;
     inputArray[2] = struct3;
@@ -1238,6 +1251,7 @@ static AJ_Status AppHandleIntArray(AJ_Message* msg) {
     AJ_Message reply;
     AJ_Status status;
     int* value  = malloc(sizeof(int));
+    int i;
     size_t size = 0;
     AJ_Arg arg1;
 
@@ -1270,7 +1284,6 @@ static AJ_Status AppHandleIntArray(AJ_Message* msg) {
     AJ_MarshalContainer(&reply, &arg1, AJ_ARG_ARRAY);
 
     if (status == AJ_OK) {
-        int i;
         for (i = 0; i < size; ++i) {
             status = AJ_MarshalArgs(&reply, "i", value[i]);
         }
@@ -1291,6 +1304,7 @@ static AJ_Status AppHandleUnsignedIntArray(AJ_Message* msg) {
     unsigned int* value  = malloc(sizeof(unsigned int));
     size_t size = 0;
     AJ_Arg arg1;
+    int i;
 
     status = AJ_UnmarshalContainer(msg, &arg1, AJ_ARG_ARRAY);
 
@@ -1321,7 +1335,6 @@ static AJ_Status AppHandleUnsignedIntArray(AJ_Message* msg) {
     AJ_MarshalContainer(&reply, &arg1, AJ_ARG_ARRAY);
 
     if (status == AJ_OK) {
-        int i;
         for (i = 0; i < size; ++i) {
             status = AJ_MarshalArgs(&reply, "u", value[i]);
         }
@@ -1342,6 +1355,7 @@ static AJ_Status AppHandleDoubleArray(AJ_Message* msg) {
     double* value = malloc(1 * sizeof(double));
     size_t size = 0;
     AJ_Arg arg1;
+    int i;
     status = AJ_UnmarshalContainer(msg, &arg1, AJ_ARG_ARRAY);
 
 
@@ -1373,7 +1387,6 @@ static AJ_Status AppHandleDoubleArray(AJ_Message* msg) {
     AJ_MarshalContainer(&reply, &arg1, AJ_ARG_ARRAY);
 
     if (status == AJ_OK) {
-        int i;
         for (i = 0; i < size; ++i) {
             status = AJ_MarshalArgs(&reply, "d", value[i]);
         }
@@ -1394,6 +1407,7 @@ static AJ_Status AppHandleBoolArray(AJ_Message* msg) {
     bool* value = malloc(1 * sizeof(bool));
     size_t size = 0;
     AJ_Arg arg1;
+    int i;
     status = AJ_UnmarshalContainer(msg, &arg1, AJ_ARG_ARRAY);
 
 
@@ -1425,7 +1439,6 @@ static AJ_Status AppHandleBoolArray(AJ_Message* msg) {
     AJ_MarshalContainer(&reply, &arg1, AJ_ARG_ARRAY);
 
     if (status == AJ_OK) {
-        int i;
         for (i = 0; i < size; ++i) {
             status = AJ_MarshalArgs(&reply, "b", value[i]);
         }
@@ -1445,6 +1458,7 @@ static AJ_Status AppHandleStringArray(AJ_Message* msg) {
     AJ_Status status;
     char** value = malloc(1 * sizeof(char*));
     size_t size = 0;
+    int i;
     AJ_Arg arg1;
     status = AJ_UnmarshalContainer(msg, &arg1, AJ_ARG_ARRAY);
 
@@ -1477,7 +1491,6 @@ static AJ_Status AppHandleStringArray(AJ_Message* msg) {
     AJ_MarshalContainer(&reply, &arg1, AJ_ARG_ARRAY);
 
     if (status == AJ_OK) {
-        int i;
         for (i = 0; i < size; ++i) {
             status = AJ_MarshalArgs(&reply, "s", value[i]);
         }
@@ -1498,6 +1511,7 @@ static AJ_Status AppHandleUnsignedInt16Array(AJ_Message* msg) {
     uint16_t* value = malloc(1 * sizeof(uint16_t));
     size_t size = 0;
     AJ_Arg arg1;
+    int i;
     status = AJ_UnmarshalContainer(msg, &arg1, AJ_ARG_ARRAY);
 
 
@@ -1529,7 +1543,6 @@ static AJ_Status AppHandleUnsignedInt16Array(AJ_Message* msg) {
     AJ_MarshalContainer(&reply, &arg1, AJ_ARG_ARRAY);
 
     if (status == AJ_OK) {
-        int i;
         for (i = 0; i < size; ++i) {
             status = AJ_MarshalArgs(&reply, "q", value[i]);
         }
@@ -1550,6 +1563,7 @@ static AJ_Status AppHandleInt16Array(AJ_Message* msg) {
     int16_t* value = malloc(1 * sizeof(int16_t));
     size_t size = 0;
     AJ_Arg arg1;
+    int i;
     status = AJ_UnmarshalContainer(msg, &arg1, AJ_ARG_ARRAY);
 
 
@@ -1581,7 +1595,6 @@ static AJ_Status AppHandleInt16Array(AJ_Message* msg) {
     AJ_MarshalContainer(&reply, &arg1, AJ_ARG_ARRAY);
 
     if (status == AJ_OK) {
-        int i;
         for (i = 0; i < size; ++i) {
             status = AJ_MarshalArgs(&reply, "n", value[i]);
         }
@@ -1600,6 +1613,7 @@ static AJ_Status AppHandleUnsignedInt64Array(AJ_Message* msg) {
     AJ_Status status;
     uint64_t* value = malloc(1 * sizeof(uint64_t));
     size_t size = 0;
+    int i;
     AJ_Arg arg1;
     status = AJ_UnmarshalContainer(msg, &arg1, AJ_ARG_ARRAY);
 
@@ -1632,7 +1646,6 @@ static AJ_Status AppHandleUnsignedInt64Array(AJ_Message* msg) {
     AJ_MarshalContainer(&reply, &arg1, AJ_ARG_ARRAY);
 
     if (status == AJ_OK) {
-        int i;
         for (i = 0; i < size; ++i) {
             status = AJ_MarshalArgs(&reply, "t", value[i]);
         }
@@ -1652,6 +1665,7 @@ static AJ_Status AppHandleInt64Array(AJ_Message* msg) {
     AJ_Status status;
     int64_t* value = malloc(1 * sizeof(int64_t));
     size_t size = 0;
+    int i;
     AJ_Arg arg1;
     status = AJ_UnmarshalContainer(msg, &arg1, AJ_ARG_ARRAY);
 
@@ -1684,7 +1698,6 @@ static AJ_Status AppHandleInt64Array(AJ_Message* msg) {
     AJ_MarshalContainer(&reply, &arg1, AJ_ARG_ARRAY);
 
     if (status == AJ_OK) {
-        int i;
         for (i = 0; i < size; ++i) {
             status = AJ_MarshalArgs(&reply, "x", value[i]);
         }
@@ -1704,6 +1717,7 @@ static AJ_Status AppHandleStructArray(AJ_Message* msg) {
     AJ_Status status;
     struct ArrayStruct* value = malloc(1 * sizeof(struct ArrayStruct));
     size_t size = 0;
+    int i;
     AJ_Arg arg1;
     status = AJ_UnmarshalContainer(msg, &arg1, AJ_ARG_ARRAY);
 
@@ -1735,7 +1749,6 @@ static AJ_Status AppHandleStructArray(AJ_Message* msg) {
     AJ_MarshalContainer(&reply, &arg1, AJ_ARG_ARRAY);
 
     if (status == AJ_OK) {
-        int i;
         for (i = 0; i < size; ++i) {
             status = AJ_MarshalArgs(&reply, "(is)", value[i].intVar, value[i].stringValue);
         }
@@ -2398,13 +2411,12 @@ int AJ_ClientMain(bool padding) {
                 if (msg.hdr->msgType == AJ_MSG_METHOD_RET) {
                     uint8_t* array;
                     size_t size;
+                    int i;
                     status = AJ_UnmarshalArgs(&msg, "ay", (const uint8_t**)&array, &size);
 
                     if (AJ_OK == status) {
                         AJ_AlwaysPrintf(("'%s.%s' (path='%s') returned '%u'.\n", fullServiceName, "interface",
                                          ServicePath, array[0]));
-
-                        int i;
                         for (i = 1; i < size; i++) {
                             AJ_AlwaysPrintf(("Value '%d' %u'.\n", i, array[i]));
                         }
@@ -2435,6 +2447,7 @@ int AJ_ClientMain(bool padding) {
                     int32_t array [5];
                     size_t size = 0;
                     AJ_Arg arg1;
+                    int i;
 
                     status = AJ_UnmarshalContainer(&msg, &arg1, AJ_ARG_ARRAY);
 
@@ -2455,7 +2468,6 @@ int AJ_ClientMain(bool padding) {
                         AJ_AlwaysPrintf(("'%s.%s' (path='%s') returned '%d'.\n", fullServiceName, "interface",
                                          ServicePath, array[0]));
 
-                        int i;
                         for (i = 1; i < arrayLength; i++) {
                             AJ_AlwaysPrintf(("Value '%d' %d'.\n", i, array[i]));
                         }
@@ -2486,6 +2498,7 @@ int AJ_ClientMain(bool padding) {
                     unsigned int array [5];
                     size_t size = 0;
                     AJ_Arg arg1;
+                    int i;
 
                     status = AJ_UnmarshalContainer(&msg, &arg1, AJ_ARG_ARRAY);
 
@@ -2506,7 +2519,6 @@ int AJ_ClientMain(bool padding) {
                         AJ_AlwaysPrintf(("'%s.%s' (path='%s') returned '%u'.\n", fullServiceName, "interface",
                                          ServicePath, array[0]));
 
-                        int i;
                         for (i = 1; i < arrayLength; i++) {
                             AJ_AlwaysPrintf(("Value '%d' %u'.\n", i, array[i]));
                         }
@@ -2537,6 +2549,7 @@ int AJ_ClientMain(bool padding) {
                     double array [5];
                     size_t size = 0;
                     AJ_Arg arg1;
+                    int i;
 
                     status = AJ_UnmarshalContainer(&msg, &arg1, AJ_ARG_ARRAY);
 
@@ -2558,7 +2571,6 @@ int AJ_ClientMain(bool padding) {
                         AJ_AlwaysPrintf(("'%s.%s' (path='%s') returned '%f'.\n", fullServiceName, "interface",
                                          ServicePath, array[0]));
 
-                        int i;
                         for (i = 1; i < arrayLength; i++) {
                             AJ_AlwaysPrintf(("Value '%d' %f'.\n", i, array[i]));
                         }
@@ -2592,6 +2604,7 @@ int AJ_ClientMain(bool padding) {
                     bool array [5];
                     size_t size = 0;
                     AJ_Arg arg1;
+                    int i;
 
                     status = AJ_UnmarshalContainer(&msg, &arg1, AJ_ARG_ARRAY);
 
@@ -2612,7 +2625,6 @@ int AJ_ClientMain(bool padding) {
                     if (AJ_OK == status) {
                         AJ_AlwaysPrintf(("'%s.%s' (path='%s') returned '%s'.\n", fullServiceName, "interface",
                                          ServicePath, array[0] ? "true" : "false"));
-                        int i;
                         for (i = 1; i < arrayLength; i++) {
                             AJ_AlwaysPrintf(("Value '%d' %s'.\n", i, array[i] ? "true" : "false"));
                         }
@@ -2646,6 +2658,7 @@ int AJ_ClientMain(bool padding) {
                     char* array [5];
                     size_t size = 0;
                     AJ_Arg arg1;
+                    int i;
 
                     status = AJ_UnmarshalContainer(&msg, &arg1, AJ_ARG_ARRAY);
 
@@ -2666,7 +2679,6 @@ int AJ_ClientMain(bool padding) {
                     if (AJ_OK == status) {
                         AJ_AlwaysPrintf(("'%s.%s' (path='%s') returned '%s'.\n", fullServiceName, "interface",
                                          ServicePath, array[0]));
-                        int i;
                         for (i = 1; i < arrayLength; i++) {
                             AJ_AlwaysPrintf(("Value '%d' %s'.\n", i, array[i]));
                         }
@@ -2700,6 +2712,7 @@ int AJ_ClientMain(bool padding) {
                     uint16_t array [5];
                     size_t size = 0;
                     AJ_Arg arg1;
+                    int i;
 
                     status = AJ_UnmarshalContainer(&msg, &arg1, AJ_ARG_ARRAY);
 
@@ -2720,7 +2733,6 @@ int AJ_ClientMain(bool padding) {
                     if (AJ_OK == status) {
                         AJ_AlwaysPrintf(("'%s.%s' (path='%s') returned '%u'.\n", fullServiceName, "interface",
                                          ServicePath, array[0]));
-                        int i;
                         for (i = 1; i < arrayLength; i++) {
                             AJ_AlwaysPrintf(("Value '%d' %u'.\n", i, array[i]));
                         }
@@ -2754,6 +2766,7 @@ int AJ_ClientMain(bool padding) {
                     int16_t array [5];
                     size_t size = 0;
                     AJ_Arg arg1;
+                    int i;
 
                     status = AJ_UnmarshalContainer(&msg, &arg1, AJ_ARG_ARRAY);
 
@@ -2774,7 +2787,6 @@ int AJ_ClientMain(bool padding) {
                     if (AJ_OK == status) {
                         AJ_AlwaysPrintf(("'%s.%s' (path='%s') returned '%d'.\n", fullServiceName, "interface",
                                          ServicePath, array[0]));
-                        int i;
                         for (i = 1; i < arrayLength; i++) {
                             AJ_AlwaysPrintf(("Value '%d' %d'.\n", i, array[i]));
                         }
@@ -2808,6 +2820,7 @@ int AJ_ClientMain(bool padding) {
                     uint64_t array [5];
                     size_t size = 0;
                     AJ_Arg arg1;
+                    int i;
 
                     status = AJ_UnmarshalContainer(&msg, &arg1, AJ_ARG_ARRAY);
 
@@ -2828,7 +2841,6 @@ int AJ_ClientMain(bool padding) {
                     if (AJ_OK == status) {
                         AJ_AlwaysPrintf(("'%s.%s' (path='%s') returned '%u'.\n", fullServiceName, "interface",
                                          ServicePath, array[0]));
-                        int i;
                         for (i = 1; i < arrayLength; i++) {
                             AJ_AlwaysPrintf(("Value '%d' %u'.\n", i, array[i]));
                         }
@@ -2862,6 +2874,7 @@ int AJ_ClientMain(bool padding) {
                     int64_t array [5];
                     size_t size = 0;
                     AJ_Arg arg1;
+                    int i;
 
                     status = AJ_UnmarshalContainer(&msg, &arg1, AJ_ARG_ARRAY);
 
@@ -2882,7 +2895,6 @@ int AJ_ClientMain(bool padding) {
                     if (AJ_OK == status) {
                         AJ_AlwaysPrintf(("'%s.%s' (path='%s') returned '%d'.\n", fullServiceName, "interface",
                                          ServicePath, array[0]));
-                        int i;
                         for (i = 1; i < arrayLength; i++) {
                             AJ_AlwaysPrintf(("Value '%d' %d'.\n", i, array[i]));
                         }
@@ -2916,6 +2928,7 @@ int AJ_ClientMain(bool padding) {
                     struct ArrayStruct array [3];
                     size_t size = 0;
                     AJ_Arg arg1;
+                    int i;
 
                     status = AJ_UnmarshalContainer(&msg, &arg1, AJ_ARG_ARRAY);
 
@@ -2935,7 +2948,6 @@ int AJ_ClientMain(bool padding) {
                     if (AJ_OK == status) {
                         AJ_AlwaysPrintf(("'%s.%s' (path='%s') returned '%d'  '%s'.\n", fullServiceName, "interface",
                                          ServicePath, array[0].intVar, array[0].stringValue));
-                        int i;
                         for (i = 1; i < arrayLength; i++) {
                             AJ_AlwaysPrintf(("Value '%d' '%d' '%s' .\n", i, array[i].intVar, array[i].stringValue));
                         }
@@ -3507,12 +3519,12 @@ int AJ_ServiceMain(void) {
 
 static void usage(void)
 {
-    printf("Usage: bbclient [-h] [-s] [-c]\n\n");
+    printf("Usage: marshal_unmarshal_test [-h] [-s] [-c]\n\n");
     printf("Options:\n");
     printf("   -h   = Print this help message\n");
-    printf("   -s   = Rut the program as a service\n");
-    printf("   -c   = Number of pings to send to the server\n");
-    printf("   -p   = Number of pings to send to the server\n");
+    printf("   -s   = Run the program as a service\n");
+    printf("   -c   = Run the program as a client\n");
+    printf("   -p   = Run padding tests\n");
     printf("\n");
 }
 #ifdef AJ_MAIN
