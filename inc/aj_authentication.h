@@ -192,6 +192,17 @@ void AJ_EnableSuite(AJ_BusAttachment* bus, uint32_t suite);
 AJ_Status AJ_ConversationHash_Initialize(AJ_AuthenticationContext* ctx);
 
 /**
+ * Determine whether the conversation hash is initialized
+ *
+ * @param ctx          The authentication context
+ *
+ * @return
+ *         - The value 1 if initialized
+ *         - The value 0 if not initialized
+ */
+uint8_t AJ_ConversationHash_IsInitialized(AJ_AuthenticationContext* ctx);
+
+/**
  * Update the conversation hash with a uint8_t
  *
  * @param ctx                   The authentication context

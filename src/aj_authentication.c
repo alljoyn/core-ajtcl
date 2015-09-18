@@ -830,7 +830,7 @@ Exit:
     return status;
 }
 
-static AJ_Status ECDSAUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
+static AJ_Status ECDSAUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg, uint32_t version)
 {
     AJ_Status status;
     AJ_Arg container1;
@@ -849,6 +849,7 @@ static AJ_Status ECDSAUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
     X509CertificateChain* node = NULL;
     AJ_Credential cred;
     uint8_t trusted = 0;
+    uint32_t type;
 
     AJ_InfoPrintf(("ECDSAUnmarshal(ctx=%p, msg=%p)\n", ctx, msg));
 
@@ -988,8 +989,15 @@ static AJ_Status ECDSAUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
         goto Exit;
     }
 
-    /* Initial chain verification to validate intermediate issuers */
-    status = AJ_X509VerifyChain(root, NULL, AJ_CERTIFICATE_IDN_X509);
+    /* Initial chain verification to validate intermediate issuers.
+     * Type is ignored for auth version < 4.
+     */
+    if ((version >> 16) < 4) {
+        type = 0;
+    } else {
+        type = AJ_CERTIFICATE_IDN_X509;
+    }
+    status = AJ_X509VerifyChain(root, NULL, type);
     if (AJ_OK == status) {
         /* Verify the root certificate against the stored authorities */
         status = AJ_PolicyVerifyCertificate(&root->certificate, &pub);
@@ -1075,7 +1083,7 @@ AJ_Status AJ_KeyAuthenticationUnmarshal(AJ_AuthenticationContext* ctx, AJ_Messag
         break;
 
     case AUTH_SUITE_ECDHE_ECDSA:
-        status = ECDSAUnmarshal(ctx, msg);
+        status = ECDSAUnmarshal(ctx, msg, ctx->version);
         break;
     }
     return status;
@@ -1130,6 +1138,14 @@ AJ_Status AJ_ConversationHash_Initialize(AJ_AuthenticationContext* ctx)
         AJ_ErrPrintf(("AJ_ConversationHash_Initialize() failed\n"));
         return AJ_ERR_RESOURCES;
     }
+}
+
+uint8_t AJ_ConversationHash_IsInitialized(AJ_AuthenticationContext* ctx)
+{
+    if (ctx->hash) {
+        return 1;
+    }
+    return 0;
 }
 
 static inline int ConversationVersionDoesNotApply(uint32_t conversationVersion, uint32_t currentAuthVersion)

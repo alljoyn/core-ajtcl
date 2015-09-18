@@ -1575,9 +1575,8 @@ AJ_Status AJ_GenerateShareSecretOld(AJ_ECCPublicKey* pub, AJ_ECCPrivateKey* prv,
 
     /* Encode native to big-endian structures */
     sec->crv = KEY_CRV_NISTP256;
-    secret.infinity = B_FALSE;
-    BigvalDecode(sec->x, &secret.x, KEY_ECC_SZ);
-    BigvalDecode(sec->y, &secret.y, KEY_ECC_SZ);
+    BigvalEncode(&secret.x, sec->x, KEY_ECC_SZ);
+    BigvalEncode(&secret.y, sec->y, KEY_ECC_SZ);
 
     return AJ_OK;
 }

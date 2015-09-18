@@ -32,11 +32,17 @@ const char AJ_ErrInvalidValue[] = "org.alljoyn.Error.InvalidValue";
 const char AJ_ErrFeatureNotAvailable[] = "org.alljoyn.Error.FeatureNotAvailable";
 const char AJ_ErrMaxSizeExceeded[] = "org.alljoyn.Error.MaxSizeExceeded";
 const char AJ_ErrLanguageNotSuppored[] = "org.alljoyn.Error.LanguageNotSupported";
+const char AJ_ErrMethodNotAllowed[] = "org.alljoyn.Error.MethodNotAllowed";
+
 /* Security specific errors */
 const char AJ_ErrSecurityViolation[] = "org.alljoyn.Bus.SecurityViolation";
 const char AJ_ErrPermissionDenied[] = "org.alljoyn.Bus.Security.Error.PermissionDenied";
 const char AJ_ErrDigestMismatch[] = "org.alljoyn.Bus.Security.Error.DigestMismatch";
 const char AJ_ErrUnknownCertificate[] = "org.alljoyn.Bus.Security.Error.UnknownCertificate";
+const char AJ_ErrInvalidCertificate[] = "org.alljoyn.Bus.Security.Error.InvalidCertificate";
+const char AJ_ErrDuplicateCertificate[] = "org.alljoyn.Bus.Security.Error.DuplicateCertificate";
+const char AJ_ErrCertificateNotFound[] = "org.alljoyn.Bus.Security.Error.CertificateNotFound";
+const char AJ_ErrPolicyNotNewer[] = "org.alljoyn.Bus.Security.Error.PolicyNotNewer";
 
 static const char DBusObjectPath[] = "/org/freedesktop/DBus";
 static const char DBusInterface[] = "org.freedesktop.DBus";

@@ -34,6 +34,7 @@
 #include <ajtcl/aj_config.h>
 #include <ajtcl/aj_crypto.h>
 #include <ajtcl/aj_security.h>
+#include <ajtcl/aj_msg_priv.h>
 
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
@@ -64,6 +65,8 @@ Policy g_policy = { { 0, NULL }, NULL };
 #define POLICY_SIGNAL_OUTGOING      POLICY_METHOD_OUTGOING
 #define POLICY_PRPGET_INCOMING      POLICY_METHOD_INCOMING
 #define POLICY_PRPGET_OUTGOING      POLICY_METHOD_OUTGOING
+#define POLICY_PRPALL_INCOMING      POLICY_METHOD_INCOMING
+#define POLICY_PRPALL_OUTGOING      POLICY_METHOD_OUTGOING
 #define MANIFEST_METHOD_INCOMING    (POLICY_METHOD_INCOMING << 4)
 #define MANIFEST_METHOD_OUTGOING    (POLICY_METHOD_OUTGOING << 4)
 #define MANIFEST_PRPSET_INCOMING    (POLICY_PRPSET_INCOMING << 4)
@@ -72,6 +75,8 @@ Policy g_policy = { { 0, NULL }, NULL };
 #define MANIFEST_SIGNAL_OUTGOING    MANIFEST_METHOD_OUTGOING
 #define MANIFEST_PRPGET_INCOMING    MANIFEST_METHOD_INCOMING
 #define MANIFEST_PRPGET_OUTGOING    MANIFEST_METHOD_OUTGOING
+#define MANIFEST_PRPALL_INCOMING    MANIFEST_METHOD_INCOMING
+#define MANIFEST_PRPALL_OUTGOING    MANIFEST_METHOD_OUTGOING
 #define POLICY_INCOMING             (POLICY_METHOD_INCOMING | POLICY_PRPSET_INCOMING)
 #define POLICY_OUTGOING             (POLICY_METHOD_OUTGOING | POLICY_PRPSET_OUTGOING)
 #define MANIFEST_INCOMING           (MANIFEST_METHOD_INCOMING | MANIFEST_PRPSET_INCOMING)
@@ -126,6 +131,7 @@ static AJ_Status AccessControlRegister(const AJ_Object* list, uint8_t l)
     uint8_t i, m;
     uint16_t n = 0;
     AccessControlMember* member;
+    uint32_t properties;
 
     AJ_InfoPrintf(("AccessControlRegister(list=%p, l=%x)\n", list, l));
 
@@ -141,6 +147,7 @@ static AJ_Status AccessControlRegister(const AJ_Object* list, uint8_t l)
             continue;
         }
         i = 0;
+        properties = FALSE;
         while (*interfaces) {
             iface = *interfaces++;
             ifn = *iface++;
@@ -165,8 +172,26 @@ static AJ_Status AccessControlRegister(const AJ_Object* list, uint8_t l)
                     member->id = AJ_ENCODE_MESSAGE_ID(l, n - 1, i, m);
                     member->next = g_access;
                     g_access = member;
+                    properties |= (PROPERTY == MEMBER_TYPE(*mbr));
                     AJ_InfoPrintf(("AccessControlRegister: id 0x%08X obj %s ifn %s mbr %s\n", member->id, obj->path, ifn, mbr));
                     m++;
+                }
+                if (properties) {
+                    /* Add special member to handle DBus.Properties GetAll method */
+                    member = (AccessControlMember*) AJ_Malloc(sizeof (AccessControlMember));
+                    if (NULL == member) {
+                        AJ_WarnPrintf(("AccessControlRegister(list=%p, l=%x): AJ_ERR_RESOURCES\n", list, l));
+                        goto Exit;
+                    }
+                    memset(member, 0, sizeof (AccessControlMember));
+                    member->obj = obj->path;
+                    member->ifn = ifn;
+                    /* Setting the member to "@" will match an PROPERTY with wildcard for member name */
+                    member->mbr = "@";
+                    member->id = AJ_INVALID_MSG_ID;
+                    member->next = g_access;
+                    g_access = member;
+                    AJ_InfoPrintf(("AccessControlRegister: id 0x%08X obj %s ifn %s mbr %s\n", member->id, obj->path, ifn, member->mbr));
                 }
             }
             i++;
@@ -230,45 +255,121 @@ static AccessControlMember* FindAccessControlMember(uint32_t id)
     return mbr;
 }
 
-AJ_Status AJ_AccessControlCheckMessage(AJ_Message* msg, const char* name, uint8_t direction)
+static uint32_t IsInterface(const char* std, const char* ifn)
+{
+    AJ_ASSERT(std);
+    AJ_ASSERT(ifn);
+    const char* s = std;
+    if (SECURE_OFF == *std) {
+        s++;
+    }
+    return (0 == strcmp(s, ifn));
+}
+
+static uint32_t PropertiesInterface(const char* ifn)
+{
+    return IsInterface(AJ_PropertiesIface[0], ifn);
+}
+
+static uint32_t StandardInterface(const char* ifn)
+{
+    /*
+     * We could include all the standard interfaces.
+     * Currently we only expect encrypted messages
+     * on org.alljoyn.Bus.Peer.Authentication
+     */
+    return IsInterface(PeerAuthInterface, ifn);
+}
+
+static AccessControlMember* FindGetAllMember(const void* buf, size_t len)
+{
+    AccessControlMember* acm = g_access;
+    const char* ifn;
+
+    while (acm) {
+        ifn = acm->ifn;
+        /* Skip over secure annotation */
+        if ((SECURE_TRUE == *ifn) || (SECURE_OFF == *ifn)) {
+            ifn++;
+        }
+        if ((AJ_INVALID_MSG_ID == acm->id) && (len == strlen(ifn) && (0 == AJ_Crypto_Compare(buf, acm->ifn, len)))) {
+            /* Same interface */
+            return acm;
+        }
+        acm = acm->next;
+    }
+
+    return NULL;
+}
+
+static AJ_Status PropertiesInterfaceCheck(const AJ_Message* msg, uint8_t direction, uint32_t peer)
+{
+    AccessControlMember* acm;
+    uint8_t* buf;
+    uint32_t len;
+    uint8_t acc;
+
+    AJ_InfoPrintf(("PropertiesInterfaceCheck(msg=%p, direction=%x, peer=%d): 0x%08X\n", msg, direction, peer, msg->msgId));
+    /* All incoming calls are handled when marshalling/unmarshalling the property id */
+    if (AJ_ACCESS_INCOMING == direction) {
+        return AJ_OK;
+    }
+    /* Get and Set outgoing are handled when marshalling/unmarshalling the property id */
+    if ((AJ_PROP_GET == (msg->msgId & 0xFF)) || (AJ_PROP_SET == (msg->msgId & 0xFF))) {
+        return AJ_OK;
+    }
+    /*
+     * Get the target interface from the message body.
+     */
+    buf = msg->bus->sock.tx.bufStart + sizeof(AJ_MsgHeader) + msg->hdr->headerLen + HEADERPAD(msg->hdr->headerLen);
+    len = *(uint32_t*) buf;
+    buf += sizeof (uint32_t);
+    acm = FindGetAllMember(buf, len);
+    if (acm) {
+        acc = acm->deny[peer] ? 0 : acm->allow[peer];
+        if ((POLICY_PRPALL_OUTGOING & acc) && (MANIFEST_PRPALL_OUTGOING & acc)) {
+            return AJ_OK;
+        }
+    }
+    acm = acm->next;
+
+    return AJ_ERR_ACCESS;
+}
+
+AJ_Status AJ_AccessControlCheckMessage(const AJ_Message* msg, const char* name, uint8_t direction)
 {
     AJ_Status status;
     AccessControlMember* mbr;
     uint32_t peer;
     uint8_t acc;
-    size_t i;
-    const char* ifn;
-    const char* allowed[] = {
-        AJ_PropertiesIface[0],
-        PeerAuthInterface,
-    };
 
-    AJ_InfoPrintf(("AJ_AccessControlCheckMessage(msg=%p, name=%s, direction=%x): Interface %s\n", msg, name, direction, msg->iface));
+    AJ_InfoPrintf(("AJ_AccessControlCheckMessage(msg=%p, name=%s, direction=%x): Obj %s Ifn %s Mbr %s\n", msg, name, direction, msg->objPath, msg->iface, msg->member));
 
     /*
-     * We may get encrypted messages on "unsecured" interfaces:
-     * org.freedesktop.DBus.Properties (this is annotated using '#')
+     * We may get encrypted messages on "unsecured" interfaces.
+     * org.freedesktop.DBus.Properties
      * org.alljoyn.Bus.Peer.Authentication
      */
-    for (i = 0; i < ArraySize(allowed); i++) {
-        ifn = allowed[i];
-        if (SECURE_OFF == *ifn) {
-            ifn++;
-        }
-        if (0 == strncmp(ifn, msg->iface, strlen(ifn))) {
-            AJ_InfoPrintf(("AJ_AccessControlCheckMessage(msg=%p, name=%s, direction=%x): %s AJ_OK\n", msg, name, direction, ifn));
-            return AJ_OK;
-        }
+    if (StandardInterface(msg->iface)) {
+        AJ_InfoPrintf(("AJ_AccessControlCheckMessage(msg=%p, name=%s, direction=%x): AJ_OK\n", msg, name, direction));
+        return AJ_OK;
     }
 
+    /* Check Peer.Authentication before this because we don't have a peer entry yet */
     status = AJ_GetPeerIndex(name, &peer);
     if (AJ_OK != status) {
         return AJ_ERR_ACCESS;
     }
 
+    if (PropertiesInterface(msg->iface)) {
+        status = PropertiesInterfaceCheck(msg, direction, peer);
+        AJ_InfoPrintf(("AJ_AccessControlCheckMessage(msg=%p, name=%s, direction=%x): %s\n", msg, name, direction, AJ_StatusText(status)));
+        return status;
+    }
+
     mbr = FindAccessControlMember(msg->msgId);
     if (NULL == mbr) {
-        AJ_WarnPrintf(("AJ_AccessControlCheckMessage(msg=%p, name=%s, direction=%x): Member not in table AJ_ERR_ACCESS\n", msg, name, direction));
+        AJ_WarnPrintf(("AJ_AccessControlCheckMessage(msg=%p, name=%s, direction=%x): Member 0x%08X not in table AJ_ERR_ACCESS\n", msg, name, direction, msg->msgId));
         return AJ_ERR_ACCESS;
     }
 
@@ -287,12 +388,12 @@ AJ_Status AJ_AccessControlCheckMessage(AJ_Message* msg, const char* name, uint8_
         }
         break;
     }
-    AJ_InfoPrintf(("AJ_AccessControlCheck(msg=%p, name=%s, direction=%x): %X %s\n", msg, name, direction, acc, AJ_StatusText(status)));
+    AJ_InfoPrintf(("AJ_AccessControlCheck(msg=%p, name=%s, direction=%x): 0x%08X %X %s\n", msg, name, direction, msg->msgId, acc, AJ_StatusText(status)));
 
     return status;
 }
 
-AJ_Status AJ_AccessControlCheckProperty(AJ_Message* msg, uint32_t id, const char* name, uint8_t direction)
+AJ_Status AJ_AccessControlCheckProperty(const AJ_Message* msg, uint32_t id, const char* name, uint8_t direction)
 {
     AJ_Status status;
     AccessControlMember* mbr;
@@ -309,7 +410,7 @@ AJ_Status AJ_AccessControlCheckProperty(AJ_Message* msg, uint32_t id, const char
 
     mbr = FindAccessControlMember(id);
     if (NULL == mbr) {
-        AJ_WarnPrintf(("AccessControlCheckProperty(msg=%p, id=0x%08X, name=%s, direction=%x): Member not in table AJ_ERR_ACCESS\n", msg, id, name, direction));
+        AJ_WarnPrintf(("AccessControlCheckProperty(msg=%p, id=0x%08X, name=%s, direction=%x): Property not in table AJ_ERR_ACCESS\n", msg, id, name, direction));
         return AJ_ERR_ACCESS;
     }
 
@@ -317,30 +418,46 @@ AJ_Status AJ_AccessControlCheckProperty(AJ_Message* msg, uint32_t id, const char
     acc = mbr->deny[peer] ? 0 : mbr->allow[peer];
     switch (direction) {
     case AJ_ACCESS_INCOMING:
-        if (AJ_PROP_GET == (msg->msgId & 0xFF)) {
+        switch (msg->msgId & 0xFF) {
+        case AJ_PROP_GET:
+        case AJ_PROP_GET_ALL:
             if ((POLICY_PRPGET_INCOMING & acc) && (MANIFEST_PRPGET_INCOMING & acc)) {
                 status = AJ_OK;
             }
-        } else if (AJ_PROP_SET == (msg->msgId & 0xFF)) {
+            break;
+
+        case AJ_PROP_SET:
             if ((POLICY_PRPSET_INCOMING & acc) && (MANIFEST_PRPSET_INCOMING & acc)) {
                 status = AJ_OK;
             }
-        } else {
-            AJ_WarnPrintf(("AccessControlCheckProperty(msg=%p, id=0x%08X, name=%s, direction=%x): Invalid message id\n", msg, id, name, direction));
+            break;
+
+        default:
+            AJ_WarnPrintf(("AccessControlCheckProperty(msg=%p, id=0x%08X, name=%s, direction=%x): Invalid message id 0x%08X\n", msg, id, name, direction, msg->msgId));
+            AJ_ASSERT(0);
+            break;
         }
         break;
 
     case AJ_ACCESS_OUTGOING:
-        if (AJ_PROP_GET == (msg->msgId & 0xFF)) {
+        switch (msg->msgId & 0xFF) {
+        case AJ_PROP_GET:
+        case AJ_PROP_GET_ALL:
             if ((POLICY_PRPGET_OUTGOING & acc) && (MANIFEST_PRPGET_OUTGOING & acc)) {
                 status = AJ_OK;
             }
-        } else if (AJ_PROP_SET == (msg->msgId & 0xFF)) {
+            break;
+
+        case AJ_PROP_SET:
             if ((POLICY_PRPSET_OUTGOING & acc) && (MANIFEST_PRPSET_OUTGOING & acc)) {
                 status = AJ_OK;
             }
-        } else {
-            AJ_WarnPrintf(("AccessControlCheckProperty(msg=%p, id=0x%08X, name=%s, direction=%x): Invalid message id\n", msg, id, name, direction));
+            break;
+
+        default:
+            AJ_WarnPrintf(("AccessControlCheckProperty(msg=%p, id=0x%08X, name=%s, direction=%x): Invalid message id 0x%08X\n", msg, id, name, direction, msg->msgId));
+            AJ_ASSERT(0);
+            break;
         }
         break;
     }
@@ -367,6 +484,7 @@ AJ_Status AJ_AccessControlReset(const char* name)
     }
     while (node) {
         node->allow[peer] = 0;
+        node->deny[peer] = 0;
         node = node->next;
     }
 
@@ -597,7 +715,7 @@ AJ_Status AJ_MarshalDefaultPolicy(AJ_CredField* field, AJ_PermissionPeer* peer_c
         AJ_PermissionACL acl_admin = { peer_admin, &rule_admin, &acl_ca };
         AJ_PermissionACL acl_any = { &peer_any, &rule_any, &acl_admin };
 
-        AJ_Policy policy = { POLICY_SPECIFICATION_VERSION, 1, &acl_any };
+        AJ_Policy policy = { POLICY_SPECIFICATION_VERSION, 0, &acl_any };
 
         /* Marshal the policy */
         status = AJ_PolicyToBuffer(&policy, field);
@@ -736,6 +854,7 @@ static AJ_Status AJ_PermissionMemberUnmarshal(AJ_PermissionMember** head, AJ_Mes
     AJ_Arg container1;
     AJ_Arg container2;
     AJ_PermissionMember* node;
+    AJ_PermissionMember* curr = NULL;
 
     status = AJ_UnmarshalContainer(msg, &container1, AJ_ARG_ARRAY);
     if (AJ_OK != status) {
@@ -750,8 +869,14 @@ static AJ_Status AJ_PermissionMemberUnmarshal(AJ_PermissionMember** head, AJ_Mes
         if (NULL == node) {
             goto Exit;
         }
-        node->next = *head;
-        *head = node;
+        /* Push onto tail to maintain order */
+        node->next = NULL;
+        if (curr) {
+            curr->next = node;
+        } else {
+            *head = node;
+        }
+        curr = node;
         status = AJ_UnmarshalArgs(msg, "syy", &node->mbr, &node->type, &node->action);
         if (AJ_OK != status) {
             goto Exit;
@@ -782,6 +907,7 @@ static AJ_Status AJ_PermissionRuleUnmarshal(AJ_PermissionRule** head, AJ_Message
     AJ_Arg container1;
     AJ_Arg container2;
     AJ_PermissionRule* node;
+    AJ_PermissionRule* curr = NULL;
 
     status = AJ_UnmarshalContainer(msg, &container1, AJ_ARG_ARRAY);
     if (AJ_OK != status) {
@@ -797,8 +923,14 @@ static AJ_Status AJ_PermissionRuleUnmarshal(AJ_PermissionRule** head, AJ_Message
             goto Exit;
         }
         node->members = NULL;
-        node->next = *head;
-        *head = node;
+        /* Push onto tail to maintain order */
+        node->next = NULL;
+        if (curr) {
+            curr->next = node;
+        } else {
+            *head = node;
+        }
+        curr = node;
         status = AJ_UnmarshalArgs(msg, "ss", &node->obj, &node->ifn);
         if (AJ_OK != status) {
             goto Exit;
@@ -860,6 +992,7 @@ static AJ_Status AJ_PermissionPeerUnmarshal(AJ_PermissionPeer** head, AJ_Message
     AJ_Arg container2;
     AJ_Arg container3;
     AJ_PermissionPeer* node;
+    AJ_PermissionPeer* curr = NULL;
 
     status = AJ_UnmarshalContainer(msg, &container1, AJ_ARG_ARRAY);
     if (AJ_OK != status) {
@@ -875,8 +1008,14 @@ static AJ_Status AJ_PermissionPeerUnmarshal(AJ_PermissionPeer** head, AJ_Message
             status = AJ_ERR_RESOURCES;
             goto Exit;
         }
-        node->next = *head;
-        *head = node;
+        /* Push onto tail to maintain order */
+        node->next = NULL;
+        if (curr) {
+            curr->next = node;
+        } else {
+            *head = node;
+        }
+        curr = node;
         status = AJ_UnmarshalArgs(msg, "y", &node->type);
         if (AJ_OK != status) {
             goto Exit;
@@ -933,6 +1072,7 @@ static AJ_Status AJ_PermissionACLUnmarshal(AJ_PermissionACL** head, AJ_Message* 
     AJ_Arg container1;
     AJ_Arg container2;
     AJ_PermissionACL* node;
+    AJ_PermissionACL* curr = NULL;
 
     status = AJ_UnmarshalContainer(msg, &container1, AJ_ARG_ARRAY);
     if (AJ_OK != status) {
@@ -949,8 +1089,14 @@ static AJ_Status AJ_PermissionACLUnmarshal(AJ_PermissionACL** head, AJ_Message* 
         }
         node->peers = NULL;
         node->rules = NULL;
-        node->next = *head;
-        *head = node;
+        /* Push onto tail to maintain order */
+        node->next = NULL;
+        if (curr) {
+            curr->next = node;
+        } else {
+            *head = node;
+        }
+        curr = node;
         status = AJ_PermissionPeerUnmarshal(&node->peers, msg);
         if (AJ_OK != status) {
             break;
@@ -1236,7 +1382,7 @@ AJ_Status AJ_ManifestApply(AJ_Manifest* manifest, const char* name)
         acc <<= 4;
 #ifndef NDEBUG
         if (acc) {
-            AJ_InfoPrintf(("Access: %s %s %s %x\n", acm->obj, acm->ifn, acm->mbr, acc));
+            AJ_InfoPrintf(("Access: 0x%08X %s %s %s %x\n", acm->id, acm->obj, acm->ifn, acm->mbr, acc));
         }
 #endif
         acm->allow[peer] |= acc;
@@ -1296,29 +1442,27 @@ AJ_Status AJ_PolicyApply(AJ_AuthenticationContext* ctx, const char* name)
     }
 
     if (policy->policy) {
-        acm = g_access;
-        while (acm) {
-            /* Default to no access */
-            acm->allow[peer] = 0;
-            acl = policy->policy->acls;
-            while (acl) {
-                found = 0;
-                /* Look for a match in the peer list */
-                found |= PermissionPeerFind(acl->peers, AJ_PEER_TYPE_ALL, NULL, NULL);
-                if (AUTH_SUITE_ECDHE_NULL != ctx->suite) {
-                    found |= PermissionPeerFind(acl->peers, AJ_PEER_TYPE_ANY_TRUSTED, NULL, NULL);
+        acl = policy->policy->acls;
+        while (acl) {
+            found = 0;
+            /* Look for a match in the peer list */
+            found |= PermissionPeerFind(acl->peers, AJ_PEER_TYPE_ALL, NULL, NULL);
+            if (AUTH_SUITE_ECDHE_NULL != ctx->suite) {
+                found |= PermissionPeerFind(acl->peers, AJ_PEER_TYPE_ANY_TRUSTED, NULL, NULL);
+            }
+            if (AUTH_SUITE_ECDHE_ECDSA == ctx->suite) {
+                AJ_ASSERT(ctx->kactx.ecdsa.key);
+                /* With public key applies deny rules, flip the 2nd bit to indicate this type */
+                /* Subject public key is in array index 0 */
+                found |= (PermissionPeerFind(acl->peers, AJ_PEER_TYPE_WITH_PUBLIC_KEY, &ctx->kactx.ecdsa.key[0], NULL) << 1);
+                /* Issuer public keys are in array index > 0, check root and all intermediates */
+                for (i = 1; (i < ctx->kactx.ecdsa.num) && !found; i++) {
+                    found |= PermissionPeerFind(acl->peers, AJ_PEER_TYPE_FROM_CA, &ctx->kactx.ecdsa.key[i], NULL);
                 }
-                if (AUTH_SUITE_ECDHE_ECDSA == ctx->suite) {
-                    AJ_ASSERT(ctx->kactx.ecdsa.key);
-                    /* With public key applies deny rules, flip the 2nd bit to indicate this type */
-                    /* Subject public key is in array index 0 */
-                    found |= (PermissionPeerFind(acl->peers, AJ_PEER_TYPE_WITH_PUBLIC_KEY, &ctx->kactx.ecdsa.key[0], NULL) << 1);
-                    /* Issuer public keys are in array index > 0, check root and all intermediates */
-                    for (i = 1; (i < ctx->kactx.ecdsa.num) && !found; i++) {
-                        found |= PermissionPeerFind(acl->peers, AJ_PEER_TYPE_FROM_CA, &ctx->kactx.ecdsa.key[i], NULL);
-                    }
-                }
-                if (found) {
+            }
+            if (found) {
+                acm = g_access;
+                while (acm) {
                     acc = PermissionRuleAccess(acl->rules, acm, peer, found >> 1);
                     if (AUTH_SUITE_ECDHE_ECDSA != ctx->suite) {
                         /* We don't receive a manifest, so switch those bits on too */
@@ -1326,14 +1470,14 @@ AJ_Status AJ_PolicyApply(AJ_AuthenticationContext* ctx, const char* name)
                     }
 #ifndef NDEBUG
                     if (acc) {
-                        AJ_InfoPrintf(("Access: %s %s %s %x\n", acm->obj, acm->ifn, acm->mbr, acc));
+                        AJ_InfoPrintf(("Access: 0x%08X %s %s %s %x\n", acm->id, acm->obj, acm->ifn, acm->mbr, acc));
                     }
 #endif
                     acm->allow[peer] |= acc;
+                    acm = acm->next;
                 }
-                acl = acl->next;
             }
-            acm = acm->next;
+            acl = acl->next;
         }
     } else {
         AJ_InfoPrintf(("AJ_PolicyApply(ctx=%p, name=%p): No stored policy\n", ctx, name));
@@ -1417,34 +1561,34 @@ AJ_Status AJ_MembershipApply(X509CertificateChain* root, AJ_ECCPublicKey* issuer
     }
 
     if (policy->policy) {
-        acm = g_access;
-        while (acm) {
-            acl = policy->policy->acls;
-            while (acl) {
-                found = 0;
-                /* Check if root issuer is in the peer list */
-                if (issuer) {
-                    found = PermissionPeerFind(acl->peers, AJ_PEER_TYPE_WITH_MEMBERSHIP, issuer, group);
+        acl = policy->policy->acls;
+        while (acl) {
+            found = 0;
+            /* Check if root issuer is in the peer list */
+            if (issuer) {
+                found = PermissionPeerFind(acl->peers, AJ_PEER_TYPE_WITH_MEMBERSHIP, issuer, group);
+            }
+            if (NULL != root) {
+                /* Check if intermediate issuer is in the peer list */
+                while (!found && (NULL != root->next)) {
+                    found = PermissionPeerFind(acl->peers, AJ_PEER_TYPE_WITH_MEMBERSHIP, &root->certificate.tbs.publickey, group);
+                    root = root->next;
                 }
-                if (NULL != root) {
-                    /* Check if intermediate issuer is in the peer list */
-                    while (!found && (NULL != root->next)) {
-                        found = PermissionPeerFind(acl->peers, AJ_PEER_TYPE_WITH_MEMBERSHIP, &root->certificate.tbs.publickey, group);
-                        root = root->next;
-                    }
-                }
-                if (found) {
+            }
+            if (found) {
+                acm = g_access;
+                while (acm) {
                     acc = PermissionRuleAccess(acl->rules, acm, peer, FALSE);
 #ifndef NDEBUG
                     if (acc) {
-                        AJ_InfoPrintf(("Access: %s %s %s %x\n", acm->obj, acm->ifn, acm->mbr, acc));
+                        AJ_InfoPrintf(("Access: 0x%08X %s %s %s %x\n", acm->id, acm->obj, acm->ifn, acm->mbr, acc));
                     }
 #endif
                     acm->allow[peer] |= acc;
+                    acm = acm->next;
                 }
-                acl = acl->next;
             }
-            acm = acm->next;
+            acl = acl->next;
         }
     }
 

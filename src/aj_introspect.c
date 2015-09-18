@@ -1082,6 +1082,8 @@ AJ_Status AJ_MarshalPropertyArgs(AJ_Message* msg, uint32_t propId)
     }
     if (secure) {
         msg->hdr->flags |= AJ_FLAG_ENCRYPTED;
+    }
+    if (msg->hdr->flags & AJ_FLAG_ENCRYPTED) {
         /*
          * Check outgoing access policy
          */
@@ -1090,6 +1092,7 @@ AJ_Status AJ_MarshalPropertyArgs(AJ_Message* msg, uint32_t propId)
             return status;
         }
     }
+
     /*
      * Marshal interface name
      */
@@ -1374,12 +1377,15 @@ AJ_Status AJ_MarshalAllPropertiesArgs(AJ_Message* replyMsg, const char* iface, A
                 continue;
             }
 
-            /*
-             * Check outgoing access policy
-             */
-            status = AJ_AccessControlCheckProperty(replyMsg, propId, replyMsg->destination, AJ_ACCESS_OUTGOING);
-            if (AJ_OK != status) {
-                goto Exit;
+            if (secure) {
+                /*
+                 * Check incoming access policy
+                 */
+                status = AJ_AccessControlCheckProperty(replyMsg, propId, replyMsg->destination, AJ_ACCESS_INCOMING);
+                if (AJ_OK != status) {
+                    /* Skip this property */
+                    continue;
+                }
             }
 
             status = AJ_MarshalContainer(replyMsg, &dict, AJ_ARG_DICT_ENTRY);

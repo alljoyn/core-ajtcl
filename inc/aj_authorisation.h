@@ -292,7 +292,7 @@ AJ_Status AJ_PolicyVerifyCertificate(const X509Certificate* cert, AJ_ECCPublicKe
  *          - AJ_OK on success
  *          - AJ_ERR_ACCESS on all failures
  */
-AJ_Status AJ_AccessControlCheckMessage(AJ_Message* msg, const char* name, uint8_t direction);
+AJ_Status AJ_AccessControlCheckMessage(const AJ_Message* msg, const char* name, uint8_t direction);
 
 /**
  * Access control check for a property
@@ -306,7 +306,7 @@ AJ_Status AJ_AccessControlCheckMessage(AJ_Message* msg, const char* name, uint8_
  *          - AJ_OK on success
  *          - AJ_ERR_ACCESS on all failures
  */
-AJ_Status AJ_AccessControlCheckProperty(AJ_Message* msg, uint32_t id, const char* name, uint8_t direction);
+AJ_Status AJ_AccessControlCheckProperty(const AJ_Message* msg, uint32_t id, const char* name, uint8_t direction);
 
 /**
  * Reset access control list for a peer

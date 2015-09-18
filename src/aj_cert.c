@@ -953,8 +953,8 @@ AJ_Status AJ_X509VerifyChain(const X509CertificateChain* root, const AJ_ECCPubli
                 return AJ_ERR_SECURITY;
             }
         } else {
-            /* This is the end entity cert. It must be the expected type. */
-            if (type != root->certificate.tbs.extensions.type) {
+            /* This is the end entity cert. It must be the expected type if one was specified. */
+            if (type && type != root->certificate.tbs.extensions.type) {
                 AJ_InfoPrintf(("AJ_X509VerifyChain(root=%p, key=%p, type=%x): End entity certificate has incorrect EKU\n", root, key, type));
                 return AJ_ERR_SECURITY;
             }
