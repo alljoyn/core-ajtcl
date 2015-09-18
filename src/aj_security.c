@@ -610,7 +610,7 @@ static AJ_Status VerifyIdentityCertificateChain(X509CertificateChain* root, AJ_E
         goto Exit;
     }
     if (0 != memcmp((uint8_t*) &pub, &leaf->tbs.publickey, sizeof (pub))) {
-        status = AJ_ERR_SECURITY_UNKNOWN_CERTIFICATE;
+        status = AJ_ERR_SECURITY;
         goto Exit;
     }
 
@@ -645,7 +645,7 @@ static AJ_Status VerifyMembershipCertificateChain(X509CertificateChain* root)
         goto Exit;
     }
     if (0 != memcmp((uint8_t*) &pub, &leaf->tbs.publickey, sizeof (pub))) {
-        status = AJ_ERR_SECURITY_UNKNOWN_CERTIFICATE;
+        status = AJ_ERR_SECURITY;
         goto Exit;
     }
 

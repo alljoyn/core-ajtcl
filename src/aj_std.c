@@ -38,7 +38,6 @@ const char AJ_ErrMethodNotAllowed[] = "org.alljoyn.Error.MethodNotAllowed";
 const char AJ_ErrSecurityViolation[] = "org.alljoyn.Bus.SecurityViolation";
 const char AJ_ErrPermissionDenied[] = "org.alljoyn.Bus.Security.Error.PermissionDenied";
 const char AJ_ErrDigestMismatch[] = "org.alljoyn.Bus.Security.Error.DigestMismatch";
-const char AJ_ErrUnknownCertificate[] = "org.alljoyn.Bus.Security.Error.UnknownCertificate";
 const char AJ_ErrInvalidCertificate[] = "org.alljoyn.Bus.Security.Error.InvalidCertificate";
 const char AJ_ErrDuplicateCertificate[] = "org.alljoyn.Bus.Security.Error.DuplicateCertificate";
 const char AJ_ErrCertificateNotFound[] = "org.alljoyn.Bus.Security.Error.CertificateNotFound";
