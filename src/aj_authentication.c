@@ -65,20 +65,13 @@ static AJ_Status ComputeVerifier(AJ_AuthenticationContext* ctx, const char* labe
 {
     const uint8_t* data[3];
     uint8_t lens[3];
-    uint8_t digest[AJ_SHA256_DIGEST_LENGTH];
-    AJ_Status status;
-
-    status = AJ_ConversationHash_GetDigest(ctx, digest);
-    if (AJ_OK != status) {
-        return status;
-    }
 
     data[0] = ctx->mastersecret;
     lens[0] = AJ_MASTER_SECRET_LEN;
     data[1] = (uint8_t*) label;
     lens[1] = (uint8_t) strlen(label);
-    data[2] = digest;
-    lens[2] = sizeof (digest);
+    data[2] = ctx->digest;
+    lens[2] = sizeof (ctx->digest);
 
     return AJ_Crypto_PRF_SHA256(data, lens, ArraySize(data), buffer, bufferlen);
 }
@@ -87,25 +80,18 @@ static AJ_Status ComputePSKVerifier(AJ_AuthenticationContext* ctx, const char* l
 {
     const uint8_t* data[5];
     uint8_t lens[5];
-    uint8_t digest[AJ_SHA256_DIGEST_LENGTH];
-    AJ_Status status;
 
     /* Use the old method for < CONVERSATION_V4. */
     if ((ctx->version >> 16) < CONVERSATION_V4) {
         return ComputeVerifier(ctx, label, buffer, bufferlen);
     }
 
-    status = AJ_ConversationHash_GetDigest(ctx, digest);
-    if (status != AJ_OK) {
-        return status;
-    }
-
     data[0] = ctx->mastersecret;
     lens[0] = AJ_MASTER_SECRET_LEN;
     data[1] = (uint8_t*)label;
     lens[1] = (uint8_t)strlen(label);
-    data[2] = digest;
-    lens[2] = sizeof(digest);
+    data[2] = ctx->digest;
+    lens[2] = sizeof(ctx->digest);
     data[3] = ctx->kactx.psk.hint;
     AJ_ASSERT(ctx->kactx.psk.hintSize <= 0xFF);
     lens[3] = (uint8_t)ctx->kactx.psk.hintSize;
@@ -526,8 +512,11 @@ static AJ_Status PSKCallbackV1(AJ_AuthenticationContext* ctx, AJ_Message* msg)
     ctx->expiration = 0xFFFFFFFF;
     AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, ctx->kactx.psk.hint, ctx->kactx.psk.hintSize);
     AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, ctx->kactx.psk.key, ctx->kactx.psk.keySize);
+    if (ctx->version < CONVERSATION_V4) {
+        status = AJ_ConversationHash_GetDigest(ctx);
+    }
 
-    return AJ_OK;
+    return status;
 }
 
 static AJ_Status PSKCallbackV2(AJ_AuthenticationContext* ctx, AJ_Message* msg)
@@ -563,6 +552,12 @@ static AJ_Status PSKCallbackV2(AJ_AuthenticationContext* ctx, AJ_Message* msg)
     // Hash in psk hint, then psk
     AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, ctx->kactx.psk.hint, ctx->kactx.psk.hintSize);
     AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, cred.data, cred.len);
+    if (ctx->version < CONVERSATION_V4) {
+        status = AJ_ConversationHash_GetDigest(ctx);
+        if (AJ_OK != status) {
+            return status;
+        }
+    }
 
     // CONVERSATION_V4 computes the PSK verifier based on these instead of including it in the conversation
     // hash, so save them for later.
@@ -1170,17 +1165,21 @@ void AJ_ConversationHash_Update_UInt8(AJ_AuthenticationContext* ctx, uint32_t co
     AJ_SHA256_Update(ctx->hash, &byte, sizeof(byte));
 }
 
+static void ConversationHash_Update_UInt32(AJ_AuthenticationContext* ctx, uint32_t u32)
+{
+    uint8_t u32LE[sizeof(uint32_t)];
+    HostU32ToLittleEndianU8(&u32, sizeof(u32), u32LE);
+    AJ_SHA256_Update(ctx->hash, u32LE, sizeof(u32LE));
+}
+
 void AJ_ConversationHash_Update_UInt8Array(AJ_AuthenticationContext* ctx, uint32_t conversationVersion, const uint8_t* buf, size_t bufSize)
 {
     if (ConversationVersionDoesNotApply(conversationVersion, ctx->version)) {
         return;
     }
     if (conversationVersion >= CONVERSATION_V4) {
-        uint8_t v_uintLE[sizeof(uint32_t)];
-        uint32_t bufSizeU32 = (uint32_t)bufSize;
         AJ_ASSERT(bufSize <= 0xFFFFFFFF);
-        HostU32ToLittleEndianU8(&bufSizeU32, sizeof(bufSizeU32), v_uintLE);
-        AJ_SHA256_Update(ctx->hash, v_uintLE, sizeof(v_uintLE));
+        ConversationHash_Update_UInt32(ctx, (uint32_t)bufSize);
     }
     AJ_SHA256_Update(ctx->hash, buf, bufSize);
 }
@@ -1192,6 +1191,10 @@ void AJ_ConversationHash_Update_String(AJ_AuthenticationContext* ctx, uint32_t c
 
 void AJ_ConversationHash_Update_Message(AJ_AuthenticationContext* ctx, uint32_t conversationVersion, AJ_Message* msg, uint8_t isMarshaledMessage)
 {
+    uint8_t* data;
+    uint32_t size;
+    AJ_MsgHeader hdr;
+
     if (ConversationVersionDoesNotApply(conversationVersion, ctx->version)) {
         return;
     }
@@ -1206,40 +1209,30 @@ void AJ_ConversationHash_Update_Message(AJ_AuthenticationContext* ctx, uint32_t 
          */
         AJ_ASSERT(0 == msg->hdr->bodyLen);
         msg->hdr->bodyLen = msg->bodyBytes;
-        AJ_ConversationHash_Update_UInt8Array(ctx,
-                                              conversationVersion,
-                                              msg->bus->sock.tx.bufStart,
-                                              sizeof(AJ_MsgHeader) + msg->hdr->headerLen + HEADERPAD(msg->hdr->headerLen) + msg->hdr->bodyLen);
+        data = msg->bus->sock.tx.bufStart;
+        size = sizeof(AJ_MsgHeader) + msg->hdr->headerLen + HEADERPAD(msg->hdr->headerLen) + msg->hdr->bodyLen;
+        AJ_ConversationHash_Update_UInt8Array(ctx, conversationVersion, data, size);
     } else {
-        /* If the message hasn't already been unmarshaled, some data may still be waiting in the network
-         * layer. AJ_ResetArgs will call AJ_SkipArg in a loop, which will unmarshal every argument and
-         * ensure everything has been read into the message buffer, before resetting back to the beginning
-         * of the message.
+        /*
+         * AJ_UnmarshalMsg ensures that the Peer.Authentication interface messages are loaded into the buffer.
+         * The message header may have been endian swapped, so we use the raw header saved during AJ_UnmarshalMsg.
          */
-        AJ_Status status = AJ_ResetArgs(msg);
-        if (AJ_OK != status) {
-            AJ_AlwaysPrintf(("AJ_ConversationHash_Update_Message: Failed to reset msg %p; status is %s\n", msg, status));
-            AJ_ASSERT(AJ_OK == status); /* This shouldn't happen; always break in debug builds. */
-            return;
-        }
-        /* When a message is received, the AJ_FLAG_AUTO_START bit is flipped during unmarshaling.
-         * In thin client, because the AJ_Message data structures are overlaid on the raw buffer, this
-         * changes the buffer's content as well. Undo this flip so we hash the actual on-wire contents,
-         * hash, and then put it back. See AJ_UnmarshalMsg.
-         */
-        msg->hdr->flags ^= AJ_FLAG_AUTO_START;
-        AJ_ConversationHash_Update_UInt8Array(ctx,
-                                              conversationVersion,
-                                              msg->bus->sock.rx.bufStart,
-                                              sizeof(AJ_MsgHeader) + msg->hdr->headerLen + HEADERPAD(msg->hdr->headerLen) + msg->hdr->bodyLen);
-        msg->hdr->flags ^= AJ_FLAG_AUTO_START;
+        data = msg->bus->sock.rx.bufStart;
+        size = sizeof(AJ_MsgHeader) + msg->hdr->headerLen + HEADERPAD(msg->hdr->headerLen) + msg->hdr->bodyLen;
+        /* Save the current header */
+        memcpy(&hdr, data, sizeof(AJ_MsgHeader));
+        /* Replace with original header */
+        memcpy(data, &msg->raw, sizeof(AJ_MsgHeader));
+        AJ_ConversationHash_Update_UInt8Array(ctx, conversationVersion, data, size);
+        /* Put the header back */
+        memcpy(data, &hdr, sizeof(AJ_MsgHeader));
     }
 
 }
 
-AJ_Status AJ_ConversationHash_GetDigest(AJ_AuthenticationContext* ctx, uint8_t* digest)
+AJ_Status AJ_ConversationHash_GetDigest(AJ_AuthenticationContext* ctx)
 {
-    return AJ_SHA256_GetDigest(ctx->hash, digest);
+    return AJ_SHA256_GetDigest(ctx->hash, ctx->digest);
 }
 
 AJ_Status AJ_ConversationHash_Reset(AJ_AuthenticationContext* ctx)

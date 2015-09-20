@@ -1237,6 +1237,8 @@ AJ_Status AJ_UnmarshalMsg(AJ_BusAttachment* bus, AJ_Message* msg, uint32_t timeo
      */
     msg->hdr = (AJ_MsgHeader*)ioBuf->bufStart;
     AJ_ASSERT(msg->hdr);
+    /* Save raw header before endian swaps */
+    memcpy(&msg->raw, msg->hdr, sizeof (AJ_MsgHeader));
     ioBuf->readPtr += sizeof(AJ_MsgHeader);
     /*
      * Quick sanity check on the header - unrecoverable error if this check fails
@@ -1277,11 +1279,11 @@ AJ_Status AJ_UnmarshalMsg(AJ_BusAttachment* bus, AJ_Message* msg, uint32_t timeo
     currentMsg = msg;
 #endif
     /*
-     * If the message is encrypted and the endianess of the message is different than the local host
+     * If the endianess of the message is different than the local host
      * endianness we need to copy the header bytes before we unmarshal the header and swizzle all
      * the integers.
      */
-    if ((msg->hdr->endianess != HOST_ENDIANESS) && (msg->hdr->flags & AJ_FLAG_ENCRYPTED)) {
+    if ((msg->hdr->endianess != HOST_ENDIANESS)) {
         hdrRaw = AJ_Malloc(msg->hdr->headerLen);
         if (hdrRaw) {
             memcpy(hdrRaw, ioBuf->readPtr, msg->hdr->headerLen);
@@ -1391,8 +1393,8 @@ AJ_Status AJ_UnmarshalMsg(AJ_BusAttachment* bus, AJ_Message* msg, uint32_t timeo
         status = ValidateHeader(msg);
     }
     /*
-     * If we copied the raw header earlier we copy it back now. This only happens if the message is
-     * encrypted and the endianness of the message is different from the local host's endianness.
+     * If we copied the raw header earlier we copy it back now.
+     * This only happens if endianness of the message is different from the local host's endianness.
      */
     if (hdrRaw) {
         memcpy(ioBuf->bufStart + sizeof(AJ_MsgHeader), hdrRaw, msg->hdr->headerLen);
@@ -1446,6 +1448,18 @@ AJ_Status AJ_UnmarshalMsg(AJ_BusAttachment* bus, AJ_Message* msg, uint32_t timeo
         if (status == AJ_OK) {
             status = AJ_IdentifyMessage(msg);
         }
+
+        /*
+         * If this is the Peer.Authentication interface,
+         * load the entire message into the buffer.
+         * Only do this if it wasn't done above (encrypted message).
+         */
+        if ((AJ_BUS_MESSAGE_ID(0xFF, 0xFF, 0) & msg->msgId) == AJ_PEER_AUTHENTICATION_IFN) {
+            if (!(msg->hdr->flags & AJ_FLAG_ENCRYPTED)) {
+                status = LoadBytes(ioBuf, msg->hdr->bodyLen, 0, msg);
+            }
+        }
+
         /*
          * Check incoming policy
          */
