@@ -82,6 +82,7 @@
 /*
  * Members of /org/alljoyn/Bus/Peer interface org.alljoyn.Bus.Peer.Authentication
  */
+#define AJ_PEER_AUTHENTICATION_IFN     AJ_BUS_MESSAGE_ID(2, 1, 0)    /**< Id for Peer.Authentication interface */
 #define AJ_METHOD_EXCHANGE_GUIDS       AJ_BUS_MESSAGE_ID(2, 1, 0)    /**< method for exchange guids */
 #define AJ_METHOD_GEN_SESSION_KEY      AJ_BUS_MESSAGE_ID(2, 1, 1)    /**< method for generate session key */
 #define AJ_METHOD_EXCHANGE_GROUP_KEYS  AJ_BUS_MESSAGE_ID(2, 1, 2)    /**< method for exchange group keys */
