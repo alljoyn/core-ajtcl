@@ -1355,11 +1355,7 @@ UPDATE_READ:
 
     AJ_InfoPrintf(("AJ_ARDP_Recv exit with %s\n", AJ_StatusText(status)));
 
-    if (status == AJ_OK) {
-        return (AJ_CompareTime(now, end) >= 0) ? AJ_ERR_TIMEOUT : AJ_OK;
-    } else {
-        return status;
-    }
+    return status;
 }
 
 #ifdef __cplusplus
