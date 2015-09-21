@@ -202,6 +202,7 @@ struct _AJ_Message {
     uint32_t timeout;          /**< Remaining time to wait for all bytes of this message */
     uint32_t authVersion;      /**< Authentication version used */
     uint8_t expired;           /**< For indicating whether the Rx message has expired */
+    AJ_MsgHeader raw;          /**< The raw original message header (before endian swaps) */
 };
 
 /**
