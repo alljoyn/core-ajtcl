@@ -46,6 +46,13 @@ void AJ_SetMinProtoVersion(uint8_t min);
 void AJ_SetSelectionTimeout(uint32_t selection);
 
 /**
+ * Get the RN selection timeout
+ *
+ * @return          Current selection timeout
+ */
+uint32_t AJ_GetSelectionTimeout(void);
+
+/**
  * Get the minimum acceptable routing node protocol version.
  *
  * @return          Minimum acceptable protocol version

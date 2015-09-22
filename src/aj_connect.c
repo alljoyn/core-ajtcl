@@ -94,6 +94,11 @@ void AJ_SetSelectionTimeout(uint32_t selection)
     selectionTimeout = selection;
 }
 
+uint32_t AJ_GetSelectionTimeout(void)
+{
+    return selectionTimeout;
+}
+
 void SetBusAuthPwdCallback(BusAuthPwdFunc callback)
 {
     /*
