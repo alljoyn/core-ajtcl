@@ -25,7 +25,7 @@
 #include <ajtcl/alljoyn.h>
 
 #define CONNECT_ATTEMPTS   10
-static const char ServiceName[] = "org.alljoyn.Bus.eventaction.sample";
+static const char ServiceName[] = "example.alljoyn.Bus.eventaction.sample";
 static const char ServicePath[] = "/eventaction";
 static const uint16_t ServicePort = 50;
 static char buffer[60];
@@ -37,7 +37,7 @@ uint8_t dbgEVENTACTION_SERVICE = 0;
  * See also .\inc\aj_introspect.h
  */
 static const char* const sampleInterface[] = {
-    "org.alljoyn.Bus.eventaction.sample",   /* The first entry is the interface name. */
+    "example.alljoyn.Bus.eventaction.sample",   /* The first entry is the interface name. */
     "?dummyMethod foo<i",             /* This is just a dummy entry at index 0 for illustration purposes. */
     "?joinMethod inStr1<s inStr2<s outStr>s", /* Method at index 1. */
     "!someSignal name>s",
