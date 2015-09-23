@@ -189,12 +189,11 @@ static void HandshakeComplete(AJ_Status status)
     /* If ECDSA/PSK failed, try NULL */
     if ((AJ_OK != status) &&
         (AUTH_SUITE_ECDHE_NULL != authContext.suite) &&
-        (AUTH_CLIENT == authContext.role) &&
         AJ_IsSuiteEnabled(authContext.bus, AUTH_SUITE_ECDHE_NULL, authContext.version >> 16)) {
-        /* Policy no longer needed in memory */
-        AJ_PolicyUnload();
-        authContext.suite = AUTH_SUITE_ECDHE_NULL;
-        KeyExchange(authContext.bus);
+        if (AUTH_CLIENT == authContext.role) {
+            authContext.suite = AUTH_SUITE_ECDHE_NULL;
+            KeyExchange(authContext.bus);
+        }
         return;
     }
 
