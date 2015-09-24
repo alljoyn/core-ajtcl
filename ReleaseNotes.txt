@@ -1,74 +1,83 @@
-AllJoyn Thin Core Library: Version 15.04b Release Notes
+AllJoyn Thin Core Library: Version 15.09 Release Notes
 =======================================================
 
 Fully Validated Platforms
 -------------------------
 1) Linux Ubuntu 14.04 LTS (64 bit)
-2) Windows 7 (64 bit)
 
 See the release review page for other platforms that have not been fully
 verified, but may work:
-wiki.allseenalliance.org/core/core_15.04_release_review?&#regression_test
+https://wiki.allseenalliance.org/core/core_15.09_release_review#regression_test
 
 
-Features added in Version 15.04b
---------------------------------
-* Allow the setting of the UNMARSHAL_TIMEOUT (ASACORE-695). This gives
-  applications explicit control over how long unmarshalling waits for new input
-  before giving up.
-* AJTCL Router Selection (ASACORE-803). TC applications now use the rank
-  advertised by the router to select the most desirable router.
-* Support for X.509 ECDSA digital certificates, which replace the X.509 RSA
-  certificates. (ASACORE-1561)
-* AJTCL adds information string to reply messages (ASACORE-1824). This feature
-  duplicates the standard library API functionality that allows information to
-  be added to a reply message.
-* Add support for specifying NVRAM file location on Windows (ASACORE-1835).
-* EXPERIMENTAL: UDP Transport for TC <-> RN connections. Thin Client to Routing
-  Node version of a UDP-based transport (ASACORE-1404).
+Features added in Version 15.09
+-------------------------------
+* Reorganize TC code base (ASACORE-1376)
+* Security 2.0 was added as a Developer Preview Feature (ASACORE-1393)
+* The ARDP/UDP transport between TC and RN (Thin Client to Routing Node version
+  of a UDP-based transport) is product ready (ASACORE-1404/ASACORE-1686).
+* SC/TC: Expand conversation hash to include all parts of auth conversation
+  (ASACORE-2068)
+* Add APIs to support asynchronous method replies (ASACORE-2272)
 
 
-Issues Addressed in Version 15.04b
-----------------------------------
-ASACORE-1247 Thin Core Library basic samples fail under Windows
-ASACORE-1853 NGNS query responses for openly advertised names are sent as
-             multicast
-ASACORE-1948 Debug flag left on in target/linux/aj_net.c
-ASACORE-1949 Don't send Probe requests when using ARDP
-ASACORE-1952 Double type does not work
-ASACORE-2008 Address issue with ECDSA authentication code
-ASACORE-2045 Unable to write more than 32764 bytes to an NVRAM item.
-ASACORE-2247 Allow little-endian CTR block counter to go past 511
-ASACORE-2248 scan-n-con off by one error
-ASACORE-2294 Always call AJ_DisconnectWiFi() if AJ_ConnectWifi() returns AJ_OK
-ASACORE-2299 Validate message serial numbers
-ASACORE-2332 Avoid long pauses in codisco stress test
-ASACORE-2365 C on Win32 attempts to do discovery over IP 0.0.0.0
+Issues Addressed in Version 15.09
+---------------------------------
+ASACORE-2098 RN selection implementation chooses wrong RN
+ASACORE-2135 Thin leaf node connects over TCP even if UDP slots are available.
+ASACORE-2152 Router rank does not change with TL leaf node connection to RN over
+             ARDP
+ASACORE-2158 Quick link lost detection takes more time than usual for TL-RN
+             connection over ARDP
+ASACORE-2169 AJ_BusLinkStateProc() does not work correctly when the network is
+             Unavailable
+ASACORE-2185 PropertiesChanged signal interface mismatch between Thin and Core
+ASACORE-2196 ARDP disconnect is called when a packet with expired TTL is
+             received
+ASACORE-2209 LanguageTag APIs hard to use since there's no prefix matching,
+             e.g., "en" doesn't match "en-US"
+ASACORE-2214 eventaction_service TL test sample crashes if introspected with
+             language not supported by translator
+ASACORE-2301 CancelFindAdvertisedName has an incorrect signature definition
+ASACORE-2400 Must handle AJ_ERR_WRITE returned by AJ_BusHandleBusMessage()
+ASACORE-2513 problem with ARDP timeout
 
 For a complete list of fixed issues:
-https://jira.allseenalliance.org/issues/?jql=project%20%3D%20ASACORE%20AND%20fixVersion%20in%20%28%2215.04b%22%2C%20%2215.04a%22%2C%20%2215.04%22%29%20AND%20component%20%3D%20%22Thin%20Core%20Library%22%20ORDER%20BY%20fixVersion%20DESC%2C%20priority%20DESC%2C%20id%20ASC
+https://jira.allseenalliance.org/issues/?jql=project%20%3D%20ASACORE%20%20and%20component%20%3D%20%22Thin%20Core%20Library%22%20and%20issuetype%20%3D%20Bug%20AND%20fixVersion%20in%20%28%2215.09%22%29%20AND%20status%20in%20%28Closed%2C%20Resolved%29%20and%20resolution%3DFixed%20%20ORDER%20BY%20key%20ASC
 
 
-Known Issues in Version 15.04b
-------------------------------
+Known Issues in Version 15.09
+-----------------------------
 ASACORE-2051 TC: Possible to write beyond the capacity using AJ_NVRAM_Write
 ASACORE-2053 AJ_NVRAM_Read can read beyond the item's capacity
+ASACORE-2177 Introspection in Thin Library doesn't work for app objects that use
+             the root path '/'
+ASACORE-2546 TC: Identity and Membership certificates must have an AKI to be
+             installed
 
 For a complete list of open issues:
-https://jira.allseenalliance.org/issues/?jql=project%3D%22Core%20SW%22%20and%20%20resolution%20%3D%20Unresolved%20and%20type%20not%20in%20%28task%2C%20%22New%20Feature%22%29%20and%20component%20%3D%20%22Thin%20Core%20Library%22%20order%20by%20priority%20DESC%2C%20id%20ASC
+https://jira.allseenalliance.org/issues/?jql=project%20%3D%20%22Core%20SW%22%20AND%20%28component%20in%20%28%22Thin%20Core%20Library%22%2C%20SCONS%29%20OR%20component%20is%20EMPTY%29%20AND%20%28status%20%3D%20closed%20AND%20resolution%20%3D%20Postponed%20OR%20status%20not%20in%20%28closed%2C%20resolved%29%20AND%20issuetype%20%3D%20Bug%29%20ORDER%20BY%20Severity%20DESC%2C%20priority%20DESC%2C%20id%20ASC
 
 
 Compatibility
 -------------
-Starting in Version 15.04
+Starting in Version 15.09
+* Language tag matching use prefix matching and also will return the default
+  language if there is no match where previously they would return an
+  error. (ASACORE-2209)
 * The APIs for About in the core/about_tcl repo are (still) DEPRECATED
-* Thin Library protocol version changed from 11 to 12.  Applications that
-  require router features of version 12 should set the minimum protocol version
-  to 12.
-* Support for SPKI certificates for ECDHE_ECDSA was removed; the impact of this
-  change is expected to be minimal as it is not believed to have been used.
+Source Compatibility
+* Crypto APIs have been changed to enhance target portability
+  * Removed internal AJ_Crypto_PRF() and HMAC APIs that were unused or could be
+    statically scoped
+  * Updated ECC and SHA256 APIs and data types to hide implementation
+  * Moved optional low-level AES and DRBG crypto APIs to new header files
+
+More details on these changes can be found on the release plan page:
+https://wiki.allseenalliance.org/core/core_15.09_release_plan#compatibility_with_previous_releases
 
 For details of previous releases/release families please see the release notes:
+15.04: https://git.allseenalliance.org/cgit/core/ajtcl.git/tree/ReleaseNotes.txt?h=RB15.04
 14.12: https://git.allseenalliance.org/cgit/core/ajtcl.git/tree/ReleaseNotes.txt?h=RB14.12
 14.06: https://git.allseenalliance.org/cgit/core/ajtcl.git/tree/ReleaseNotes.txt?h=RB14.06
 14.02: https://git.allseenalliance.org/cgit/core/ajtcl.git/tree/ReleaseNotes.txt?id=v14.02
