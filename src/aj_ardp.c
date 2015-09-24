@@ -1351,11 +1351,13 @@ AJ_Status AJ_ARDP_Recv(AJ_IOBuffer* rxBuf, uint32_t len, uint32_t timeout)
 UPDATE_READ:
     if ((len != 0) && (UDP_Recv_State.rxContext != NULL)) {
         UpdateReadBuffer(rxBuf, len);
+        // can't possibly time out if data was recved!
+        return AJ_OK;
     }
 
     AJ_InfoPrintf(("AJ_ARDP_Recv exit with %s\n", AJ_StatusText(status)));
 
-    return status;
+    return AJ_ERR_TIMEOUT;
 }
 
 #ifdef __cplusplus

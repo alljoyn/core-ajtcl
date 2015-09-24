@@ -506,15 +506,17 @@ AJ_Status StartClient(AJ_BusAttachment* bus,
 
     while (!clientStarted && (status == AJ_OK)) {
         AJ_Message msg;
-        status = AJ_UnmarshalMsg(bus, &msg, AJ_UNMARSHAL_TIMEOUT);
+        const uint32_t timeout2 = min(AJ_UNMARSHAL_TIMEOUT, timeout);
+
+        status = AJ_UnmarshalMsg(bus, &msg, timeout2);
         if ((status == AJ_ERR_TIMEOUT) && !found) {
             /*
              * Timeouts are expected until we find a name or service
              */
-            if (timeout < AJ_UNMARSHAL_TIMEOUT) {
+            if (timeout <= timeout2) {
                 return status;
             }
-            timeout -= AJ_UNMARSHAL_TIMEOUT;
+            timeout -= timeout2;
             status = AJ_OK;
             continue;
         }
