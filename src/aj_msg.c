@@ -2611,10 +2611,6 @@ static const char* StatusToErrorStrings(AJ_Status status, const char** info)
         *info = NULL;
         return AJ_ErrDigestMismatch;
 
-    case  AJ_ERR_SECURITY_UNKNOWN_CERTIFICATE:
-        *info = NULL;
-        return AJ_ErrUnknownCertificate;
-
     case  AJ_ERR_SECURITY_INVALID_CERTIFICATE:
         *info = NULL;
         return AJ_ErrInvalidCertificate;

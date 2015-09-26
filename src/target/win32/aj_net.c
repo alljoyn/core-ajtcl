@@ -1134,9 +1134,6 @@ static AJ_Status AJ_Net_ARDP_Connect(AJ_BusAttachment* bus, const AJ_Service* se
 
     AJ_ARDP_InitFunctions(AJ_ARDP_UDP_Recv, AJ_ARDP_UDP_Send);
 
-    // otherwise backpressure is guaranteed!
-    assert(sizeof(txData) <= UDP_SEGMAX * (UDP_SEGBMAX - ARDP_HEADER_SIZE - UDP_HEADER_SIZE));
-
     memset(&addrBuf, 0, sizeof(addrBuf));
 
     if (service->addrTypes & AJ_ADDR_UDP4) {
