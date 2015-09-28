@@ -53,12 +53,6 @@ def CheckAJLib(context, ajlib, ajheader, sconsvarname, ajdistpath):
     return r
 
 #######################################################
-# Initialize our build environment
-#######################################################
-env = Environment()
-Export('env')
-
-#######################################################
 # Default target platform
 #######################################################
 if platform.system() == 'Linux':
@@ -89,7 +83,23 @@ vars.Add(EnumVariable('DEBUG_RESTRICT', 'Set compiled in debug level', os.enviro
 vars.Add('CC',  'C Compiler override')
 vars.Add('CXX', 'C++ Compiler override')
 vars.Add(EnumVariable('NDEBUG', 'Override NDEBUG default for release variant', 'defined', allowed_values=('defined', 'undefined')))
-vars.Update(env)
+
+if platform.system() == 'Windows':
+    if platform.machine() == 'AMD64':
+        default_target_cpu = 'x86_64'
+    else:
+        default_target_cpu = 'x86'
+    allowed_target_cpus = ('x86', 'x86_64', 'arm')
+    vars.Add(EnumVariable('CPU', 'Target CPU', default_target_cpu, allowed_values = allowed_target_cpus))
+   
+    target_cpu = ARGUMENTS.get('CPU', default_target_cpu)
+
+    # Target CPU architecture must be specified here for Windows - otherwise platform.machine() is always the target!
+    env = Environment(variables = vars, TARGET_ARCH=target_cpu)
+else:
+    env = Environment(variables = vars)
+
+Export('env')
 Help(vars.GenerateHelpText(env))
 
 #######################################################
