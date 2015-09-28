@@ -53,12 +53,6 @@ def CheckAJLib(context, ajlib, ajheader, sconsvarname, ajdistpath):
     return r
 
 #######################################################
-# Initialize our build environment
-#######################################################
-env = Environment()
-Export('env')
-
-#######################################################
 # Default target platform
 #######################################################
 if platform.system() == 'Linux':
@@ -89,7 +83,33 @@ vars.Add(EnumVariable('DEBUG_RESTRICT', 'Set compiled in debug level', os.enviro
 vars.Add('CC',  'C Compiler override')
 vars.Add('CXX', 'C++ Compiler override')
 vars.Add(EnumVariable('NDEBUG', 'Override NDEBUG default for release variant', 'defined', allowed_values=('defined', 'undefined')))
-vars.Update(env)
+
+if platform.system() != 'Windows':
+    env = Environment(variables = vars)
+else:
+    if platform.machine() != 'AMD64':
+        target_arch = 'x86'
+    else:
+        environment_force32 = os.environ.get('AJ_FORCE32', False)
+        vars.Add(BoolVariable('FORCE32', 'Force building 32 bit on 64 bit architecture', environment_force32))
+
+        if environment_force32:
+            default_force32 = 'true'
+        else:
+            default_force32 = 'false'
+
+        force32 = ARGUMENTS.get('FORCE32', default_force32)
+        force32 = force32.lower()
+
+        if force32 == 'true' or force32 == 'yes' or force32 == '1':
+            target_arch = 'x86'
+        else:
+            target_arch = 'x86_64'
+
+    # Target CPU architecture must be specified here for Windows - otherwise platform.machine() is always used as the target!
+    env = Environment(variables = vars, TARGET_ARCH=target_arch)
+
+Export('env')
 Help(vars.GenerateHelpText(env))
 
 #######################################################
