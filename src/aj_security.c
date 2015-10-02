@@ -55,6 +55,25 @@ uint8_t dbgSECURITY = 0;
 static uint8_t initialised = FALSE;
 static uint8_t emit = FALSE;
 static uint8_t clear = FALSE;
+/**
+ * Thin client does not keep authentication content in memory.
+ * This includes: certificates, manifests, memberships, etc.
+ * The access control for a peer is established during the
+ * authentication handshake at the beginning of the session.
+ * Hence it is not possible to dynamically modify access control
+ * policy on existing sessions; that is, any management operations
+ * that modify the policy will not affect current sessions.
+ * This includes:
+ *     org.alljoyn.Bus.Security.ManagedApplication.Reset
+ *     org.alljoyn.Bus.Security.ManagedApplication.UpdatePolicy
+ *     org.alljoyn.Bus.Security.ManagedApplication.ResetPolicy
+ * To avoid potential security issues, any policy modifications
+ * will result in current sessions being dropped (session keys cleared).
+ * This takes effect immediately after the method reply to the
+ * management operation.
+ * Affected peers will receive org.alljoyn.Bus.SecurityViolation error
+ * on subsequent calls. These peers must reauthenticate.
+ */
 
 typedef struct _ClaimConfig {
     uint16_t state;
