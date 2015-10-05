@@ -22,7 +22,8 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
-#include <ajtcl/alljoyn.h>
+#include <ajtcl/aj_target.h>
+#include <ajtcl/aj_status.h>
 
 #ifdef __cplusplus
 extern "C" {
