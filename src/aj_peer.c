@@ -38,6 +38,7 @@
 #include <ajtcl/aj_cert.h>
 #include <ajtcl/aj_authorisation.h>
 #include <ajtcl/aj_security.h>
+#include <ajtcl/aj_conversationhash.h>
 
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
