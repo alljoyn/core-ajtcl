@@ -1095,7 +1095,7 @@ static AJ_Status KeyAuthentication(AJ_Message* msg)
         AJ_WarnPrintf(("AJ_KeyAuthentication(msg=%p): Key authentication marshal error\n", msg));
         goto Exit;
     }
-    /* Get the conversation digest before its updated with this message */
+    /* Get the conversation digest before it's updated with this message */
     status = AJ_ConversationHash_GetDigest(&authContext);
     if (AJ_OK != status) {
         goto Exit;
@@ -1133,7 +1133,7 @@ AJ_Status AJ_PeerHandleKeyAuthentication(AJ_Message* msg, AJ_Message* reply)
         goto Exit;
     }
 
-    /* Get the conversation digest before its updated with this message */
+    /* Get the conversation digest before it's updated with this message */
     status = AJ_ConversationHash_GetDigest(&authContext);
     if (AJ_OK != status) {
         goto Exit;
@@ -1158,7 +1158,7 @@ AJ_Status AJ_PeerHandleKeyAuthentication(AJ_Message* msg, AJ_Message* reply)
         goto Exit;
     }
 
-    /* Get the conversation digest before its updated with this reply */
+    /* Get the conversation digest before it's updated with this reply */
     status = AJ_ConversationHash_GetDigest(&authContext);
     if (AJ_OK != status) {
         goto Exit;
@@ -1200,6 +1200,7 @@ AJ_Status AJ_PeerHandleKeyAuthenticationReply(AJ_Message* msg)
 
     if (msg->hdr->msgType == AJ_MSG_ERROR) {
         AJ_WarnPrintf(("AJ_PeerHandleKeyAuthenticationReply(msg=%p): error=%s.\n", msg, msg->error));
+        AJ_ConversationHash_Update_Message(&authContext, CONVERSATION_V4, msg, HASH_MSG_UNMARSHALED);
         if (0 == strncmp(msg->error, AJ_ErrResources, sizeof(AJ_ErrResources))) {
             status = AJ_ERR_RESOURCES;
         } else {
@@ -1211,14 +1212,18 @@ AJ_Status AJ_PeerHandleKeyAuthenticationReply(AJ_Message* msg)
 
     if (AJ_AUTH_EXCHANGED != peerContext.state) {
         AJ_WarnPrintf(("AJ_PeerHandleKeyAuthenticationReply(msg=%p): Invalid state\n", msg));
+        AJ_ConversationHash_Update_Message(&authContext, CONVERSATION_V4, msg, HASH_MSG_UNMARSHALED);
         goto Exit;
     }
 
-    /* Get the conversation digest before its updated with this message */
+    /* Get the conversation digest before it's updated with this message */
     status = AJ_ConversationHash_GetDigest(&authContext);
     if (AJ_OK != status) {
         goto Exit;
     }
+
+    /* Update hash before unmarshalling (endian swaps may occur) */
+    AJ_ConversationHash_Update_Message(&authContext, CONVERSATION_V4, msg, HASH_MSG_UNMARSHALED);
 
     /*
      * Receive authentication material
@@ -1998,7 +2003,7 @@ static void UnmarshalCertificates(AJ_Message* msg)
         }
         node->next = root;
         root = node;
-        /* Set the der before its consumed */
+        /* Set the der before it's consumed */
         node->certificate.der.size = der.size;
         node->certificate.der.data = der.data;
         status = AJ_X509DecodeCertificateDER(&node->certificate, &der);
