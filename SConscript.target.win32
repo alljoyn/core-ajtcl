@@ -6,21 +6,13 @@ Import('env')
 default_target_os = 'win7'
 allowed_target_oss = ('win7', 'win10')
 
-if platform.machine() == 'x86_64':
-    default_target_cpu = 'x86_64'
-else:
-    default_target_cpu = 'x86'
-allowed_target_cpus = ('x86', 'x86_64', 'arm')
-
 # Target specific SCons command line variables
 default_msvc_version = os.environ.get('AJ_MSVC_VERSION', '12.0')
 supported_msvc_versions = [ '8.0', '9.0', '10.0', '11.0', '11.0Exp', '12.0', '12.0Exp', '14.0', '14.0Exp' ]
 
 vars = Variables()
 vars.Add(EnumVariable('OS', 'Target OS', default_target_os, allowed_values = allowed_target_oss))
-vars.Add(EnumVariable('CPU', 'Target CPU', default_target_cpu, allowed_values = allowed_target_cpus))
 vars.Add(EnumVariable('MSVC_VERSION', 'MSVC compiler version - Windows', default_msvc_version, allowed_values = supported_msvc_versions))
-vars.Add(BoolVariable('FORCE32', 'Force building 32 bit on 64 bit architecture', os.environ.get('AJ_FORCE32', False)))
 vars.Add(BoolVariable('NO_AUTH', "Compile in authentication mechanism's to the code base", os.environ.get('AJ_NO_AUTH', False)))
 vars.Update(env)
 Help(vars.GenerateHelpText(env))
@@ -31,8 +23,6 @@ env.Append(LIBS = ['advapi32'])
 # Compiler flags
 env.Append(CFLAGS = ['/J', '/W3', '/nologo'])
 env.Append(CPPDEFINES = ['_CRT_SECURE_NO_WARNINGS', 'AJ_MAIN'])
-if env['FORCE32']:
-    env['TARGET_ARCH'] = 'x86'
 if env['NO_AUTH']:
     env.Append(CPPDEFINES = ['TEST_DISABLE_SECURITY'])
 
