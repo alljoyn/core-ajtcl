@@ -50,6 +50,13 @@ uint8_t dbgMQTT = 1;
 uint8_t dbgNET = 0;
 #endif
 
+typedef enum _SendSignals {
+    SEND_NONE = 0,
+    SEND_MP_SESSION_CHANGED = 1,
+    SEND_SESSION_LOST = 2,
+    SEND_BOTH = 3
+} SendSignals;
+
 static AJ_Status MQTT_Recv(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout);
 static AJ_Status MQTT_Send(AJ_IOBuffer* buf);
 
@@ -72,7 +79,7 @@ static bool IsRoutingNode(const char* name)
     return (strcmp(name + l1, ".1") == 0);
 }
 
-static char* GetUniqueName(char* guid, char* num)
+static char* GetUniqueName(const char* guid, const char* num)
 {
     size_t l0 = strlen(guid);
     size_t l1 = strlen(num);
@@ -225,6 +232,8 @@ typedef struct _SessionRecord {
 } SessionRecord;
 
 static SessionRecord* sessionList;
+
+static SessionRecord* AllocSession(const char* host, uint32_t sessionId);
 
 static AJ_Status DummyRecv(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)
 {
@@ -384,14 +393,37 @@ static AJ_Status SubscribeToSession(struct mosquitto* mosq, SessionRecord* sess)
 
 static SessionRecord* LookupSessionByPort(uint16_t port)
 {
+    SessionRecord* bindEntry;
+    SessionRecord* mpSessionEntry;
     SessionRecord* list;
 
-    for (list = sessionList; list; list = list->next) {
+    /* Search for the bind entry and multipoint entry */
+    for (list = sessionList; list && (!bindEntry || (bindEntry->isMultipoint && !mpSessionEntry)); list = list->next) {
         if (list->port == port) {
-            break;
+            if (list->sessionId == 0) {
+                bindEntry = list;
+            } else if (list->isMultipoint) {
+                mpSessionEntry = list;
+            }
+
         }
     }
-    return list;
+    if (!bindEntry) {
+        return NULL;
+    } else if (mpSessionEntry) {
+        return mpSessionEntry;
+    } else {
+        /* Create new session entry */
+        uint32_t sessionId;
+
+        AJ_RandBytes((uint8_t*)&sessionId, sizeof(sessionId));
+        SessionRecord* sess = AllocSession(bindEntry->host, sessionId);
+        sess->port = bindEntry->port;
+        sess->isHost = TRUE;
+        sess->isMultipoint = bindEntry->isMultipoint;
+
+        return sess;
+    }
 }
 
 static SessionRecord* LookupSessionById(uint32_t sessionId)
@@ -420,17 +452,26 @@ static void ResetTxBuffer(AJ_BusAttachment* bus, AJ_IOBuffer* save)
     bus->sock.tx = *save;
 }
 
-static AJ_Status AddSessionMember(AJ_BusAttachment* bus, struct mosquitto* mosq, SessionRecord* sess, const char* name)
+static bool FindMember(SessionRecord* sess, const char* name)
 {
     SessionMember* member;
     /*
-     * Check member is not already listed.
+     * Check if member is present.
      */
     for (member = sess->members; member; member = member->next) {
         if (strcmp(name, member->name) == 0) {
-            AJ_WarnPrintf(("Member already listed session=%d name=\"%s\"\n", sess->sessionId, name));
-            return AJ_OK;
+            return TRUE;
         }
+    }
+    return FALSE;
+}
+
+static AJ_Status AddSessionMember(AJ_BusAttachment* bus, struct mosquitto* mosq, SessionRecord* sess, const char* name)
+{
+    SessionMember* member;
+    if (FindMember(sess, name)) {
+        AJ_WarnPrintf(("Member already listed session=%d name=\"%s\"\n", sess->sessionId, name));
+        return TRUE;
     }
     member = AJ_Malloc(sizeof(*member));
     if (!member) {
@@ -475,7 +516,7 @@ static AJ_Status AddSessionMember(AJ_BusAttachment* bus, struct mosquitto* mosq,
     return AJ_OK;
 }
 
-static AJ_Status DelSessionMember(AJ_BusAttachment* bus, SessionRecord* sess, const char* name, bool sendSignals)
+static AJ_Status DelSessionMember(AJ_BusAttachment* bus, SessionRecord* sess, const char* name, uint8_t sendSignals)
 {
     SessionMember* prev = NULL;
     SessionMember* member;
@@ -484,38 +525,50 @@ static AJ_Status DelSessionMember(AJ_BusAttachment* bus, SessionRecord* sess, co
     for (member = sess->members; member; member = member->next) {
         int32_t l1 = AJ_StringFindFirstOf(name, ".");
         if (strcmp(name, member->name) == 0 || (IsRoutingNode(name) && (strncmp(name, member->name, l1) == 0))) {
-            if (sendSignals) {
-                AJ_Message signal;
-                /*
-                 * Send (to ourself) a session lost or member changed signal
-                 */
-                if (sess->isMultipoint) {
-                    status = AJ_MarshalSignal(bus, &signal, AJ_SIGNAL_MP_SESSION_CHANGED_WITH_REASON, clientId, 0, 0, 0);
-                    if (status == AJ_OK) {
-                        status = AJ_MarshalArgs(&signal, "usbu", sess->sessionId, member->name, FALSE /*removed*/, AJ_MPSESSIONCHANGED_REMOTE_MEMBER_REMOVED);
-                    }
-                } else {
-                    status = AJ_MarshalSignal(bus, &signal, AJ_SIGNAL_SESSION_LOST_WITH_REASON, clientId, 0, 0, 0);
-                    if (status == AJ_OK) {
-                        status = AJ_MarshalArgs(&signal, "uu", sess->sessionId, AJ_SESSIONLOST_REMOTE_END_CLOSED_ABRUPTLY);
-                    }
-                }
-                if (status == AJ_OK) {
-                    AJ_DeliverMsg(&signal);
-                }
-            }
             if (prev) {
                 prev->next = member->next;
             } else {
                 sess->members = member->next;
             }
 
+            if (sendSignals & SEND_MP_SESSION_CHANGED) {
+
+                /*
+                 * Send (to ourself) a session lost or member changed signal
+                 */
+                if (sess->isMultipoint) {
+                    AJ_Message signal;
+                    status = AJ_MarshalSignal(bus, &signal, AJ_SIGNAL_MP_SESSION_CHANGED_WITH_REASON, clientId, 0, 0, 0);
+                    if (status == AJ_OK) {
+                        status = AJ_MarshalArgs(&signal, "usbu", sess->sessionId, member->name, FALSE /*removed*/, AJ_MPSESSIONCHANGED_REMOTE_MEMBER_REMOVED);
+                    }
+                    if (status == AJ_OK) {
+                        AJ_DeliverMsg(&signal);
+                    }
+                }
+            }
+            if (sendSignals & SEND_SESSION_LOST) {
+
+                if (!sess->isMultipoint || (sess->members == NULL)) {
+                    AJ_Message signal;
+                    status = AJ_MarshalSignal(bus, &signal, AJ_SIGNAL_SESSION_LOST_WITH_REASON, clientId, 0, 0, 0);
+                    if (status == AJ_OK) {
+                        status = AJ_MarshalArgs(&signal, "uu", sess->sessionId, (sendSignals == SEND_BOTH) ? AJ_SESSIONLOST_REMOTE_END_CLOSED_ABRUPTLY : AJ_SESSIONLOST_REMOTE_END_LEFT_SESSION);
+                    }
+                    if (status == AJ_OK) {
+                        AJ_DeliverMsg(&signal);
+                    }
+                }
+            }
+
+
             AJ_Free(member);
             break;
         }
         prev = member;
     }
-    if (member) {
+
+    if (member && strcmp(clientId, member->name) != 0) {
         return AJ_OK;
     } else {
         return AJ_ERR_UNKNOWN;
@@ -534,11 +587,11 @@ static void DetachSessionMember(AJ_BusAttachment* bus, struct mosquitto* mosq, c
 
     while (sess) {
         SessionRecord* next = sess->next;
-        DelSessionMember(bus, sess, name, TRUE);
+        DelSessionMember(bus, sess, name, SEND_BOTH);
         /*
          * Check if the session record should be discarded.
          */
-        if (sess->members) {
+        if (sess->members || (sess->sessionId == 0)) {
             prev = sess;
         } else if (sess->isHost) {
             prev = sess;
@@ -546,6 +599,7 @@ static void DetachSessionMember(AJ_BusAttachment* bus, struct mosquitto* mosq, c
              * We are a session host and the old session has expired so generate a new session id.
              */
             UnsubscribeFromSession(mosq, sess);
+
             AJ_RandBytes((uint8_t*)&sess->sessionId, sizeof(sess->sessionId));
         } else {
             /*
@@ -648,7 +702,7 @@ static AJ_Status InterceptBindSessionPort(struct mosquitto* mosq, AJ_Message* ms
     SessionRecord* sess;
 
     AJ_RandBytes((uint8_t*)&sessionId, sizeof(sessionId));
-    sess = AllocSession(clientId, sessionId);
+    sess = AllocSession(clientId, 0);
     if (!sess) {
         return AJ_ERR_RESOURCES;
     }
@@ -792,6 +846,41 @@ static void InterceptSendJoinSession(AJ_Message* msg)
     AJ_DeliverMsg(msg);
 }
 
+static void InterceptSendLeaveSession(AJ_Message* msg)
+{
+    AJ_BusAttachment* bus = msg->bus;
+    uint32_t sessionId;
+
+    /*
+     * We won't be getting a reply to this message
+     */
+    AJ_ReleaseReplyContext(msg);
+    /*
+     * Unmarshal the message to get the session host, port, and options
+     */
+    AJ_UnmarshalArgs(msg, "u", &sessionId);
+
+    SessionRecord* sess = LookupSessionById(sessionId);
+    AJ_CloseMsg(msg);
+    SwapRxTx(bus, MQTT_Send, MQTT_Recv);
+
+    if (sess->isMultipoint) {
+        AJ_Status status = AJ_MarshalSignal(bus, msg, AJ_SIGNAL_MP_SESSION_CHANGED_WITH_REASON, NULL, sessionId, 0, 0);
+        if (status == AJ_OK) {
+            status = AJ_MarshalArgs(msg, "usbu", sess->sessionId, clientId, FALSE /*removed*/, AJ_MPSESSIONCHANGED_REMOTE_MEMBER_REMOVED);
+        }
+    } else {
+        AJ_Status status = AJ_MarshalSignal(bus, msg, AJ_SIGNAL_SESSION_LOST_WITH_REASON, NULL, sessionId, 0, 0);
+        if (status == AJ_OK) {
+            status = AJ_MarshalArgs(msg, "uu", sess->sessionId, AJ_SESSIONLOST_REMOTE_END_LEFT_SESSION);
+        }
+    }
+    AJ_DumpMsg("InterceptSendLeaveSession", msg, FALSE);
+    AJ_DeliverMsg(msg);
+
+}
+
+
 /*
  * We don't have a routing node so various management messages must be handled locally.
  */
@@ -810,6 +899,7 @@ static uint8_t InterceptSend(AJ_Message* msg)
     case AJ_METHOD_BIND_SESSION_PORT:
     case AJ_REPLY_ID(AJ_METHOD_ACCEPT_SESSION):
     case AJ_METHOD_JOIN_SESSION:
+    case AJ_METHOD_LEAVE_SESSION:
         break;
 
     default:
@@ -876,6 +966,10 @@ static uint8_t InterceptSend(AJ_Message* msg)
     case AJ_METHOD_JOIN_SESSION:
         InterceptSendJoinSession(&tmp);
         break;
+
+    case AJ_METHOD_LEAVE_SESSION:
+        InterceptSendLeaveSession(&tmp);
+        break;
     }
     memset(msg, 0, sizeof(*msg));
     return TRUE;
@@ -893,23 +987,27 @@ static uint8_t InterceptRecvJoinSession(AJ_Message* msg)
 
     CopyName(sender, msg->sender);
     status = AJ_UnmarshalArgs(msg, "sq", &sessHost, &sessPort);
+    AJ_InfoPrintf(("InterceptRecvJoinSession %s %s %u\n", msg->sender, sessHost, sessPort));
     if (status == AJ_OK) {
         AJ_ASSERT(strcmp(sessHost, clientId) == 0);
         status = UnmarshalSessionOpts(msg, &opts);
     }
+
     sess = LookupSessionByPort(sessPort);
-    if (!sess || (!sess->isMultipoint && sess->members)) {
+    if (!sess || FindMember(sess, sender)) {
         AJ_Message reply;
         /*
          * Reject the join request.
          */
         AJ_MarshalReplyMsg(msg, &reply);
-        AJ_MarshalArgs(&reply, "uu", 0, AJ_JOINSESSION_REPLY_REJECTED);
+
+        AJ_MarshalArgs(&reply, "uu", 0, sess ? AJ_JOINSESSION_REPLY_ALREADY_JOINED : AJ_JOINSESSION_REPLY_REJECTED);
         MarshalSessionOpts(&reply, &defaultSessionOpts);
         AJ_CloseMsg(msg);
         AJ_DeliverMsg(&reply);
         return TRUE;
     }
+
     /*
      * Morph JoinSession into an AcceptSession method call
      */
@@ -1001,7 +1099,32 @@ static uint8_t InterceptNameOwnerChanged(AJ_Message* msg)
     return FALSE;
 }
 
-static uint8_t InterceptSessionChangedWithReason(AJ_Message* msg)
+static uint8_t InterceptRecvSessionLost(AJ_Message* msg)
+{
+    AJ_Status status;
+    SessionRecord* sess;
+    uint32_t sessionId;
+    uint32_t reason;
+    uint8_t ret = FALSE;
+
+    status = AJ_UnmarshalArgs(msg, "uu", &sessionId, &reason);
+    if (status == AJ_OK) {
+        AJ_InfoPrintf(("SessionLost %u\n", sessionId));
+        sess = LookupSessionById(sessionId);
+        if (sess) {
+            status = DelSessionMember(msg->bus, sess, msg->sender, SEND_NONE);
+            if (status == AJ_OK) {
+                ret = FALSE;
+            } else {
+                ret = TRUE;
+            }
+        }
+    }
+    AJ_ResetArgs(msg);
+    return ret;
+}
+
+static uint8_t InterceptRecvSessionChangedWithReason(AJ_Message* msg)
 {
     AJ_Status status;
     SessionRecord* sess;
@@ -1010,7 +1133,7 @@ static uint8_t InterceptSessionChangedWithReason(AJ_Message* msg)
     uint32_t sessionId;
     uint32_t added;
     uint32_t reason;
-
+    uint8_t ret = FALSE;
     status = AJ_UnmarshalArgs(msg, "usbu", &sessionId, &name, &added, &reason);
     if (status == AJ_OK) {
         AJ_InfoPrintf(("SessionChanged %u %s \"%s\"\n", sessionId, added ? "added" : "removed", name));
@@ -1019,12 +1142,17 @@ static uint8_t InterceptSessionChangedWithReason(AJ_Message* msg)
             if (added) {
                 AddSessionMember(msg->bus, mosq, sess, name);
             } else {
-                DelSessionMember(msg->bus, sess, name, FALSE);
+                status = DelSessionMember(msg->bus, sess, name, SEND_SESSION_LOST);
+                if (status == AJ_OK) {
+                    ret = FALSE;
+                } else {
+                    ret = TRUE;
+                }
             }
         }
     }
     AJ_ResetArgs(msg);
-    return FALSE;
+    return ret;
 }
 
 static uint8_t intercepting = FALSE;
@@ -1050,14 +1178,24 @@ static uint8_t InterceptIncoming(AJ_Message* msg)
         return InterceptRecvJoinSessionReply(msg);
 
     case AJ_SIGNAL_MP_SESSION_CHANGED_WITH_REASON:
-        return InterceptSessionChangedWithReason(msg);
+        if (strcmp(msg->sender, clientId) == 0) {
+            return FALSE;
+        } else {
+            return InterceptRecvSessionChangedWithReason(msg);
+        }
+
+    case AJ_SIGNAL_SESSION_LOST_WITH_REASON:
+        if (strcmp(msg->sender, clientId) == 0) {
+            return FALSE;
+        } else {
+            return InterceptRecvSessionLost(msg);
+        }
+
+    case AJ_REPLY_ID(AJ_METHOD_BIND_SESSION_PORT):
+        return FALSE;
 
     default:
-        if (strcmp(msg->sender, clientId) == 0) {
-            return TRUE;
-        } else {
-            return FALSE;
-        }
+        return FALSE;
     }
     return TRUE;
 }
@@ -1203,6 +1341,22 @@ static void OnMessageRecv(struct mosquitto* mosq, void* ctx, const struct mosqui
 
 }
 
+static uint8_t reconnected = FALSE;
+
+static void DisconnectHandler(struct mosquitto* mosq, void* ctx, int rc)
+{
+    reconnected = FALSE;
+    if (rc) {
+        AJ_ErrPrintf(("Disconnect from broker. error=\"%s\"\n", mosquitto_strerror(rc)));
+        rc = mosquitto_reconnect(mosq);
+        if (rc == MOSQ_ERR_SUCCESS) {
+            reconnected = TRUE;
+        } else {
+            AJ_ErrPrintf(("Failed to reconnect to broker. error=\"%s\"\n", mosquitto_strerror(rc)));
+        }
+    }
+}
+
 
 /*
  * Time in seconds for PING keep-alive
@@ -1228,68 +1382,77 @@ static AJ_Status MQTT_Recv(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)
     buf->status = AJ_OK;
 
     while (TRUE) {
-        /*
-         * Can't block for too long because we need to let MQTT do work
-         */
-        uint32_t blockTime = min(timeout, MAX_BLOCK_SECS * 1000);
-        struct timeval tv = { blockTime / 1000, 1000 * (blockTime % 1000) };
-        int rc = 0;
-        fd_set fds;
-        int maxFd = sock;
-        FD_ZERO(&fds);
-        FD_SET(sock, &fds);
-        if (interruptFd >= 0) {
-            FD_SET(interruptFd, &fds);
-            maxFd = max(maxFd, interruptFd);
-        }
-        blocked = TRUE;
-        rc = select(maxFd + 1, &fds, NULL, NULL, &tv);
-        blocked = FALSE;
-        timeout -= blockTime;
-        if (rc < 0) {
-            AJ_ErrPrintf(("MQTT_Recv(): select(%d) failed. errno=\"%s\"\n", blockTime, strerror(errno)));
-            status = AJ_ERR_READ;
-            break;
-        }
-        if (rc == 0) {
-            if (timeout != 0) {
-                /*
-                 * Let mosquitto do work
-                 */
-                ret = mosquitto_loop_misc(mosq);
-                if (ret != MOSQ_ERR_SUCCESS) {
-                    AJ_ErrPrintf(("MQTT_Recv(): mosquitto_loop_misc() failed. error=\"%s\"\n", mosquitto_strerror(ret)));
-                    return AJ_ERR_READ;
+        while (TRUE) {
+            /*
+             * Can't block for too long because we need to let MQTT do work
+             */
+            uint32_t blockTime = min(timeout, MAX_BLOCK_SECS * 1000);
+            struct timeval tv = { blockTime / 1000, 1000 * (blockTime % 1000) };
+            int rc = 0;
+            fd_set fds;
+            int maxFd = sock;
+            FD_ZERO(&fds);
+            FD_SET(sock, &fds);
+            if (interruptFd >= 0) {
+                FD_SET(interruptFd, &fds);
+                maxFd = max(maxFd, interruptFd);
+            }
+            blocked = TRUE;
+            rc = select(maxFd + 1, &fds, NULL, NULL, &tv);
+            blocked = FALSE;
+            timeout -= blockTime;
+            if (rc < 0) {
+                AJ_ErrPrintf(("MQTT_Recv(): select(%d) failed. errno=\"%s\"\n", blockTime, strerror(errno)));
+                status = AJ_ERR_READ;
+                break;
+            }
+            if (rc == 0) {
+                if (timeout != 0) {
+                    /*
+                     * Let mosquitto do work
+                     */
+                    ret = mosquitto_loop_misc(mosq);
+                    if (ret != MOSQ_ERR_SUCCESS) {
+                        AJ_ErrPrintf(("MQTT_Recv(): mosquitto_loop_misc() failed. error=\"%s\"\n", mosquitto_strerror(ret)));
+                        status = AJ_ERR_READ;
+                        break;
+                    }
+                    continue;
                 }
-                continue;
+                status = AJ_ERR_TIMEOUT;
+                break;
             }
-            status = AJ_ERR_TIMEOUT;
-            break;
-        }
-        if ((interruptFd >= 0) && FD_ISSET(interruptFd, &fds)) {
-            uint64_t u64;
-            if (read(interruptFd, &u64, sizeof(u64)) < 0) {
-                AJ_ErrPrintf(("MQTT_Recv(): read() failed during interrupt. errno=\"%s\"\n", strerror(errno)));
+            if ((interruptFd >= 0) && FD_ISSET(interruptFd, &fds)) {
+                uint64_t u64;
+                if (read(interruptFd, &u64, sizeof(u64)) < 0) {
+                    AJ_ErrPrintf(("MQTT_Recv(): read() failed during interrupt. errno=\"%s\"\n", strerror(errno)));
+                }
+                status = AJ_ERR_INTERRUPTED;
+                break;
             }
-            status = AJ_ERR_INTERRUPTED;
-            break;
-        }
-        /*
-         * If we got here we might have something to read
-         */
-        ret = mosquitto_loop_read(mosq, 1);
-        if (ret != MOSQ_ERR_SUCCESS) {
-            AJ_ErrPrintf(("MQTT_Recv(%d): mosquitto_loop_read() failed. error=\"%s\"\n", blockTime, mosquitto_strerror(ret)));
-            status = AJ_ERR_READ;
-        } else {
+            /*
+             * If we got here we might have something to read
+             */
+            ret = mosquitto_loop_read(mosq, 1);
+            if (ret != MOSQ_ERR_SUCCESS) {
+                AJ_ErrPrintf(("MQTT_Recv(%d): mosquitto_loop_read() failed. error=\"%s\"\n", blockTime, mosquitto_strerror(ret)));
+                status = AJ_ERR_READ;
+                break;
+            }
             status = buf->status;
+            if (mosquitto_want_write(mosq)) {
+                ret = mosquitto_loop_write(mosq, 1);
+            }
+            if ((status != AJ_OK) || AJ_IO_BUF_AVAIL(buf)) {
+                break;
+            }
         }
-        if (mosquitto_want_write(mosq)) {
-            ret = mosquitto_loop_write(mosq, 1);
+        if (reconnected) {
+            reconnected = FALSE;
+            sock = mosquitto_socket(mosq);
+            continue;
         }
-        if ((status != AJ_OK) || AJ_IO_BUF_AVAIL(buf)) {
-            break;
-        }
+        break;
     }
     if ((status != AJ_OK) && (status != AJ_ERR_TIMEOUT) && (status != AJ_ERR_INTERRUPTED)) {
         AJ_ErrPrintf(("MQTT_Recv() error %s\n", AJ_StatusText(status)));
@@ -1306,6 +1469,18 @@ static AJ_Status MQTT_Recv(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)
     return status;
 }
 
+#ifdef AJ_MQTT_BROKER
+#define _STRINGIFY(str) # str
+#define STRINGIFY(str) _STRINGIFY(str)
+static const char* brokerHost = STRINGIFY(AJ_MQTT_BROKER);
+#undef STRINGIFY
+#undef _STRINGIFY
+#else
+static const char* brokerHost = "127.0.0.1";
+#endif
+
+static int brokerPort = 1883;
+
 static uint8_t rxData[4096];
 static uint8_t txData[4096];
 
@@ -1320,8 +1495,14 @@ AJ_Status AJ_Connect(AJ_BusAttachment* bus, const char* service, uint32_t timeou
     AJ_InfoPrintf(("AJ_Connect service=%s, clientId=%s\n", service ? service : "<none>", clientId));
 
     mosquitto_lib_init();
+
+    if (service) {
+        brokerHost = strtok(service, ":");
+        brokerPort = atoi(strtok(NULL, ":"));
+    }
     mosq = mosquitto_new(clientId, TRUE, bus);
     if (!mosq) {
+        mosquitto_lib_cleanup();
         return AJ_ERR_RESOURCES;
     }
 
@@ -1330,7 +1511,6 @@ AJ_Status AJ_Connect(AJ_BusAttachment* bus, const char* service, uint32_t timeou
     AJ_IOBufInit(&bus->sock.tx, txData, sizeof(txData), AJ_IO_BUF_TX, mosq);
     bus->sock.tx.send = MQTT_Send;
 
-    AJ_InfoPrintf(("AJ_Net_Connect(): connected to MQTT broker status=AJ_OK\n"));
     interruptFd = eventfd(0, O_NONBLOCK);  // Use O_NONBLOCK instead of EFD_NONBLOCK due to bug in OpenWrt's uCLibc
     if (interruptFd < 0) {
         AJ_ErrPrintf(("AJ_Net_Connect(): failed to created interrupt event\n"));
@@ -1347,11 +1527,13 @@ AJ_Status AJ_Connect(AJ_BusAttachment* bus, const char* service, uint32_t timeou
     /*
      * Connect to the broker - using local host for now
      */
-    ret = mosquitto_connect(mosq, "127.0.0.1", 1883, MQTT_PING_INTERVAL);
+    ret = mosquitto_connect(mosq, brokerHost, brokerPort, MQTT_PING_INTERVAL);
     if (ret != MOSQ_ERR_SUCCESS) {
-        AJ_ErrPrintf(("AJ_Net_Connect(): mosquitto_connect() failed. error=%s", mosquitto_strerror(ret)));
+        AJ_ErrPrintf(("AJ_Net_Connect(): mosquitto_connect() to %s failed. error=%s", brokerHost, mosquitto_strerror(ret)));
         goto ConnectError;
     }
+    AJ_AlwaysPrintf(("AJ_Net_Connect(): connected to MQTT broker %s\n", brokerHost));
+    mosquitto_disconnect_callback_set(mosq, DisconnectHandler);
     /*
      * Retained message indicates presence - the payload doesn't matter so long as it isn't NULL
      */
@@ -1394,29 +1576,14 @@ AJ_Status AJ_Connect(AJ_BusAttachment* bus, const char* service, uint32_t timeou
     if (mosquitto_loop_misc(mosq) != MOSQ_ERR_SUCCESS) {
         goto ConnectError;
     }
-    if (service) {
-        /*
-         * Subscribe to our service name
-         */
-        ret = mosquitto_subscribe(mosq, NULL, service, 0);
-        if (ret != MOSQ_ERR_SUCCESS) {
-            AJ_ErrPrintf(("AJ_Net_Connect(): mosquitto_subscribe() failed. error=\"%s\"\n", mosquitto_strerror(ret)));
-            goto ConnectError;
-        }
-        /*
-         * Let the subscription get sent
-         */
-        if (mosquitto_loop_misc(mosq) != MOSQ_ERR_SUCCESS) {
-            goto ConnectError;
-        }
-        AJ_InfoPrintf(("AJ_Net_Connect(): subscribed to topic \"%s\"\n", service));
-    }
     return AJ_OK;
 
 ConnectError:
     if (mosq) {
         mosquitto_disconnect(mosq);
         mosquitto_destroy(mosq);
+        bus->sock.rx.context = NULL;
+        bus->sock.tx.context = NULL;
     }
     mosquitto_lib_cleanup();
     if (interruptFd != INVALID_SOCKET) {
@@ -1444,20 +1611,13 @@ void AJ_Net_Disconnect(AJ_NetSocket* netSock)
          */
         mosquitto_disconnect(mosq);
         mosquitto_destroy(mosq);
+        mosq = NULL;
+        netSock->rx.context = NULL;
+        netSock->tx.context = NULL;
     }
     mosquitto_lib_cleanup();
     if (interruptFd >= 0) {
         close(interruptFd);
         interruptFd = INVALID_SOCKET;
     }
-}
-
-AJ_Status Net_SendTo(AJ_IOBuffer* buf)
-{
-    return AJ_ERR_INVALID;
-}
-
-AJ_Status AJ_Net_RecvFrom(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)
-{
-    return AJ_ERR_INVALID;
 }
