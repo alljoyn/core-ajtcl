@@ -1130,6 +1130,7 @@ AJ_Status AJ_SecurityInstallMembershipMethod(AJ_Message* msg, AJ_Message* reply)
 Exit:
     AJ_CredFieldFree(&id);
     AJ_CredFieldFree(&membership_data);
+    AJ_X509ChainFree(membership);
     if (AJ_OK == status) {
         return AJ_MarshalReplyMsg(msg, reply);
     } else {
