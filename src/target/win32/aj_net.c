@@ -703,13 +703,13 @@ static void Mcast6Up(const char* group, uint16_t port, uint8_t mdns, uint16_t re
 
     // Get the IPv6 adapter addresses
     if (ERROR_SUCCESS != GetAdaptersAddresses(AF_INET6, GAA_FLAG_SKIP_MULTICAST | GAA_FLAG_SKIP_ANYCAST | GAA_FLAG_SKIP_DNS_SERVER, NULL, interfaces, &num_bytes)) {
-        AJ_ErrPrintf(("Mcast6Up(): GetAdaptersAddresses for IPv6 failed. WSAGetLastError()=%0x%x\n", WSAGetLastError()));
+        AJ_ErrPrintf(("Mcast6Up(): GetAdaptersAddresses for IPv6 failed. WSAGetLastError()=0x%x\n", WSAGetLastError()));
         return;
     }
 
     // Get the IPv4 adapter addresses
     if (ERROR_SUCCESS != GetAdaptersAddresses(AF_INET, GAA_FLAG_SKIP_MULTICAST | GAA_FLAG_SKIP_ANYCAST | GAA_FLAG_SKIP_DNS_SERVER, NULL, v4_interfaces, &num_bytes)) {
-        AJ_ErrPrintf(("Mcast6Up(): GetAdaptersAddresses for IPv4 failed. WSAGetLastError()=%0x%x\n", WSAGetLastError()));
+        AJ_ErrPrintf(("Mcast6Up(): GetAdaptersAddresses for IPv4 failed. WSAGetLastError()=0x%x\n", WSAGetLastError()));
         return;
     }
 
@@ -805,12 +805,12 @@ static void Mcast4Up(const char* group, uint16_t port, uint8_t mdns, uint16_t re
 
     tmp_sock = socket(AF_INET, SOCK_DGRAM, 0);
     if (tmp_sock == INVALID_SOCKET) {
-        AJ_ErrPrintf(("Mcast4Up(): socket failed. WSAGetLastError()=%0x%x\n", WSAGetLastError()));
+        AJ_ErrPrintf(("Mcast4Up(): socket failed. WSAGetLastError()=0x%x\n", WSAGetLastError()));
         return;
     }
 
     if (SOCKET_ERROR == WSAIoctl(tmp_sock, SIO_GET_INTERFACE_LIST, 0, 0, &interfaces, sizeof(interfaces), &num_bytes, 0, 0)) {
-        AJ_ErrPrintf(("Mcast4Up(): WSAIoctl failed. WSAGetLastError()=%0x%x\n", WSAGetLastError()));
+        AJ_ErrPrintf(("Mcast4Up(): WSAIoctl failed. WSAGetLastError()=0x%x\n", WSAGetLastError()));
         return;
     }
 
@@ -926,7 +926,7 @@ static SOCKET MDnsRecvUp()
 
     tmp_sock = socket(AF_INET, SOCK_DGRAM, 0);
     if (tmp_sock == INVALID_SOCKET) {
-        AJ_ErrPrintf(("MDnsRecvUp(): socket failed. WSAGetLastError()=%0x%x\n", WSAGetLastError()));
+        AJ_ErrPrintf(("MDnsRecvUp(): socket failed. WSAGetLastError()=0x%x\n", WSAGetLastError()));
         return tmp_sock;
     }
 
