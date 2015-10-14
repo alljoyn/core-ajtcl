@@ -28,18 +28,39 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <sys/eventfd.h>
-#include <sys/fcntl.h>
+#if defined(QCC_OS_GROUP_DARWIN)
+    #include <sys/socket.h>
+    #include <arpa/inet.h>
+    #include <sys/ioctl.h>
+    #include <net/if.h>
+    #define  __APPLE_USE_RFC_3542
+    #include <netinet/in.h>
+    #include <errno.h>
+    #include <unistd.h>
+#elif defined(QCC_OS_GROUP_WINDOWS)
+    #include <Winsock2.h>
+    #include <Mswsock.h>
+    #include <ws2tcpip.h>
+    #pragma comment(lib, "Ws2_32.lib")
+    #include <iphlpapi.h>
+    #pragma comment(lib, "iphlpapi.lib")
+#else
+    #include <sys/socket.h>
+    #include <sys/eventfd.h>
+    #include <sys/fcntl.h>
+    #include <errno.h>
+    #include <unistd.h>
+#endif
 #include <assert.h>
-#include <errno.h>
 #include <time.h>
-#include <unistd.h>
 #include <mosquitto.h>
 
 #include <ajtcl/alljoyn.h>
 #include <ajtcl/aj_crypto.h>
 
+#if !defined(QCC_OS_GROUP_WINDOWS)
 #define INVALID_SOCKET (-1)
+#endif
 
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
@@ -108,6 +129,7 @@ static char* BuildTopic(const char* name, uint32_t sessionId, const char* iface,
     int32_t l4 = 0;
     int32_t l5 = 0;
     int32_t l6 = 0;
+    char* buf = NULL;
 
     if (name) {
         if (name[0] == ':') {
@@ -146,7 +168,7 @@ static char* BuildTopic(const char* name, uint32_t sessionId, const char* iface,
             l6 = strlen(member);
         }
     }
-    char* buf = AJ_Malloc(l0 + l1 + l2 + l3 + l4 + l5 + l6 + 7);
+    buf = AJ_Malloc(l0 + l1 + l2 + l3 + l4 + l5 + l6 + 7);
     if (buf) {
         char* p = buf;
 
@@ -415,9 +437,10 @@ static SessionRecord* LookupSessionByPort(uint16_t port)
     } else {
         /* Create new session entry */
         uint32_t sessionId;
+        SessionRecord* sess;
 
         AJ_RandBytes((uint8_t*)&sessionId, sizeof(sessionId));
-        SessionRecord* sess = AllocSession(bindEntry->host, sessionId);
+        sess = AllocSession(bindEntry->host, sessionId);
         sess->port = bindEntry->port;
         sess->isHost = TRUE;
         sess->isMultipoint = bindEntry->isMultipoint;
@@ -853,6 +876,7 @@ static void InterceptSendLeaveSession(AJ_Message* msg)
 {
     AJ_BusAttachment* bus = msg->bus;
     uint32_t sessionId;
+    SessionRecord* sess;
 
     /*
      * We won't be getting a reply to this message
@@ -863,7 +887,7 @@ static void InterceptSendLeaveSession(AJ_Message* msg)
      */
     AJ_UnmarshalArgs(msg, "u", &sessionId);
 
-    SessionRecord* sess = LookupSessionById(sessionId);
+    sess = LookupSessionById(sessionId);
     AJ_CloseMsg(msg);
     SwapRxTx(bus, MQTT_Send, MQTT_Recv);
 
@@ -1516,11 +1540,13 @@ AJ_Status AJ_Connect(AJ_BusAttachment* bus, const char* service, uint32_t timeou
     AJ_IOBufInit(&bus->sock.tx, txData, sizeof(txData), AJ_IO_BUF_TX, mosq);
     bus->sock.tx.send = MQTT_Send;
 
+#if !defined(QCC_OS_GROUP_DARWIN) && !defined(QCC_OS_GROUP_WINDOWS)
     interruptFd = eventfd(0, O_NONBLOCK);  // Use O_NONBLOCK instead of EFD_NONBLOCK due to bug in OpenWrt's uCLibc
     if (interruptFd < 0) {
         AJ_ErrPrintf(("AJ_Net_Connect(): failed to created interrupt event\n"));
         goto ConnectError;
     }
+#endif
     /*
      * The "will" will remove the presence message on abnormal disconnect.
      */

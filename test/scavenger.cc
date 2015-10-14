@@ -31,9 +31,16 @@ extern "C" {
 
 #include <mosquitto.h>
 
-#include <unistd.h>
+#if defined(QCC_OS_GROUP_WINDOWS)
+    #pragma warning(disable: 4005)
+    #pragma warning(disable: 4530)
+    #define _ALLOW_KEYWORD_MACROS
+#else
+    #include <unistd.h>
+#endif
 #include <stdlib.h>
 #include <stdio.h>
+#include <assert.h>
 
 #include <map>
 #include <list>
@@ -361,6 +368,20 @@ int main(int argc, char** argv)
     int port = 1883;
     const char* host = "127.0.0.1";
 
+#if defined(QCC_OS_GROUP_WINDOWS)
+    for (int i = 1; i < argc; i++) {
+        if (strncmp("-s", argv[i], 2) == 0) {
+            Scope = argv[++i];
+        } else if (strncmp("-h", argv[i], 2) == 0) {
+            host = argv[++i];
+        } else if (strncmp("-p", argv[i], 2) == 0) {
+            port = strtol(argv[++i], NULL, 10);
+        } else {
+            fprintf(stderr, "Usage: %s [-s scope] \n", argv[0]);
+            return EXIT_FAILURE;
+        }
+    }
+#else
     while ((opt = getopt(argc, argv, "s:h:p:")) != -1) {
         switch (opt) {
         case 's':
@@ -380,6 +401,7 @@ int main(int argc, char** argv)
             return EXIT_FAILURE;
         }
     }
+#endif
 
     mosquitto_lib_init();
     mosq = mosquitto_new("scavenger", TRUE, NULL);

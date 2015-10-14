@@ -16,7 +16,7 @@ Import('env')
 test_env = env.Clone()
 
 test_env.Append(LIBPATH = ['#dist/lib', '#build/$VARIANT'])
-test_env.Append(LIBS = "ajtcl")
+test_env.Prepend(LIBS = "ajtcl")
 
 progs = []
 

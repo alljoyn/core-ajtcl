@@ -14,11 +14,21 @@ vars = Variables()
 vars.Add(EnumVariable('OS', 'Target OS', default_target_os, allowed_values = allowed_target_oss))
 vars.Add(EnumVariable('MSVC_VERSION', 'MSVC compiler version - Windows', default_msvc_version, allowed_values = supported_msvc_versions))
 vars.Add(BoolVariable('NO_AUTH', "Compile in authentication mechanism's to the code base", os.environ.get('AJ_NO_AUTH', False)))
+vars.Add(PathVariable('MOSQUITTO_SRC', 'Directory to the Mosquitto install devel folder on Windows',       os.environ.get('MOSQUITTO_SRC'), PathVariable.PathIsDir))
 vars.Update(env)
 Help(vars.GenerateHelpText(env))
 
 # Platform libraries
 env.Append(LIBS = ['advapi32'])
+
+# If we are building with Mosquitto then add the lib and header search path
+if env.has_key('MOSQUITTO_SRC') and env['MOSQUITTO_SRC']:
+   env.Append(LIBPATH = Dir([env['MOSQUITTO_SRC']]))
+   env.Append(CPPPATH = Dir([env['MOSQUITTO_SRC']]))
+   env.Append(LIBS = ['mosquitto'])
+
+# Set define to know that this is windows platform
+env.Append(CPPDEFINES = [ 'QCC_OS_GROUP_WINDOWS' ])
 
 # Compiler flags
 env.Append(CFLAGS = ['/J', '/W3', '/nologo'])
@@ -30,12 +40,12 @@ if env['NO_AUTH']:
 if env['VARIANT'] == 'debug':
     env.Append(CFLAGS = ['/Zi', '/Od', '/MDd'])
     env.Append(CPPDEFINES = ['_DEBUG'])
-    env.Append(LINKFLAGS = ['/debug'])
+    env.Append(LINKFLAGS = ['/debug', '/NODEFAULTLIB:libcmt.lib'])
 else:
    env.Append(CFLAGS = ['/Gy', '/O1', '/GF', '/MD'])
    env.Append(LINKFLAGS = ['/opt:ref', '/NODEFAULTLIB:libcmt.lib'])
 
-env['connectivity_options'] = ['tcp', 'ardp']
+env['connectivity_options'] = ['tcp', 'ardp', 'mqtt']
 
 # Support running on Win7 and newer Windows versions.
 env.Append(CPPDEFINES = [('_WIN32_WINNT', '_WIN32_WINNT_WIN7')])

@@ -120,7 +120,7 @@ static void DoCat()
     AJ_InfoPrintf(("MakeMethodCall() resulted in a status of 0x%04x.\n", status));
 }
 
-static uint8_t wait = FALSE;
+static uint8_t waitVar = FALSE;
 
 int AJ_Main(void)
 {
@@ -181,7 +181,7 @@ int AJ_Main(void)
                     status = AJ_UnmarshalArg(&msg, &arg);
                     if (AJ_OK == status) {
                         AJ_AlwaysPrintf(("cat returned \"%s\"\n", arg.val.v_string));
-                        if (!wait) {
+                        if (!waitVar) {
                             done = TRUE;
                         }
                     }
@@ -244,7 +244,7 @@ int main(int argc, char* argv[])
         }
         if (strcmp(argv[argn], "--wait") == 0) {
             ++argn;
-            wait = TRUE;
+            waitVar = TRUE;
         }
         ++argn;
     }

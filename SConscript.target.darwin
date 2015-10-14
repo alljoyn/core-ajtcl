@@ -6,11 +6,21 @@ Import('env')
 vars = Variables()
 vars.Add(BoolVariable('FORCE32', 'Force building 32 bit on 64 bit architecture',           os.environ.get('AJ_FORCE32', False)))
 vars.Add(BoolVariable('NO_AUTH', "Compile in authentication mechanism's to the code base", os.environ.get('AJ_NO_AUTH', False)))
+vars.Add(PathVariable('MOSQUITTO_SRC', 'Directory to the Mosquitto dylib files on darwin',     os.environ.get('MOSQUITTO_SRC'), PathVariable.PathIsDir))
 vars.Update(env)
 Help(vars.GenerateHelpText(env))
 
 # Platform libraries
 env.Append(LIBS = ['pthread'])
+
+# If we are building with Mosquitto then add the lib and header search path
+if env.has_key('MOSQUITTO_SRC') and env['MOSQUITTO_SRC']:
+   env.Append(LIBPATH = Dir([env['MOSQUITTO_SRC']]))
+   env.Append(CPPPATH = Dir([env['MOSQUITTO_SRC']]))
+   env.Append(LIBS = ['mosquitto'])
+
+# Set define to know that this is windows platform
+env.Append(CPPDEFINES = [ 'QCC_OS_GROUP_DARWIN' ])
 
 # Cross compile setup
 if os.environ.has_key('CROSS_PREFIX'):
@@ -65,8 +75,14 @@ else:
     env.Append(CFLAGS = '-Os')
 
 #env['build_shared'] = True
-#env['connectivity_options'] = [ 'tcp', 'ardp' ]
+env['connectivity_options'] = [ 'tcp', 'ardp', 'mqtt' ]
 
 # Large Memory Platform
 env.Append(CPPDEFINES = ['AJ_NVRAM_SIZE=64000'])
 env.Append(CPPDEFINES = ['AJ_NUM_REPLY_CONTEXTS=8'])
+
+# Needed to build
+ccld = ['-arch', 'x86_64', '-mmacosx-version-min=10.9']
+env.Append(CXXFLAGS=ccld)
+env.Append(CFLAGS=ccld)
+env.Append(LINKFLAGS=ccld)
