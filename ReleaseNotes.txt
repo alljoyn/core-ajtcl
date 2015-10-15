@@ -69,10 +69,18 @@ https://jira.allseenalliance.org/issues/?jql=project%20%3D%20%22Core%20SW%22%20A
 Compatibility
 -------------
 Starting in Version 15.09
+* The AJ_Connect() API is DEPRECATED (since 14.02)
+* The APIs for About in the core/about_tcl repo are DEPRECATED (since 14.06)
+* Claimed 15.09 apps/devices (A/D using Security 2.0) cannot interact securely
+  with pre-15.09 A/D using ECDHE_ECDSA key exchange; further, if the A/D only
+  exposes interfaces/objects requiring security it will not be possible to
+  interact with the A/D. This is because once an A/D is claimed, it expects to
+  receive a manifest from the ECDHE_ECDSA peer, and pre-15.09 A/D do not support
+  sending manifests (which were introduced as part Security 2.0 in the 15.09
+  release).
 * Language tag matching uses prefix matching and also will return the default
   language if there is no match where previously it would return an
   error. (ASACORE-2209)
-* The APIs for About in the core/about_tcl repo are (still) DEPRECATED
 * Moving the PropertiesChanged signal from the org.freedesktop.DBus interface to
   the org.freedesktop.DBus.Properties interface (ASACORE-2185) stops
   applications based on AllJoyn 15.04 and older from receiving this signal from
