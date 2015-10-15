@@ -187,6 +187,7 @@ static void HandshakeComplete(AJ_Status status)
     AJ_InfoPrintf(("HandshakeComplete(status=%d.)\n", status));
 
     /* If ECDSA/PSK failed, try NULL */
+    /* The version value packs the auth version in the upper 16 bits */
     if ((AJ_OK != status) &&
         (AUTH_SUITE_ECDHE_NULL != authContext.suite) &&
         AJ_IsSuiteEnabled(authContext.bus, AUTH_SUITE_ECDHE_NULL, authContext.version >> 16)) {
@@ -700,6 +701,7 @@ static AJ_Status ExchangeSuites(AJ_Message* msg)
 
     /*
      * Send suites in this priority order
+     * The version value packs the auth version in the upper 16 bits
      */
     if (AJ_IsSuiteEnabled(msg->bus, AUTH_SUITE_ECDHE_ECDSA, authContext.version >> 16)) {
         suites[num++] = AUTH_SUITE_ECDHE_ECDSA;
@@ -810,6 +812,7 @@ AJ_Status AJ_PeerHandleExchangeSuites(AJ_Message* msg, AJ_Message* reply)
      * If it's enabled, marshal the suite to send to the other peer.
      */
     for (i = 0; i < numsuites; i++) {
+        /* The version value packs the auth version in the upper 16 bits */
         if (AJ_IsSuiteEnabled(msg->bus, suites[i], authContext.version >> 16)) {
             status = AJ_MarshalArgs(reply, "u", suites[i]);
             if (AJ_OK != status) {
@@ -879,6 +882,7 @@ AJ_Status AJ_PeerHandleExchangeSuitesReply(AJ_Message* msg)
      */
     authContext.suite = 0;
     for (i = 0; i < numsuites; i++) {
+        /* The version value packs the auth version in the upper 16 bits */
         if (AJ_IsSuiteEnabled(msg->bus, suites[i], authContext.version >> 16)) {
             // Pick the highest priority suite, which happens to be the highest integer
             authContext.suite = (suites[i] > authContext.suite) ? suites[i] : authContext.suite;
@@ -965,6 +969,7 @@ AJ_Status AJ_PeerHandleKeyExchange(AJ_Message* msg, AJ_Message* reply)
     if (AJ_OK != status) {
         goto Exit;
     }
+    /* The version value packs the auth version in the upper 16 bits */
     if (!AJ_IsSuiteEnabled(msg->bus, authContext.suite, authContext.version >> 16)) {
         goto Exit;
     }
@@ -1595,7 +1600,8 @@ AJ_Status AJ_PeerHandleExchangeGroupKeysReply(AJ_Message* msg)
     if (AJ_OK != status) {
         goto Exit;
     }
-    if ((AUTH_SUITE_ECDHE_ECDSA == authContext.suite) && ((authContext.version >> 16) >= 4)) {
+    /* The version value packs the auth version in the upper 16 bits */
+    if ((AUTH_SUITE_ECDHE_ECDSA == authContext.suite) && ((authContext.version >> 16) >= CONVERSATION_V4)) {
         status = SendManifest(msg);
     } else {
         HandshakeComplete(status);
@@ -2039,8 +2045,9 @@ static void UnmarshalCertificates(AJ_Message* msg)
 
     /* Initial chain verification to validate intermediate issuers.
      * Type is ignored for auth version < 4.
+     * The version value packs the auth version in the upper 16 bits.
      */
-    if ((authContext.version >> 16) < 4) {
+    if ((authContext.version >> 16) < CONVERSATION_V4) {
         type = 0;
     } else {
         type = AJ_CERTIFICATE_MBR_X509;
