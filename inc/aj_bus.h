@@ -131,6 +131,16 @@ typedef struct _AJ_BusAttachment {
 const char* AJ_GetUniqueName(AJ_BusAttachment* bus);
 
 
+/**
+ * Update the JoinSession Method call serial number of a pending JoinSession.
+ *
+ * @param bus          The bus attachment
+ * @param prevSerial   The previous serial number of JoinSession method call
+ * @param newSerial    The new serial number of JoinSession method call
+ *
+ */
+void AJ_BusUpdatePendingSession(AJ_BusAttachment* bus, uint32_t prevSerial, uint32_t newSerial);
+
 #define AJ_NAME_REQ_ALLOW_REPLACEMENT 0x01  /**< Allow others to take ownership of this name */
 #define AJ_NAME_REQ_REPLACE_EXISTING  0x02  /**< Attempt to take ownership of name if already taken */
 #define AJ_NAME_REQ_DO_NOT_QUEUE      0x04  /**< Fail if name cannot be immediately obtained */

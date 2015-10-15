@@ -822,6 +822,7 @@ static void InterceptSendJoinSession(AJ_Message* msg)
     const char* sessHost;
     uint16_t sessPort;
     char dest[AJ_MAX_NAME_SIZE + 1];
+    uint32_t prevSerial = msg->hdr->serialNum;
 
     /*
      * We won't be getting a reply to this message
@@ -843,6 +844,8 @@ static void InterceptSendJoinSession(AJ_Message* msg)
     AJ_MarshalArgs(msg, "sq", dest, sessPort);
     MarshalSessionOpts(msg, &opts);
     AJ_DumpMsg("InterceptSendJoinSession", msg, FALSE);
+    AJ_BusUpdatePendingSession(bus, prevSerial, msg->hdr->serialNum);
+
     AJ_DeliverMsg(msg);
 }
 
@@ -923,10 +926,12 @@ static uint8_t InterceptSend(AJ_Message* msg)
      */
     if (msg->hdr->msgType == AJ_MSG_METHOD_RET) {
         AJ_MsgHeader hdr;
+        hdr.flags = 0;
         tmp.msgId = msg->msgId & 0xFFFFFF;
         hdr.serialNum = msg->replySerial;
         hdr.msgType = AJ_MSG_METHOD_CALL;
         tmp.hdr = &hdr;
+        tmp.destination = msg->destination;
         AJ_AllocReplyContext(&tmp, 0);
     }
 

@@ -767,7 +767,6 @@ AJ_Status AJ_CloseMsg(AJ_Message* msg)
             }
         }
 
-        memset(msg, 0, sizeof(AJ_Message));
 #ifndef NDEBUG
         msg->bus->currentMsg = NULL;
 #endif

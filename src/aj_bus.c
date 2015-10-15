@@ -303,11 +303,13 @@ AJ_Status AJ_BusJoinSession(AJ_BusAttachment* bus, const char* sessionHost, uint
     }
     serialNum = msg.hdr->serialNum;
     if (status == AJ_OK) {
+        AJ_BusAddPendingSession(bus, sessionHost, port, msg.hdr->serialNum);
+    }
+
+    if (status == AJ_OK) {
         status = AJ_DeliverMsg(&msg);
     }
-    if (status == AJ_OK) {
-        AJ_BusAddPendingSession(bus, sessionHost, port, serialNum);
-    }
+
     return status;
 }
 
@@ -1010,6 +1012,24 @@ static void AJ_BusRemovePendingSession(AJ_BusAttachment* bus, uint32_t serial)
     }
 
     AJ_BusReleaseOngoingSession(iter);
+}
+
+void AJ_BusUpdatePendingSession(AJ_BusAttachment* bus, uint32_t serial, uint32_t newSerial)
+{
+    AJ_Session* iter;
+    AJ_Session* prev = NULL;
+
+    for (iter = bus->sessions; iter; prev = iter, iter = iter->next) {
+        if (iter->sessionId == 0 && !iter->host && iter->joinCallSerial == serial) {
+            break;
+        }
+    }
+
+    if (!iter) {
+        return;
+    }
+
+    iter->joinCallSerial = newSerial;
 }
 
 static void AJ_BusAddBoundSession(AJ_BusAttachment* bus, uint32_t port, int multipoint)
