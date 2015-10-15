@@ -82,7 +82,7 @@ static AJ_Status ComputePSKVerifier(AJ_AuthenticationContext* ctx, const char* l
     uint8_t lens[5];
 
     /* Use the old method for < CONVERSATION_V4. */
-    if ((ctx->version >> 16) < CONVERSATION_V4) {
+    if (AJ_UNPACK_AUTH_VERSION(ctx->version) < CONVERSATION_V4) {
         return ComputeVerifier(ctx, label, buffer, bufferlen);
     }
 
@@ -161,7 +161,7 @@ static AJ_Status ECDHEMarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
         }
     }
 
-    switch (ctx->version >> 16) {
+    switch (AJ_UNPACK_AUTH_VERSION(ctx->version)) {
     case 1:
     case 2:
         status = ECDHEMarshalV1(ctx, msg);
@@ -343,7 +343,7 @@ static AJ_Status ECDHEUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
         }
     }
 
-    switch (ctx->version >> 16) {
+    switch (AJ_UNPACK_AUTH_VERSION(ctx->version)) {
     case 1:
     case 2:
         status = ECDHEUnmarshalV1(ctx, msg);
@@ -512,7 +512,7 @@ static AJ_Status PSKCallbackV1(AJ_AuthenticationContext* ctx, AJ_Message* msg)
     ctx->expiration = 0xFFFFFFFF;
     AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, ctx->kactx.psk.hint, ctx->kactx.psk.hintSize);
     AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, ctx->kactx.psk.key, ctx->kactx.psk.keySize);
-    if (ctx->version < CONVERSATION_V4) {
+    if (AJ_UNPACK_AUTH_VERSION(ctx->version) < CONVERSATION_V4) {
         status = AJ_ConversationHash_GetDigest(ctx);
     }
 
@@ -552,7 +552,7 @@ static AJ_Status PSKCallbackV2(AJ_AuthenticationContext* ctx, AJ_Message* msg)
     // Hash in psk hint, then psk
     AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, ctx->kactx.psk.hint, ctx->kactx.psk.hintSize);
     AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, cred.data, cred.len);
-    if (ctx->version < CONVERSATION_V4) {
+    if (AJ_UNPACK_AUTH_VERSION(ctx->version) < CONVERSATION_V4) {
         status = AJ_ConversationHash_GetDigest(ctx);
         if (AJ_OK != status) {
             return status;
@@ -987,7 +987,7 @@ static AJ_Status ECDSAUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg, 
     /* Initial chain verification to validate intermediate issuers.
      * Type is ignored for auth version < 4.
      */
-    if ((version >> 16) < 4) {
+    if (AJ_UNPACK_AUTH_VERSION(version) < CONVERSATION_V4) {
         type = 0;
     } else {
         type = AJ_CERTIFICATE_IDN_X509;
