@@ -34,6 +34,7 @@
 #include <ajtcl/aj_crypto.h>
 #include <ajtcl/aj_msg_priv.h>
 #include <ajtcl/aj_security.h>
+#include <ajtcl/aj_conversationhash.h>
 
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
@@ -511,7 +512,12 @@ static AJ_Status PSKCallbackV1(AJ_AuthenticationContext* ctx, AJ_Message* msg)
     }
     ctx->expiration = 0xFFFFFFFF;
     AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, ctx->kactx.psk.hint, ctx->kactx.psk.hintSize);
+    /* Calling AJ_ConversationHash_SetSensitiveMode ensures the PSK won't end up in the log if conversation
+     * hash tracing is turned on.
+     */
+    AJ_ConversationHash_SetSensitiveMode(ctx, TRUE);
     AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, ctx->kactx.psk.key, ctx->kactx.psk.keySize);
+    AJ_ConversationHash_SetSensitiveMode(ctx, FALSE);
     if (ctx->version < CONVERSATION_V4) {
         status = AJ_ConversationHash_GetDigest(ctx);
     }
@@ -551,7 +557,12 @@ static AJ_Status PSKCallbackV2(AJ_AuthenticationContext* ctx, AJ_Message* msg)
     ctx->expiration = cred.expiration;
     // Hash in psk hint, then psk
     AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, ctx->kactx.psk.hint, ctx->kactx.psk.hintSize);
+    /* Calling AJ_ConversationHash_SetSensitiveMode ensures the PSK won't end up in the log if conversation
+     * hash tracing is turned on.
+     */
+    AJ_ConversationHash_SetSensitiveMode(ctx, TRUE);
     AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, cred.data, cred.len);
+    AJ_ConversationHash_SetSensitiveMode(ctx, FALSE);
     if (ctx->version < CONVERSATION_V4) {
         status = AJ_ConversationHash_GetDigest(ctx);
         if (AJ_OK != status) {
@@ -1123,127 +1134,3 @@ void AJ_EnableSuite(AJ_BusAttachment* bus, uint32_t suite)
     }
 }
 
-AJ_Status AJ_ConversationHash_Initialize(AJ_AuthenticationContext* ctx)
-{
-    ctx->hash = AJ_SHA256_Init();
-
-    if (ctx->hash) {
-        return AJ_OK;
-    } else {
-        AJ_ErrPrintf(("AJ_ConversationHash_Initialize() failed\n"));
-        return AJ_ERR_RESOURCES;
-    }
-}
-
-uint8_t AJ_ConversationHash_IsInitialized(AJ_AuthenticationContext* ctx)
-{
-    if (ctx->hash) {
-        return 1;
-    }
-    return 0;
-}
-
-static inline int ConversationVersionDoesNotApply(uint32_t conversationVersion, uint32_t currentAuthVersion)
-{
-    AJ_ASSERT((CONVERSATION_V1 == conversationVersion) || (CONVERSATION_V4 == conversationVersion));
-
-    /* The conversation version itself is computed by taking (currentAuthVersion >> 16). We return true
-     * if the current conversation version does NOT apply to the conversation version for the message being hashed.
-     */
-    if (CONVERSATION_V4 == conversationVersion) {
-        return ((currentAuthVersion >> 16) != CONVERSATION_V4);
-    } else {
-        return ((currentAuthVersion >> 16) >= CONVERSATION_V4);
-    }
-}
-
-void AJ_ConversationHash_Update_UInt8(AJ_AuthenticationContext* ctx, uint32_t conversationVersion, uint8_t byte)
-{
-    if (ConversationVersionDoesNotApply(conversationVersion, ctx->version)) {
-        return;
-    }
-    AJ_SHA256_Update(ctx->hash, &byte, sizeof(byte));
-}
-
-static void ConversationHash_Update_UInt32(AJ_AuthenticationContext* ctx, uint32_t u32)
-{
-    uint8_t u32LE[sizeof(uint32_t)];
-    HostU32ToLittleEndianU8(&u32, sizeof(u32), u32LE);
-    AJ_SHA256_Update(ctx->hash, u32LE, sizeof(u32LE));
-}
-
-void AJ_ConversationHash_Update_UInt8Array(AJ_AuthenticationContext* ctx, uint32_t conversationVersion, const uint8_t* buf, size_t bufSize)
-{
-    if (ConversationVersionDoesNotApply(conversationVersion, ctx->version)) {
-        return;
-    }
-    if (conversationVersion >= CONVERSATION_V4) {
-        AJ_ASSERT(bufSize <= 0xFFFFFFFF);
-        ConversationHash_Update_UInt32(ctx, (uint32_t)bufSize);
-    }
-    AJ_SHA256_Update(ctx->hash, buf, bufSize);
-}
-
-void AJ_ConversationHash_Update_String(AJ_AuthenticationContext* ctx, uint32_t conversationVersion, const char* str, size_t strSize)
-{
-    AJ_ConversationHash_Update_UInt8Array(ctx, conversationVersion, (const uint8_t*)str, strSize);
-}
-
-void AJ_ConversationHash_Update_Message(AJ_AuthenticationContext* ctx, uint32_t conversationVersion, AJ_Message* msg, uint8_t isMarshaledMessage)
-{
-    uint8_t* data;
-    uint32_t size;
-    AJ_MsgHeader hdr;
-
-    if (ConversationVersionDoesNotApply(conversationVersion, ctx->version)) {
-        return;
-    }
-
-    AJ_ASSERT((HASH_MSG_UNMARSHALED == isMarshaledMessage) || (HASH_MSG_MARSHALED == isMarshaledMessage));
-
-    AJ_ASSERT(!(msg->hdr->flags & AJ_FLAG_ENCRYPTED));
-
-    if (HASH_MSG_MARSHALED == isMarshaledMessage) {
-        /* msg->hdr->bodyLen gets set by AJ_DeliverMsg when the message is sent out. We set it here as well
-         * so that the buffer we hash equals what will actually go out on the wire.
-         */
-        AJ_ASSERT(0 == msg->hdr->bodyLen);
-        msg->hdr->bodyLen = msg->bodyBytes;
-        data = msg->bus->sock.tx.bufStart;
-        size = sizeof(AJ_MsgHeader) + msg->hdr->headerLen + HEADERPAD(msg->hdr->headerLen) + msg->hdr->bodyLen;
-        AJ_ConversationHash_Update_UInt8Array(ctx, conversationVersion, data, size);
-    } else {
-        /*
-         * AJ_UnmarshalMsg ensures that the Peer.Authentication interface messages are loaded into the buffer.
-         * The message header may have been endian swapped, so we use the raw header saved during AJ_UnmarshalMsg.
-         */
-        data = msg->bus->sock.rx.bufStart;
-        size = sizeof(AJ_MsgHeader) + msg->hdr->headerLen + HEADERPAD(msg->hdr->headerLen) + msg->hdr->bodyLen;
-        /* Save the current header */
-        memcpy(&hdr, data, sizeof(AJ_MsgHeader));
-        /* Replace with original header */
-        memcpy(data, &msg->raw, sizeof(AJ_MsgHeader));
-        AJ_ConversationHash_Update_UInt8Array(ctx, conversationVersion, data, size);
-        /* Put the header back */
-        memcpy(data, &hdr, sizeof(AJ_MsgHeader));
-    }
-
-}
-
-AJ_Status AJ_ConversationHash_GetDigest(AJ_AuthenticationContext* ctx)
-{
-    return AJ_SHA256_GetDigest(ctx->hash, ctx->digest);
-}
-
-AJ_Status AJ_ConversationHash_Reset(AJ_AuthenticationContext* ctx)
-{
-    AJ_Status status;
-
-    status = AJ_SHA256_Final(ctx->hash, NULL);
-
-    if (status == AJ_OK) {
-        status = AJ_ConversationHash_Initialize(ctx);
-    }
-
-    return status;
-}
