@@ -6,12 +6,18 @@ Import('env')
 vars = Variables()
 vars.Add(BoolVariable('FORCE32',   'Force building 32 bit on 64 bit architecture',           os.environ.get('AJ_FORCE32', False)))
 vars.Add(BoolVariable('NO_AUTH',   "Compile in authentication mechanism's to the code base", os.environ.get('AJ_NO_AUTH', False)))
+vars.Add(PathVariable('MOSQUITTO_SRC', 'Directory to the Mosquitto dylib files on darwin',     os.environ.get('MOSQUITTO_SRC'), PathVariable.PathIsDir))
 vars.Update(env)
 Help(vars.GenerateHelpText(env))
 
-
 # Platform libraries
 env.Append(LIBS = ['rt', 'pthread'])
+
+# If we are building with Mosquitto then add the lib and header search path
+if env.has_key('MOSQUITTO_SRC') and env['MOSQUITTO_SRC']:
+   env.Append(LIBPATH = Dir([env['MOSQUITTO_SRC']]))
+   env.Append(CPPPATH = Dir([env['MOSQUITTO_SRC']]))
+   env.Append(LIBS = ['mosquitto', 'ssl', 'crypto'])
 
 # Cross compile setup
 if os.environ.has_key('CROSS_PREFIX'):
