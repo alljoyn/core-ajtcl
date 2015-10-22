@@ -764,8 +764,11 @@ AJ_Status AJ_SecurityClaimMethod(AJ_Message* msg, AJ_Message* reply)
     /* Validate Identity chain */
     status = VerifyIdentityCertificateChain(identity, &ca.pub, &manifest_data);
     if (AJ_OK != status) {
-        AJ_InfoPrintf(("AJ_SecurityClaimMethod(msg=%p, reply=%p): %s\n", msg, reply, AJ_StatusText(status)));
-        goto Exit;
+        status = VerifyIdentityCertificateChain(identity, &admin.pub, &manifest_data);
+        if (AJ_OK != status) {
+            AJ_InfoPrintf(("AJ_SecurityClaimMethod(msg=%p, reply=%p): %s\n", msg, reply, AJ_StatusText(status)));
+            goto Exit;
+        }
     }
 
     /* Store identity certificate as raw marshalled body */
@@ -1127,6 +1130,7 @@ AJ_Status AJ_SecurityInstallMembershipMethod(AJ_Message* msg, AJ_Message* reply)
 Exit:
     AJ_CredFieldFree(&id);
     AJ_CredFieldFree(&membership_data);
+    AJ_X509ChainFree(membership);
     if (AJ_OK == status) {
         return AJ_MarshalReplyMsg(msg, reply);
     } else {
