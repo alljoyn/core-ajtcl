@@ -2,19 +2,32 @@
  * @file
  */
 /******************************************************************************
- * Copyright AllSeen Alliance. All rights reserved.
+ *  *    Copyright (c) Open Connectivity Foundation (OCF) and AllJoyn Open
+ *    Source Project (AJOSP) Contributors and others.
  *
- *    Permission to use, copy, modify, and/or distribute this software for any
- *    purpose with or without fee is hereby granted, provided that the above
- *    copyright notice and this permission notice appear in all copies.
+ *    SPDX-License-Identifier: Apache-2.0
  *
- *    THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- *    WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- *    MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- *    ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- *    WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- *    ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ *    All rights reserved. This program and the accompanying materials are
+ *    made available under the terms of the Apache License, Version 2.0
+ *    which accompanies this distribution, and is available at
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *    Copyright (c) Open Connectivity Foundation and Contributors to AllSeen
+ *    Alliance. All rights reserved.
+ *
+ *    Permission to use, copy, modify, and/or distribute this software for
+ *    any purpose with or without fee is hereby granted, provided that the
+ *    above copyright notice and this permission notice appear in all
+ *    copies.
+ *
+ *     THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL
+ *     WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED
+ *     WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE
+ *     AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL
+ *     DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR
+ *     PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
+ *     TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+ *     PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
 /**
@@ -126,6 +139,7 @@ static AJ_Status ReadLine(AJ_IOBuffer* rxBuf) {
     while ((AJ_IO_BUF_AVAIL(rxBuf) == 0) || (*(rxBuf->writePtr - 1) != '\n')) {
         status = rxBuf->recv(rxBuf, AJ_IO_BUF_SPACE(rxBuf), 3500);
         if (status != AJ_OK) {
+            AJ_ErrPrintf(("ReadLine(): status=%s\n", AJ_StatusText(status)));
             break;
         }
     }
@@ -195,6 +209,9 @@ static AJ_Status AnonymousAuthAdvance(AJ_IOBuffer* rxBuf, AJ_IOBuffer* txBuf) {
         strcat(buf, "\n");
         status = WriteLine(txBuf, buf);
         ResetRead(rxBuf);
+    }
+    if (status != AJ_OK) {
+        AJ_ErrPrintf(("AnonymousAuthAdvance(): status=%s\n", AJ_StatusText(status)));
     }
     return status;
 }
@@ -284,8 +301,8 @@ AJ_Status AJ_Authenticate(AJ_BusAttachment* bus)
             status = AJ_UnmarshalArg(&helloResponse, &arg);
             if (status == AJ_OK) {
                 if (arg.len >= (sizeof(bus->uniqueName) - 1)) {
-                    AJ_ErrPrintf(("AJ_Authenticate(): AJ_ERR_RESOURCES\n"));
-                    status = AJ_ERR_RESOURCES;
+                    AJ_ErrPrintf(("AJ_Authenticate(): AJ_ERR_ACCESS_ROUTING_NODE\n"));
+                    status = AJ_ERR_ACCESS_ROUTING_NODE;
                 } else {
                     memcpy(bus->uniqueName, arg.val.v_string, arg.len);
                     bus->uniqueName[arg.len] = '\0';
@@ -529,10 +546,12 @@ AJ_Status AJ_FindBusAndConnect(AJ_BusAttachment* bus, const char* serviceName, u
         status = AJ_Authenticate(bus);
         if (status != AJ_OK) {
             AJ_InfoPrintf(("AJ_FindBusAndConnect(): AJ_Authenticate status=%s\n", AJ_StatusText(status)));
-
 #if !AJ_CONNECT_LOCALHOST && !defined(ARDUINO) && !defined(AJ_SERIAL_CONNECTION)
-            AJ_InfoPrintf(("AJ_FindBusAndConnect(): Blacklisting routing node"));
-            AddRoutingNodeToBlacklist(&service);
+            if ((status == AJ_ERR_ACCESS_ROUTING_NODE) || (status == AJ_ERR_OLD_VERSION)) {
+                AJ_InfoPrintf(("AJ_FindBusAndConnect(): Blacklisting routing node\n"));
+                AddRoutingNodeToBlacklist(&service);
+            }
+            AJ_Disconnect(bus);
             // try again
             finished = FALSE;
             connectionTime -= AJ_GetElapsedTime(&connectionTimer, FALSE);
@@ -555,9 +574,13 @@ AJ_Status AJ_FindBusAndConnect(AJ_BusAttachment* bus, const char* serviceName, u
                 if (status == AJ_OK) {
                     finished = TRUE;
                     break;
-                } else {
-                    connectionTime -= AJ_GetElapsedTime(&connectionTimer, FALSE);
                 }
+                if ((status == AJ_ERR_ACCESS_ROUTING_NODE) || (status == AJ_ERR_OLD_VERSION)) {
+                    AJ_InfoPrintf(("AJ_FindBusAndConnect(): Blacklisting another routing node\n"));
+                    AddRoutingNodeToBlacklist(&service);
+                }
+                AJ_Disconnect(bus);
+                connectionTime -= AJ_GetElapsedTime(&connectionTimer, FALSE);
             }
 #endif
         }
