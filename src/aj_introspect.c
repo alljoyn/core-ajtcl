@@ -1497,22 +1497,14 @@ AJ_Status AJ_RegisterObjectsACL()
 {
     AJ_Status status;
 
-    status = AJ_AuthorisationRegister(objectLists[AJ_BUS_ID_FLAG], AJ_BUS_ID_FLAG);
-    if (AJ_OK != status) {
-        AJ_WarnPrintf(("AJ_RegisterObjectsACL(): AJ_BUS_ID_FLAG %s\n", AJ_StatusText(status)));
-        return status;
+    int i;
+    for (i = 0; i < AJ_MAX_OBJECT_LISTS; i++) {
+        status = AJ_AuthorisationRegister(objectLists[i], i);
+        if (AJ_OK != status) {
+            AJ_WarnPrintf(("AJ_RegisterObjectsACL(): index(%d) %s\n", i, AJ_StatusText(status)));
+            return status;
+        }
     }
-    status = AJ_AuthorisationRegister(objectLists[AJ_APP_ID_FLAG], AJ_APP_ID_FLAG);
-    if (AJ_OK != status) {
-        AJ_WarnPrintf(("AJ_RegisterObjectsACL(): AJ_APP_ID_FLAG %s\n", AJ_StatusText(status)));
-        return status;
-    }
-    status = AJ_AuthorisationRegister(objectLists[AJ_PRX_ID_FLAG], AJ_PRX_ID_FLAG);
-    if (AJ_OK != status) {
-        AJ_WarnPrintf(("AJ_RegisterObjectsACL(): AJ_PRX_ID_FLAG %s\n", AJ_StatusText(status)));
-        return status;
-    }
-
     return AJ_OK;
 }
 
