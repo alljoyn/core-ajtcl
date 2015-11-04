@@ -32,6 +32,7 @@ extern "C" {
 #include <ajtcl/aj_net.h>
 #include <ajtcl/aj_status.h>
 #include <ajtcl/aj_target.h>
+#include <ajtcl/aj_config.h>
 
 /**
  * @brief Per-protocol-instance (global) configuration variables.
@@ -49,7 +50,7 @@ extern "C" {
 #define UDP_MINIMUM_TIMEOUT 100 /**< The minimum amount of time between calls to ARDP_Recv, should not be greater than any of the timeout values above */
 
 #define UDP_SEGBMAX 1472  /**< Maximum size of an ARDP segment (quantum of reliable transmission) */
-#define UDP_SEGMAX 2  /**< Maximum number of ARDP segment in-flight (bandwidth-delay product sizing) */
+#define UDP_SEGMAX ((AJ_TX_DATA_SIZE  + UDP_SEGBMAX - 1) / UDP_SEGBMAX)  /**< Maximum number of ARDP segments in-flight (bandwidth-delay product sizing) */
 
 
 /* Protocol specific values */
@@ -58,7 +59,7 @@ extern "C" {
 #define ARDP_TTL_INFINITE   0
 
 /*
- * SEGMAX and SEGBMAX  on both send and receive sides are inidcted by SYN header in Connection request:
+ * SEGMAX and SEGBMAX  on both send and receive sides are indicated by SYN header in Connection request:
  * the acceptor cannot modify these parameters, only reject in case the request cannot be accomodated.
  * No EACKs: only acknowledge segments received in sequence.
  */
