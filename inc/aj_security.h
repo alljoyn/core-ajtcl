@@ -139,6 +139,18 @@ AJ_Status AJ_SecurityClaimMethod(AJ_Message* msg, AJ_Message* reply);
  */
 AJ_Status AJ_SecurityResetMethod(AJ_Message* msg, AJ_Message* reply);
 
+
+/**
+ * Helper method to perform reset
+ *
+ * @param bus          The bus attachment
+ *
+ * @return  Return AJ_Status
+ *          - AJ_OK on success
+ *          - AJ_ERR_SECURITY on all failures
+ */
+AJ_Status AJ_SecurityResetHelper(AJ_BusAttachment* bus);
+
 /**
  * Handle an update identity message
  *
