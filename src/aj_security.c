@@ -863,7 +863,6 @@ AJ_Status AJ_SecurityResetMethod(AJ_Message* msg, AJ_Message* reply)
         goto Exit;
     }
 
-    AJ_ASSERT((APP_STATE_CLAIMED == g_config.state) || (APP_STATE_NEED_UPDATE == g_config.state));
     /* Set claim state and save to nvram */
     g_config.state = APP_STATE_NOT_CLAIMABLE;
     status = SaveClaimConfig();
