@@ -97,4 +97,10 @@ extern uint8_t dbgTARGET_UTIL;
 
 #define AJ_GetDebugTime(x) _AJ_GetDebugTime(x)
 
+#if (__GNUC__ >= 4) || ((__GNUC__ == 3) && (__GNUC_MINOR__ >= 1))
+#define AJ_DEPRECATED(func) func __attribute__((deprecated)) /**< mark a function as deprecated in gcc. */
+#else
+#define AJ_DEPRECATED(func) func  /**< not all gcc versions support the deprecated attribute. */
+#endif
+
 #endif

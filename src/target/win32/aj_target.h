@@ -87,6 +87,8 @@ extern uint8_t dbgTARGET_UTIL;
 
 #define inline __inline
 
+#define AJ_DEPRECATED(func) __declspec(deprecated) func
+
 /*
  * Main method allows argc, argv
  */
