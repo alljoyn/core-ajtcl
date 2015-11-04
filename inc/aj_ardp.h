@@ -45,7 +45,6 @@ extern "C" {
 #define UDP_KEEPALIVE_RETRIES 5  /**< How many times do we try to probe on an idle link before terminating the connection */
 #define UDP_FAST_RETRANSMIT_ACK_COUNTER 1  /**< How many duplicate acknowledgements to we need to trigger a data retransmission */
 #define UDP_DELAYED_ACK_TIMEOUT 100 /**< How long do we wait until acknowledging received segments */
-#define UDP_BACKPRESSURE_TIMEOUT 100 /**< How long can backpressure block the program before a disconnect is triggered? */
 #define UDP_DISCONNECT_TIMEOUT 1000  /**< How long can disconnect block the program waiting for TX queue to drain */
 #define UDP_MINIMUM_TIMEOUT 100 /**< The minimum amount of time between calls to ARDP_Recv, should not be greater than any of the timeout values above */
 
