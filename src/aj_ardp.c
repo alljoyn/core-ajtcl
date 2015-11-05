@@ -76,6 +76,12 @@ uint8_t dbgARDP = 0;
 /* Minimum Delayed ACK Timeout */
 #define ARDP_MIN_DELAYED_ACK_TIMEOUT 10
 
+/* ARDP backpressure relief retry interval  */
+#define ARDP_BACKPRESSURE_INTERVAL 100
+
+/* ARDP backpressure relief maximum number of retries */
+#define ARDP_MAX_BACKPRESSURE_RETRIES ((UDP_LINK_TIMEOUT) / (ARDP_BACKPRESSURE_INTERVAL))
+
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define ABS(a) ((a) >= 0 ? (a) : -(a))
@@ -1169,6 +1175,7 @@ AJ_Status AJ_ARDP_Send(AJ_IOBuffer* buf)
 {
     size_t tx = AJ_IO_BUF_AVAIL(buf);
     AJ_Status status = AJ_OK;
+    uint32_t retry = 0;
 
     AJ_InfoPrintf(("AJ_ARDP_Send(buf=0x%p)\n", buf));
 
@@ -1185,11 +1192,14 @@ AJ_Status AJ_ARDP_Send(AJ_IOBuffer* buf)
         if (status == AJ_ERR_ARDP_BACKPRESSURE) {
             do {
                 AJ_InfoPrintf(("AJ_ARDP_Send: dealing with backpressure\n"));
+                if (++retry >= ARDP_MAX_BACKPRESSURE_RETRIES) {
+                    return AJ_ERR_WRITE;
+                }
                 /*
                  * If we can't make room in the send window within a certain amount of time,
                  * assume that the connection has failed.
                  */
-                status = AJ_ARDP_Recv(&conn->netSock->rx, 0, UDP_BACKPRESSURE_TIMEOUT);
+                status = AJ_ARDP_Recv(&conn->netSock->rx, 0, ARDP_BACKPRESSURE_INTERVAL);
 
                 if (status != AJ_OK && status != AJ_ERR_TIMEOUT) {
                     /* Something has gone wrong */
@@ -1198,6 +1208,7 @@ AJ_Status AJ_ARDP_Send(AJ_IOBuffer* buf)
                 }
 
                 status = ARDP_Send(buf->readPtr, tx);
+
                 /* Loop while backpressure continues */
             } while (status == AJ_ERR_ARDP_BACKPRESSURE);
         } else if (status != AJ_OK) {

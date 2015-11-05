@@ -552,6 +552,7 @@ AJ_Status AJ_MarshalStatusMsgAsync(AJ_MsgReplyContext* replyCtx, AJ_Message* rep
  * @return
  *          - AJ_OK if the message was succesfully delivered
  *          - AJ_ERR_MARSHAL if the message arguments were incompletely marshaled
+ *          - AJ_ERR_WRITE if there was a write failure
  */
 AJ_EXPORT
 AJ_Status AJ_DeliverMsg(AJ_Message* msg);
@@ -570,7 +571,7 @@ AJ_Status AJ_DeliverMsg(AJ_Message* msg);
  * @return
  *          - AJ_OK if the message partial delivery was successful
  *          - AJ_ERR_SIGNATURE if there are no arguments left to marshal
- *
+ *          - AJ_ERR_WRITE if there was a write failure
  */
 AJ_EXPORT
 AJ_Status AJ_DeliverMsgPartial(AJ_Message* msg, uint32_t bytesRemaining);
