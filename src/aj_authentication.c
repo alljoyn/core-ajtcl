@@ -1012,20 +1012,22 @@ static AJ_Status ECDSAUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg, 
         if (AJ_OK == status) {
             trusted = 1;
         }
-    }
 
-    /* Last resort, ask the application to verify the chain */
-    if (!trusted && (NULL != ctx->bus->authListenerCallback)) {
-        AJ_InfoPrintf(("ECDSAUnmarshal(ctx=%p, msg=%p): Certificate authority unknown or chain invalid\n", ctx, msg));
-        /* Ask the application to verify the chain */
-        cred.direction = AJ_CRED_RESPONSE;
-        cred.data = (uint8_t*) root;
-        status = ctx->bus->authListenerCallback(AUTH_SUITE_ECDHE_ECDSA, AJ_CRED_CERT_CHAIN, &cred);
-        if (AJ_OK != status) {
-            AJ_InfoPrintf(("ECDSAUnmarshal(ctx=%p, msg=%p): Certificate chain invalid\n", ctx, msg));
-            goto Exit;
+        /* Last resort, ask the application to verify the chain */
+        if (!trusted && (NULL != ctx->bus->authListenerCallback)) {
+            AJ_InfoPrintf(("ECDSAUnmarshal(ctx=%p, msg=%p): Certificate authority unknown\n", ctx, msg));
+            /* Ask the application to verify the chain */
+            cred.direction = AJ_CRED_RESPONSE;
+            cred.data = (uint8_t*) root;
+            status = ctx->bus->authListenerCallback(AUTH_SUITE_ECDHE_ECDSA, AJ_CRED_CERT_CHAIN, &cred);
+            if (AJ_OK != status) {
+                AJ_InfoPrintf(("ECDSAUnmarshal(ctx=%p, msg=%p): Certificate chain rejected by app\n", ctx, msg));
+                goto Exit;
+            }
+            trusted = 1;
         }
-        trusted = 1;
+    } else {
+        AJ_InfoPrintf(("ECDSAUnmarshal(ctx=%p, msg=%p): Certificate chain invalid\n", ctx, msg));
     }
 
 Exit:
