@@ -96,8 +96,8 @@ static AJ_AuthenticationContext authContext = { 0 };
 
 static uint32_t GetAcceptableVersion(uint32_t srcV)
 {
-    uint16_t authV = srcV >> 16;
-    uint16_t keyV = srcV & 0xFFFF;
+    uint16_t authV = AJ_UNPACK_AUTH_VERSION(srcV);
+    uint16_t keyV = AJ_UNPACK_KEYGEN_VERSION(srcV);
 
     if ((authV < MIN_AUTH_VERSION) || (authV > MAX_AUTH_VERSION)) {
         return 0;
@@ -190,7 +190,7 @@ static void HandshakeComplete(AJ_Status status)
     /* If ECDSA/PSK failed, try NULL */
     if ((AJ_OK != status) &&
         (AUTH_SUITE_ECDHE_NULL != authContext.suite) &&
-        AJ_IsSuiteEnabled(authContext.bus, AUTH_SUITE_ECDHE_NULL, authContext.version >> 16)) {
+        AJ_IsSuiteEnabled(authContext.bus, AUTH_SUITE_ECDHE_NULL, AJ_UNPACK_AUTH_VERSION(authContext.version))) {
         if (AUTH_CLIENT == authContext.role) {
             authContext.suite = AUTH_SUITE_ECDHE_NULL;
             KeyExchange(authContext.bus);
@@ -702,13 +702,13 @@ static AJ_Status ExchangeSuites(AJ_Message* msg)
     /*
      * Send suites in this priority order
      */
-    if (AJ_IsSuiteEnabled(msg->bus, AUTH_SUITE_ECDHE_ECDSA, authContext.version >> 16)) {
+    if (AJ_IsSuiteEnabled(msg->bus, AUTH_SUITE_ECDHE_ECDSA, AJ_UNPACK_AUTH_VERSION(authContext.version))) {
         suites[num++] = AUTH_SUITE_ECDHE_ECDSA;
     }
-    if (AJ_IsSuiteEnabled(msg->bus, AUTH_SUITE_ECDHE_PSK, authContext.version >> 16)) {
+    if (AJ_IsSuiteEnabled(msg->bus, AUTH_SUITE_ECDHE_PSK, AJ_UNPACK_AUTH_VERSION(authContext.version))) {
         suites[num++] = AUTH_SUITE_ECDHE_PSK;
     }
-    if (AJ_IsSuiteEnabled(msg->bus, AUTH_SUITE_ECDHE_NULL, authContext.version >> 16)) {
+    if (AJ_IsSuiteEnabled(msg->bus, AUTH_SUITE_ECDHE_NULL, AJ_UNPACK_AUTH_VERSION(authContext.version))) {
         suites[num++] = AUTH_SUITE_ECDHE_NULL;
     }
     if (!num) {
@@ -811,7 +811,7 @@ AJ_Status AJ_PeerHandleExchangeSuites(AJ_Message* msg, AJ_Message* reply)
      * If it's enabled, marshal the suite to send to the other peer.
      */
     for (i = 0; i < numsuites; i++) {
-        if (AJ_IsSuiteEnabled(msg->bus, suites[i], authContext.version >> 16)) {
+        if (AJ_IsSuiteEnabled(msg->bus, suites[i], AJ_UNPACK_AUTH_VERSION(authContext.version))) {
             status = AJ_MarshalArgs(reply, "u", suites[i]);
             if (AJ_OK != status) {
                 goto Exit;
@@ -880,7 +880,7 @@ AJ_Status AJ_PeerHandleExchangeSuitesReply(AJ_Message* msg)
      */
     authContext.suite = 0;
     for (i = 0; i < numsuites; i++) {
-        if (AJ_IsSuiteEnabled(msg->bus, suites[i], authContext.version >> 16)) {
+        if (AJ_IsSuiteEnabled(msg->bus, suites[i], AJ_UNPACK_AUTH_VERSION(authContext.version))) {
             // Pick the highest priority suite, which happens to be the highest integer
             authContext.suite = (suites[i] > authContext.suite) ? suites[i] : authContext.suite;
         }
@@ -966,7 +966,7 @@ AJ_Status AJ_PeerHandleKeyExchange(AJ_Message* msg, AJ_Message* reply)
     if (AJ_OK != status) {
         goto Exit;
     }
-    if (!AJ_IsSuiteEnabled(msg->bus, authContext.suite, authContext.version >> 16)) {
+    if (!AJ_IsSuiteEnabled(msg->bus, authContext.suite, AJ_UNPACK_AUTH_VERSION(authContext.version))) {
         goto Exit;
     }
     HostU32ToBigEndianU8(&authContext.suite, sizeof (authContext.suite), suiteb8);
@@ -1596,7 +1596,7 @@ AJ_Status AJ_PeerHandleExchangeGroupKeysReply(AJ_Message* msg)
     if (AJ_OK != status) {
         goto Exit;
     }
-    if ((AUTH_SUITE_ECDHE_ECDSA == authContext.suite) && ((authContext.version >> 16) >= 4)) {
+    if ((AUTH_SUITE_ECDHE_ECDSA == authContext.suite) && (AJ_UNPACK_AUTH_VERSION(authContext.version) >= CONVERSATION_V4)) {
         status = SendManifest(msg);
     } else {
         HandshakeComplete(status);
@@ -2041,7 +2041,7 @@ static void UnmarshalCertificates(AJ_Message* msg)
     /* Initial chain verification to validate intermediate issuers.
      * Type is ignored for auth version < 4.
      */
-    if ((authContext.version >> 16) < 4) {
+    if (AJ_UNPACK_AUTH_VERSION(authContext.version) < CONVERSATION_V4) {
         type = 0;
     } else {
         type = AJ_CERTIFICATE_MBR_X509;

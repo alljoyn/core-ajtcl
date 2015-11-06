@@ -83,7 +83,7 @@ static AJ_Status ComputePSKVerifier(AJ_AuthenticationContext* ctx, const char* l
     uint8_t lens[5];
 
     /* Use the old method for < CONVERSATION_V4. */
-    if ((ctx->version >> 16) < CONVERSATION_V4) {
+    if (AJ_UNPACK_AUTH_VERSION(ctx->version) < CONVERSATION_V4) {
         return ComputeVerifier(ctx, label, buffer, bufferlen);
     }
 
@@ -162,7 +162,7 @@ static AJ_Status ECDHEMarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
         }
     }
 
-    switch (ctx->version >> 16) {
+    switch (AJ_UNPACK_AUTH_VERSION(ctx->version)) {
     case 1:
     case 2:
         status = ECDHEMarshalV1(ctx, msg);
@@ -344,7 +344,7 @@ static AJ_Status ECDHEUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
         }
     }
 
-    switch (ctx->version >> 16) {
+    switch (AJ_UNPACK_AUTH_VERSION(ctx->version)) {
     case 1:
     case 2:
         status = ECDHEUnmarshalV1(ctx, msg);
@@ -518,7 +518,7 @@ static AJ_Status PSKCallbackV1(AJ_AuthenticationContext* ctx, AJ_Message* msg)
     AJ_ConversationHash_SetSensitiveMode(ctx, TRUE);
     AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, ctx->kactx.psk.key, ctx->kactx.psk.keySize);
     AJ_ConversationHash_SetSensitiveMode(ctx, FALSE);
-    if (ctx->version < CONVERSATION_V4) {
+    if (AJ_UNPACK_AUTH_VERSION(ctx->version) < CONVERSATION_V4) {
         status = AJ_ConversationHash_GetDigest(ctx);
     }
 
@@ -563,7 +563,7 @@ static AJ_Status PSKCallbackV2(AJ_AuthenticationContext* ctx, AJ_Message* msg)
     AJ_ConversationHash_SetSensitiveMode(ctx, TRUE);
     AJ_ConversationHash_Update_UInt8Array(ctx, CONVERSATION_V1, cred.data, cred.len);
     AJ_ConversationHash_SetSensitiveMode(ctx, FALSE);
-    if (ctx->version < CONVERSATION_V4) {
+    if (AJ_UNPACK_AUTH_VERSION(ctx->version) < CONVERSATION_V4) {
         status = AJ_ConversationHash_GetDigest(ctx);
         if (AJ_OK != status) {
             return status;
@@ -998,7 +998,7 @@ static AJ_Status ECDSAUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg, 
     /* Initial chain verification to validate intermediate issuers.
      * Type is ignored for auth version < 4.
      */
-    if ((version >> 16) < 4) {
+    if (AJ_UNPACK_AUTH_VERSION(version) < CONVERSATION_V4) {
         type = 0;
     } else {
         type = AJ_CERTIFICATE_IDN_X509;
@@ -1023,20 +1023,22 @@ static AJ_Status ECDSAUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg, 
         if (AJ_OK == status) {
             trusted = 1;
         }
-    }
 
-    /* Last resort, ask the application to verify the chain */
-    if (!trusted && (NULL != ctx->bus->authListenerCallback)) {
-        AJ_InfoPrintf(("ECDSAUnmarshal(ctx=%p, msg=%p): Certificate authority unknown or chain invalid\n", ctx, msg));
-        /* Ask the application to verify the chain */
-        cred.direction = AJ_CRED_RESPONSE;
-        cred.data = (uint8_t*) root;
-        status = ctx->bus->authListenerCallback(AUTH_SUITE_ECDHE_ECDSA, AJ_CRED_CERT_CHAIN, &cred);
-        if (AJ_OK != status) {
-            AJ_InfoPrintf(("ECDSAUnmarshal(ctx=%p, msg=%p): Certificate chain invalid\n", ctx, msg));
-            goto Exit;
+        /* Last resort, ask the application to verify the chain */
+        if (!trusted && (NULL != ctx->bus->authListenerCallback)) {
+            AJ_InfoPrintf(("ECDSAUnmarshal(ctx=%p, msg=%p): Certificate authority unknown\n", ctx, msg));
+            /* Ask the application to verify the chain */
+            cred.direction = AJ_CRED_RESPONSE;
+            cred.data = (uint8_t*) root;
+            status = ctx->bus->authListenerCallback(AUTH_SUITE_ECDHE_ECDSA, AJ_CRED_CERT_CHAIN, &cred);
+            if (AJ_OK != status) {
+                AJ_InfoPrintf(("ECDSAUnmarshal(ctx=%p, msg=%p): Certificate chain rejected by app\n", ctx, msg));
+                goto Exit;
+            }
+            trusted = 1;
         }
-        trusted = 1;
+    } else {
+        AJ_InfoPrintf(("ECDSAUnmarshal(ctx=%p, msg=%p): Certificate chain invalid\n", ctx, msg));
     }
 
 Exit:

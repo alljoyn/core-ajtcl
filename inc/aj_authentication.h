@@ -62,6 +62,13 @@ extern "C" {
 #define CONVERSATION_V1 ((uint32_t)0x0000)
 #define CONVERSATION_V4 ((uint32_t)0x0004)
 
+/* The authentication conversation version is stored in the upper 16
+ * bits of the version value, and the keygen version is stored in the
+ * lower 16 bits
+ */
+#define AJ_UNPACK_AUTH_VERSION(v)   ((v) >> 16)
+#define AJ_UNPACK_KEYGEN_VERSION(v) ((v) & 0xFFFF)
+
 typedef struct _KeyExchangeContext {
     AJ_ECCPublicKey pub;
     AJ_ECCPrivateKey prv;
