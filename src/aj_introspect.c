@@ -156,7 +156,7 @@ static const char annotateSecure[] = "  <annotation name=\"org.alljoyn.Bus.Secur
 static const char secureTrue[] = "true\"/>\n";
 static const char secureOff[] = "off\"/>\n";
 
-
+static const char annotateNoRetMethod[] = "  <annotation name=\"org.freedesktop.DBus.Method.NoReply\" value=\"true\"/>\n";
 
 static char ExpandAttribute(XMLWriterFunc XMLWriter, void* context, const char** str, const char* pre, const char* post)
 {
@@ -323,6 +323,11 @@ static AJ_Status ExpandInterfaces(XMLWriterFunc XMLWriter, void* context, const 
                     }
                 }
                 XMLWriter(context, ">\n", 2);
+
+                if (!attr && memberType == METHOD){
+                    XMLWriter(context, annotateNoRetMethod, sizeof(annotateNoRetMethod) - 1);
+                }
+
                 while (attr) {
                     uint8_t dir;
 
