@@ -850,14 +850,25 @@ Exit:
  */
 AJ_Status AJ_SecurityResetMethod(AJ_Message* msg, AJ_Message* reply)
 {
+    AJ_InfoPrintf(("AJ_SecurityResetMethod(msg=%p, reply=%p)\n", msg, reply));
+
+    AJ_Status status = AJ_SecurityReset(msg->bus);
+
+    if (AJ_OK != status) {
+        return AJ_MarshalErrorMsg(msg, reply, AJ_ErrSecurityViolation);
+    } else {
+        return AJ_MarshalReplyMsg(msg, reply);
+    }
+}
+
+AJ_Status AJ_SecurityReset(AJ_BusAttachment* bus)
+{
     AJ_Status status;
     AJ_ECCPublicKey pub;
     AJ_ECCPrivateKey prv;
 
-    AJ_InfoPrintf(("AJ_SecurityResetMethod(msg=%p, reply=%p)\n", msg, reply));
-
-    if (msg->bus->factoryResetCallback) {
-        status = msg->bus->factoryResetCallback();
+    if (bus->factoryResetCallback) {
+        status = bus->factoryResetCallback();
         if (AJ_OK != status) {
             goto Exit;
         }
@@ -882,7 +893,6 @@ AJ_Status AJ_SecurityResetMethod(AJ_Message* msg, AJ_Message* reply)
         goto Exit;
     }
 
-    AJ_ASSERT((APP_STATE_CLAIMED == g_config.state) || (APP_STATE_NEED_UPDATE == g_config.state));
     /* Set claim state and save to nvram */
     g_config.state = APP_STATE_NOT_CLAIMABLE;
     status = SaveClaimConfig();
@@ -896,14 +906,15 @@ AJ_Status AJ_SecurityResetMethod(AJ_Message* msg, AJ_Message* reply)
     /* Clear session keys, can't do it now because we need to reply */
     clear = TRUE;
 
-    if (msg->bus->policyChangedCallback) {
-        msg->bus->policyChangedCallback();
+    if (bus->policyChangedCallback) {
+        bus->policyChangedCallback();
     }
 
-    return AJ_MarshalReplyMsg(msg, reply);
+    return AJ_OK;
 Exit:
-    return AJ_MarshalErrorMsg(msg, reply, AJ_ErrSecurityViolation);
+    return AJ_ERR_SECURITY;
 }
+
 
 AJ_Status AJ_SecurityUpdateIdentityMethod(AJ_Message* msg, AJ_Message* reply)
 {

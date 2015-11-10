@@ -129,6 +129,7 @@ AJ_Status AJ_SecurityClaimMethod(AJ_Message* msg, AJ_Message* reply);
 
 /**
  * Handle a reset message
+ * Bus method handler for a MANAGED_RESET method call
  *
  * @param msg          The reset message
  * @param reply        The reset reply message
@@ -138,6 +139,19 @@ AJ_Status AJ_SecurityClaimMethod(AJ_Message* msg, AJ_Message* reply);
  *          - AJ_ERR_SECURITY on all failures
  */
 AJ_Status AJ_SecurityResetMethod(AJ_Message* msg, AJ_Message* reply);
+
+
+/**
+ * Perform a security reset
+ * Function called by the application to initiate a security reset
+ *
+ * @param bus          The bus attachment
+ *
+ * @return  Return AJ_Status
+ *          - AJ_OK on success
+ *          - AJ_ERR_SECURITY on all failures
+ */
+AJ_Status AJ_SecurityReset(AJ_BusAttachment* bus);
 
 /**
  * Handle an update identity message

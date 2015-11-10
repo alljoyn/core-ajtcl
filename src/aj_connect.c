@@ -137,6 +137,7 @@ static AJ_Status ReadLine(AJ_IOBuffer* rxBuf)
     while ((AJ_IO_BUF_AVAIL(rxBuf) == 0) || (*(rxBuf->writePtr - 1) != '\n')) {
         status = rxBuf->recv(rxBuf, AJ_IO_BUF_SPACE(rxBuf), 3500);
         if (status != AJ_OK) {
+            AJ_ErrPrintf(("ReadLine(): status=%s\n", AJ_StatusText(status)));
             break;
         }
     }
@@ -185,15 +186,19 @@ static AJ_Status AnonymousAuthAdvance(AJ_IOBuffer* rxBuf, AJ_IOBuffer* txBuf)
     if (status == AJ_OK) {
         /* expect server to send back INFORM_PROTO_VERSION version# */
         status = ReadLine(rxBuf);
-        if (status == AJ_OK) {
-            if (memcmp(rxBuf->readPtr, "INFORM_PROTO_VERSION", strlen("INFORM_PROTO_VERSION")) != 0) {
-                return AJ_ERR_ACCESS_ROUTING_NODE;
-            }
-            routingProtoVersion = atoi((const char*)(rxBuf->readPtr + strlen("INFORM_PROTO_VERSION") + 1));
-            if (routingProtoVersion < AJ_GetMinProtoVersion()) {
-                AJ_InfoPrintf(("ERR_OLD_VERSION: Found version %u but minimum %u required", routingProtoVersion, AJ_GetMinProtoVersion()));
-                return AJ_ERR_OLD_VERSION;
-            }
+    }
+
+    if (status == AJ_OK) {
+        if (memcmp(rxBuf->readPtr, "INFORM_PROTO_VERSION", strlen("INFORM_PROTO_VERSION")) != 0) {
+            status = AJ_ERR_ACCESS_ROUTING_NODE;
+        }
+    }
+
+    if (status == AJ_OK) {
+        routingProtoVersion = atoi((const char*)(rxBuf->readPtr + strlen("INFORM_PROTO_VERSION") + 1));
+        if (routingProtoVersion < AJ_GetMinProtoVersion()) {
+            AJ_InfoPrintf(("AnonymousAuthAdvance():: Found version %u but minimum %u required", routingProtoVersion, AJ_GetMinProtoVersion()));
+            status = AJ_ERR_OLD_VERSION;
         }
     }
 
@@ -206,6 +211,11 @@ static AJ_Status AnonymousAuthAdvance(AJ_IOBuffer* rxBuf, AJ_IOBuffer* txBuf)
         status = WriteLine(txBuf, buf);
         ResetRead(rxBuf);
     }
+
+    if (status != AJ_OK) {
+        AJ_ErrPrintf(("AnonymousAuthAdvance(): status=%s\n", AJ_StatusText(status)));
+    }
+
     return status;
 }
 
@@ -302,8 +312,8 @@ AJ_Status AJ_Authenticate(AJ_BusAttachment* bus)
             status = AJ_UnmarshalArg(&helloResponse, &arg);
             if (status == AJ_OK) {
                 if (arg.len >= (sizeof(bus->uniqueName) - 1)) {
-                    AJ_ErrPrintf(("AJ_Authenticate(): AJ_ERR_RESOURCES\n"));
-                    status = AJ_ERR_RESOURCES;
+                    AJ_ErrPrintf(("AJ_Authenticate(): AJ_ERR_ACCESS_ROUTING_NODE\n"));
+                    status = AJ_ERR_ACCESS_ROUTING_NODE;
                 } else {
                     memcpy(bus->uniqueName, arg.val.v_string, arg.len);
                     bus->uniqueName[arg.len] = '\0';
@@ -548,11 +558,11 @@ AJ_Status AJ_FindBusAndConnect(AJ_BusAttachment* bus, const char* serviceName, u
         status = AJ_Authenticate(bus);
         if (status != AJ_OK) {
             AJ_InfoPrintf(("AJ_FindBusAndConnect(): AJ_Authenticate status=%s\n", AJ_StatusText(status)));
-
 #if !AJ_CONNECT_LOCALHOST && !defined(ARDUINO) && !defined(AJ_SERIAL_CONNECTION)
-            AJ_InfoPrintf(("AJ_FindBusAndConnect(): Blacklisting routing node"));
-            // only TCP can fail to authenticate here
-            AddRoutingNodeToBlacklist(&service, AJ_ADDR_TCP4);
+            if ((status == AJ_ERR_ACCESS_ROUTING_NODE) || (status == AJ_ERR_OLD_VERSION)) {
+                AJ_InfoPrintf(("AJ_FindBusAndConnect(): Blacklisting routing node\n"));
+                AddRoutingNodeToBlacklist(&service, AJ_ADDR_TCP4);
+            }
             AJ_Disconnect(bus);
             // try again
             finished = FALSE;
@@ -576,9 +586,13 @@ AJ_Status AJ_FindBusAndConnect(AJ_BusAttachment* bus, const char* serviceName, u
                 if (status == AJ_OK) {
                     finished = TRUE;
                     break;
-                } else {
-                    connectionTime -= AJ_GetElapsedTime(&connectionTimer, FALSE);
                 }
+                if ((status == AJ_ERR_ACCESS_ROUTING_NODE) || (status == AJ_ERR_OLD_VERSION)) {
+                    AJ_InfoPrintf(("AJ_FindBusAndConnect(): Blacklisting another routing node\n"));
+                    AddRoutingNodeToBlacklist(&service, AJ_ADDR_TCP4);
+                }
+                AJ_Disconnect(bus);
+                connectionTime -= AJ_GetElapsedTime(&connectionTimer, FALSE);
             }
 #endif
         }
@@ -647,8 +661,9 @@ AJ_Status AJ_ARDP_UDP_Connect(AJ_BusAttachment* bus, void* context, const AJ_Ser
             routingProtoVersion = (uint8_t) ((*protoVersion.val.v_uint32) & 0x3FFFFFFF);
 
             if (uniqueName.len >= (sizeof(bus->uniqueName) - 1)) {
-                AJ_ErrPrintf(("AJ_ARDP_Connect(): AJ_ERR_RESOURCES\n"));
-                status = AJ_ERR_RESOURCES;
+                AJ_ErrPrintf(("AJ_ARDP_Connect(): Blacklisting routing node, uniqueName.len = %d\n", uniqueName.len));
+                AddRoutingNodeToBlacklist(service, AJ_ADDR_UDP4);
+                status = AJ_ERR_ACCESS_ROUTING_NODE;
             } else {
                 memcpy(bus->uniqueName, uniqueName.val.v_string, uniqueName.len);
                 bus->uniqueName[uniqueName.len] = '\0';
@@ -660,7 +675,7 @@ AJ_Status AJ_ARDP_UDP_Connect(AJ_BusAttachment* bus, void* context, const AJ_Ser
                                routingProtoVersion, AJ_GetMinProtoVersion()));
                 // add to blacklist because of invalid version
                 AddRoutingNodeToBlacklist(service, AJ_ADDR_UDP4);
-                status = AJ_ERR_CONNECT;
+                status = AJ_ERR_OLD_VERSION;
             }
         }
     } else {
