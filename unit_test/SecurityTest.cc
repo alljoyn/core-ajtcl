@@ -253,7 +253,7 @@ static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, 
 
 static const char PingString[] = "Ping String";
 
-TEST_F(SecurityTest, Test_ECDHE_NULL)
+TEST_F(SecurityTest, DISABLED_Test_ECDHE_NULL)
 {
     AJ_Status status = AJ_OK;
     AJ_Message msg;
@@ -307,7 +307,7 @@ TEST_F(SecurityTest, Test_ECDHE_NULL)
     AJ_Disconnect(&testBus);
 }
 
-TEST_F(SecurityTest, Test_ECDHE_PSK)
+TEST_F(SecurityTest, DISABLED_Test_ECDHE_PSK)
 {
     AJ_Status status = AJ_OK;
     AJ_Message msg;
@@ -360,7 +360,7 @@ TEST_F(SecurityTest, Test_ECDHE_PSK)
     AJ_Disconnect(&testBus);
 }
 
-TEST_F(SecurityTest, Test_ECDHE_ECDSA)
+TEST_F(SecurityTest, DISABLED_Test_ECDHE_ECDSA)
 {
     AJ_Status status = AJ_OK;
     AJ_Message msg;
