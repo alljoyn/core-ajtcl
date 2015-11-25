@@ -244,7 +244,7 @@ static AJ_Status AppHandleCat(AJ_Message* msg)
 #define BUFFER_SIZE 256
     const char* string0;
     const char* string1;
-    char buffer[BUFFER_SIZE];
+    char tmpBuffer[BUFFER_SIZE];
     AJ_Message reply;
     AJ_Arg replyArg;
 
@@ -252,12 +252,12 @@ static AJ_Status AppHandleCat(AJ_Message* msg)
     AJ_MarshalReplyMsg(msg, &reply);
 
     /* We have the arguments. Now do the concatenation. */
-    strncpy(buffer, string0, BUFFER_SIZE);
-    buffer[BUFFER_SIZE - 1] = '\0';
-    strncat(buffer, string1, BUFFER_SIZE - strlen(buffer));
-    buffer[BUFFER_SIZE - 1] = '\0';
+    strncpy(tmpBuffer, string0, BUFFER_SIZE);
+    tmpBuffer[BUFFER_SIZE - 1] = '\0';
+    strncat(tmpBuffer, string1, BUFFER_SIZE - strlen(tmpBuffer));
+    tmpBuffer[BUFFER_SIZE - 1] = '\0';
 
-    AJ_InitArg(&replyArg, AJ_ARG_STRING, 0, buffer, 0);
+    AJ_InitArg(&replyArg, AJ_ARG_STRING, 0, tmpBuffer, 0);
     AJ_MarshalArg(&reply, &replyArg);
 
     return AJ_DeliverMsg(&reply);

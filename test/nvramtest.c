@@ -242,11 +242,11 @@ AJ_Status TestObsWrite()
     AJ_NV_DATASET* nvramHandle;
     AJOBS_Info_Test info;
     size_t size = sizeof(info);
-    char* ssid[] = { "abcdefghABCDEFGH", "aaaaaaaa", "bbbbbbbb", "cccccccc", "dddddddd", "eeeeeeee", "ffffffff", "gggggggg", "hhhhhhhh", "iiiiiiii",
-                     "jjjjjjjj", "kkkkkkkk", "llllllll", "mmmmmmmm", "nnnnnnnn", "oooooooo", "pppppppp", "qqqqqqqq", "rrrrrrrr", "ssssssss",
-                     "", "tttttttt", "uuuuuuuu", "vvvvvvvv", "wwwwwwww", "xxxxxxxx", "yyyyyyyy", "zzzzzzzz", "11111111", "22222222", "33333333",
-                     "44444444", "55555555", "66666666", "77777777", "888888888888888888888888888888", "99999999", "aaaa1111", "bbbb2222", "cccc3333", "dddd4444",
-                     "TRTESTING123", "eeee5555", "", "TR-TESTING-43" };
+    const char* ssid[] = { "abcdefghABCDEFGH", "aaaaaaaa", "bbbbbbbb", "cccccccc", "dddddddd", "eeeeeeee", "ffffffff", "gggggggg", "hhhhhhhh", "iiiiiiii",
+                           "jjjjjjjj", "kkkkkkkk", "llllllll", "mmmmmmmm", "nnnnnnnn", "oooooooo", "pppppppp", "qqqqqqqq", "rrrrrrrr", "ssssssss",
+                           "", "tttttttt", "uuuuuuuu", "vvvvvvvv", "wwwwwwww", "xxxxxxxx", "yyyyyyyy", "zzzzzzzz", "11111111", "22222222", "33333333",
+                           "44444444", "55555555", "66666666", "77777777", "888888888888888888888888888888", "99999999", "aaaa1111", "bbbb2222", "cccc3333", "dddd4444",
+                           "TRTESTING123", "eeee5555", "", "TR-TESTING-43" };
     char pc[] = "aaaaabbbbbcccccAAAAABBBBBCCCCCzzzzzZZZZZ1111122222";
     size_t i;
 

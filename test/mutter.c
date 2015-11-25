@@ -565,8 +565,8 @@ int AJ_Main()
                 break;
             }
             for (j = 0; j < len; ++j) {
-                uint8_t n = (uint8_t)j;
-                status = AJ_MarshalRaw(&txMsg, &n, 1);
+                uint8_t temp = (uint8_t)j;
+                status = AJ_MarshalRaw(&txMsg, &temp, 1);
                 if (status != AJ_OK) {
                     break;
                 }
@@ -1110,9 +1110,9 @@ int AJ_Main()
                     break;
                 }
 #else
-                size_t len;
+                size_t tmpLen;
                 uint8_t* data;
-                status = AJ_UnmarshalArgs(&rxMsg, "(usay)", &u, &str, &data, &len);
+                status = AJ_UnmarshalArgs(&rxMsg, "(usay)", &u, &str, &data, &tmpLen);
                 if (status != AJ_OK) {
                     break;
                 }
@@ -1556,27 +1556,27 @@ int AJ_Main()
             }
             for (j = 0;; ++j) {
                 AJ_Arg dict;
-                int key;
+                int tmpKey;
                 status = AJ_UnmarshalContainer(&rxMsg, &dict, AJ_ARG_DICT_ENTRY);
                 if (status != AJ_OK) {
                     break;
                 }
-                status = AJ_UnmarshalArgs(&rxMsg, "i", &key);
+                status = AJ_UnmarshalArgs(&rxMsg, "i", &tmpKey);
                 if (status != AJ_OK) {
                     break;
                 }
-                if (key == 4) {
+                if (tmpKey == 4) {
                     status = AJ_UnmarshalVariant(&rxMsg, (const char**)&sig);
                     if (status != AJ_OK) {
                         break;
                     }
-                    AJ_AlwaysPrintf(("Unmarshal dict entry key=%d variant %s\n", key, sig));
+                    AJ_AlwaysPrintf(("Unmarshal dict entry key=%d variant %s\n", tmpKey, sig));
                     status = AJ_UnmarshalArgs(&rxMsg, sig, &str);
                     if (status != AJ_OK) {
                         break;
                     }
                 } else {
-                    AJ_AlwaysPrintf(("Skipping dict entry key=%d\n", key));
+                    AJ_AlwaysPrintf(("Skipping dict entry key=%d\n", tmpKey));
                     status = AJ_SkipArg(&rxMsg);
                     if (status != AJ_OK) {
                         break;
@@ -1732,7 +1732,7 @@ int AJ_Main()
                 break;
             }
             while (status == AJ_OK) {
-                size_t len;
+                size_t tmpLen;
                 uint8_t* data;
                 char buf[20];
 #ifdef EXPANDED_FORM
@@ -1744,7 +1744,7 @@ int AJ_Main()
                 if (status != AJ_OK) {
                     break;
                 }
-                status = AJ_UnmarshalArg(&rxMsg, "ay", &data, &len);
+                status = AJ_UnmarshalArg(&rxMsg, "ay", &data, &tmpLen);
                 if (status != AJ_OK) {
                     break;
                 }
@@ -1753,13 +1753,13 @@ int AJ_Main()
                     break;
                 }
 #else
-                status = AJ_UnmarshalArgs(&rxMsg, "(yay)", &u, &data, &len);
+                status = AJ_UnmarshalArgs(&rxMsg, "(yay)", &u, &data, &tmpLen);
                 if (status != AJ_OK) {
                     break;
                 }
 #endif
-                memcpy(buf, data, len);
-                buf[len] = '\0';
+                memcpy(buf, data, tmpLen);
+                buf[tmpLen] = '\0';
                 AJ_AlwaysPrintf(("Unmarshal %d %s\n", y, buf));
             }
             /*

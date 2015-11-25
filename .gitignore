@@ -2,6 +2,7 @@ TAGS
 LinuxTAGS
 tags
 cscope.out
+whitespace.db
 .sconsign.dblite
 .sconf_temp/
 config.log

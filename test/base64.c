@@ -27,7 +27,7 @@
 
 uint8_t dbgTEST_BASE64 = 0;
 
-static int test(char* input, char* output)
+static int test(const char* input, const char* output)
 {
     AJ_Status status;
     int inputlen;

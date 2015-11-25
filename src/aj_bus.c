@@ -1188,7 +1188,6 @@ AJ_Status AJ_BusHandleJoinSessionReply(AJ_Message* msg)
     uint32_t resultCode;
     uint32_t sessionId;
     AJ_SessionOpts opts = { 0 };
-    AJ_Arg arr;
     AJ_Status status;
     AJ_Session* session;
 
