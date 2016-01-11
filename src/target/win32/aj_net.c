@@ -35,6 +35,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <time.h>
+#include <stdlib.h>
 
 #include <ajtcl/aj_target.h>
 #include <ajtcl/aj_bufio.h>
@@ -843,7 +844,7 @@ static void Mcast4Up(const char* group, uint16_t port, uint8_t mdns, uint16_t re
             continue;
         }
 
-        ret = setsockopt(new_sock.sock, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
+        ret = setsockopt(new_sock.sock, SOL_SOCKET, SO_REUSEADDR, (char*) &reuse, sizeof(reuse));
 
         if (ret != 0) {
             AJ_ErrPrintf(("MCast4Up(): setsockopt(SO_REUSEADDR) failed. errno=\"%s\", status=AJ_ERR_READ\n", strerror(errno)));
@@ -971,7 +972,7 @@ AJ_Status AJ_Net_MCastUp(AJ_MCastSocket* mcastSock)
     AJ_InfoPrintf(("AJ_Net_MCastUp(mcastSock=0x%p)\n", mcastSock));
 
     // create the mDNS recv socket
-    tmp_sock = MDnsRecvUp(mcastSock);
+    tmp_sock = MDnsRecvUp();
     if (tmp_sock != INVALID_SOCKET) {
         getsockname(tmp_sock, (struct sockaddr*) &addrBuf, &addrLen);
         sin = (struct sockaddr_in*) &addrBuf;
@@ -1062,7 +1063,7 @@ static AJ_Status AJ_ARDP_UDP_Send(void* context, uint8_t* buf, size_t len, size_
         return AJ_ERR_WRITE;
     }
 
-    if (!WSAGetOverlappedResult(ctx->udpSock, &ov, sent, TRUE, &flags)) {
+    if (!WSAGetOverlappedResult(ctx->udpSock, &ov, (DWORD*) sent, TRUE, &flags)) {
         AJ_ErrPrintf(("AJ_ARDP_UDP_Send(): WSAGetOverlappedResult() failed. WSAGetLastError()=0x%x, status=AJ_ERR_WRITE\n", WSAGetLastError()));
         return AJ_ERR_WRITE;
     }

@@ -31,7 +31,7 @@
 #define AJ_RELEASE_YEAR_STR    00       /**< release year string (two digits) */
 #define AJ_RELEASE_MONTH_STR   00       /**< release month string (two digits) */
 #define AJ_FEATURE_VERSION_STR 01       /**< feature version string (00, 01, 02, ...) */
-#define AJ_BUGFIX_VERSION_STR           /**< bugfix version string (blank, a, b, ...) */
+#define AJ_BUGFIX_VERSION_STR  ""       /**< bugfix version string (blank, a, b, ...) */
 #define AJ_RELEASE_TAG         "v0.0.1"
 
 #define AJ_VERSION (((AJ_RELEASE_YEAR) << 24) | ((AJ_RELEASE_MONTH) << 16) | ((AJ_FEATURE_VERSION) << 8) | (AJ_BUGFIX_VERSION))  /**< macro to generate the version from major, minor, release, bugfix */

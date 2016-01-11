@@ -850,9 +850,11 @@ Exit:
  */
 AJ_Status AJ_SecurityResetMethod(AJ_Message* msg, AJ_Message* reply)
 {
+    AJ_Status status;
+
     AJ_InfoPrintf(("AJ_SecurityResetMethod(msg=%p, reply=%p)\n", msg, reply));
 
-    AJ_Status status = AJ_SecurityReset(msg->bus);
+    status = AJ_SecurityReset(msg->bus);
 
     if (AJ_OK != status) {
         return AJ_MarshalErrorMsg(msg, reply, AJ_ErrSecurityViolation);
