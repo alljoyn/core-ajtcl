@@ -23,6 +23,8 @@
  */
 #define AJ_MODULE DISCO
 
+#include <stdlib.h>
+
 #include <ajtcl/aj_target.h>
 #include <ajtcl/aj_status.h>
 #include <ajtcl/aj_util.h>
