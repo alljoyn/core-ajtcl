@@ -23,8 +23,6 @@
  */
 #define AJ_MODULE CONNECT
 
-#include <stdlib.h>
-
 #include <ajtcl/aj_target.h>
 #include <ajtcl/aj_status.h>
 #include <ajtcl/aj_bufio.h>
