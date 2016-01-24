@@ -1,0 +1,23 @@
+import os
+
+Import('env')
+
+config_env = env.Clone()
+
+config_env.Append(CPPDEFINES = {
+    'AJ_MAIN': None,
+    'AJ_NUM_REPLY_CONTEXTS': '8',
+    'AJ_MAX_OBJECT_LISTS': '9',
+    'ANNOUNCE_BASED_DISCOVERY': '1',
+    'CONFIG_SERVICE': '1'
+})
+
+config_env.Append(LIBPATH = '#dist/lib')
+config_env.Prepend(LIBS = ['ajtcl_services_config'])
+config_env.Prepend(LIBS = ['ajtcl'])
+
+common_objs = config_env.Glob('../../common/config/src/*' + env['OBJSUFFIX'])
+config_objs = config_env.Object(config_env.Glob('*.c'))
+config_progs = config_env.Program('ConfigSample', common_objs + config_objs)
+
+config_env.Install('#dist/bin/services', config_progs)

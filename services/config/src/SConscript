@@ -1,0 +1,23 @@
+import os
+
+Import('env')
+
+config_env = env.Clone()
+
+config_env.Append(CPPDEFINES = {
+    'CONFIG_SERVICE': '1'
+})
+
+config_srcs = []
+config_srcs.extend(config_env.Glob('*.c'))
+
+config_objs = config_env.Object(config_srcs)
+#####config_lib = config_env.Library("ajtcl_services_config", config_objs + config_env.Glob('../../common/config/src/*.o'))
+config_lib = config_env.Library("ajtcl_services_config", config_objs)
+config_env.Install("#dist/lib", config_lib)
+
+if config_env['build_shared']:
+    config_objs = config_env.SharedObject(config_srcs)
+    config_lib = config_env.SharedLibrary("ajtcl_services_config", config_objs)
+    config_env.Install("#dist/lib", config_lib)
+
