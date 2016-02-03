@@ -107,7 +107,7 @@ void SetBusAuthPwdCallback(BusAuthPwdFunc callback)
      */
 }
 
-#ifdef AJ_TCP
+#if defined(AJ_TCP) || defined(AJ_SERIAL_CONNECTION)
 static AJ_Status SendHello(AJ_BusAttachment* bus)
 {
     AJ_Status status;
@@ -281,7 +281,7 @@ AJ_Status AJ_Authenticate(AJ_BusAttachment* bus)
         return AJ_OK;
     }
 
-#ifdef AJ_TCP
+#if defined(AJ_TCP) || defined(AJ_SERIAL_CONNECTION)
     /*
      * Send initial NUL byte
      */
