@@ -45,7 +45,7 @@ uint8_t dbgSECURITY = 0;
 
 #define APPLICATION_VERSION                    1
 #define SECURITY_APPLICATION_VERSION           1
-#define SECURITY_CLAIMABLE_APPLICATION_VERSION 1
+#define SECURITY_CLAIMABLE_APPLICATION_VERSION 2
 #define SECURITY_MANAGED_APPLICATION_VERSION   1
 
 #define PUBLICKEY_ALG_ECDSA_SHA256             0
@@ -1227,4 +1227,64 @@ Exit:
     } else {
         return AJ_MarshalStatusMsg(msg, reply, status);
     }
+}
+
+AJ_Status AJ_SecurityStartManagementMethod(AJ_Message* msg, AJ_Message* reply)
+{
+    AJ_Status status;
+
+    AJ_InfoPrintf(("AJ_SecurityStartManagementMethod(msg=%p, reply=%p)\n", msg, reply));
+
+    status = AJ_SecurityStartManagement(msg->bus);
+
+    if (AJ_OK != status) {
+        return AJ_MarshalErrorMsg(msg, reply, AJ_ErrSecurityViolation);
+    } else {
+        return AJ_MarshalReplyMsg(msg, reply);
+    }
+}
+
+AJ_Status AJ_SecurityStartManagement(AJ_BusAttachment* bus)
+{
+    if (bus->managementStarted) {
+        return AJ_ERR_MANAGEMENT_ALREADY_STARTED;
+    }
+
+    bus->managementStarted = TRUE;
+
+    if (bus->startManagementCallback) {
+        bus->startManagementCallback();
+    }
+
+    return AJ_OK;
+}
+
+AJ_Status AJ_SecurityEndManagementMethod(AJ_Message* msg, AJ_Message* reply)
+{
+    AJ_Status status;
+
+    AJ_InfoPrintf(("AJ_SecurityEndManagementMethod(msg=%p, reply=%p)\n", msg, reply));
+
+    status = AJ_SecurityEndManagement(msg->bus);
+
+    if (AJ_OK != status) {
+        return AJ_MarshalErrorMsg(msg, reply, AJ_ErrSecurityViolation);
+    } else {
+        return AJ_MarshalReplyMsg(msg, reply);
+    }
+}
+
+AJ_Status AJ_SecurityEndManagement(AJ_BusAttachment* bus)
+{
+    if (!bus->managementStarted) {
+        return AJ_ERR_MANAGEMENT_NOT_STARTED;
+    }
+
+    bus->managementStarted = FALSE;
+
+    if (bus->endManagementCallback) {
+        bus->endManagementCallback();
+    }
+
+    return AJ_OK;
 }

@@ -344,6 +344,7 @@ int AJ_Main()
             AJ_BusEnableSecurity(&bus, suites, ArraySize(suites));
             AJ_BusSetAuthListenerCallback(&bus, AuthListenerCallback);
             AJ_ManifestTemplateSet(&manifest);
+            AJ_SecuritySetClaimConfig(&bus, APP_STATE_CLAIMABLE, CLAIM_CAPABILITY_ECDHE_NULL, 0);
 #endif
 
             /* Configure timeout for the link to the daemon bus */

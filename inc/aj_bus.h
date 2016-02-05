@@ -74,6 +74,16 @@ typedef AJ_Status (*AJ_FactoryResetFunc)();
  */
 typedef void (*AJ_PolicyChangedFunc)();
 
+/**
+ * Callback function prototype for handling security management start notification
+ */
+typedef void (*AJ_StartManagementFunc)();
+
+/**
+ * Callback function prototype for handling security management end notification
+ */
+typedef void (*AJ_EndManagementFunc)();
+
 #define AJ_MAX_NAME_SIZE 20  /**< Maximum length for a bus unique name */
 
 /**
@@ -105,19 +115,22 @@ typedef struct __AJ_Session {
  * Type for a bus attachment
  */
 typedef struct _AJ_BusAttachment {
-    uint16_t aboutPort;                        /**< The port to use in announcements */
-    char uniqueName[AJ_MAX_NAME_SIZE + 1];     /**< The unique name returned by the hello message */
-    AJ_NetSocket sock;                         /**< Abstracts a network socket */
-    uint32_t serial;                           /**< Next outgoing message serial number */
-    AJ_AuthPwdFunc pwdCallback;                /**< Callback for obtaining passwords */
-    AJ_AuthListenerFunc authListenerCallback;  /**< Callback for obtaining passwords */
-    uint32_t suites[AJ_AUTH_SUITES_NUM];       /**< Supported cipher suites */
-    uint8_t isAuthenticated;                   /**< Has authentication already occured? */
-    uint32_t aboutSerial;                      /**< Serial number for About announcement */
-    uint8_t isProbeRequired;                   /**< Are probe requests required for the live transport? */
-    AJ_FactoryResetFunc factoryResetCallback;  /**< Callback for handling a factory reset request */
-    AJ_PolicyChangedFunc policyChangedCallback;/**< Callback for handling a local policy change notification */
-    AJ_Session* sessions;                      /**< Linked list describing all ongoing sessions this bus attachment is involved in */
+    uint16_t aboutPort;                             /**< The port to use in announcements */
+    char uniqueName[AJ_MAX_NAME_SIZE + 1];          /**< The unique name returned by the hello message */
+    AJ_NetSocket sock;                              /**< Abstracts a network socket */
+    uint32_t serial;                                /**< Next outgoing message serial number */
+    AJ_AuthPwdFunc pwdCallback;                     /**< Callback for obtaining passwords */
+    AJ_AuthListenerFunc authListenerCallback;       /**< Callback for obtaining passwords */
+    uint32_t suites[AJ_AUTH_SUITES_NUM];            /**< Supported cipher suites */
+    uint8_t isAuthenticated;                        /**< Has authentication already occured? */
+    uint32_t aboutSerial;                           /**< Serial number for About announcement */
+    uint8_t isProbeRequired;                        /**< Are probe requests required for the live transport? */
+    uint8_t managementStarted;                      /**< Did the Security Manager call the StartManagement method? */
+    AJ_FactoryResetFunc factoryResetCallback;       /**< Callback for handling a factory reset request */
+    AJ_PolicyChangedFunc policyChangedCallback;     /**< Callback for handling a local policy change notification */
+    AJ_Session* sessions;                           /**< Linked list describing all ongoing sessions this bus attachment is involved in */
+    AJ_StartManagementFunc startManagementCallback; /**< Callback for the start of a security management session */
+    AJ_EndManagementFunc endManagementCallback;     /**< Callback for the end of a security management session */
 } AJ_BusAttachment;
 
 /**

@@ -82,10 +82,13 @@ typedef enum {
     AJ_ERR_SECURITY_DUPLICATE_CERTIFICATE = 53, /**< Security error for duplicate certificate */
     AJ_ERR_SECURITY_POLICY_NOT_NEWER      = 54, /**< Security error for invalid policy update */
     AJ_ERR_SECURITY_CERTIFICATE_NOT_FOUND = 55, /**< Security error for certificate not found */
+    AJ_ERR_MANAGEMENT_ALREADY_STARTED     = 56, /**< Starting security management when it has been started already */
+    AJ_ERR_MANAGEMENT_NOT_STARTED         = 57, /**< Stopping security management when it has not been started yet */
+
     /*
      * REMINDER: Update AJ_StatusText in aj_debug.c if adding a new status code.
      */
-    AJ_STATUS_LAST      = 56  /**< The last error status code */
+    AJ_STATUS_LAST      = 58  /**< The last error status code */
 
 } AJ_Status;
 

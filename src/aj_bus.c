@@ -717,6 +717,14 @@ AJ_Status AJ_BusHandleBusMessage(AJ_Message* msg)
         status = AJ_SecurityRemoveMembershipMethod(msg, &reply);
         break;
 
+    case AJ_METHOD_MANAGED_START_MANAGEMENT:
+        status = AJ_SecurityStartManagementMethod(msg, &reply);
+        break;
+
+    case AJ_METHOD_MANAGED_END_MANAGEMENT:
+        status = AJ_SecurityEndManagementMethod(msg, &reply);
+        break;
+
     default:
         AJ_InfoPrintf(("AJ_BusHandleBusMessage(): default\n"));
         if (msg->hdr->msgType == AJ_MSG_METHOD_CALL) {
