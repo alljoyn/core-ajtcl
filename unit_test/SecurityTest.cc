@@ -81,337 +81,48 @@ class SecurityTest : public testing::Test {
     AJ_Status authStatus;
 };
 
-// Copied from alljoyn/alljoyn_core/unit_test/AuthListenerECDHETest.cc with
-// newlines removed
-static const char pem_prv[] = {
-    "-----BEGIN EC PRIVATE KEY-----"
-    "MHcCAQEEIBiLw29bf669g7MxMbXK2u8Lp5//w7o4OiVGidJdKAezoAoGCCqGSM49"
-    "AwEHoUQDQgAE+A0C9YTghZ1vG7198SrUHxFlhtbSsmhbwZ3N5aQRwzFXWcCCm38k"
-    "OzJEmS+venmF1o/FV0W80Mcok9CWlV2T6A=="
-    "-----END EC PRIVATE KEY-----"
-};
-
-/*
- * Order of certificates is important.
- */
-static const char pem_x509[] = {
-    "-----BEGIN CERTIFICATE-----"
-    "MIIBYTCCAQigAwIBAgIJAOVrhhJOre/7MAoGCCqGSM49BAMCMCQxIjAgBgNVBAoM"
-    "GUFsbEpveW5UZXN0U2VsZlNpZ25lZE5hbWUwHhcNMTUwODI0MjAxODQ1WhcNMjkw"
-    "NTAyMjAxODQ1WjAgMR4wHAYDVQQKDBVBbGxKb3luVGVzdENsaWVudE5hbWUwWTAT"
-    "BgcqhkjOPQIBBggqhkjOPQMBBwNCAAT4DQL1hOCFnW8bvX3xKtQfEWWG1tKyaFvB"
-    "nc3lpBHDMVdZwIKbfyQ7MkSZL696eYXWj8VXRbzQxyiT0JaVXZPooycwJTAVBgNV"
-    "HSUEDjAMBgorBgEEAYLefAEBMAwGA1UdEwEB/wQCMAAwCgYIKoZIzj0EAwIDRwAw"
-    "RAIgevLUXoJBgUr6nVepBHQiv85CGuxu00V4uoARbH6qu1wCIA54iDRh6wit1zbP"
-    "kqkBC015LjxucTf3Y7lNGhXuZRsL"
-    "-----END CERTIFICATE-----"
-    "-----BEGIN CERTIFICATE-----"
-    "MIIBdTCCARugAwIBAgIJAJTFhmdwDWsvMAoGCCqGSM49BAMCMCQxIjAgBgNVBAoM"
-    "GUFsbEpveW5UZXN0U2VsZlNpZ25lZE5hbWUwHhcNMTUwODI0MjAxODQ1WhcNMjkw"
-    "NTAyMjAxODQ1WjAkMSIwIAYDVQQKDBlBbGxKb3luVGVzdFNlbGZTaWduZWROYW1l"
-    "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEF0nZmkzuK/2CVf7udexLZnlEB5D+"
-    "DBsx3POtsRyZWm2QiI1untDTp0uYp51tkP6wI6Gi5gWxB+86lEIPg4ZpTaM2MDQw"
-    "IQYDVR0lBBowGAYKKwYBBAGC3nwBAQYKKwYBBAGC3nwBBTAPBgNVHRMBAf8EBTAD"
-    "AQH/MAoGCCqGSM49BAMCA0gAMEUCIQDPQ1VRvdBhhneU5e7OvIFHK3d9XPZA7Fw6"
-    "VyeW/P5wIAIgD969ks/z9vQ1yCaVaxmVz63toC1ggp4AnBXqbDy8O+4="
-    "-----END CERTIFICATE-----"
-};
-
 /*
  * Order of certificates is important.
  * Generated using alljoyn/common/unit_test/CertificateECCTest.cc (CreateIdentityCertificateChain)
  */
 static const char pem_x509_identity[] = {
     "-----BEGIN CERTIFICATE-----"
-    "MIIBMDCB1qADAgECAgIwMzAKBggqhkjOPQQDAjAOMQwwCgYDVQQDDANjbjMwHhcN"
-    "MTUwODI2MTEzMDIzWhcNMTUwODI2MTQxNzAzWjAOMQwwCgYDVQQDDANjbjQwWTAT"
-    "BgcqhkjOPQIBBggqhkjOPQMBBwNCAASTTwSwpfZ2AD2G6L6IrLYQ2ilJaxf3egzh"
-    "3fuVdPgqopLCJydVei63lQsv2BbbpbKeKg+BAEeoi+MlAWkHBRLIoyQwIjAJBgNV"
-    "HRMEAjAAMBUGA1UdJQQOMAwGCisGAQQBgt58AQEwCgYIKoZIzj0EAwIDSQAwRgIh"
-    "ANxz/NwcmLw/9Unq/qZpmlCzuwGYh9lZV0S0k8N15MGDAiEAzuzWOBPbC1jXWBfa"
-    "q3I41fDrdnnEhV9PyXooXfe70bg="
+    "MIIBQzCB66ADAgECAgIwMzAKBggqhkjOPQQDAjAOMQwwCgYDVQQDDANjbjMwHhcN"
+    "MTYwMjA5MDA0ODM0WhcNMTYwMjA5MDMzNTE0WjAOMQwwCgYDVQQDDANjbjQwWTAT"
+    "BgcqhkjOPQIBBggqhkjOPQMBBwNCAASCHIVNOJO98Ce7vGy5IQkKgFdLhU4LJpZp"
+    "5UKLZNxYEYTLtPBc1ynq3pty9DVsZ3/dXgzZFLzrA9Ns3tISqXk1ozkwNzAJBgNV"
+    "HRMEAjAAMBUGA1UdJQQOMAwGCisGAQQBgt58AQEwEwYDVR0jBAwwCqAIS5ALPthB"
+    "n0QwCgYIKoZIzj0EAwIDRwAwRAIgay/Z7JMjDVBIaJ8G0rh35fGwK77c0ytA9nVy"
+    "GikbVzECIAjhPpqz9k6z0nlzwsKtOC95JvOC5GD9NHXX96xo5lWZ"
     "-----END CERTIFICATE-----"
     "-----BEGIN CERTIFICATE-----"
-    "MIIBMzCB2aADAgECAgIwMzAKBggqhkjOPQQDAjAOMQwwCgYDVQQDDANjbjIwHhcN"
-    "MTUwODI2MTEzMDIzWhcNMTUwODI2MTQxNzAzWjAOMQwwCgYDVQQDDANjbjMwWTAT"
-    "BgcqhkjOPQIBBggqhkjOPQMBBwNCAASj7JGFzIBpVMDf63liqkquAW3sUi6GklEe"
-    "BJhdQDnmPfpVrmL90O73hRr0JC1O7NS/mDTmFRRrhwY5XrOwl3vdoycwJTAMBgNV"
-    "HRMEBTADAQH/MBUGA1UdJQQOMAwGCisGAQQBgt58AQEwCgYIKoZIzj0EAwIDSQAw"
-    "RgIhAIP2cJiWPSvcbMwTr7+OgwjeMVjWuppKtaJoCR8B+u/TAiEArBgP12n77UPO"
-    "MC2mZBbPOkdZf+1b76gHpUCLhJWC3ac="
+    "MIIBSDCB7qADAgECAgIwMzAKBggqhkjOPQQDAjAOMQwwCgYDVQQDDANjbjIwHhcN"
+    "MTYwMjA5MDA0ODM0WhcNMTYwMjA5MDMzNTE0WjAOMQwwCgYDVQQDDANjbjMwWTAT"
+    "BgcqhkjOPQIBBggqhkjOPQMBBwNCAAQK3bAEiq71WbFCXkIN33HP5n1u8c6cAHB4"
+    "zYkq0mfz4oNBJrJqZfuZWUOJdmyq/ZcFaB+YF8GucmUKMncSlZoAozwwOjAMBgNV"
+    "HRMEBTADAQH/MBUGA1UdJQQOMAwGCisGAQQBgt58AQEwEwYDVR0jBAwwCqAIT9/x"
+    "lYHtWkwwCgYIKoZIzj0EAwIDSQAwRgIhAMTyK7btKTjriyM+Z5IoI96VyUnnfLUl"
+    "yAI94VWoK1nVAiEAyjWDTZikPwWFG7Ma2IDu3A39LWHYjyhes5xMV7oG44Y="
     "-----END CERTIFICATE-----"
     "-----BEGIN CERTIFICATE-----"
-    "MIIBMTCB2aADAgECAgIwMjAKBggqhkjOPQQDAjAOMQwwCgYDVQQDDANjbjEwHhcN"
-    "MTUwODI2MTEzMDIzWhcNMTUwODI2MTQxNzAzWjAOMQwwCgYDVQQDDANjbjIwWTAT"
-    "BgcqhkjOPQIBBggqhkjOPQMBBwNCAAS3+VvzdzNb39HuMosBcy0GxH5nJ863Dldm"
-    "3nWAz3lTkpUZRdmdpp/g7l+W6P6MDWiISWZwQs6acq89iBzPhIvIoycwJTAMBgNV"
-    "HRMEBTADAQH/MBUGA1UdJQQOMAwGCisGAQQBgt58AQEwCgYIKoZIzj0EAwIDRwAw"
-    "RAIgM1EeCtOLEzHx2FLMkFSQnhDM1MdIsMuyFNarbcKWyxoCIFGdLoQu6GKL/HTS"
-    "G9Z66NDZHbjAWKcblpGPiR8DaKza"
+    "MIIBSDCB7qADAgECAgIwMjAKBggqhkjOPQQDAjAOMQwwCgYDVQQDDANjbjEwHhcN"
+    "MTYwMjA5MDA0ODM0WhcNMTYwMjA5MDMzNTE0WjAOMQwwCgYDVQQDDANjbjIwWTAT"
+    "BgcqhkjOPQIBBggqhkjOPQMBBwNCAASvUK0iuLHtZjTTqHB9PEtY6iivCckgKEHu"
+    "Eat6I/blbiQvNYe5AX8taZD6dVntU8Rs30Ua6nQNSYvFIeUm9wV4ozwwOjAMBgNV"
+    "HRMEBTADAQH/MBUGA1UdJQQOMAwGCisGAQQBgt58AQEwEwYDVR0jBAwwCqAIQPGV"
+    "somA/vswCgYIKoZIzj0EAwIDSQAwRgIhANMgbRmi3sEmQplB6fRDx9ijrs5yVx30"
+    "ayowCW26sKSyAiEAwFTh6CwdAgTAJ4X6Yr2SJ0mGkh6EKILIPvoGyARQPNM="
     "-----END CERTIFICATE-----"
     "-----BEGIN CERTIFICATE-----"
     "MIIBMjCB2aADAgECAgIwMTAKBggqhkjOPQQDAjAOMQwwCgYDVQQDDANjbjEwHhcN"
-    "MTUwODI2MTEzMDIzWhcNMTUwODI2MTQxNzAzWjAOMQwwCgYDVQQDDANjbjEwWTAT"
-    "BgcqhkjOPQIBBggqhkjOPQMBBwNCAAQdRwW/PnAh8S10PHNOyibARy3Ta1to5Lk6"
-    "9c7UkzaaTMNkxTXmuQZoVxa4W5McUTW38Ue5UqRlf54I3+iYtHPioycwJTAMBgNV"
+    "MTYwMjA5MDA0ODM0WhcNMTYwMjA5MDMzNTE0WjAOMQwwCgYDVQQDDANjbjEwWTAT"
+    "BgcqhkjOPQIBBggqhkjOPQMBBwNCAARLrc3K8qbzf5WyHTNHERLFyF5NauTSWOAs"
+    "x6lql+DbGfBFeS6G5XL0akNmxJcRLUma6BKnyll9zj6fEpA5dbvaoycwJTAMBgNV"
     "HRMEBTADAQH/MBUGA1UdJQQOMAwGCisGAQQBgt58AQEwCgYIKoZIzj0EAwIDSAAw"
-    "RQIhAJAOFdOy3PkaBAHNnrpPOqv/cZqnjEEjgfZ0Rlk/MkmAAiAqVRqMJG/TJ9x/"
-    "xTG8S3EeCxozIK59I0etjDH+pH+VkQ=="
+    "RQIgAn13qEfFf3H0MSdvNC/NVgWVBRoJWpZ8IWcC+cf5HqwCIQDSQrb1gop6PeqN"
+    "mTMTCVFSHo33KuSn0Y7Dbpc2N3BpvQ=="
     "-----END CERTIFICATE-----"
 };
-
-static const char psk_hint[] = "<anonymous>";
-/*
- * The tests were changed at some point to make the psk longer.
- * If doing backcompatibility testing with previous versions (14.08 or before),
- * define LITE_TEST_BACKCOMPAT to use the old version of the password.
- */
-#ifndef LITE_TEST_BACKCOMPAT
-static const char psk_char[] = "faaa0af3dd3f1e0379da046a3ab6ca44";
-#else
-static const char psk_char[] = "123456";
-#endif
-static X509CertificateChain* chain = NULL;
-static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, AJ_Credential*cred)
-{
-    AJ_Status status = AJ_ERR_INVALID;
-    X509CertificateChain* node;
-
-    AJ_AlwaysPrintf(("AuthListenerCallback authmechanism %d command %d\n", authmechanism, command));
-
-    switch (authmechanism) {
-    case AUTH_SUITE_ECDHE_NULL:
-        cred->expiration = keyexpiration;
-        status = AJ_OK;
-        break;
-
-    case AUTH_SUITE_ECDHE_PSK:
-        switch (command) {
-        case AJ_CRED_PUB_KEY:
-            cred->data = (uint8_t*) psk_hint;
-            cred->len = strlen(psk_hint);
-            cred->expiration = keyexpiration;
-            status = AJ_OK;
-            break;
-
-        case AJ_CRED_PRV_KEY:
-            cred->data = (uint8_t*) psk_char;
-            cred->len = strlen(psk_char);
-            cred->expiration = keyexpiration;
-            status = AJ_OK;
-            break;
-        }
-        break;
-
-    case AUTH_SUITE_ECDHE_ECDSA:
-        switch (command) {
-        case AJ_CRED_PRV_KEY:
-            AJ_ASSERT(sizeof (AJ_ECCPrivateKey) == cred->len);
-            status = AJ_DecodePrivateKeyPEM((AJ_ECCPrivateKey*) cred->data, pem_prv);
-            cred->expiration = keyexpiration;
-            break;
-
-        case AJ_CRED_CERT_CHAIN:
-            switch (cred->direction) {
-            case AJ_CRED_REQUEST:
-                // Free previous certificate chain
-                while (chain) {
-                    node = chain;
-                    chain = chain->next;
-                    AJ_Free(node->certificate.der.data);
-                    AJ_Free(node);
-                }
-                /* PEM string is end entity..root order */
-                /* Decoded chain is root..end entity order */
-                chain = AJ_X509DecodeCertificateChainPEM(pem_x509);
-                if (NULL == chain) {
-                    return AJ_ERR_INVALID;
-                }
-                cred->data = (uint8_t*) chain;
-                cred->expiration = keyexpiration;
-                status = AJ_OK;
-                break;
-
-            case AJ_CRED_RESPONSE:
-                node = (X509CertificateChain*) cred->data;
-                while (node) {
-                    AJ_DumpBytes("CERTIFICATE", node->certificate.der.data, node->certificate.der.size);
-                    node = node->next;
-                }
-                status = AJ_OK;
-                break;
-            }
-            break;
-        }
-        break;
-
-    default:
-        break;
-    }
-    return status;
-}
-
-static const char PingString[] = "Ping String";
-
-TEST_F(SecurityTest, DISABLED_Test_ECDHE_NULL)
-{
-    AJ_Status status = AJ_OK;
-    AJ_Message msg;
-    AJ_Message call;
-    char* value;
-    uint32_t suites[AJ_AUTH_SUITES_NUM];
-    size_t numsuites = 0;
-    uint32_t session;
-
-    AJ_Initialize();
-    // Register bus objects and proxy bus objects
-    AJ_RegisterObjects(NULL, AppObjects);
-
-    status = AJ_StartClientByName(&testBus, NULL, CONNECT_TIMEOUT, FALSE, ServiceName, ServicePort, &session, NULL, g_ServiceName);
-    ASSERT_EQ(AJ_OK, status) << "Unable to connect to the daemon. " << "The status returned is " << AJ_StatusText(status);
-    if (AJ_OK == status) {
-        AJ_Printf("Connected to the bus. The unique name is %s\n", AJ_GetUniqueName(&testBus));
-    }
-
-    suites[numsuites++] = AUTH_SUITE_ECDHE_NULL;
-    status = AJ_BusEnableSecurity(&testBus, suites, numsuites);
-    ASSERT_EQ(AJ_OK, status) << "Unable to enable security. " << "The status returned is " << AJ_StatusText(status);
-    AJ_BusSetAuthListenerCallback(&testBus, AuthListenerCallback);
-
-    status = AJ_BusAuthenticatePeer(&testBus, ServiceName, AuthCallback, &authStatus);
-
-    while (TRUE) {
-        status = AJ_SetProxyObjectPath(AppObjects, TEST1_APP_MY_PING, testObj);
-        status = AJ_UnmarshalMsg(&testBus, &msg, UNMARSHAL_TIMEOUT);
-        if (status == AJ_ERR_TIMEOUT) {
-            if (authStatus == AJ_OK) {
-                ASSERT_EQ(AJ_OK, AJ_MarshalMethodCall(&testBus, &call, TEST1_APP_MY_PING, ServiceName, session, 0, 5000));
-                ASSERT_EQ(AJ_OK, AJ_MarshalArgs(&call, "s", PingString));
-                ASSERT_EQ(AJ_OK, AJ_DeliverMsg(&call));
-                authStatus = AJ_ERR_NULL;
-            }
-        } else if (msg.msgId == AJ_REPLY_ID(TEST1_APP_MY_PING)) {
-            status = AJ_UnmarshalArgs(&msg, "s", &value);
-            ASSERT_EQ(AJ_OK, status);
-            ASSERT_STREQ(PingString, value);
-            AJ_CloseMsg(&msg);
-            break;
-        } else {
-            status = AJ_BusHandleBusMessage(&msg);
-        }
-        AJ_CloseMsg(&msg);
-    }
-
-    AJ_ClearCredentials(AJ_CRED_TYPE_GENERIC);
-    ASSERT_EQ(AJ_OK, status) << "AJ_ClearCredentials returned status. " << AJ_StatusText(status);
-    AJ_Disconnect(&testBus);
-}
-
-TEST_F(SecurityTest, DISABLED_Test_ECDHE_PSK)
-{
-    AJ_Status status = AJ_OK;
-    AJ_Message msg;
-    AJ_Message call;
-    char* value;
-    uint32_t suites[AJ_AUTH_SUITES_NUM];
-    size_t numsuites = 0;
-    uint32_t session;
-
-    AJ_Initialize();
-    // Register bus objects and proxy bus objects
-    AJ_RegisterObjects(NULL, AppObjects);
-
-    status = AJ_StartClientByName(&testBus, NULL, CONNECT_TIMEOUT, FALSE, ServiceName, ServicePort, &session, NULL, g_ServiceName);
-    ASSERT_EQ(AJ_OK, status) << "Unable to connect to the daemon. " << "The status returned is " << AJ_StatusText(status);
-    if (AJ_OK == status) {
-        AJ_Printf("Connected to the bus. The unique name is %s\n", AJ_GetUniqueName(&testBus));
-    }
-
-    suites[numsuites++] = AUTH_SUITE_ECDHE_PSK;
-    status = AJ_BusEnableSecurity(&testBus, suites, numsuites);
-    ASSERT_EQ(AJ_OK, status) << "Unable to enable security. " << "The status returned is " << AJ_StatusText(status);
-    AJ_BusSetAuthListenerCallback(&testBus, AuthListenerCallback);
-    status = AJ_BusAuthenticatePeer(&testBus, ServiceName, AuthCallback, &authStatus);
-
-    while (TRUE) {
-        status = AJ_SetProxyObjectPath(AppObjects, TEST1_APP_MY_PING, testObj);
-        status = AJ_UnmarshalMsg(&testBus, &msg, UNMARSHAL_TIMEOUT);
-        if (status == AJ_ERR_TIMEOUT) {
-            if (authStatus == AJ_OK) {
-                ASSERT_EQ(AJ_OK, AJ_MarshalMethodCall(&testBus, &call, TEST1_APP_MY_PING, ServiceName, session, 0, 5000));
-                ASSERT_EQ(AJ_OK, AJ_MarshalArgs(&call, "s", PingString));
-                ASSERT_EQ(AJ_OK, AJ_DeliverMsg(&call));
-                authStatus = AJ_ERR_NULL;
-            }
-        } else if (msg.msgId == AJ_REPLY_ID(TEST1_APP_MY_PING)) {
-            status = AJ_UnmarshalArgs(&msg, "s", &value);
-            ASSERT_EQ(AJ_OK, status);
-            ASSERT_STREQ(PingString, value);
-            AJ_CloseMsg(&msg);
-            break;
-        } else {
-            status = AJ_BusHandleBusMessage(&msg);
-        }
-        AJ_CloseMsg(&msg);
-    }
-
-    AJ_ClearCredentials(AJ_CRED_TYPE_GENERIC);
-    ASSERT_EQ(AJ_OK, status) << "AJ_ClearCredentials returned status. " << AJ_StatusText(status);
-    AJ_Disconnect(&testBus);
-}
-
-TEST_F(SecurityTest, DISABLED_Test_ECDHE_ECDSA)
-{
-    AJ_Status status = AJ_OK;
-    AJ_Message msg;
-    AJ_Message call;
-    char* value;
-    uint32_t suites[AJ_AUTH_SUITES_NUM];
-    size_t numsuites = 0;
-    uint32_t session;
-
-    AJ_Initialize();
-    // Register bus objects and proxy bus objects
-    AJ_RegisterObjects(NULL, AppObjects);
-
-    status = AJ_StartClientByName(&testBus, NULL, CONNECT_TIMEOUT, FALSE, ServiceName, ServicePort, &session, NULL, g_ServiceName);
-    ASSERT_EQ(AJ_OK, status) << "Unable to connect to the daemon" << "The status returned is " << AJ_StatusText(status);
-    if (AJ_OK == status) {
-        AJ_Printf("Connected to the bus. The unique name is %s\n", AJ_GetUniqueName(&testBus));
-    }
-
-    suites[numsuites++] = AUTH_SUITE_ECDHE_ECDSA;
-    status = AJ_BusEnableSecurity(&testBus, suites, numsuites);
-    ASSERT_EQ(AJ_OK, status) << "Unable to enable security" << "The status returned is " << AJ_StatusText(status);
-    AJ_BusSetAuthListenerCallback(&testBus, AuthListenerCallback);
-    status = AJ_BusAuthenticatePeer(&testBus, ServiceName, AuthCallback, &authStatus);
-
-    while (TRUE) {
-        status = AJ_SetProxyObjectPath(AppObjects, TEST1_APP_MY_PING, testObj);
-        status = AJ_UnmarshalMsg(&testBus, &msg, UNMARSHAL_TIMEOUT);
-        if (status == AJ_ERR_TIMEOUT) {
-            if (authStatus == AJ_OK) {
-                ASSERT_EQ(AJ_OK, AJ_MarshalMethodCall(&testBus, &call, TEST1_APP_MY_PING, ServiceName, session, 0, 5000));
-                ASSERT_EQ(AJ_OK, AJ_MarshalArgs(&call, "s", PingString));
-                ASSERT_EQ(AJ_OK, AJ_DeliverMsg(&call));
-                authStatus = AJ_ERR_NULL;
-            }
-        } else if (msg.msgId == AJ_REPLY_ID(TEST1_APP_MY_PING)) {
-            status = AJ_UnmarshalArgs(&msg, "s", &value);
-            ASSERT_EQ(AJ_OK, status);
-            ASSERT_STREQ(PingString, value);
-            AJ_CloseMsg(&msg);
-            break;
-        } else {
-            status = AJ_BusHandleBusMessage(&msg);
-        }
-        AJ_CloseMsg(&msg);
-    }
-
-    AJ_ClearCredentials(AJ_CRED_TYPE_GENERIC);
-    ASSERT_EQ(AJ_OK, status) << "AJ_ClearCredentials returned status. " << AJ_StatusText(status);
-    AJ_Disconnect(&testBus);
-}
 
 TEST_F(SecurityTest, CommonPathTest)
 {
@@ -494,7 +205,7 @@ TEST_F(SecurityTest, DecodeAndVerifyCertificateChainTest)
 
     /* PEM string is end entity..root order */
     /* Decoded chain is root..end entity order, order required for AJ_X509VerifyChain */
-    root = AJ_X509DecodeCertificateChainPEM(pem_x509);
+    root = AJ_X509DecodeCertificateChainPEM(pem_x509_identity);
 
     ASSERT_TRUE(root != NULL);
 
