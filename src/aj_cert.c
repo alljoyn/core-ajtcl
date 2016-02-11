@@ -919,8 +919,20 @@ AJ_Status AJ_X509VerifyChain(const X509CertificateChain* root, const AJ_ECCPubli
 {
     AJ_Status status;
     uint32_t chainValidForType = AJ_CERTIFICATE_UNR_X509;
+    uint32_t akiRequired = 0;
+    uint32_t isRoot = 1;
 
     AJ_InfoPrintf(("AJ_X509VerifyChain(root=%p, key=%p, type=%x)\n", root, key, type));
+
+    /* Certificates must have an AKI if they are membership or ID certs.
+     * Unrestricted certs are both, so they require an AKI as well.
+     * We don't check for the AKI on the root certificate.
+     */
+    if ((type == AJ_CERTIFICATE_IDN_X509) ||
+        (type == AJ_CERTIFICATE_MBR_X509) ||
+        (type == AJ_CERTIFICATE_UNR_X509)) {
+        akiRequired = 1;
+    }
 
     while (root) {
         if (key) {
@@ -939,6 +951,11 @@ AJ_Status AJ_X509VerifyChain(const X509CertificateChain* root, const AJ_ECCPubli
             return AJ_ERR_SECURITY;
         }
         chainValidForType &= root->certificate.tbs.extensions.type;
+
+        if (!isRoot && akiRequired && (root->certificate.tbs.extensions.aki.size == 0)) {
+            AJ_InfoPrintf(("AJ_X509VerifyChain(root=%p, key=%p, type=%x): Certificate is missing AKI, but the certificate type requires it to be present.\n", root, key, type));
+            return AJ_ERR_SECURITY;
+        }
 
         /* The subject field of the current certificate must equal the issuer field of the next certificate
          * in the chain.
@@ -961,6 +978,7 @@ AJ_Status AJ_X509VerifyChain(const X509CertificateChain* root, const AJ_ECCPubli
         }
         key = &root->certificate.tbs.publickey;
         root = root->next;
+        isRoot = 0;
     }
 
     return AJ_OK;
