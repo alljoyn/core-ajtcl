@@ -31,6 +31,23 @@
 extern "C" {
 #endif
 
+/* String defines used for About fields */
+#define AJ_APP_ID                  "AppId"
+#define AJ_DEFAULT_LANGUAGE        "DefaultLanguage"
+#define AJ_DEVICE_NAME             "DeviceName"
+#define AJ_DEVICE_ID               "DeviceId"
+#define AJ_APP_NAME                "AppName"
+#define AJ_MANUFACTURER            "Manufacturer"
+#define AJ_MODEL_NUMBER            "ModelNumber"
+#define AJ_SUPPORTED_LANGUAGES     "SupportedLanguages"
+#define AJ_DESCRIPTION             "Description"
+#define AJ_DATE_OF_MANUFACTURE     "DateOfManufacture"
+#define AJ_SOFTWARE_VERSION        "SoftwareVersion"
+#define AJ_AJSOFTWARE_VERSION      "AJSoftwareVersion"
+#define AJ_HARDWARE_VERSION        "HardwareVersion"
+#define AJ_SUPPORT_URL             "SupportUrl"
+
+
 /**
  * Prototype for a function provided by the property store for getting ANNOUNCE
  * and ABOUT properties.  If the language tag given is not supported, use the

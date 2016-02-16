@@ -92,6 +92,11 @@ extern "C" {
 #define AJ_MAX_NUM_OF_OBJ_DESC      (32)           //number of object descriptions in an Announcement payload (aj_about.c)
 #define AJ_MAX_NUM_OF_INTERFACES    (16)           //number of interfaces per object description in an Annoucement payload (aj_about.c)
 
+/* String defines */
+#define AJ_PASSCODE                 "Passcode"
+#define AJ_REALM_NAME               "RealmName"
+#define AJ_MAX_LENGTH               "MaxLength"
+
 /* Below sets the actual #define's based on values above */
 #if _AJ_AUTH_DEBUG
 #define AUTH_DEBUG
