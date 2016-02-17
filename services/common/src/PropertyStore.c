@@ -42,36 +42,36 @@ extern AJ_EXPORT uint8_t dbgAJSVCAPP;
 const PropertyStoreEntry propertyStoreProperties[AJSVC_PROPERTY_STORE_NUMBER_OF_KEYS] =
 {
 //  { "Key Name            ", W, A, M, I .. . . ., P },
-    { "DeviceId",             0, 1, 0, 1, 0, 0, 0, 1 },
-    { "AppId",                0, 1, 0, 1, 0, 0, 0, 1 },
+    { AJ_DEVICE_ID,           0, 1, 0, 1, 0, 0, 0, 1 },
+    { AJ_APP_ID,              0, 1, 0, 1, 0, 0, 0, 1 },
 #ifndef CONFIG_SERVICE
-    { "DeviceName",           0, 1, 1, 1, 0, 0, 0, 1 },
+    { AJ_DEVICE_NAME,         0, 1, 1, 1, 0, 0, 0, 1 },
 // Add other runtime keys above this line
-    { "DefaultLanguage",      0, 1, 0, 0, 0, 0, 0, 1 },
+    { AJ_DEFAULT_LANGUAGE,    0, 1, 0, 0, 0, 0, 0, 1 },
 #else
-    { "DeviceName",           1, 1, 1, 1, 0, 0, 0, 1 },
-    { "DefaultLanguage",      1, 1, 0, 0, 0, 0, 0, 1 },
-    { "Passcode",             1, 0, 0, 0, 0, 0, 0, 0 },
-    { "RealmName",            1, 0, 0, 0, 0, 0, 0, 0 },
+    { AJ_DEVICE_NAME,         1, 1, 1, 1, 0, 0, 0, 1 },
+    { AJ_DEFAULT_LANGUAGE,    1, 1, 0, 0, 0, 0, 0, 1 },
+    { AJ_PASSCODE,            1, 0, 0, 0, 0, 0, 0, 0 },
+    { AJ_REALM_NAME,          1, 0, 0, 0, 0, 0, 0, 0 },
 // Add other runtime keys above this line
 #endif
-    { "AppName",              0, 1, 0, 0, 0, 0, 0, 1 },
-    { "Description",          0, 0, 1, 0, 0, 0, 0, 1 },
-    { "Manufacturer",         0, 1, 1, 0, 0, 0, 0, 1 },
-    { "ModelNumber",          0, 1, 0, 0, 0, 0, 0, 1 },
-    { "DateOfManufacture",    0, 0, 0, 0, 0, 0, 0, 1 },
-    { "SoftwareVersion",      0, 0, 0, 0, 0, 0, 0, 1 },
-    { "AJSoftwareVersion",    0, 0, 0, 0, 0, 0, 0, 1 },
+    { AJ_APP_NAME,            0, 1, 0, 0, 0, 0, 0, 1 },
+    { AJ_DESCRIPTION,         0, 0, 1, 0, 0, 0, 0, 1 },
+    { AJ_MANUFACTURER,        0, 1, 1, 0, 0, 0, 0, 1 },
+    { AJ_MODEL_NUMBER,        0, 1, 0, 0, 0, 0, 0, 1 },
+    { AJ_DATE_OF_MANUFACTURE, 0, 0, 0, 0, 0, 0, 0, 1 },
+    { AJ_SOFTWARE_VERSION,    0, 0, 0, 0, 0, 0, 0, 1 },
+    { AJ_AJSOFTWARE_VERSION,  0, 0, 0, 0, 0, 0, 0, 1 },
 #ifdef CONFIG_SERVICE
-    { "MaxLength",            0, 1, 0, 0, 0, 0, 0, 1 },
+    { AJ_MAX_LENGTH,          0, 1, 0, 0, 0, 0, 0, 1 },
 #endif
 // Add other mandatory about keys above this line
-    { "HardwareVersion",      0, 0, 0, 0, 0, 0, 0, 1 },
-    { "SupportUrl",           0, 0, 1, 0, 0, 0, 0, 1 },
+    { AJ_HARDWARE_VERSION,    0, 0, 0, 0, 0, 0, 0, 1 },
+    { AJ_SUPPORT_URL,         0, 0, 1, 0, 0, 0, 0, 1 },
 // Add other optional about keys above this line
 };
 
-static const char* defaultLanguagesKeyName = { "SupportedLanguages" };
+static const char* defaultLanguagesKeyName = { AJ_SUPPORTED_LANGUAGES };
 
 static uint8_t numberOfLanguages = 0;
 

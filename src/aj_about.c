@@ -492,19 +492,19 @@ AJ_Status AJ_AboutUnmarshalProps(AJ_Message* msg, AJ_AboutHandleMandatoryProps o
             break;
         }
 
-        if (!strcmp(key, "AppId")) {
+        if (!strcmp(key, AJ_APP_ID)) {
             status = AJ_AboutUnmarshalAppIdFromVariant(msg, appId, sizeof(appId));
-        } else if (!strcmp(key, "AppName")) {
+        } else if (!strcmp(key, AJ_APP_NAME)) {
             status = AJ_UnmarshalArgs(msg, "v", "s", &appName);
-        } else if (!strcmp(key, "DeviceId")) {
+        } else if (!strcmp(key, AJ_DEVICE_ID)) {
             status = AJ_UnmarshalArgs(msg, "v", "s", &deviceId);
-        } else if (!strcmp(key, "DeviceName")) {
+        } else if (!strcmp(key, AJ_DEVICE_NAME)) {
             status = AJ_UnmarshalArgs(msg, "v", "s", &deviceName);
-        } else if (!strcmp(key, "Manufacturer")) {
+        } else if (!strcmp(key, AJ_MANUFACTURER)) {
             status = AJ_UnmarshalArgs(msg, "v", "s", &manufacturer);
-        } else if (!strcmp(key, "ModelNumber")) {
+        } else if (!strcmp(key, AJ_MODEL_NUMBER)) {
             status = AJ_UnmarshalArgs(msg, "v", "s", &modelNumber);
-        } else if (!strcmp(key, "DefaultLanguage")) {
+        } else if (!strcmp(key, AJ_DEFAULT_LANGUAGE)) {
             status = AJ_UnmarshalArgs(msg, "v", "s", &defaultLanguage);
         } else {
             if (onOptionalProperty == NULL) {
