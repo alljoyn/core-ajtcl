@@ -140,7 +140,6 @@ AJ_Status AJ_SecurityClaimMethod(AJ_Message* msg, AJ_Message* reply);
  */
 AJ_Status AJ_SecurityResetMethod(AJ_Message* msg, AJ_Message* reply);
 
-
 /**
  * Perform a security reset
  * Function called by the application to initiate a security reset
@@ -212,6 +211,54 @@ AJ_Status AJ_SecurityInstallMembershipMethod(AJ_Message* msg, AJ_Message* reply)
  *          - AJ_ERR_SECURITY on all failures
  */
 AJ_Status AJ_SecurityRemoveMembershipMethod(AJ_Message* msg, AJ_Message* reply);
+
+/**
+ * Handle a start management message
+ * Bus method handler for a MANAGED_START_MANAGEMENT method call
+ *
+ * @param msg          The start management message
+ * @param reply        The start management reply message
+ *
+ * @return  Return AJ_Status
+ *          - AJ_OK on success
+ *          - AJ_ERR_SECURITY on all failures
+ */
+AJ_Status AJ_SecurityStartManagementMethod(AJ_Message* msg, AJ_Message* reply);
+
+/**
+ * Call application's start management callback, as a result of a MANAGED_START_MANAGEMENT method call
+ *
+ * @param bus          The bus attachment
+ *
+ * @return  Return AJ_Status
+ *          - AJ_OK on success
+ *          - AJ_ERR_MANAGEMENT_ALREADY_STARTED on failure
+ */
+AJ_Status AJ_SecurityStartManagement(AJ_BusAttachment* bus);
+
+/**
+ * Handle a end management message
+ * Bus method handler for a MANAGED_END_MANAGEMENT method call
+ *
+ * @param msg          The end management message
+ * @param reply        The end management reply message
+ *
+ * @return  Return AJ_Status
+ *          - AJ_OK on success
+ *          - AJ_ERR_SECURITY on all failures
+ */
+AJ_Status AJ_SecurityEndManagementMethod(AJ_Message* msg, AJ_Message* reply);
+
+/**
+ * Call application's end management callback, as a result of a MANAGED_END_MANAGEMENT method call
+ *
+ * @param bus          The bus attachment
+ *
+ * @return  Return AJ_Status
+ *          - AJ_OK on success
+ *          - AJ_ERR_MANAGEMENT_NOT_STARTED on failure
+ */
+AJ_Status AJ_SecurityEndManagement(AJ_BusAttachment* bus);
 
 /**
  * Unmarshal an ECCPublicKey object

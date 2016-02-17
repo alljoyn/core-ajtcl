@@ -241,6 +241,8 @@ static const char* const SecurityManagedApplicationIface[] = {
     "?ResetPolicy",
     "?InstallMembership <a(yay)",
     "?RemoveMembership <(ayay(yyayay))",
+    "?StartManagement",
+    "?EndManagement",
     NULL
 };
 

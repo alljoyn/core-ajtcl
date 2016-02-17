@@ -424,12 +424,16 @@ AJ_Status AJ_AccessControlCheckProperty(const AJ_Message* msg, uint32_t id, cons
         case AJ_PROP_GET_ALL:
             if ((POLICY_PRPGET_INCOMING & acc) && (MANIFEST_PRPGET_INCOMING & acc)) {
                 status = AJ_OK;
+            } else {
+                AJ_WarnPrintf(("AccessControlCheckProperty(msg=%p, id=0x%08X, name=%s, direction=%x, message id 0x%08X): acc = 0x%08X -> AJ_ERR_ACCESS\n", msg, id, name, direction, msg->msgId, (uint32_t)acc));
             }
             break;
 
         case AJ_PROP_SET:
             if ((POLICY_PRPSET_INCOMING & acc) && (MANIFEST_PRPSET_INCOMING & acc)) {
                 status = AJ_OK;
+            } else {
+                AJ_WarnPrintf(("AccessControlCheckProperty(msg=%p, id=0x%08X, name=%s, direction=%x, message id 0x%08X): acc = 0x%08X -> AJ_ERR_ACCESS\n", msg, id, name, direction, msg->msgId, (uint32_t)acc));
             }
             break;
 
@@ -446,12 +450,16 @@ AJ_Status AJ_AccessControlCheckProperty(const AJ_Message* msg, uint32_t id, cons
         case AJ_PROP_GET_ALL:
             if ((POLICY_PRPGET_OUTGOING & acc) && (MANIFEST_PRPGET_OUTGOING & acc)) {
                 status = AJ_OK;
+            } else {
+                AJ_WarnPrintf(("AccessControlCheckProperty(msg=%p, id=0x%08X, name=%s, direction=%x, message id 0x%08X): acc = 0x%08X -> AJ_ERR_ACCESS\n", msg, id, name, direction, msg->msgId, (uint32_t)acc));
             }
             break;
 
         case AJ_PROP_SET:
             if ((POLICY_PRPSET_OUTGOING & acc) && (MANIFEST_PRPSET_OUTGOING & acc)) {
                 status = AJ_OK;
+            } else {
+                AJ_WarnPrintf(("AccessControlCheckProperty(msg=%p, id=0x%08X, name=%s, direction=%x, message id 0x%08X): acc = 0x%08X -> AJ_ERR_ACCESS\n", msg, id, name, direction, msg->msgId, (uint32_t)acc));
             }
             break;
 
@@ -1529,6 +1537,8 @@ AJ_Status AJ_PolicyApply(AJ_AuthenticationContext* ctx, const char* name)
             case AJ_METHOD_MANAGED_RESET_POLICY:
             case AJ_METHOD_MANAGED_INSTALL_MEMBERSHIP:
             case AJ_METHOD_MANAGED_REMOVE_MEMBERSHIP:
+            case AJ_METHOD_MANAGED_START_MANAGEMENT:
+            case AJ_METHOD_MANAGED_END_MANAGEMENT:
                 /* Default not allowed */
                 break;
 
