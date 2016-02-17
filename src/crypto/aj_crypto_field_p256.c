@@ -21,7 +21,7 @@
 #include <ajtcl/aj_crypto_fp.h>
 #include <ajtcl/aj_util.h>      /* for byte swaping function(s) */
 
-#ifdef _WIN32
+#if defined(_WIN32) && defined(_umul128)
 #include <intrin.h>
 #pragma intrinsic(_umul128)
 #endif
