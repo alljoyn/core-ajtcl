@@ -44,7 +44,7 @@ class BusAttachmentTest : public testing::Test {
         AJ_Initialize();
 
         // Connect to the bus
-        status = AJ_Connect(&testBus, NULL, connectTimeout);
+        status = AJ_FindBusAndConnect(&testBus, NULL, connectTimeout);
         // No point in continuing with any further tests, if we
         // cannot connect to the daemon. So ASSERT.
         ASSERT_EQ(AJ_OK, status) << "Unable to connect to the daemon. "

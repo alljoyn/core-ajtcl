@@ -77,20 +77,6 @@ uint8_t AJ_GetRoutingProtoVersion(void);
  */
 AJ_Status AJ_Authenticate(AJ_BusAttachment* bus);
 
-/**
- * Establish an AllJoyn connection.
- *
- * @param  bus                The bus attachment to connect.
- * @param  serviceName        Name of a specific service to connect to, NULL for the default name.
- * @param  timeout            How long to spend attempting to connect
- *
- * @return
- *         - AJ_OK if the connection was succesfully established
- *         - AJ_ERR_TIMEOUT if the connection attempt timed out
- */
-AJ_EXPORT
-AJ_Status AJ_Connect(AJ_BusAttachment* bus, const char* serviceName, uint32_t timeout);
-
 #ifdef AJ_ARDP
 /**
  * Establish an ARDP-based AllJoyn UDP connection.

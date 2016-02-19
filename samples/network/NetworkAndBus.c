@@ -70,7 +70,7 @@ static AJ_Status ConnectToBus(AJ_BusAttachment* bus)
     AJ_InitTimer(&start);
 #endif
 
-    AJ_InfoPrintf(("AJ_Connect(bus=0x%p, serviceName=\"%s\", timeout=%d.)\n", bus, serviceName, timeout));
+    AJ_InfoPrintf(("ConnectToBus(): bus=0x%p, serviceName=\"%s\", timeout=%d.\n", bus, serviceName, timeout));
 
     /*
      * Clear the bus struct
@@ -101,7 +101,7 @@ static AJ_Status ConnectToBus(AJ_BusAttachment* bus)
     service.addrTypes = AJ_ADDR_TCP4;
     status = AJ_Discover(serviceName, &service, timeout, AJ_SELECTION_TIMEOUT);
     if (status != AJ_OK) {
-        AJ_InfoPrintf(("AJ_Connect(): AJ_Discover status=%s\n", AJ_StatusText(status)));
+        AJ_InfoPrintf(("ConnectToBus(): AJ_Discover status=%s\n", AJ_StatusText(status)));
         goto ExitConnect;
     }
 #elif defined AJ_SERIAL_CONNECTION
@@ -109,12 +109,12 @@ static AJ_Status ConnectToBus(AJ_BusAttachment* bus)
     // however, take this opportunity to bring up the serial connection
     status = AJ_Serial_Up();
     if (status != AJ_OK) {
-        AJ_InfoPrintf(("AJ_Connect(): AJ_Serial_Up status=%s\n", AJ_StatusText(status)));
+        AJ_InfoPrintf(("ConnectToBus(): AJ_Serial_Up status=%s\n", AJ_StatusText(status)));
     }
 #else
     status = AJ_Discover(serviceName, &service, timeout, AJ_SELECTION_TIMEOUT);
     if (status != AJ_OK) {
-        AJ_InfoPrintf(("AJ_Connect(): AJ_Discover status=%s\n", AJ_StatusText(status)));
+        AJ_InfoPrintf(("ConnectToBus(): AJ_Discover status=%s\n", AJ_StatusText(status)));
         goto ExitConnect;
     }
 #endif
@@ -126,7 +126,7 @@ static AJ_Status ConnectToBus(AJ_BusAttachment* bus)
     status = AJ_Net_Connect(bus, &service);
     if (status != AJ_OK) {
         // or retry discovery to find another node that will accept our connection
-        AJ_InfoPrintf(("AJ_Connect(): AJ_Net_Connect status=%s\n", AJ_StatusText(status)));
+        AJ_InfoPrintf(("ConnectToBus(): AJ_Net_Connect status=%s\n", AJ_StatusText(status)));
         goto ExitConnect;
     }
 
@@ -153,7 +153,7 @@ static AJ_Status ConnectToBus(AJ_BusAttachment* bus)
 ExitConnect:
 
     if (status != AJ_OK) {
-        AJ_InfoPrintf(("AJ_Connect(): status=%s\n", AJ_StatusText(status)));
+        AJ_InfoPrintf(("ConnectToBus(): status=%s\n", AJ_StatusText(status)));
         AJ_Disconnect(bus);
     }
     return status;

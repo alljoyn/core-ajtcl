@@ -81,6 +81,9 @@ https://jira.allseenalliance.org/issues/?jql=project%20%3D%20%22Core%20SW%22%20A
 
 Compatibility
 -------------
+Starting in Version 16.04
+* The AJ_Connect() API has been removed (was DEPRECATED since 14.02)
+
 Starting in Version 15.09
 * The AJ_Connect() API is DEPRECATED (since 14.02)
 * The APIs for About in the core/about_tcl repo are DEPRECATED (since 14.06)
