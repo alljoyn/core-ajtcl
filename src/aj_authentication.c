@@ -52,10 +52,12 @@ static AJ_Status ComputeMasterSecret(AJ_AuthenticationContext* ctx, uint8_t* pms
     const uint8_t* data[2];
     uint8_t lens[2];
 
+    AJ_ASSERT(len <= UINT8_MAX);
+
     AJ_InfoPrintf(("ComputeMasterSecret(ctx=%p, pms=%p, len=%d)\n", ctx, pms, len));
 
     data[0] = pms;
-    lens[0] = len;
+    lens[0] = (uint8_t) len;
     data[1] = (uint8_t*) "master secret";
     lens[1] = 13;
 
@@ -67,14 +69,16 @@ static AJ_Status ComputeVerifier(AJ_AuthenticationContext* ctx, const char* labe
     const uint8_t* data[3];
     uint8_t lens[3];
 
+    AJ_ASSERT(bufferlen <= UINT32_MAX);
+
     data[0] = ctx->mastersecret;
     lens[0] = AJ_MASTER_SECRET_LEN;
     data[1] = (uint8_t*) label;
     lens[1] = (uint8_t) strlen(label);
     data[2] = ctx->digest;
-    lens[2] = sizeof (ctx->digest);
+    lens[2] = (uint8_t) sizeof (ctx->digest);
 
-    return AJ_Crypto_PRF_SHA256(data, lens, ArraySize(data), buffer, bufferlen);
+    return AJ_Crypto_PRF_SHA256(data, lens, ArraySize(data), buffer, (uint32_t) bufferlen);
 }
 
 static AJ_Status ComputePSKVerifier(AJ_AuthenticationContext* ctx, const char* label, uint8_t* buffer, size_t bufferlen)
@@ -150,12 +154,36 @@ static AJ_Status ECDHEMarshalV4(AJ_AuthenticationContext* ctx, AJ_Message* msg)
 static AJ_Status ECDHEMarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
 {
     AJ_Status status;
+    AJ_Credential cred = { 0 };
 
     AJ_InfoPrintf(("ECDHEMarshal(ctx=%p, msg=%p)\n", ctx, msg));
 
     // Generate key pair if client
     if (AUTH_CLIENT == ctx->role) {
-        status = AJ_GenerateECCKeyPair(&ctx->kectx.pub, &ctx->kectx.prv);
+
+        if (ctx->suite == AUTH_SUITE_ECDHE_SPEKE) { /* EC-SPEKE keygen depends on the password, use the callback */
+
+            if (ctx->bus->authListenerCallback == NULL) {
+                AJ_InfoPrintf(("Authentication failure: Missing callback for ECDHE_SPEKE\n"));
+                return AJ_ERR_INVALID;
+            }
+
+            status = ctx->bus->authListenerCallback(AUTH_SUITE_ECDHE_SPEKE, AJ_CRED_PASSWORD, &cred);
+            if (status != AJ_OK) {
+                AJ_InfoPrintf(("Authentication failure: callback failed for ECDHE_SPEKE\n"));
+                return status;
+            }
+
+            if (cred.expiration) {
+                ctx->expiration = cred.expiration;
+            }
+
+            status = AJ_GenerateSPEKEKeyPair(cred.data, cred.len, &ctx->kactx.speke.localGUID, ctx->kactx.speke.remoteGUID,
+                                             &ctx->kectx.pub, &ctx->kectx.prv);
+        } else {   /* The other ECDH suites use traditional key generation */
+            status = AJ_GenerateECCKeyPair(&ctx->kectx.pub, &ctx->kectx.prv);
+        }
+
         if (AJ_OK != status) {
             AJ_InfoPrintf(("ECDHEMarshal(ctx=%p, msg=%p): Key generation failed\n", ctx, msg));
             return status;
@@ -332,12 +360,35 @@ static AJ_Status ECDHEUnmarshalV4(AJ_AuthenticationContext* ctx, AJ_Message* msg
 static AJ_Status ECDHEUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg)
 {
     AJ_Status status;
+    AJ_Credential cred = { 0 };
 
     AJ_InfoPrintf(("ECDHEUnmarshal(ctx=%p, msg=%p)\n", ctx, msg));
 
     // Generate key pair if server
     if (AUTH_SERVER == ctx->role) {
-        status = AJ_GenerateECCKeyPair(&ctx->kectx.pub, &ctx->kectx.prv);
+        if (ctx->suite == AUTH_SUITE_ECDHE_SPEKE) { /* EC-SPEKE keygen depends on the password, use the callback */
+
+            if (ctx->bus->authListenerCallback == NULL) {
+                AJ_InfoPrintf(("Authentication failure: Missing callback for ECDHE_SPEKE\n"));
+                return AJ_ERR_INVALID;
+            }
+
+            status = ctx->bus->authListenerCallback(AUTH_SUITE_ECDHE_SPEKE, AJ_CRED_PASSWORD, &cred);
+            if (status != AJ_OK) {
+                AJ_InfoPrintf(("Authentication failure: callback failed for ECDHE_SPEKE\n"));
+                return status;
+            }
+
+            if (cred.expiration) {
+                ctx->expiration = cred.expiration;
+            }
+
+            status = AJ_GenerateSPEKEKeyPair(cred.data, cred.len, ctx->kactx.speke.remoteGUID, &ctx->kactx.speke.localGUID,
+                                             &ctx->kectx.pub, &ctx->kectx.prv);
+        } else {   /* The other ECDH suites use traditional key generation */
+            status = AJ_GenerateECCKeyPair(&ctx->kectx.pub, &ctx->kectx.prv);
+        }
+
         if (AJ_OK != status) {
             AJ_InfoPrintf(("ECDHEUnmarshal(ctx=%p, msg=%p): Key generation failed\n", ctx, msg));
             return status;
@@ -1074,6 +1125,10 @@ AJ_Status AJ_KeyAuthenticationMarshal(AJ_AuthenticationContext* ctx, AJ_Message*
     case AUTH_SUITE_ECDHE_ECDSA:
         status = ECDSAMarshal(ctx, msg);
         break;
+
+    case AUTH_SUITE_ECDHE_SPEKE:        /* Same marshalling as ECDHE_NULL. */
+        status = NULLMarshal(ctx, msg);
+        break;
     }
     return status;
 }
@@ -1093,6 +1148,10 @@ AJ_Status AJ_KeyAuthenticationUnmarshal(AJ_AuthenticationContext* ctx, AJ_Messag
     case AUTH_SUITE_ECDHE_ECDSA:
         status = ECDSAUnmarshal(ctx, msg, ctx->version);
         break;
+
+    case AUTH_SUITE_ECDHE_SPEKE:        /* Same unmarshalling as ECDHE_NULL. */
+        status = NULLUnmarshal(ctx, msg);
+        break;
     }
     return status;
 }
@@ -1111,6 +1170,9 @@ uint8_t AJ_IsSuiteEnabled(AJ_BusAttachment* bus, uint32_t suite, uint32_t versio
             return 0;
         }
         return 1 == bus->suites[2];
+
+    case AUTH_SUITE_ECDHE_SPEKE:
+        return 1 == bus->suites[3];
 
     default:
         return 0;
@@ -1132,6 +1194,10 @@ void AJ_EnableSuite(AJ_BusAttachment* bus, uint32_t suite)
 
     case AUTH_SUITE_ECDHE_ECDSA:
         bus->suites[2] = 1;
+        break;
+
+    case AUTH_SUITE_ECDHE_SPEKE:
+        bus->suites[3] = 1;
         break;
     }
 }

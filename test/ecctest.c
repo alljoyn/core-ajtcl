@@ -24,9 +24,16 @@
 #include <ajtcl/aj_crypto_ecc.h>
 #include <ajtcl/aj_crypto_fp.h>
 #include <ajtcl/aj_crypto_ec_p256.h>
-#include <ajtcl/aj_crypto.h>      // for the RNG
-#include <ajtcl/aj_crypto_ecc.h>  // ECDH/ECDSA APIs
+#include <ajtcl/aj_crypto.h>      /* for the RNG */
+#include <ajtcl/aj_crypto_ecc.h>  /* ECDH/ECDSA APIs */
 #include <ajtcl/aj_crypto_sha2.h>
+
+
+/*
+ * Set this variable to print out the standard EC-SPEKE basepoints used in
+ * AllJoyn for ECDHE_SPEKE.
+ */
+static const int g_print_speke_basepoints = 0;
 
 /* Benchmark support code */
 /* Note: For a given processor, more precise timing methods often exist.
@@ -609,13 +616,13 @@ int test_scalarmul_kat(digit256_t k, digit256_t x, digit256_t y, int i)
 
     status = ec_getcurve(&curve, NISTP256r1);
     if (status != AJ_OK) {
-        AJ_Printf("ec_getcurve failed\n", i);
+        AJ_Printf("ec_getcurve failed %d\n", i);
         goto Exit;
     }
     ec_get_generator(&P, &curve);
 
     if (ec_is_infinity(&P, &curve)) {
-        AJ_Printf("invalid generator\n", i);
+        AJ_Printf("invalid generator %d\n", i);
         status = AJ_ERR_UNKNOWN;
         goto Exit;
     }
@@ -983,6 +990,146 @@ int test_conversion()
     return 1;
 }
 
+int test_redp()
+{
+    ec_t curve = { 0 };
+    ecpoint_t Q1 = { 0 };
+    ecpoint_t Q2 = { 0 };
+    ecpoint_t P1 = { 0 };
+    ecpoint_t P2 = { 0 };
+    ecpoint_t R = { 0 };
+    AJ_Status status;
+    unsigned char point1[18] = "ALLJOYN-ECSPEKE-1";
+    unsigned char point2[18] = "ALLJOYN-ECSPEKE-2";
+    unsigned char password[11] = "mypassword";
+
+    status = ec_getcurve(&curve, NISTP256r1);
+    if (status != AJ_OK) {
+        goto Exit;
+    }
+
+    status = ec_REDP1(point1, sizeof(point1), &Q1, &curve);
+    if (status != AJ_OK) {
+        AJ_Printf("REDP-1 failed with pi1, did not return AJ_OK.");
+        goto Exit;
+    }
+
+    status = ec_REDP1(point2, sizeof(point2), &Q2, &curve);
+    if (status != AJ_OK) {
+        AJ_Printf("REDP-1 failed with pi2, did not return AJ_OK.");
+        goto Exit;
+    }
+
+    if (g_print_speke_basepoints) {
+        /* Print the standard EC-SPEKE basepoints used in AllJoyn for ECDHE_SPEKE. */
+        AJ_Printf("REDP-1(ALLJOYN-ECSPEKE-1)\n");
+        print_digits("x = ", Q1.x);
+        print_digits("y = ", Q1.y);
+        AJ_Printf("REDP-1(ALLJOYN-ECSPEKE-2)\n");
+        print_digits("x = ", Q2.x);
+        print_digits("y = ", Q2.y);
+    }
+
+    status = ec_REDP2(password, &Q1, &Q2, &R, &curve);
+    if (status != AJ_OK) {
+        AJ_Printf("REDP-2 failed, did not return AJ_OK.");
+        goto Exit;
+    }
+
+    /* Make sure precomputed basepoints equal those we computed just now from the two constants. */
+    ec_get_REDP_basepoints(&P1, &P2, curve.curveid);
+    if (!ecpoint_areequal(&P1, &Q1, &curve)) {
+        status = AJ_ERR_UNKNOWN;
+        AJ_Printf("REDP precomputed basepoints incorrect, point 1 does not match REDP-1(%s).", point1);
+        goto Exit;
+    }
+    if (!ecpoint_areequal(&P2, &Q2, &curve)) {
+        status = AJ_ERR_UNKNOWN;
+        AJ_Printf("REDP precomputed basepoints incorrect, point 2 does not match REDP-1(%s).", point2);
+        goto Exit;
+    }
+
+Exit:
+    if (status == AJ_OK) {
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+// Test the ECDHE_ECSPEKE key generation and agreement functions from aj_crypto_ecc.h
+int test_ecspeke()
+{
+    AJ_GUID clientGUID;
+    AJ_GUID serviceGUID;
+    AJ_Status status;
+    AJ_ECCPublicKey pk1, pk2;
+    AJ_ECCPrivateKey sk1, sk2;
+    AJ_ECCSecret secret1, secret2;
+    const uint8_t pw[8] = { 1, 2, 3, 4, 5, 6, 7, 8 };
+    const uint8_t notpw[8] = { 8, 7, 6, 5, 4, 3, 2, 1 };
+
+    AJ_CreateNewGUID((uint8_t*)&clientGUID, sizeof(AJ_GUID));
+    AJ_CreateNewGUID((uint8_t*)&serviceGUID, sizeof(AJ_GUID));
+
+    // Create key pairs from matching password
+    status = AJ_GenerateSPEKEKeyPair(pw, sizeof(pw), &clientGUID, &serviceGUID, &pk1, &sk1);
+    if (status != AJ_OK) {
+        AJ_Printf("Failed to generate key pair 1 for ECDHE_SPEKE test\n");
+        return 0;
+    }
+    status = AJ_GenerateSPEKEKeyPair(pw, sizeof(pw), &clientGUID, &serviceGUID, &pk2, &sk2);
+    if (status != AJ_OK) {
+        AJ_Printf("Failed to generate key pair 2 for ECDHE_SPEKE test\n");
+        return 0;
+    }
+
+    // Do key agreement operation
+    status = AJ_GenerateShareSecret(&pk2, &sk1, &secret1);
+    if (status != AJ_OK) {
+        AJ_Printf("Failed to generate shared secret 1 for ECDHE_SPEKE test\n");
+        return 0;
+    }
+    status = AJ_GenerateShareSecret(&pk1, &sk2, &secret2);
+    if (status != AJ_OK) {
+        AJ_Printf("Failed to generate shared secret 2 for ECDHE_SPEKE test\n");
+        return 0;
+    }
+
+    // Shared secrets should be equal
+    if (memcmp(secret1.x, secret2.x, KEY_ECC_SZ) != 0) {
+        AJ_Printf("Shared secrets for ECHDE_SPEKE test do not match\n");
+        return 0;
+    }
+
+    // Re-create keypair 2 with a different password
+    status = AJ_GenerateSPEKEKeyPair(notpw, sizeof(notpw), &clientGUID, &serviceGUID, &pk2, &sk2);
+    if (status != AJ_OK) {
+        AJ_Printf("Failed to re-generate key pair 2 for ECDHE_SPEKE test\n");
+        return 0;
+    }
+
+    // Re-do key agreement operation
+    status = AJ_GenerateShareSecret(&pk2, &sk1, &secret1);
+    if (status != AJ_OK) {
+        AJ_Printf("Failed to generate shared secret 1 for ECDHE_SPEKE test\n");
+        return 0;
+    }
+    status = AJ_GenerateShareSecret(&pk1, &sk2, &secret2);
+    if (status != AJ_OK) {
+        AJ_Printf("Failed to generate shared secret 2 for ECDHE_SPEKE test\n");
+        return 0;
+    }
+
+    // Shared secrets should no longer be equal
+    if (memcmp(secret1.x, secret2.x, KEY_ECC_SZ) == 0) {
+        AJ_Printf("Shared secrets for ECHDE_SPEKE test match when they shouldn't\n");
+        return 0;
+    }
+
+    return 1;
+}
+
 int AJ_Main()
 {
     int tests_ran = 0;
@@ -1012,6 +1159,12 @@ int AJ_Main()
     tests_ran++;
 
     passed += test_conversion();
+    tests_ran++;
+
+    passed += test_redp();
+    tests_ran++;
+
+    passed += test_ecspeke();
     tests_ran++;
 
     AJ_Printf("  Ran %d tests, %d passed.\n", tests_ran, passed);

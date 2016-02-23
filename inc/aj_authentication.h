@@ -40,8 +40,9 @@ extern "C" {
 #define AUTH_SUITE_ECDHE_NULL  (AUTH_KEYX_ECDHE | 0x0001)
 #define AUTH_SUITE_ECDHE_PSK   (AUTH_KEYX_ECDHE | 0x0002)
 #define AUTH_SUITE_ECDHE_ECDSA (AUTH_KEYX_ECDHE | 0x0004)
+#define AUTH_SUITE_ECDHE_SPEKE (AUTH_KEYX_ECDHE | 0x0008)
 
-#define AJ_AUTH_SUITES_NUM     3    /**< Number of supported authentication suites */
+#define AJ_AUTH_SUITES_NUM     4    /**< Number of supported authentication suites */
 
 #define AUTH_CLIENT            0
 #define AUTH_SERVER            1
@@ -97,9 +98,24 @@ typedef struct _ECDSAContext {
     size_t size;                                   /**< Manifest size */
 } ECDSAContext;
 
+/**
+ * Context for EC-SPEKE authentication
+ * The local GUID is read from the keystore, so we need to keep it in memory,
+ * while the remote GUID is already in memory during authentication.
+ */
+typedef struct _SPEKEContext {
+    const AJ_GUID localGUID;                        /**< Our GUID */
+    const AJ_GUID* remoteGUID;                      /**< Our peer's GUID */
+} SPEKEContext;
+
+/**
+ * The KeyAuthenticationContext will hold the suite-specific context,
+ * depending on AJ_AuthenticationContext.suite.
+ */
 typedef struct _KeyAuthenticationContext {
     PSKContext psk;                                /**< Context for PSK authentication */
     ECDSAContext ecdsa;                            /**< Context for ECDSA authentication */
+    SPEKEContext speke;                            /**< Context for EC-SPEKE authentication */
 } KeyAuthenticationContext;
 
 /**

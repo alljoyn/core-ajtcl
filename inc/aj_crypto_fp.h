@@ -268,6 +268,31 @@ void fpdigitswap_p256(digit256_t a);
  */
 void fpimport_p256(const uint8_t* bytes, digit256_t x, digit_t* temps, boolean_t is_bigendian);
 
+/**
+ * Test whether a field element is a square.
+ *
+ * @param[in]       a     The element to test.
+ * @param[in,out]   temps Temporary space for use by this function, must have digit length P256_TEMPS.
+ *
+ * @return
+ * TRUE if the element is a square mod P256, FALSE otherwise.
+ *
+ */
+boolean_t fpissquare_p256(digit256_tc a, digit_t* temps);
+
+/**
+ * Compute the square root of a field element (known to be a square).
+ *
+ * @param[in]        a      The element to compute the square root of.
+ * @param[out]       sqrt   The output result sqrt(a) (mod p256).
+ * @param[in,out]    temps  Temporary space for use by this function, must have digit length P256_TEMPS.
+ *
+ * @remarks
+ * If a is not a square, the returned value is incorrect.  See
+ * fpissquare_p256 to test whether a is a square.
+ */
+void fpsqrt_p256(digit256_tc a, digit256_t sqrt, digit_t* temps);
+
 #ifdef __cplusplus
 }
 #endif
