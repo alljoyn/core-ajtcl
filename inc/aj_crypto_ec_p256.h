@@ -193,7 +193,9 @@ void ec_add(ecpoint_t* P, const ecpoint_t* Q, ec_t* curve);
 /* These are internal to the ECC code -- defined here for testing.  */
 void ec_double_jacobian(ecpoint_jacobian_t* P);
 void ec_add_jacobian(ecpoint_jacobian_t* Q, ecpoint_jacobian_t* P, ec_t* curve);
-
+AJ_Status ec_REDP1(const uint8_t* pi, size_t len, ecpoint_t* Q, ec_t* curve);
+AJ_Status ec_REDP2(const uint8_t* pi, const ecpoint_t* Q1, const ecpoint_t* Q2, ecpoint_t* R, ec_t* curve);
+void ec_get_REDP_basepoints(ecpoint_t* Q1, ecpoint_t* Q2, curveid_t curveid);
 
 #ifdef __cplusplus
 }

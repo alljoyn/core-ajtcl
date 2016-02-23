@@ -451,6 +451,7 @@ AJ_Status AJ_PeerAuthenticate(AJ_BusAttachment* bus, const char* peerName, AJ_Pe
 
     if (bus->pwdCallback) {
         AJ_EnableSuite(bus, AUTH_SUITE_ECDHE_PSK);
+        AJ_EnableSuite(bus, AUTH_SUITE_ECDHE_SPEKE);
     }
 
     /*
@@ -525,6 +526,7 @@ AJ_Status AJ_PeerHandleExchangeGUIDs(AJ_Message* msg, AJ_Message* reply)
 
     if (msg->bus->pwdCallback) {
         AJ_EnableSuite(msg->bus, AUTH_SUITE_ECDHE_PSK);
+        AJ_EnableSuite(msg->bus, AUTH_SUITE_ECDHE_SPEKE);
     }
 
     status = AJ_UnmarshalArgs(msg, "su", &str, &authContext.version);
@@ -643,6 +645,7 @@ AJ_Status AJ_PeerHandleExchangeGUIDsReply(AJ_Message* msg)
         AJ_WarnPrintf(("AJ_PeerHandleExchangeGUIDsReply(msg=%p): Invalid GUID\n", msg));
         goto Exit;
     }
+
     /*
      * Two name mappings to add, the well known name, and the unique name from the message.
      */
@@ -707,6 +710,9 @@ static AJ_Status ExchangeSuites(AJ_Message* msg)
     }
     if (AJ_IsSuiteEnabled(msg->bus, AUTH_SUITE_ECDHE_PSK, AJ_UNPACK_AUTH_VERSION(authContext.version))) {
         suites[num++] = AUTH_SUITE_ECDHE_PSK;
+    }
+    if (AJ_IsSuiteEnabled(msg->bus, AUTH_SUITE_ECDHE_SPEKE, AJ_UNPACK_AUTH_VERSION(authContext.version))) {
+        suites[num++] = AUTH_SUITE_ECDHE_SPEKE;
     }
     if (AJ_IsSuiteEnabled(msg->bus, AUTH_SUITE_ECDHE_NULL, AJ_UNPACK_AUTH_VERSION(authContext.version))) {
         suites[num++] = AUTH_SUITE_ECDHE_NULL;
@@ -902,6 +908,23 @@ Exit:
     return AJ_ERR_SECURITY;
 }
 
+static AJ_Status AJ_SetKeyAuthContext(AJ_AuthenticationContext* ctx, const char* peerName)
+{
+    AJ_Status status;
+
+    if (ctx->suite == AUTH_SUITE_ECDHE_SPEKE) {
+        status = AJ_GetLocalGUID(&ctx->kactx.speke.localGUID);
+        if (status != AJ_OK) {
+            return status;
+        }
+        ctx->kactx.speke.remoteGUID = AJ_GUID_Find(peerName);
+        if (ctx->kactx.speke.remoteGUID == NULL) {
+            return AJ_ERR_NO_MATCH;
+        }
+    }
+    return AJ_OK;
+}
+
 static AJ_Status KeyExchange(AJ_BusAttachment* bus)
 {
     AJ_Status status;
@@ -923,6 +946,11 @@ static AJ_Status KeyExchange(AJ_BusAttachment* bus)
     status = AJ_MarshalArgs(&call, "u", authContext.suite);
     if (AJ_OK != status) {
         AJ_WarnPrintf(("KeyExchange(bus=%p): Marshal error\n", bus));
+        goto Exit;
+    }
+
+    status = AJ_SetKeyAuthContext(&authContext, peerContext.peerName);
+    if (AJ_OK != status) {
         goto Exit;
     }
 
@@ -971,6 +999,11 @@ AJ_Status AJ_PeerHandleKeyExchange(AJ_Message* msg, AJ_Message* reply)
     }
     HostU32ToBigEndianU8(&authContext.suite, sizeof (authContext.suite), suiteb8);
     AJ_ConversationHash_Update_UInt8Array(&authContext, CONVERSATION_V1, suiteb8, sizeof (suiteb8));
+
+    status = AJ_SetKeyAuthContext(&authContext, msg->sender);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
 
     /*
      * Receive key material

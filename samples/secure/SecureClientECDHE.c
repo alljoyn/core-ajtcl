@@ -36,6 +36,14 @@
 #include <ajtcl/aj_security.h>
 #include <ajtcl/aj_authorisation.h>
 
+/*
+ * If MAIN_ALLOW_ARGS is defined, the user must specify the auth suite to use.
+ * If it's not defined, all auth suites are enabled, and AllJoyn negotiates
+ * one to use, and in the event of failure, tries multiple auth suites until
+ * one succeeds.
+ */
+#define MAIN_ALLOW_ARGS
+
 uint8_t dbgSECURE_CLIENT = 0;
 
 /*
@@ -220,6 +228,7 @@ static const char pem_x509_noekus[] = {
 
 static const char psk_hint[] = "<anonymous>";
 static const char psk_char[] = "faaa0af3dd3f1e0379da046a3ab6ca44";
+static const char ecspeke_password[] = "1234";
 static X509CertificateChain* chain = NULL;
 static uint8_t noekus = FALSE;
 
@@ -248,6 +257,17 @@ static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, 
         case AJ_CRED_PRV_KEY:
             cred->data = (uint8_t*) psk_char;
             cred->len = strlen(psk_char);
+            cred->expiration = keyexpiration;
+            status = AJ_OK;
+            break;
+        }
+        break;
+
+    case AUTH_SUITE_ECDHE_SPEKE:
+        switch (command) {
+        case AJ_CRED_PASSWORD:
+            cred->data = (uint8_t*)ecspeke_password;
+            cred->len = strlen(ecspeke_password);
             cred->expiration = keyexpiration;
             status = AJ_OK;
             break;
@@ -349,6 +369,8 @@ int AJ_Main(void)
                     suites[numsuites++] = AUTH_SUITE_ECDHE_PSK;
                 } else if (0 == strncmp(*av, "ECDHE_NULL", 10)) {
                     suites[numsuites++] = AUTH_SUITE_ECDHE_NULL;
+                } else if (0 == strncmp(*av, "ECDHE_SPEKE", 11)) {
+                    suites[numsuites++] = AUTH_SUITE_ECDHE_SPEKE;
                 }
                 ac--;
                 av++;
@@ -372,11 +394,13 @@ int AJ_Main(void)
     /*
      * Allow all authentication mechanisms
      */
+    AJ_AlwaysPrintf(("Ignoring command line arguments: enabling all auth suites, not clearing the keystore and using EKUs in certificates.\n"));
     clearkeys = FALSE;
     noekus = FALSE;
     suites[numsuites++] = AUTH_SUITE_ECDHE_ECDSA;
     suites[numsuites++] = AUTH_SUITE_ECDHE_PSK;
     suites[numsuites++] = AUTH_SUITE_ECDHE_NULL;
+    suites[numsuites++] = AUTH_SUITE_ECDHE_SPEKE;
 #endif
 
     /*

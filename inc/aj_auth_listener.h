@@ -37,33 +37,21 @@ extern "C" {
 #define AJ_CRED_PRV_KEY    0x0001 /**< private key */
 #define AJ_CRED_PUB_KEY    0x0002 /**< public key */
 #define AJ_CRED_CERT_CHAIN 0x0003 /**< certificate chain */
+#define AJ_CRED_PASSWORD   0x0004 /**< password */
 
 #define AJ_CRED_REQUEST    0
 #define AJ_CRED_RESPONSE   1
 
 /* The key exchange is in the 16 MSB */
-#define AUTH_KEYX_ANONYMOUS     0x00010000
-#define AUTH_KEYX_EXTERNAL      0x00020000
-#define AUTH_KEYX_PIN           0x00040000
-#define AUTH_KEYX_SRP           0x00080000
-#define AUTH_KEYX_SRP_LOGON     0x00100000
-#define AUTH_KEYX_RSA           0x00200000
-#define AUTH_KEYX_ECDHE         0x00400000
+#define AUTH_KEYX_ECDHE        0x00400000
 
 /* The key authentication suite is in the 16 LSB */
+#define AUTH_SUITE_ECDHE_NULL  (AUTH_KEYX_ECDHE | 0x0001)
+#define AUTH_SUITE_ECDHE_PSK   (AUTH_KEYX_ECDHE | 0x0002)
+#define AUTH_SUITE_ECDHE_ECDSA (AUTH_KEYX_ECDHE | 0x0004)
+#define AUTH_SUITE_ECDHE_SPEKE (AUTH_KEYX_ECDHE | 0x0008)
 
-#define AUTH_SUITE_ANONYMOUS    AUTH_KEYX_ANONYMOUS
-#define AUTH_SUITE_EXTERNAL     AUTH_KEYX_EXTERNAL
-#define AUTH_SUITE_PIN_KEYX     AUTH_KEYX_PIN
-#define AUTH_SUITE_SRP_KEYX     AUTH_KEYX_SRP
-#define AUTH_SUITE_SRP_LOGON    AUTH_KEYX_SRP_LOGON
-#define AUTH_SUITE_RSA_KEYX     AUTH_KEYX_RSA
-
-#define AUTH_SUITE_ECDHE_NULL   (AUTH_KEYX_ECDHE | 0x0001)
-#define AUTH_SUITE_ECDHE_PSK    (AUTH_KEYX_ECDHE | 0x0002)
-#define AUTH_SUITE_ECDHE_ECDSA  (AUTH_KEYX_ECDHE | 0x0004)
-
-#define AJ_AUTH_SUITES_NUM      3    /**< Number of supported authentication suites */
+#define AJ_AUTH_SUITES_NUM     4    /**< Number of supported authentication suites */
 
 /*
  * Type for a Credential entry for the auth listener callback

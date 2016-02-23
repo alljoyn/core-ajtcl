@@ -150,6 +150,7 @@ static const char pem_x509[] = {
 
 static const char psk_hint[] = "<anonymous>";
 static const char psk_char[] = "faaa0af3dd3f1e0379da046a3ab6ca44";
+static const char ecspeke_password[] = "1234";
 static X509CertificateChain* chain = NULL;
 static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, AJ_Credential*cred)
 {
@@ -164,6 +165,21 @@ static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, 
         status = AJ_OK;
         break;
 
+    case AUTH_SUITE_ECDHE_SPEKE:
+        switch (command) {
+        case AJ_CRED_PASSWORD:
+            cred->data = (uint8_t*)ecspeke_password;
+            cred->len = strlen(ecspeke_password);
+            cred->expiration = keyexpiration;
+            status = AJ_OK;
+            break;
+        }
+        break;
+
+    /*
+     * The ECDHE_PSK auth mechanism is deprecated as of 16.04 and ECDHE_SPEKE
+     * should be used instead.
+     */
     case AUTH_SUITE_ECDHE_PSK:
         switch (command) {
         case AJ_CRED_PUB_KEY:
@@ -223,8 +239,8 @@ static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, 
     return status;
 }
 
-static const uint32_t suites[3] = { AUTH_SUITE_ECDHE_ECDSA, AUTH_SUITE_ECDHE_PSK, AUTH_SUITE_ECDHE_NULL };
-static const size_t numsuites = 3;
+static const uint32_t suites[4] = { AUTH_SUITE_ECDHE_ECDSA, AUTH_SUITE_ECDHE_SPEKE, AUTH_SUITE_ECDHE_PSK, AUTH_SUITE_ECDHE_NULL };
+static const size_t numsuites = 4;
 
 /* All times are expressed in milliseconds. */
 #define CONNECT_TIMEOUT     (1000 * 60)

@@ -24,6 +24,7 @@
 
 #include <ajtcl/aj_target.h>
 #include <ajtcl/aj_status.h>
+#include <ajtcl/aj_guid.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -37,17 +38,16 @@ typedef enum {B_FALSE, B_TRUE} boolean_t;
 #define KEY_ECC_SZ (8 * sizeof (uint32_t))
 #define KEY_ECC_PRV_SZ KEY_ECC_SZ
 #define KEY_ECC_PUB_SZ (2 * KEY_ECC_SZ)
-#define KEY_ECC_SEC_SZ (2 * KEY_ECC_SZ)
 #define KEY_ECC_SIG_SZ (2 * KEY_ECC_SZ)
 
 /* Size of affine_point_t */
 #define KEY_ECC_OLD_SZ (19 * sizeof (uint32_t))
 
 /**
- * We currently only support one type of key
- * This structure can be modified to support more in the future
+ * Key and curve types for AJ_ECC key types
  */
 #define KEY_ALG_ECDSA_SHA256 0
+#define KEY_ALG_ECSPEKE      1
 #define KEY_CRV_NISTP256     0
 typedef struct _AJ_ECCPublicKey {
     uint8_t alg;                   /**< Algorithm */
@@ -165,6 +165,23 @@ void AJ_BigEndianEncodePublicKey(AJ_ECCPublicKey* pub, uint8_t* b8);
  *          - AJ_ERR_SECURITY otherwise
  */
 AJ_Status AJ_GenerateShareSecretOld(AJ_ECCPublicKey* pub, AJ_ECCPrivateKey* prv, AJ_ECCPublicKey* sec);
+
+/**
+ * Generates an ephemeral key pair for EC-SPEKE.
+ *
+ * @param[in]  pw          Password and additional data to use during key generation
+ * @param[in]  pwLen       The byte length of pw
+ * @param[in]  clientGUID  The client's GUID
+ * @param[in]  serviceGUID The service's GUID
+ * @param[out] publicKey   The output public key
+ * @param[out] privateKey  The output private key
+ *
+ * @return  - AJ_OK if the key pair is successfully generated.
+ *          - AJ_ERR_SECURITY otherwise
+ */
+AJ_Status AJ_GenerateSPEKEKeyPair(const uint8_t* pw, size_t pwLen, const AJ_GUID* clientGUID, const AJ_GUID* serviceGUID,
+                                  AJ_ECCPublicKey* publicKey, AJ_ECCPrivateKey* privateKey);
+
 
 #ifdef __cplusplus
 }

@@ -27,7 +27,6 @@
 #include <ajtcl/aj_crypto_fp.h>
 #include <ajtcl/aj_crypto_ec_p256.h>
 
-
 #define BIGLEN 9
 /*
  * For P256 bigval_t types hold 288-bit 2's complement numbers (9
@@ -1578,5 +1577,221 @@ AJ_Status AJ_GenerateShareSecretOld(AJ_ECCPublicKey* pub, AJ_ECCPrivateKey* prv,
     BigvalEncode(&secret.x, sec->x, KEY_ECC_SZ);
     BigvalEncode(&secret.y, sec->y, KEY_ECC_SZ);
 
+    return AJ_OK;
+}
+
+/*
+ * Not a general-purpose implementation of REDP-1 from IEEE 1363.
+ * Only used in AllJoyn to derive two basepoints, from the fixed constants
+ * "ALLJOYN-ECSPEKE-1" and "ALLJOYN-ECSPEKE-2"
+ * pi is not treated as a secret value.
+ * This function is not constant-time.
+ */
+AJ_Status ec_REDP1(const uint8_t* pi, size_t len, ecpoint_t* Q, ec_t* curve)
+{
+    AJ_Status status = AJ_OK;
+    AJ_SHA256_Context* ctx;
+    uint8_t digest_i1[AJ_SHA256_DIGEST_LENGTH];
+    uint8_t bytes_O3[AJ_SHA256_DIGEST_LENGTH];
+    digit256_t x, alpha, beta;
+    digit256_t tmp;
+    digit_t temps[P256_TEMPS];
+    int mu, carry, i;
+    digit256_tc P256_A = { 0xFFFFFFFFFFFFFFFCULL, 0x00000000FFFFFFFFULL, 0x0000000000000000ULL, 0xFFFFFFFF00000001ULL };
+    digit256_tc P256_B = { 0x3BCE3C3E27D2604BULL, 0x651D06B0CC53B0F6ULL, 0xB3EBBD55769886BCULL, 0x5AC635D8AA3A93E7ULL };
+
+    /* Steps and notation follow IEEE 1363.2 Section 8.2.17 "[EC]REDP-1" */
+
+    /* Hash pi to an octet string --  Step (a)*/
+    ctx = AJ_SHA256_Init();
+    if (!ctx) {
+        return AJ_ERR_RESOURCES;
+    }
+    AJ_SHA256_Update(ctx, pi, len);
+    AJ_SHA256_Final(ctx, digest_i1);
+
+    while (1) {
+        /* mu is rightmost bit of digest_i1 */
+        mu = digest_i1[sizeof(digest_i1) - 1] % 2;
+
+        /* Hash the hash -- Steps (b), (c), (d). */
+        ctx = AJ_SHA256_Init();
+        if (!ctx) {
+            return AJ_ERR_RESOURCES;
+        }
+        AJ_SHA256_Update(ctx, digest_i1, sizeof(digest_i1));
+        AJ_SHA256_Final(ctx, bytes_O3);
+
+        /* Convert octets O3 to the field element x -- Step (e) */
+        fpimport_p256(bytes_O3, x, temps, TRUE);
+
+        /* Compute alpha = x^3 + a*x + b (mod p)  */
+        fpmul_p256(x, x, alpha, temps);             /* alpha = x^2 */
+        fpmul_p256(alpha, x, alpha, temps);         /* alpha = x^3 */
+        fpmul_p256(x, P256_A, tmp, temps);          /* tmp = a*x */
+        fpadd_p256(alpha, tmp, alpha);              /* alpha = x^3 + a*x */
+        fpadd_p256(alpha, P256_B, alpha);           /* alpha = x^3 + a*x + b */
+
+        /* Compute beta = a sqrt of alpha, if possible, if not begin a new iteration. */
+        if (fpissquare_p256(alpha, temps)) {
+            fpsqrt_p256(alpha, beta, temps);
+        } else {
+            /* Increment digest_i1 (as a big endian integer) then start a new iteration */
+            carry = 1;
+            for (i = sizeof(digest_i1) - 1; i >= 0; i--) {
+                digest_i1[i] += carry;
+                carry = (digest_i1[i] == 0);
+            }
+
+            if (carry) {
+                /* It's overflown sizeof(digest_i1), fail. The probability of
+                 * this occuring is negligible.
+                 */
+                status = AJ_ERR_FAILURE;
+                goto Exit;
+            }
+            continue;
+        }
+
+        if (mu) {
+            fpneg_p256(beta);
+        }
+
+        /* Output (x,beta) */
+        memcpy(Q->x, x, sizeof(digit256_t));
+        memcpy(Q->y, beta, sizeof(digit256_t));
+        break;
+    }
+
+    /* Make sure the point is valid, and is not the identity. */
+    if (!ecpoint_validation(Q, curve)) {
+        status = AJ_ERR_FAILURE;
+        goto Exit;
+    }
+
+Exit:
+    /* Nothing to zero since inputs are public. */
+    return status;
+}
+
+/* Computes R = Q1*Q2^pi */
+AJ_Status ec_REDP2(const uint8_t pi[sizeof(digit256_t)], const ecpoint_t* Q1, const ecpoint_t* Q2, ecpoint_t* R, ec_t* curve)
+{
+    digit256_t t;
+    digit_t temps[P256_TEMPS];
+    AJ_Status status = AJ_OK;
+
+    fpimport_p256(pi, t, temps, TRUE);
+    status = ec_scalarmul(Q2, t, R, curve);         /* R = Q2^t*/
+    ec_add(R, Q1, curve);                           /* R = Q1*Q2^t*/
+
+    fpzero_p256(t);
+    AJ_MemZeroSecure(temps, P256_TEMPS * sizeof(digit_t));
+
+    return status;
+}
+
+/*
+ * Get the two precomputed points
+ * Q1 = REDP-1(ALLJOYN-ECSPEKE-1), Q2 = REDP-1(ALLJOYN-ECSPEKE-2).
+ */
+void ec_get_REDP_basepoints(ecpoint_t* Q1, ecpoint_t* Q2, curveid_t curveid)
+{
+    digit256_tc x1 = { 0x9F011EB0E927BBB7ULL, 0xDCD485337A6C1035ULL, 0x0AF630115AA734C0ULL, 0xE7F425D4C27D2BA1ULL };
+    digit256_tc y1 = { 0xDD836A9DF0702B55ULL, 0x8A4AE230F7C50D50ULL, 0x4115DB75D35208F6ULL, 0x8B4ADF4EBD690598ULL };
+    digit256_tc x2 = { 0x4CEC1D03497217AAULL, 0x966C293CD3634462ULL, 0xE4E36BBB81CD843DULL, 0xF9F2EF394FCB375EULL };
+    digit256_tc y2 = { 0x40D6ACB2274CCFC2ULL, 0x5EAAF49A32B58CFAULL, 0x77999C42D8DDAB41ULL, 0xF5EFE6B53FF34102ULL };
+
+    AJ_ASSERT(curveid == NISTP256r1);
+
+    fpcopy_p256(x1, Q1->x);
+    fpcopy_p256(y1, Q1->y);
+
+    fpcopy_p256(x2, Q2->x);
+    fpcopy_p256(y2, Q2->y);
+}
+
+static AJ_Status GenerateSPEKEKeyPair_inner(const uint8_t* pw, size_t pwLen, const AJ_GUID* clientGUID, const AJ_GUID* serviceGUID, ecpoint_t* publicKey, digit256_t privateKey)
+{
+    AJ_Status status;
+    AJ_SHA256_Context* ctx = NULL;
+    uint8_t digest[AJ_SHA256_DIGEST_LENGTH];
+    digit_t temps[P256_TEMPS];
+    ecpoint_t Q1, Q2;           /* Base points for REDP-2. */
+    ecpoint_t B;                /* Base point for ECDH, derived from pw. */
+    ec_t curve;
+
+    if (clientGUID == NULL || serviceGUID == NULL || pw == NULL || pwLen == 0) {
+        return AJ_ERR_NULL;
+    }
+
+    status = ec_getcurve(&curve, NISTP256r1);
+    if (status != AJ_OK) {
+        goto Exit;
+    }
+
+    /* Compute digest = SHA-256(pw||clientGUID||serviceGUID) */
+    ctx = AJ_SHA256_Init();
+    if (!ctx) {
+        status = AJ_ERR_RESOURCES;
+        goto Exit;
+    }
+    AJ_SHA256_Update(ctx, pw, pwLen);
+    AJ_SHA256_Update(ctx, clientGUID->val, sizeof(AJ_GUID));
+    AJ_SHA256_Update(ctx, serviceGUID->val, sizeof(AJ_GUID));
+    AJ_SHA256_Final(ctx, digest);
+
+    /* Compute basepoint B for keypair. */
+    ec_get_REDP_basepoints(&Q1, &Q2, curve.curveid);
+    status = ec_REDP2(digest, &Q1, &Q2, &B, &curve);
+    if (status != AJ_OK) {
+        goto Exit;
+    }
+
+    /* Compute private key. */
+    do {
+        AJ_RandBytes((uint8_t*)privateKey, sizeof(digit256_t));
+    } while (!validate_256(privateKey, curve.order));
+
+    status = ec_scalarmul(&B, privateKey, publicKey, &curve);            /* Public key publicKey = B^r */
+
+Exit:
+    fpzero_p256(B.x);
+    fpzero_p256(B.y);
+    AJ_MemZeroSecure(temps, P256_TEMPS * sizeof(digit_t));
+    AJ_MemZeroSecure(digest, AJ_SHA256_DIGEST_LENGTH);
+    ec_freecurve(&curve);
+    /* The hash context was either not initialized, or securely zeroed and freed by AJ_SHA256_Final*/
+
+    return status;
+}
+
+AJ_Status AJ_GenerateSPEKEKeyPair(const uint8_t* pw, size_t pwLen, const AJ_GUID* clientGUID, const AJ_GUID* serviceGUID, AJ_ECCPublicKey* publicKey, AJ_ECCPrivateKey* privateKey)
+{
+    AJ_Status status;
+    ecpoint_t pub;
+    digit256_t priv;
+    ecc_publickey pubTemp;
+    ecc_privatekey privTemp;
+
+    status = GenerateSPEKEKeyPair_inner(pw, pwLen, clientGUID, serviceGUID, &pub, priv);
+    if (status != AJ_OK) {
+        return status;
+    }
+
+    /* Convert pub to ecc_publickey then AJ_ECCPublicKey */
+    digit256_to_bigval(pub.x, &(pubTemp.x));
+    digit256_to_bigval(pub.y, &(pubTemp.y));
+    BigvalEncode(&pubTemp.x, publicKey->x, KEY_ECC_SZ);
+    BigvalEncode(&pubTemp.y, publicKey->y, KEY_ECC_SZ);
+
+    /* Convert priv to ecc_privatekey then AJ_ECCPrivateKey */
+    digit256_to_bigval(priv, &privTemp);
+    BigvalEncode(&privTemp, privateKey->x, KEY_ECC_SZ);
+
+    privateKey->alg = KEY_ALG_ECSPEKE;
+    privateKey->crv = KEY_CRV_NISTP256;
+
+    AJ_MemZeroSecure(&privTemp, KEY_ECC_SZ);
     return AJ_OK;
 }
