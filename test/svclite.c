@@ -304,7 +304,7 @@ static AJ_Status MarshalAppId(AJ_Message* msg, const char* appId)
     if (status != AJ_OK) {
         return status;
     }
-    status = AJ_MarshalArgs(msg, "{sv}", AJ_APP_ID, APP_ID_SIGNATURE, binAppId, sz / 2);
+    status = AJ_MarshalArgs(msg, "{sv}", AJ_APP_ID_STR, APP_ID_SIGNATURE, binAppId, sz / 2);
 
     return status;
 }
@@ -332,19 +332,19 @@ static AJ_Status AboutPropGetter(AJ_Message* reply, const char* language)
             status = MarshalAppId(reply, &machineIdValue[0]);
         }
         if (status == AJ_OK) {
-            status = AJ_MarshalArgs(reply, "{sv}", AJ_APP_NAME, "s", "svclite");
+            status = AJ_MarshalArgs(reply, "{sv}", AJ_APP_NAME_STR, "s", "svclite");
         }
         if (status == AJ_OK) {
-            status = AJ_MarshalArgs(reply, "{sv}", AJ_DEVICE_ID, "s", machineIdValue);
+            status = AJ_MarshalArgs(reply, "{sv}", AJ_DEVICE_ID_STR, "s", machineIdValue);
         }
         if (status == AJ_OK) {
-            status = AJ_MarshalArgs(reply, "{sv}", AJ_DEVICE_NAME, "s", "Tester");
+            status = AJ_MarshalArgs(reply, "{sv}", AJ_DEVICE_NAME_STR, "s", "Tester");
         }
         if (status == AJ_OK) {
-            status = AJ_MarshalArgs(reply, "{sv}", AJ_MANUFACTURER, "s", "QCE");
+            status = AJ_MarshalArgs(reply, "{sv}", AJ_MANUFACTURER_STR, "s", "QCE");
         }
         if (status == AJ_OK) {
-            status = AJ_MarshalArgs(reply, "{sv}", AJ_MODEL_NUMBER, "s", "1.0");
+            status = AJ_MarshalArgs(reply, "{sv}", AJ_MODEL_NUMBER_STR, "s", "1.0");
         }
         //SupportedLanguages
         if (status == AJ_OK) {
@@ -352,7 +352,7 @@ static AJ_Status AboutPropGetter(AJ_Message* reply, const char* language)
             AJ_Arg languageListArray;
             status = AJ_MarshalContainer(reply, &dict, AJ_ARG_DICT_ENTRY);
             if (status == AJ_OK) {
-                status = AJ_MarshalArgs(reply, "s", AJ_SUPPORTED_LANGUAGES);
+                status = AJ_MarshalArgs(reply, "s", AJ_SUPPORTED_LANGUAGES_STR);
             }
             if (status == AJ_OK) {
                 status = AJ_MarshalVariant(reply, "as");
@@ -372,16 +372,16 @@ static AJ_Status AboutPropGetter(AJ_Message* reply, const char* language)
 
         }
         if (status == AJ_OK) {
-            status = AJ_MarshalArgs(reply, "{sv}", AJ_DESCRIPTION, "s", "svclite test app");
+            status = AJ_MarshalArgs(reply, "{sv}", AJ_DESCRIPTION_STR, "s", "svclite test app");
         }
         if (status == AJ_OK) {
-            status = AJ_MarshalArgs(reply, "{sv}", AJ_DEFAULT_LANGUAGE, "s", "en");
+            status = AJ_MarshalArgs(reply, "{sv}", AJ_DEFAULT_LANGUAGE_STR, "s", "en");
         }
         if (status == AJ_OK) {
-            status = AJ_MarshalArgs(reply, "{sv}", AJ_SOFTWARE_VERSION, "s", AJ_GetVersion());
+            status = AJ_MarshalArgs(reply, "{sv}", AJ_SOFTWARE_VERSION_STR, "s", AJ_GetVersion());
         }
         if (status == AJ_OK) {
-            status = AJ_MarshalArgs(reply, "{sv}", AJ_AJSOFTWARE_VERSION, "s", AJ_GetVersion());
+            status = AJ_MarshalArgs(reply, "{sv}", AJ_AJSOFTWARE_VERSION_STR, "s", AJ_GetVersion());
         }
     }
     if (status == AJ_OK) {

@@ -32,20 +32,20 @@ extern "C" {
 #endif
 
 /* String defines used for About fields */
-#define AJ_APP_ID                  "AppId"
-#define AJ_DEFAULT_LANGUAGE        "DefaultLanguage"
-#define AJ_DEVICE_NAME             "DeviceName"
-#define AJ_DEVICE_ID               "DeviceId"
-#define AJ_APP_NAME                "AppName"
-#define AJ_MANUFACTURER            "Manufacturer"
-#define AJ_MODEL_NUMBER            "ModelNumber"
-#define AJ_SUPPORTED_LANGUAGES     "SupportedLanguages"
-#define AJ_DESCRIPTION             "Description"
-#define AJ_DATE_OF_MANUFACTURE     "DateOfManufacture"
-#define AJ_SOFTWARE_VERSION        "SoftwareVersion"
-#define AJ_AJSOFTWARE_VERSION      "AJSoftwareVersion"
-#define AJ_HARDWARE_VERSION        "HardwareVersion"
-#define AJ_SUPPORT_URL             "SupportUrl"
+#define AJ_APP_ID_STR                  "AppId"
+#define AJ_DEFAULT_LANGUAGE_STR        "DefaultLanguage"
+#define AJ_DEVICE_NAME_STR             "DeviceName"
+#define AJ_DEVICE_ID_STR               "DeviceId"
+#define AJ_APP_NAME_STR                "AppName"
+#define AJ_MANUFACTURER_STR            "Manufacturer"
+#define AJ_MODEL_NUMBER_STR            "ModelNumber"
+#define AJ_SUPPORTED_LANGUAGES_STR     "SupportedLanguages"
+#define AJ_DESCRIPTION_STR             "Description"
+#define AJ_DATE_OF_MANUFACTURE_STR     "DateOfManufacture"
+#define AJ_SOFTWARE_VERSION_STR        "SoftwareVersion"
+#define AJ_AJSOFTWARE_VERSION_STR      "AJSoftwareVersion"
+#define AJ_HARDWARE_VERSION_STR        "HardwareVersion"
+#define AJ_SUPPORT_URL_STR             "SupportUrl"
 
 
 /**
