@@ -104,8 +104,8 @@ typedef struct _ECDSAContext {
  * while the remote GUID is already in memory during authentication.
  */
 typedef struct _SPEKEContext {
-    const AJ_GUID localGUID;                        /**< Our GUID */
-    const AJ_GUID* remoteGUID;                      /**< Our peer's GUID */
+    AJ_GUID localGUID;                             /**< Our GUID */
+    AJ_GUID* remoteGUID;                           /**< Our peer's GUID */
 } SPEKEContext;
 
 /**
