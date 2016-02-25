@@ -140,6 +140,7 @@ static const char typeAttr[] = " type=\"";
 static const char sessionlessAttr[] = " sessionless=\"";
 static const char trueVal[] = "true\"";
 static const char falseVal[] = "false\"";
+static const char annotateSessionless[] = "<annotation name=\"org.alljoyn.Bus.Signal.Sessionless\" value=\"true\" /";
 
 static const char nodeOpen[] = "<node";
 static const char nodeClose[] = "</node>\n";
@@ -195,21 +196,29 @@ static const char* GetDescription(AJ_DescriptionLookupFunc descLookup, uint32_t 
     return descLookup(descId, languageTag);
 }
 
-static void XMLWriteDescription(XMLWriterFunc XMLWriter, void* context, uint8_t level, const char* description, const char* languageTag) {
+static void XMLWriteDescription(XMLWriterFunc XMLWriter, void* context, uint8_t level, const char* description, const char* languageTag)
+{
     if (description != NULL) {
+        const uint8_t unifiedFormat = (languageTag == NULL);
         uint8_t i;
         for (i = 0; i < level; i++) {
             XMLWriter(context, "    ", 4);
         }
-        XMLWriter(context, "<description", 12);
-        if (languageTag != NULL && strlen(languageTag) > 0) {
-            XMLWriter(context, " language=\"", 11);
-            XMLWriter(context, languageTag, 0);
-            XMLWriter(context, "\"", 1);
+        if (unifiedFormat) {
+            XMLWriter(context, "<annotation name=\"org.alljoyn.Bus.DocString\" value=\"", 52);
+            XMLWriter(context, description, 0);
+            XMLWriter(context, "\" />\n", 5);
+        } else {
+            XMLWriter(context, "<description", 12);
+            if (languageTag != NULL && strlen(languageTag) > 0) {
+                XMLWriter(context, " language=\"", 11);
+                XMLWriter(context, languageTag, 0);
+                XMLWriter(context, "\"", 1);
+            }
+            XMLWriter(context, ">", 1);
+            XMLWriter(context, description, 0);
+            XMLWriter(context, "</description>\n", 15);
         }
-        XMLWriter(context, ">", 1);
-        XMLWriter(context, description, 0);
-        XMLWriter(context, "</description>\n", 15);
     }
     return;
 }
@@ -218,6 +227,7 @@ static AJ_Status ExpandInterfaces(XMLWriterFunc XMLWriter, void* context, const 
 {
     uint32_t descId;
     uint8_t ifaceIndex = 0;
+    const uint8_t unifiedFormat = (languageTag == NULL);
     if (!iface) {
         return AJ_OK;
     }
@@ -299,12 +309,19 @@ static AJ_Status ExpandInterfaces(XMLWriterFunc XMLWriter, void* context, const 
                 /*
                  * If we are using the AllSeen introspection then add isSessionless
                  */
-                if (languageTag != NULL && memberType == SIGNAL) {
-                    XMLWriter(context, sessionlessAttr, sizeof(sessionlessAttr) - 1);
-                    if (isSessionless) {
-                        XMLWriter(context, trueVal, sizeof(trueVal) - 1);
+                if (memberType == SIGNAL) {
+                    if (!unifiedFormat) {
+                        XMLWriter(context, sessionlessAttr, sizeof(sessionlessAttr) - 1);
+                        if (isSessionless) {
+                            XMLWriter(context, trueVal, sizeof(trueVal) - 1);
+                        } else {
+                            XMLWriter(context, falseVal, sizeof(falseVal) - 1);
+                        }
                     } else {
-                        XMLWriter(context, falseVal, sizeof(falseVal) - 1);
+                        if (isSessionless) {
+                            XMLWriter(context, ">\n", 2);
+                            XMLWriter(context, annotateSessionless, sizeof(annotateSessionless) - 1);
+                        }
                     }
                 }
                 XMLWriter(context, ">\n", 2);
@@ -660,7 +677,7 @@ void WriteXML(void* context, const char* str, uint32_t len)
     }
 }
 
-AJ_Status AJ_HandleIntrospectRequest(const AJ_Message* msg, AJ_Message* reply, const char* languageTag)
+AJ_Status AJ_HandleIntrospectRequestInternal(const AJ_Message* msg, AJ_Message* reply, const char* languageTag)
 {
     AJ_Status status = AJ_OK;
     AJ_ObjectIterator objIter;
@@ -751,6 +768,16 @@ AJ_Status AJ_HandleIntrospectRequest(const AJ_Message* msg, AJ_Message* reply, c
         AJ_MarshalErrorMsg(msg, reply, AJ_ErrServiceUnknown);
     }
     return status;
+}
+
+AJ_Status AJ_HandleIntrospectRequest(const AJ_Message* msg, AJ_Message* reply, const char* languageTag)
+{
+    return AJ_HandleIntrospectRequestInternal(msg, reply, languageTag);
+}
+
+AJ_Status AJ_GetIntrospectionData(const AJ_Message* msg, AJ_Message* reply)
+{
+    return AJ_HandleIntrospectRequestInternal(msg, reply, NULL);
 }
 
 AJ_Status AJ_HandleGetDescriptionLanguages(const AJ_Message* msg, AJ_Message* reply) {

@@ -408,6 +408,17 @@ AJ_EXPORT
 AJ_Status AJ_MarshalAllPropertiesArgs(AJ_Message* replyMsg, const char* iface, AJ_BusPropGetCallback callback, void* context);
 
 /**
+ * Get the introspection data
+ *
+ * @param msg        The introspection request method call
+ * @param reply      The reply to the introspection request
+ *
+ * @return           Return AJ_Status
+ */
+AJ_Status AJ_GetIntrospectionData(const AJ_Message* msg, AJ_Message* reply);
+
+/**
+ * @deprecated - use AJ_GetIntrospectionData() instead
  * Handle an introspection request
  *
  * @param msg        The introspection request method call
