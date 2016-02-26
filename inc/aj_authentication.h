@@ -105,7 +105,7 @@ typedef struct _ECDSAContext {
  */
 typedef struct _SPEKEContext {
     AJ_GUID localGUID;                             /**< Our GUID */
-    AJ_GUID* remoteGUID;                           /**< Our peer's GUID */
+    const AJ_GUID* remoteGUID;                     /**< Our peer's GUID */
 } SPEKEContext;
 
 /**
