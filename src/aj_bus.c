@@ -508,7 +508,7 @@ AJ_Status AJ_BusHandleBusMessage(AJ_Message* msg)
 
     case AJ_METHOD_INTROSPECT:
         AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_METHOD_INTROSPECT\n"));
-        status = AJ_HandleIntrospectRequest(msg, &reply, NULL);
+        status = AJ_GetIntrospectionData(msg, &reply);
         break;
 
     case AJ_METHOD_GET_DESCRIPTION_LANG:
