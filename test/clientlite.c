@@ -488,7 +488,7 @@ int AJ_Main()
                 AJ_BusSetAuthListenerCallback(&bus, AuthListenerCallback);
                 if (clearkeys) {
                     AJ_ClearCredentials(AJ_GENERIC_MASTER_SECRET | AJ_CRED_TYPE_GENERIC);
-                    AJ_ClearCredentials(AJ_GENERIC_ECDSA_MANIFEST | AJ_CRED_TYPE_GENERIC);
+                    AJ_ClearCredentials(AJ_GENERIC_ECDSA_THUMBPRINT | AJ_CRED_TYPE_GENERIC);
                     AJ_ClearCredentials(AJ_GENERIC_ECDSA_KEYS | AJ_CRED_TYPE_GENERIC);
                 }
                 status = AJ_BusAuthenticatePeer(&bus, g_peerServiceName, AuthCallback, &authStatus);

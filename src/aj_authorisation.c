@@ -46,6 +46,13 @@ uint8_t dbgAUTHORISATION = 0;
 
 #define POLICY_SPECIFICATION_VERSION   1
 
+/**
+ * Constants for some message argument signatures.
+ */
+static const char* s_ManifestMsgArgSignature = "(ua(ssa(syy))saysay)";
+static const char* s_ManifestMsgArgDigestSignature = "(ua(ssa(syy))says)";
+static const char* s_ManifestArrayMsgArgSignature = "a(ua(ssa(syy))saysay)";
+
 /*
  * Policy helper struct.
  * Contains a buffer of the raw marshalled data,
@@ -98,7 +105,7 @@ typedef struct _AccessControlMember {
     struct _AccessControlMember* next;
 } AccessControlMember;
 
-static AJ_Manifest* g_manifest = NULL;
+static AJ_PermissionRule* g_manifestRules = NULL;
 static AccessControlMember* g_access = NULL;
 
 static void AccessControlClose(void)
@@ -500,10 +507,10 @@ AJ_Status AJ_AccessControlReset(const char* name)
     return AJ_OK;
 }
 
-void AJ_ManifestTemplateSet(AJ_Manifest* manifest)
+void AJ_ManifestTemplateSet(AJ_PermissionRule* manifest)
 {
     AJ_InfoPrintf(("AJ_ManifestTemplateSet(manifest=%p)\n", manifest));
-    g_manifest = manifest;
+    g_manifestRules = manifest;
 }
 
 #ifndef NDEBUG
@@ -528,7 +535,14 @@ static void ManifestDump(AJ_Manifest* manifest)
 {
     if (manifest) {
         AJ_InfoPrintf(("Manifest\n"));
+        AJ_InfoPrintf(("Version: %u\n", manifest->version));
+        AJ_InfoPrintf(("Rules:\n----\n"));
         PermissionRuleDump(manifest->rules);
+        AJ_InfoPrintf(("---\n"));
+        AJ_InfoPrintf(("Thumbprint algorithm OID: %s\n", manifest->thumbprintAlgorithmOid));
+        AJ_DumpBytes("Thumbprint", manifest->thumbprint, manifest->thumbprintSize);
+        AJ_InfoPrintf(("Signature algorithm OID: %s\n", manifest->signatureAlgorithmOid));
+        AJ_DumpBytes("Signature", manifest->signature, manifest->signatureSize);
     }
 }
 
@@ -599,6 +613,19 @@ void AJ_ManifestFree(AJ_Manifest* manifest)
     if (manifest) {
         AJ_PermissionRuleFree(manifest->rules);
         AJ_Free(manifest);
+    }
+}
+
+void AJ_ManifestArrayFree(AJ_ManifestArray* manifests)
+{
+    if (NULL != manifests) {
+        AJ_ManifestArray* node;
+        while (manifests) {
+            node = manifests;
+            manifests = manifests->next;
+            AJ_ManifestFree(node->manifest);
+            AJ_Free(node);
+        }
     }
 }
 
@@ -689,18 +716,77 @@ static AJ_Status AJ_PermissionRuleMarshal(const AJ_PermissionRule* head, AJ_Mess
     return status;
 }
 
-//SIG = a(ssa(syy))
-AJ_Status AJ_ManifestMarshal(AJ_Manifest* manifest, AJ_Message* msg)
+/* SIG = (ua(ssa(syy))saysay)       if useForDigest is FALSE
+ * SIG = (ua(ssa(syy))says)         if useForDigest is TRUE
+ */
+AJ_Status AJ_ManifestMarshal(AJ_Manifest* manifest, AJ_Message* msg, uint8_t useForDigest)
 {
+    AJ_Status status;
+    AJ_Arg outerStruct;
+
     if (NULL == manifest) {
         return AJ_ERR_INVALID;
     }
-    return AJ_PermissionRuleMarshal(manifest->rules, msg);
+
+    status = AJ_MarshalContainer(msg, &outerStruct, AJ_ARG_STRUCT);
+    if (AJ_OK != status) {
+        return status;
+    }
+    status = AJ_MarshalArgs(msg, "u", manifest->version);
+    if (AJ_OK != status) {
+        return status;
+    }
+    status = AJ_PermissionRuleMarshal(manifest->rules, msg); // SIG = a(ssa(syy))
+    if (AJ_OK != status) {
+        return status;
+    }
+    status = AJ_MarshalArgs(msg, "says",
+                            manifest->thumbprintAlgorithmOid,
+                            manifest->thumbprint,
+                            manifest->thumbprintSize,
+                            manifest->signatureAlgorithmOid);
+    if (AJ_OK != status) {
+        return status;
+    }
+    if (!useForDigest) {
+        status = AJ_MarshalArgs(msg, "ay",
+                                manifest->signature, manifest->signatureSize);
+
+        if (AJ_OK != status) {
+            return status;
+        }
+    }
+
+    status = AJ_MarshalCloseContainer(msg, &outerStruct);
+
+    return status;
+}
+
+//SIG = a(ua(ssa(syy))saysay)
+AJ_Status AJ_ManifestArrayMarshal(AJ_ManifestArray* manifests, AJ_Message* msg)
+{
+    AJ_Status status;
+    AJ_Arg container;
+
+    status = AJ_MarshalContainer(msg, &container, AJ_ARG_ARRAY);
+    if (AJ_OK != status) {
+        return status;
+    }
+    while (manifests) {
+        status = AJ_ManifestMarshal(manifests->manifest, msg, FALSE); // SIG = (ua(ssa(syy))saysay)
+        if (AJ_OK != status) {
+            return status;
+        }
+        manifests = manifests->next;
+    }
+    status = AJ_MarshalCloseContainer(msg, &container);
+
+    return status;
 }
 
 AJ_Status AJ_ManifestTemplateMarshal(AJ_Message* msg)
 {
-    return AJ_ManifestMarshal(g_manifest, msg);
+    return AJ_PermissionRuleMarshal(g_manifestRules, msg);
 }
 
 AJ_Status AJ_MarshalDefaultPolicy(AJ_CredField* field, AJ_PermissionPeer* peer_ca, AJ_PermissionPeer* peer_admin)
@@ -967,30 +1053,119 @@ Exit:
     return AJ_ERR_INVALID;
 }
 
-//SIG = a(ssa(syy))
+//SIG = a(ua(ssa(syy))saysay)
 AJ_Status AJ_ManifestUnmarshal(AJ_Manifest** manifest, AJ_Message* msg)
 {
     AJ_Status status;
     AJ_Manifest* tmp;
+    AJ_Arg outerStruct;
+    uint8_t* beginning = NULL;
 
     tmp = (AJ_Manifest*) AJ_Malloc(sizeof (AJ_Manifest));
     if (NULL == tmp) {
-        goto Exit;
+        return AJ_ERR_RESOURCES;
     }
 
-    tmp->rules = NULL;
-    status = AJ_PermissionRuleUnmarshal(&tmp->rules, msg);
+    memset(tmp, 0, sizeof(AJ_Manifest));
+
+    beginning = msg->bus->sock.rx.readPtr;
+
+    status = AJ_UnmarshalContainer(msg, &outerStruct, AJ_ARG_STRUCT);
     if (AJ_OK != status) {
         goto Exit;
     }
+
+    status = AJ_UnmarshalArgs(msg, "u", &tmp->version);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+
+    status = AJ_PermissionRuleUnmarshal(&tmp->rules, msg); // SIG = a(ssa(syy))
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+
+    status = AJ_UnmarshalArgs(msg, "saysay",
+                              &tmp->thumbprintAlgorithmOid,
+                              &tmp->thumbprint,
+                              &tmp->thumbprintSize,
+                              &tmp->signatureAlgorithmOid,
+                              &tmp->signature,
+                              &tmp->signatureSize);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+
+    status = AJ_UnmarshalCloseContainer(msg, &outerStruct);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+
+    AJ_ASSERT((msg->bus->sock.rx.readPtr - beginning) <= 0xFFFF);
+    tmp->serializedSize = (uint16_t)(msg->bus->sock.rx.readPtr - beginning);
 
     *manifest = tmp;
     return AJ_OK;
 
 Exit:
-    //Cleanup
+
     AJ_ManifestFree(tmp);
-    return AJ_ERR_INVALID;
+    return status;
+}
+
+
+AJ_Status AJ_ManifestArrayUnmarshal(AJ_ManifestArray** manifests, AJ_Message* msg)
+{
+    AJ_Status status;
+    AJ_Arg container;
+    AJ_Manifest* manifest;
+    AJ_ManifestArray* node;
+    AJ_ManifestArray* curr = NULL;
+
+    status = AJ_UnmarshalContainer(msg, &container, AJ_ARG_ARRAY);
+    if (AJ_OK != status) {
+        return status;
+    }
+
+    while (AJ_OK == status) {
+        status = AJ_ManifestUnmarshal(&manifest, msg);
+        if (AJ_OK != status) {
+            break;
+        }
+
+        node = (AJ_ManifestArray*)AJ_Malloc(sizeof(AJ_ManifestArray));
+        if (NULL == node) {
+            status = AJ_ERR_RESOURCES;
+            break;
+        }
+
+        node->manifest = manifest;
+        node->next = NULL;
+        if (NULL != curr) {
+            curr->next = node;
+        } else {
+            *manifests = node;
+        }
+        curr = node;
+    }
+
+    if (AJ_ERR_NO_MORE != status) {
+        goto Exit;
+    }
+
+    status = AJ_UnmarshalCloseContainer(msg, &container);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+
+    return AJ_OK;
+
+Exit:
+
+    AJ_ManifestArrayFree(*manifests);
+    *manifests = NULL;
+    return status;
+
 }
 
 //SIG = a(ya(yyayayay)ay)
@@ -1365,14 +1540,106 @@ static uint8_t PermissionRuleAccess(AJ_PermissionRule* rule, AccessControlMember
     return acc;
 }
 
-AJ_Status AJ_ManifestApply(AJ_Manifest* manifest, const char* name)
+AJ_Status AJ_ManifestApply(AJ_Manifest* manifest, const char* name, AJ_AuthenticationContext* ctx)
 {
     AJ_Status status;
     uint32_t peer;
     uint8_t acc;
     AccessControlMember* acm;
+    AJ_CredField manifest_data;
+    AJ_SHA256_Context* digestHashCtx;
+    AJ_ECCSignature eccSignature;
+    uint8_t digest[AJ_SHA256_DIGEST_LENGTH];
 
-    AJ_InfoPrintf(("AJ_ManifestApply(manifest=%p, name=%s)\n", manifest, name));
+    AJ_InfoPrintf(("AJ_ManifestApply(manifest=%p, name=%s, ctx=%p)\n", manifest, name, ctx));
+
+    /* 2.16.840.1.101.3.4.2.1 is SHA-256. */
+    if (0 != strcmp("2.16.840.1.101.3.4.2.1", manifest->thumbprintAlgorithmOid)) {
+        /* No other algorithm is supported presently. */
+        AJ_InfoPrintf(("Unsupported thumbprint algorithm: %s\n", manifest->thumbprintAlgorithmOid));
+        return AJ_ERR_INVALID;
+    }
+
+    /* 1.2.840.10045.4.3.2 is ECDSA with SHA-256. */
+    if (0 != strcmp("1.2.840.10045.4.3.2", manifest->signatureAlgorithmOid)) {
+        AJ_InfoPrintf(("Unsupported signature algorithm: %s\n", manifest->signatureAlgorithmOid));
+        return AJ_ERR_INVALID;
+    }
+
+    if (0 == ctx->kactx.ecdsa.thumbprintSize) {
+        /* No stored thumbprint, so no way we can apply the manifest. */
+        AJ_InfoPrintf(("No stored thumbprint to match manifest against\n"));
+        return AJ_ERR_SECURITY_DIGEST_MISMATCH;
+    }
+
+    AJ_ASSERT(AJ_SHA256_DIGEST_LENGTH == ctx->kactx.ecdsa.thumbprintSize);
+
+    if (manifest->thumbprintSize != ctx->kactx.ecdsa.thumbprintSize) {
+        /* Thumbprint sizes differ. */
+        AJ_InfoPrintf(("Thumbprint sizes differ: manifest is %u, stored is %u", (uint32_t)manifest->thumbprintSize, (uint32_t)ctx->kactx.ecdsa.thumbprintSize));
+        return AJ_ERR_SECURITY_DIGEST_MISMATCH;
+    }
+
+    AJ_ASSERT(AJ_SHA256_DIGEST_LENGTH == ctx->kactx.ecdsa.thumbprintSize);
+    if (0 != memcmp(manifest->thumbprint, ctx->kactx.ecdsa.thumbprint, ctx->kactx.ecdsa.thumbprintSize)) {
+        AJ_InfoPrintf(("Manifest thumbprint does not equal thumbprint from authentication context\n"));
+        AJ_DumpBytes("ManifestThumbprint", manifest->thumbprint, (uint32_t)manifest->thumbprintSize);
+        AJ_DumpBytes("StoredThumbprint", ctx->kactx.ecdsa.thumbprint, (uint32_t)ctx->kactx.ecdsa.thumbprintSize);
+        return AJ_ERR_SECURITY_DIGEST_MISMATCH;
+    }
+
+    if (manifest->signatureSize != (sizeof(eccSignature.r) + sizeof(eccSignature.s))) {
+        AJ_InfoPrintf(("Signature field is wrong size: expected %u, got %u\n", (uint32_t)(sizeof(eccSignature.r) + sizeof(eccSignature.s)),
+                       (uint32_t)manifest->signatureSize));
+        return AJ_ERR_SECURITY_DIGEST_MISMATCH;
+    }
+
+    if (ctx->kactx.ecdsa.num < 2) {
+        AJ_InfoPrintf(("Don't have identity certificate issuer's public key\n"));
+        return AJ_ERR_SECURITY_DIGEST_MISMATCH;
+    }
+
+    manifest_data.size = manifest->serializedSize;
+    manifest_data.data = (uint8_t*)AJ_Malloc(manifest->serializedSize);
+    if (NULL == manifest_data.data) {
+        return AJ_ERR_RESOURCES;
+    }
+
+    status = AJ_ManifestToBuffer(manifest, &manifest_data, TRUE);
+    if (AJ_OK != status) {
+        AJ_CredFieldFree(&manifest_data);
+        return status;
+    }
+
+    if (manifest_data.size > manifest->serializedSize) {
+        return AJ_ERR_END_OF_DATA;
+    }
+
+    /* Compute hash of manifest minus signature field. */
+    digestHashCtx = AJ_SHA256_Init();
+    if (!digestHashCtx) {
+        AJ_CredFieldFree(&manifest_data);
+        return AJ_ERR_RESOURCES;
+    }
+
+    AJ_SHA256_Update(digestHashCtx, manifest_data.data, manifest_data.size);
+    status = AJ_SHA256_Final(digestHashCtx, digest);
+    AJ_CredFieldFree(&manifest_data);
+    if (AJ_OK != status) {
+        return status;
+    }
+
+    /* Copy signature into signature object and verify. */
+    eccSignature.alg = KEY_ALG_ECDSA_SHA256;
+    eccSignature.crv = KEY_CRV_NISTP256;
+    memcpy(eccSignature.r, manifest->signature, sizeof(eccSignature.r));
+    memcpy(eccSignature.s, manifest->signature + sizeof(eccSignature.r), sizeof(eccSignature.s));
+
+    status = AJ_ECDSAVerifyDigest(digest, &eccSignature, &ctx->kactx.ecdsa.key[1]);
+    if (AJ_OK != status) {
+        AJ_InfoPrintf(("Signature failed to verify\n"));
+        return AJ_ERR_SECURITY_DIGEST_MISMATCH;
+    }
 
     status = AJ_GetPeerIndex(name, &peer);
     if (AJ_OK != status) {
@@ -1399,6 +1666,30 @@ AJ_Status AJ_ManifestApply(AJ_Manifest* manifest, const char* name)
     }
 
     return AJ_OK;
+}
+
+AJ_Status AJ_ManifestArrayApply(AJ_ManifestArray* manifests, const char* name, AJ_AuthenticationContext* ctx)
+{
+    AJ_Status status;
+    uint8_t success = FALSE;
+
+    /* As long as one manifest applies successfully, return success. Only if no manifests are
+     * valid return failure.
+     */
+    for (; manifests; manifests = manifests->next) {
+        status = AJ_ManifestApply(manifests->manifest, name, ctx);
+        if (AJ_OK == status) {
+            success = TRUE;
+        } else {
+            AJ_InfoPrintf(("AJ_ManifestArrayApply: AJ_ManifestApply returned %u\n", status));
+        }
+    }
+
+    if (success) {
+        return AJ_OK;
+    } else {
+        return AJ_ERR_SECURITY_DIGEST_MISMATCH;
+    }
 }
 
 static uint8_t PermissionPeerFind(AJ_PermissionPeer* head, uint8_t type, AJ_ECCPublicKey* pub, DER_Element* group)
@@ -1525,7 +1816,7 @@ AJ_Status AJ_PolicyApply(AJ_AuthenticationContext* ctx, const char* name)
             case AJ_METHOD_SECURITY_SET_PROP:
             case AJ_PROPERTY_MANAGED_VERSION:
             case AJ_PROPERTY_MANAGED_IDENTITY:
-            case AJ_PROPERTY_MANAGED_MANIFEST:
+            case AJ_PROPERTY_MANAGED_MANIFESTS:
             case AJ_PROPERTY_MANAGED_IDENTITY_CERT_ID:
             case AJ_PROPERTY_MANAGED_POLICY_VERSION:
             case AJ_PROPERTY_MANAGED_POLICY:
@@ -1539,6 +1830,7 @@ AJ_Status AJ_PolicyApply(AJ_AuthenticationContext* ctx, const char* name)
             case AJ_METHOD_MANAGED_REMOVE_MEMBERSHIP:
             case AJ_METHOD_MANAGED_START_MANAGEMENT:
             case AJ_METHOD_MANAGED_END_MANAGEMENT:
+            case AJ_METHOD_MANAGED_INSTALL_MANIFESTS:
                 /* Default not allowed */
                 break;
 
@@ -1715,16 +2007,39 @@ Exit:
     return status;
 }
 
-AJ_Status AJ_ManifestToBuffer(AJ_Manifest* manifest, AJ_CredField* field)
+AJ_Status AJ_ManifestToBuffer(AJ_Manifest* manifest, AJ_CredField* field, uint8_t useForDigest)
 {
     AJ_Status status;
     AJ_BusAttachment bus;
     AJ_MsgHeader hdr;
     AJ_Message msg;
 
-    AJ_LocalMsg(&bus, &hdr, &msg, "a(ssa(syy))", field->data, field->size);
-    status = AJ_ManifestMarshal(manifest, &msg);
-    field->size = bus.sock.tx.writePtr - field->data;
+    const char* messageSignature;
+    if (useForDigest) {
+        messageSignature = s_ManifestMsgArgDigestSignature;
+    } else {
+        messageSignature = s_ManifestMsgArgSignature;
+    }
+    AJ_LocalMsg(&bus, &hdr, &msg, messageSignature, field->data, field->size);
+    status = AJ_ManifestMarshal(manifest, &msg, useForDigest);
+    AJ_ASSERT((bus.sock.tx.writePtr - field->data) <= 0xFFFF);
+    AJ_ASSERT((bus.sock.tx.writePtr - field->data) <= field->size);
+    field->size = (uint16_t)(bus.sock.tx.writePtr - field->data);
+
+    return status;
+}
+
+AJ_Status AJ_ManifestArrayToBuffer(AJ_ManifestArray* manifests, AJ_CredField* field)
+{
+    AJ_Status status;
+    AJ_BusAttachment bus;
+    AJ_MsgHeader hdr;
+    AJ_Message msg;
+
+    AJ_LocalMsg(&bus, &hdr, &msg, s_ManifestArrayMsgArgSignature, field->data, field->size);
+    status = AJ_ManifestArrayMarshal(manifests, &msg);
+    AJ_ASSERT((bus.sock.tx.writePtr - field->data) <= 0xFFFF);
+    field->size = (uint16_t)(bus.sock.tx.writePtr - field->data);
 
     return status;
 }
@@ -1736,8 +2051,21 @@ AJ_Status AJ_ManifestFromBuffer(AJ_Manifest** manifest, AJ_CredField* field)
     AJ_MsgHeader hdr;
     AJ_Message msg;
 
-    AJ_LocalMsg(&bus, &hdr, &msg, "a(ssa(syy))", field->data, field->size);
+    AJ_LocalMsg(&bus, &hdr, &msg, s_ManifestMsgArgSignature, field->data, field->size);
     status = AJ_ManifestUnmarshal(manifest, &msg);
+
+    return status;
+}
+
+AJ_Status AJ_ManifestArrayFromBuffer(AJ_ManifestArray** manifests, AJ_CredField* field)
+{
+    AJ_Status status;
+    AJ_BusAttachment bus;
+    AJ_MsgHeader hdr;
+    AJ_Message msg;
+
+    AJ_LocalMsg(&bus, &hdr, &msg, s_ManifestArrayMsgArgSignature, field->data, field->size);
+    status = AJ_ManifestArrayUnmarshal(manifests, &msg);
 
     return status;
 }
@@ -1751,7 +2079,8 @@ AJ_Status AJ_PolicyToBuffer(AJ_Policy* policy, AJ_CredField* field)
 
     AJ_LocalMsg(&bus, &hdr, &msg, "(qua(a(ya(yyayayay)ay)a(ssa(syy))))", field->data, field->size);
     status = AJ_PolicyMarshal(policy, &msg);
-    field->size = bus.sock.tx.writePtr - field->data;
+    AJ_ASSERT((bus.sock.tx.writePtr - field->data) <= 0xFFFF);
+    field->size = (uint16_t)(bus.sock.tx.writePtr - field->data);
 
     return status;
 }

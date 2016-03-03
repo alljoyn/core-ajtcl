@@ -261,6 +261,19 @@ AJ_Status AJ_SecurityEndManagementMethod(AJ_Message* msg, AJ_Message* reply);
 AJ_Status AJ_SecurityEndManagement(AJ_BusAttachment* bus);
 
 /**
+ * Handle an install manifests message
+ * Bus method handler for a MANAGED_INSTALL_MANIFESTS method call
+ *
+ * @param msg          The install manifests message
+ * @param reply        The install manifests reply
+ *
+ * @return  Return AJ_Status
+ *          - AJ_OK if at least one manifest is accepted and installed
+ *          - AJ_ERR_SECURITY_DIGEST_MISMATCH if no manifests are accepted
+ */
+AJ_Status AJ_SecurityInstallManifestsMethod(AJ_Message* msg, AJ_Message* reply);
+
+/**
  * Unmarshal an ECCPublicKey object
  *
  * @param msg          The message

@@ -110,7 +110,6 @@ static AJ_Object AppObjects[] = {
 
 static AJ_PermissionMember members[] = { { "*", AJ_MEMBER_TYPE_ANY, AJ_ACTION_PROVIDE | AJ_ACTION_OBSERVE, NULL } };
 static AJ_PermissionRule rules[] = { { "/org/alljoyn/alljoyn_test", "org.alljoyn.alljoyn_test", members, NULL } };
-static AJ_Manifest manifest = { rules };
 
 /*
  * Message identifiers for the method calls this application implements
@@ -454,7 +453,7 @@ int AJ_Main()
 
             AJ_BusEnableSecurity(&bus, suites, ArraySize(suites));
             AJ_BusSetAuthListenerCallback(&bus, AuthListenerCallback);
-            AJ_ManifestTemplateSet(&manifest);
+            AJ_ManifestTemplateSet(rules);
             if (claim) {
                 AJ_SecuritySetClaimConfig(&bus, APP_STATE_CLAIMABLE, CLAIM_CAPABILITY_ECDHE_PSK, 0);
             }

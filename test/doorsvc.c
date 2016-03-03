@@ -84,7 +84,6 @@ static AJ_Object AppObjects[] = {
 
 static AJ_PermissionMember members[] = { { "*", AJ_MEMBER_TYPE_ANY, AJ_ACTION_PROVIDE | AJ_ACTION_OBSERVE, NULL } };
 static AJ_PermissionRule rules[] = { { doorObj, doorIfn, members, NULL } };
-static AJ_Manifest manifest = { rules };
 
 #define OPEN   TRUE
 #define CLOSED FALSE
@@ -343,7 +342,7 @@ int AJ_Main()
 #if defined(SECURE_INTERFACE) || defined(SECURE_OBJECT)
             AJ_BusEnableSecurity(&bus, suites, ArraySize(suites));
             AJ_BusSetAuthListenerCallback(&bus, AuthListenerCallback);
-            AJ_ManifestTemplateSet(&manifest);
+            AJ_ManifestTemplateSet(rules);
             AJ_SecuritySetClaimConfig(&bus, APP_STATE_CLAIMABLE, CLAIM_CAPABILITY_ECDHE_NULL, 0);
 #endif
 

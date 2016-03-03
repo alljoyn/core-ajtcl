@@ -77,7 +77,6 @@ static const AJ_Object AppObjects[] = {
 
 static AJ_PermissionMember members[] = { { "*", AJ_MEMBER_TYPE_ANY, AJ_ACTION_PROVIDE | AJ_ACTION_OBSERVE, NULL } };
 static AJ_PermissionRule rules[] = { { ServicePath, InterfaceName, members, NULL } };
-static AJ_Manifest manifest = { rules };
 
 /*
  * The value of the arguments are the indices of the
@@ -286,7 +285,7 @@ int AJ_Main(void)
 
             AJ_BusEnableSecurity(&bus, suites, numsuites);
             AJ_BusSetAuthListenerCallback(&bus, AuthListenerCallback);
-            AJ_ManifestTemplateSet(&manifest);
+            AJ_ManifestTemplateSet(rules);
             AJ_SecurityGetClaimConfig(&state, &capabilities, &info);
             /* Set app claimable if not already claimed */
             if (APP_STATE_CLAIMED != state) {

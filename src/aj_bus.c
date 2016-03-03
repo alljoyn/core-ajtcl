@@ -552,9 +552,9 @@ AJ_Status AJ_BusHandleBusMessage(AJ_Message* msg)
         status = AJ_PeerHandleKeyAuthentication(msg, &reply);
         break;
 
-    case AJ_METHOD_SEND_MANIFEST:
-        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_METHOD_SEND_MANIFEST\n"));
-        status = AJ_PeerHandleSendManifest(msg, &reply);
+    case AJ_METHOD_SEND_MANIFESTS:
+        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_METHOD_SEND_MANIFESTS\n"));
+        status = AJ_PeerHandleSendManifests(msg, &reply);
         break;
 
     case AJ_METHOD_SEND_MEMBERSHIPS:
@@ -592,9 +592,9 @@ AJ_Status AJ_BusHandleBusMessage(AJ_Message* msg)
         status = AJ_PeerHandleKeyAuthenticationReply(msg);
         break;
 
-    case AJ_REPLY_ID(AJ_METHOD_SEND_MANIFEST):
-        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_REPLY_ID(AJ_METHOD_SEND_MANIFEST)\n"));
-        status = AJ_PeerHandleSendManifestReply(msg);
+    case AJ_REPLY_ID(AJ_METHOD_SEND_MANIFESTS):
+        AJ_InfoPrintf(("AJ_BusHandleBusMessage(): AJ_REPLY_ID(AJ_METHOD_SEND_MANIFESTS)\n"));
+        status = AJ_PeerHandleSendManifestsReply(msg);
         break;
 
     case AJ_REPLY_ID(AJ_METHOD_SEND_MEMBERSHIPS):
@@ -723,6 +723,10 @@ AJ_Status AJ_BusHandleBusMessage(AJ_Message* msg)
 
     case AJ_METHOD_MANAGED_END_MANAGEMENT:
         status = AJ_SecurityEndManagementMethod(msg, &reply);
+        break;
+
+    case AJ_METHOD_MANAGED_INSTALL_MANIFESTS:
+        status = AJ_SecurityInstallManifestsMethod(msg, &reply);
         break;
 
     default:
