@@ -54,7 +54,7 @@ static AJ_Status ComputeMasterSecret(AJ_AuthenticationContext* ctx, uint8_t* pms
 
     AJ_ASSERT(len <= UINT8_MAX);
 
-    AJ_InfoPrintf(("ComputeMasterSecret(ctx=%p, pms=%p, len=%d)\n", ctx, pms, len));
+    AJ_InfoPrintf(("ComputeMasterSecret(ctx=%p, pms=%p, len=%u)\n", ctx, pms, (uint32_t)len));
 
     data[0] = pms;
     lens[0] = (uint8_t) len;
@@ -893,6 +893,7 @@ static AJ_Status ECDSAUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg, 
     AJ_Arg container1;
     AJ_Arg container2;
     uint8_t digest[AJ_SHA256_DIGEST_LENGTH];
+    AJ_SHA256_Context* thumbprintHashCtx;
     const char* variant;
     uint8_t fmt;
     DER_Element der;
@@ -1004,7 +1005,7 @@ static AJ_Status ECDSAUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg, 
 
         /*
          * If this is the first certificate, check that it signed the verifier
-         * Also save the subject public key and manifest digest for authorisation check
+         * Also save the subject public key and thumbprint for authorisation check
          */
         if (NULL == node->next) {
             status = AJ_ECDSAVerifyDigest(digest, &sig, &node->certificate.tbs.publickey);
@@ -1012,11 +1013,18 @@ static AJ_Status ECDSAUnmarshal(AJ_AuthenticationContext* ctx, AJ_Message* msg, 
                 AJ_InfoPrintf(("ECDSAUnmarshal(ctx=%p, msg=%p): Signature invalid\n", ctx, msg));
                 goto Exit;
             }
-            if (AJ_SHA256_DIGEST_LENGTH == node->certificate.tbs.extensions.digest.size) {
-                ctx->kactx.ecdsa.size = AJ_SHA256_DIGEST_LENGTH;
-                /* Copy the manifest digest */
-                memcpy(ctx->kactx.ecdsa.manifest, node->certificate.tbs.extensions.digest.data, AJ_SHA256_DIGEST_LENGTH);
+            thumbprintHashCtx = AJ_SHA256_Init();
+            if (!thumbprintHashCtx) {
+                AJ_InfoPrintf(("ECDSAUnmarshal(ctx=%p, msg=%p): Could not allocate SHA256 context\n", ctx, msg));
+                goto Exit;
             }
+            AJ_SHA256_Update(thumbprintHashCtx, node->certificate.der.data, node->certificate.der.size);
+            status = AJ_SHA256_Final(thumbprintHashCtx, ctx->kactx.ecdsa.thumbprint);
+            if (AJ_OK != status) {
+                AJ_InfoPrintf(("ECDSAUnmarshal(ctx=%p, msg=%p): Got status %u from AJ_SHA256_Final\n", ctx, msg, status));
+                goto Exit;
+            }
+            ctx->kactx.ecdsa.thumbprintSize = AJ_SHA256_DIGEST_LENGTH;
         }
         /* Copy the public key */
         ctx->kactx.ecdsa.num++;

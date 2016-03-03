@@ -41,7 +41,7 @@ extern "C" {
 #define AJ_CRED_TYPE_PEM            0x0004 /**< PEM encoded type */
 #define AJ_CRED_TYPE_PUBLIC         0x0005 /**< public key type */
 #define AJ_CRED_TYPE_CERTIFICATE    0x0006 /**< Certificate type */
-#define AJ_CRED_TYPE_MANIFEST       0x0007 /**< manifest type */
+#define AJ_CRED_TYPE_MANIFESTS      0x0007 /**< manifests type */
 #define AJ_CRED_TYPE_POLICY         0x0008 /**< policy type */
 #define AJ_CRED_TYPE_CONFIG         0x0009 /**< config type */
 
@@ -49,7 +49,7 @@ extern "C" {
  * Type high byte is basic type (low byte) context specific
  */
 #define AJ_GENERIC_MASTER_SECRET    0x0000 /**< Peer master secret */
-#define AJ_GENERIC_ECDSA_MANIFEST   0x0100 /**< Manifest digest from ECDSA authentication */
+#define AJ_GENERIC_ECDSA_THUMBPRINT 0x0100 /**< Identity certificate thumbprint from ECDSA authentication */
 #define AJ_GENERIC_ECDSA_KEYS       0x0200 /**< Public keys from ECDSA authentication */
 #define AJ_ECC_SIG                  0x0000 /**< ECC key for communication */
 #define AJ_CERTIFICATE_OEM_X509     0x0000 /**< Manufacturer certificate */

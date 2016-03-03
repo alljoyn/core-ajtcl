@@ -172,7 +172,7 @@ static const char* const PeerAuthIface[] = {
     "?ExchangeSuites <au >au",
     "?KeyExchange <u <v >u >v",
     "?KeyAuthentication <v >v",
-    "?SendManifest <a(ssa(syy)) >a(ssa(syy))",
+    "?SendManifests <a(ua(ssa(syy))saysay) >a(ua(ssa(syy))saysay)",
     "?SendMemberships <ya(yay) >ya(yay)",
     "@Mechanisms>s",
     "@Version>u",
@@ -221,7 +221,7 @@ static const char* const SecurityApplicationIface[] = {
 static const char* const SecurityClaimableApplicationIface[] = {
     SecurityClaimableApplicationInterface,
     "@Version>q",
-    "?Claim <(yyayay) <ay <ay <(yyayay) <ay <a(yay) <a(ssa(syy))",
+    "?Claim <(yyayay) <ay <ay <(yyayay) <ay <a(yay) <a(ua(ssa(syy))saysay)",
     NULL
 };
 
@@ -229,20 +229,21 @@ static const char* const SecurityManagedApplicationIface[] = {
     SecurityManagedApplicationInterface,
     "@Version>q",
     "@Identity>a(yay)",
-    "@Manifest>a(ssa(syy))",
+    "@Manifests>a(ua(ssa(syy))saysay)",
     "@IdentityCertificateId>(ayay(yyayay))",
     "@PolicyVersion>u",
     "@Policy>(qua(a(ya(yyayayay)ay)a(ssa(syy))))",
     "@DefaultPolicy>(qua(a(ya(yyayayay)ay)a(ssa(syy))))",
     "@MembershipSummaries>a(ayay(yyayay))",
     "?Reset",
-    "?UpdateIdentity <a(yay) <a(ssa(syy))",
+    "?UpdateIdentity <a(yay) <a(ua(ssa(syy))saysay)",
     "?UpdatePolicy <(qua(a(ya(yyayayay)ay)a(ssa(syy))))",
     "?ResetPolicy",
     "?InstallMembership <a(yay)",
     "?RemoveMembership <(ayay(yyayay))",
     "?StartManagement",
     "?EndManagement",
+    "?InstallManifests <a(ua(ssa(syy))saysay)",
     NULL
 };
 
