@@ -1708,10 +1708,18 @@ const AJ_Object* AJ_NextObject(AJ_ObjectIterator* iter)
 {
     while (iter->l < ArraySize(objectLists)) {
         const AJ_Object* list = objectLists[iter->l];
+
         if (list) {
             while (list[iter->n].path) {
+
                 const AJ_Object* obj = &list[iter->n++];
+
+                /* Skip announcing the DeviceIcon interface unless it has been set explicitly */
+                if ((iter->l == AJ_BUS_ID_FLAG) && !strcmp(obj->path, "/About/DeviceIcon") && !AJ_AboutHasIcon()) {
+                    continue;
+                }
                 uint8_t objFlags = obj->flags;
+
                 /*
                  * For backwards compatibility the third entry is reserved for proxy objects. Going forward
                  * proxy objects are identified in the object list by the AJ_OBJ_FLAG_IS_PROXY.
