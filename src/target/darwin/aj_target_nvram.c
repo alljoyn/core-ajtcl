@@ -78,7 +78,6 @@ AJ_Status _AJ_LoadNVFromFile()
 {
     FILE* f = fopen("ajlite.nvram", "rb");
     if (f == NULL) {
-        AJ_ErrPrintf(("_AJ_LoadNVFromFile(): LoadNVFromFile() failed. status=AJ_ERR_FAILURE\n"));
         return AJ_ERR_FAILURE;
     }
 

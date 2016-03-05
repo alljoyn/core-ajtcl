@@ -90,7 +90,6 @@ static AJ_Status _AJ_LoadNVFromFile()
 {
     FILE* f = fopen(nvFile, "rb");
     if (f == NULL) {
-        AJ_AlwaysPrintf(("Error: AJ_LoadNVFromFile(\"%s\") failed\n", nvFile));
         return AJ_ERR_FAILURE;
     }
 
