@@ -58,6 +58,7 @@ void AJ_NVRAM_Init()
     if (*((uint32_t*)AJ_NVRAM_BASE_ADDRESS) != AJ_NV_SENTINEL) {
         _AJ_NVRAM_Clear();
         _AJ_StoreNVToFile();
+        AJ_InfoPrintf(("_AJ_LoadNVFromFile(): LoadNVFromFile() failed. Created.\n"));
     }
 }
 
@@ -90,7 +91,6 @@ static AJ_Status _AJ_LoadNVFromFile()
 {
     FILE* f = fopen(nvFile, "rb");
     if (f == NULL) {
-        AJ_AlwaysPrintf(("Error: AJ_LoadNVFromFile(\"%s\") failed\n", nvFile));
         return AJ_ERR_FAILURE;
     }
 
