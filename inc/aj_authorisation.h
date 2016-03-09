@@ -60,8 +60,21 @@ typedef struct _AJ_PermissionRule {
 } AJ_PermissionRule;
 
 typedef struct _AJ_Manifest {
+    uint32_t version;                  /**< Version */
     AJ_PermissionRule* rules;          /**< Rules */
+    const char* thumbprintAlgorithmOid;/**< Thumbprint algorithm OID */
+    uint8_t* thumbprint;               /**< Identity certificate thumbprint */
+    uint32_t thumbprintSize;           /**< Length of identity certificate thumbprint */
+    const char* signatureAlgorithmOid; /**< Signature algorithm OID */
+    uint8_t* signature;                /**< Signature */
+    uint32_t signatureSize;            /**< Length of signature */
+    uint16_t serializedSize;           /**< Size of serialized form */
 } AJ_Manifest;
+
+typedef struct _AJ_ManifestArray {
+    AJ_Manifest* manifest;             /**< Manifests */
+    struct _AJ_ManifestArray* next;
+} AJ_ManifestArray;
 
 #define AJ_PEER_TYPE_ALL               0
 #define AJ_PEER_TYPE_ANY_TRUSTED       1
@@ -110,7 +123,7 @@ void AJ_AuthorisationClose(void);
  *
  * @param manifest     The manifest
  */
-void AJ_ManifestTemplateSet(AJ_Manifest* manifest);
+void AJ_ManifestTemplateSet(AJ_PermissionRule* manifest);
 
 /**
  * Marshal the manifest template, set from the application
@@ -136,16 +149,18 @@ AJ_Status AJ_ManifestTemplateMarshal(AJ_Message* msg);
 AJ_Status AJ_ManifestDigest(AJ_CredField * manifest, uint8_t digest[AJ_SHA256_DIGEST_LENGTH]);
 
 /**
- * Marshal a manifest record
+ * Marshal a manifest record. The signature field can optionally be omitted for the purposes
+ * of computing the manifest's digest.
  *
- * @param manifest     The manifest
- * @param msg          The outgoing message
+ * @param manifest         The manifest
+ * @param msg              The outgoing message
+ * @param useForDigest     TRUE to exclude the signature field for purposes of computing a digest
  *
  * @return
  *          - AJ_OK on success
  *          - AJ_ERR_INVALID otherwise
  */
-AJ_Status AJ_ManifestMarshal(AJ_Manifest* manifest, AJ_Message* msg);
+AJ_Status AJ_ManifestMarshal(AJ_Manifest* manifest, AJ_Message* msg, uint8_t useForDigest);
 
 /**
  * Unmarshal a manifest record
@@ -158,6 +173,31 @@ AJ_Status AJ_ManifestMarshal(AJ_Manifest* manifest, AJ_Message* msg);
  *          - AJ_ERR_INVALID otherwise
  */
 AJ_Status AJ_ManifestUnmarshal(AJ_Manifest** manifest, AJ_Message* msg);
+
+/**
+ * Marshal a manifest array
+ *
+ * @param manifest     The manifest array
+ * @param msg          The outgoing message
+ *
+ * @return
+ *          - AJ_OK on success
+ *          - AJ_ERR_INVALID otherwise
+ */
+AJ_Status AJ_ManifestArrayMarshal(AJ_ManifestArray* manifests, AJ_Message* msg);
+
+/**
+ * Unmarshal a manifest array
+ *
+ * @param manifests    The manifest array
+ * @param msg          The incoming message
+ *
+ * @return
+ *          - AJ_OK on success
+ *          - AJ_ERR_INVALID otherwise
+ */
+AJ_Status AJ_ManifestArrayUnmarshal(AJ_ManifestArray** manifests, AJ_Message* msg);
+
 
 /**
  * Marshal a policy record
@@ -191,6 +231,13 @@ AJ_Status AJ_PolicyUnmarshal(AJ_Policy** policy, AJ_Message* msg);
 void AJ_ManifestFree(AJ_Manifest* manifest);
 
 /**
+ * Free manifest array memory
+ *
+ * @param manifests    The manifest array
+ */
+void AJ_ManifestArrayFree(AJ_ManifestArray* manifests);
+
+/**
  * Free policy memory
  *
  * @param policy       The policy object
@@ -215,12 +262,27 @@ AJ_Status AJ_MarshalDefaultPolicy(AJ_CredField* field, AJ_PermissionPeer* peer_c
  *
  * @param manifest     The manifest object
  * @param name         The peer's name
+ * @param ctx          The authentication context
  *
  * @return
  *          - AJ_OK on success
+ *          - AJ_ERR_ACCESS if the named peer is not found
  *          - AJ_ERR_INVALID otherwise
  */
-AJ_Status AJ_ManifestApply(AJ_Manifest* manifest, const char* name);
+AJ_Status AJ_ManifestApply(AJ_Manifest* manifest, const char* name, AJ_AuthenticationContext* ctx);
+
+/**
+ * Validate and apply an array of manifests
+ *
+ * @param manifests    The array of manifests
+ * @param name         The peer's name
+ * @param ctx          The authentication context
+ *
+ * @return
+ *           - AJ_OK if at least one manifest successfully validated and was applied
+ *           - AJ_ERR_SECURITY if no manifests passed validation
+ */
+AJ_Status AJ_ManifestArrayApply(AJ_ManifestArray* manifests, const char* name, AJ_AuthenticationContext* ctx);
 
 /**
  * Apply the policy access rules
@@ -323,14 +385,15 @@ AJ_Status AJ_AccessControlReset(const char* name);
 /**
  * Marshal a manifest to a local buffer.
  *
- * @param manifest     The input manifest.
- * @param field        The local buffer.
+ * @param manifest         The input manifest.
+ * @param field            The local buffer.
+ * @param useForDigest     TRUE to exclude the signature field for purposes of computing a digest
  *
  * @return  Return AJ_Status
  *          - AJ_OK on success
  *          - AJ_ERR_SECURITY on failure
  */
-AJ_Status AJ_ManifestToBuffer(AJ_Manifest* manifest, AJ_CredField* field);
+AJ_Status AJ_ManifestToBuffer(AJ_Manifest* manifest, AJ_CredField* field, uint8_t useForDigest);
 
 /**
  * Unmarshal a manifest from a local buffer.
@@ -343,6 +406,30 @@ AJ_Status AJ_ManifestToBuffer(AJ_Manifest* manifest, AJ_CredField* field);
  *          - AJ_ERR_SECURITY on failure
  */
 AJ_Status AJ_ManifestFromBuffer(AJ_Manifest** manifest, AJ_CredField* field);
+
+/**
+ * Marshal a manifest array to a local buffer.
+ *
+ * @param manifests    The input manifest array.
+ * @param field        The local buffer.
+ *
+ * @return  Return AJ_Status
+ *          - AJ_OK on success
+ *          - AJ_ERR_SECURITY on failure
+ */
+AJ_Status AJ_ManifestArrayToBuffer(AJ_ManifestArray* manifest, AJ_CredField* field);
+
+/**
+ * Unmarshal a manifest array from a local buffer.
+ *
+ * @param manifests    The output manifest array.
+ * @param field        The local buffer.
+ *
+ * @return  Return AJ_Status
+ *          - AJ_OK on success
+ *          - AJ_ERR_SECURITY on failure
+ */
+AJ_Status AJ_ManifestArrayFromBuffer(AJ_ManifestArray** manifest, AJ_CredField* field);
 
 /**
  * Marshal a policy to a local buffer.

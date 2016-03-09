@@ -400,7 +400,7 @@ static AJ_Status SecurityGetProperty(AJ_Message* reply, uint32_t id, void* conte
     AJ_ECCPublicKey pub;
     uint8_t digest[AJ_SHA256_DIGEST_LENGTH];
     uint32_t version;
-    AJ_Manifest* manifest = NULL;
+    AJ_ManifestArray* manifests = NULL;
     AJ_Policy* policy = NULL;
     AJ_CertificateId certificate;
     X509CertificateChain* root = NULL;
@@ -421,7 +421,7 @@ static AJ_Status SecurityGetProperty(AJ_Message* reply, uint32_t id, void* conte
         break;
 
     case AJ_PROPERTY_SEC_MANIFEST_DIGEST:
-        status = AJ_CredentialGet(AJ_CRED_TYPE_MANIFEST, NULL, NULL, &field);
+        status = AJ_CredentialGet(AJ_CRED_TYPE_MANIFESTS, NULL, NULL, &field);
         if (AJ_OK != status) {
             break;
         }
@@ -484,16 +484,16 @@ static AJ_Status SecurityGetProperty(AJ_Message* reply, uint32_t id, void* conte
         status = AJ_X509ChainMarshal(root, reply);
         break;
 
-    case AJ_PROPERTY_MANAGED_MANIFEST:
-        status = AJ_CredentialGet(AJ_CRED_TYPE_MANIFEST, NULL, NULL, &field);
+    case AJ_PROPERTY_MANAGED_MANIFESTS:
+        status = AJ_CredentialGet(AJ_CRED_TYPE_MANIFESTS, NULL, NULL, &field);
         if (AJ_OK != status) {
             break;
         }
-        status = AJ_ManifestFromBuffer(&manifest, &field);
+        status = AJ_ManifestArrayFromBuffer(&manifests, &field);
         if (AJ_OK != status) {
             break;
         }
-        status = AJ_ManifestMarshal(manifest, reply);
+        status = AJ_ManifestArrayMarshal(manifests, reply);
         if (AJ_OK != status) {
             break;
         }
@@ -572,7 +572,7 @@ static AJ_Status SecurityGetProperty(AJ_Message* reply, uint32_t id, void* conte
 
     AJ_CredFieldFree(&field);
     AJ_X509ChainFree(root);
-    AJ_ManifestFree(manifest);
+    AJ_ManifestArrayFree(manifests);
     AJ_PolicyFree(policy);
 
     return status;
@@ -583,22 +583,7 @@ AJ_Status AJ_SecurityGetProperty(AJ_Message* msg)
     return AJ_BusPropGet(msg, SecurityGetProperty, NULL);
 }
 
-static AJ_Status CheckManifestDigest(X509Certificate* certificate, AJ_CredField* manifest)
-{
-    uint8_t digest[AJ_SHA256_DIGEST_LENGTH];
-
-    AJ_ManifestDigest(manifest, digest);
-    if (sizeof (digest) != certificate->tbs.extensions.digest.size) {
-        return AJ_ERR_SECURITY_DIGEST_MISMATCH;
-    }
-    if (0 != memcmp(digest, certificate->tbs.extensions.digest.data, sizeof (digest))) {
-        return AJ_ERR_SECURITY_DIGEST_MISMATCH;
-    }
-
-    return AJ_OK;
-}
-
-static AJ_Status VerifyIdentityCertificateChain(X509CertificateChain* root, AJ_ECCPublicKey* issuer, AJ_CredField* manifest)
+static AJ_Status VerifyIdentityCertificateChain(X509CertificateChain* root, AJ_ECCPublicKey* issuer)
 {
     AJ_Status status;
     AJ_ECCPublicKey pub;
@@ -607,12 +592,6 @@ static AJ_Status VerifyIdentityCertificateChain(X509CertificateChain* root, AJ_E
     leaf = AJ_X509LeafCertificate(root);
     if (NULL == leaf) {
         status = AJ_ERR_SECURITY;
-        goto Exit;
-    }
-
-    /* Check digest of manifest matches that in certificate */
-    status = CheckManifestDigest(leaf, manifest);
-    if (AJ_OK != status) {
         goto Exit;
     }
 
@@ -685,8 +664,8 @@ AJ_Status AJ_SecurityClaimMethod(AJ_Message* msg, AJ_Message* reply)
     AJ_CredField data;
     X509CertificateChain* identity = NULL;
     AJ_CredField identity_data = { 0, NULL };
-    AJ_Manifest* manifest = NULL;
-    AJ_CredField manifest_data = { 0, NULL };
+    AJ_ManifestArray* manifests = NULL;
+    AJ_CredField manifests_data = { 0, NULL };
 
     AJ_InfoPrintf(("AJ_SecurityClaimMethod(msg=%p, reply=%p)\n", msg, reply));
 
@@ -760,30 +739,30 @@ AJ_Status AJ_SecurityClaimMethod(AJ_Message* msg, AJ_Message* reply)
         goto Exit;
     }
 
-    /* Unmarshal manifest */
-    manifest_data.data = msg->bus->sock.rx.readPtr;
-    status = AJ_ManifestUnmarshal(&manifest, msg);
+    /* Unmarshal manifests */
+    manifests_data.data = msg->bus->sock.rx.readPtr;
+    status = AJ_ManifestArrayUnmarshal(&manifests, msg);
     if (AJ_OK != status) {
-        manifest_data.data = NULL;
+        manifests_data.data = NULL;
         goto Exit;
     }
-    manifest_data.size = msg->bus->sock.rx.readPtr - manifest_data.data;
+    manifests_data.size = msg->bus->sock.rx.readPtr - manifests_data.data;
     /* Allow additional 8 bytes for maximum padding */
-    manifest_data.size += 8;
-    manifest_data.data = AJ_Malloc(manifest_data.size);
-    if (NULL == manifest_data.data) {
+    manifests_data.size += 8;
+    manifests_data.data = AJ_Malloc(manifests_data.size);
+    if (NULL == manifests_data.data) {
         status = AJ_ERR_RESOURCES;
         goto Exit;
     }
-    status = AJ_ManifestToBuffer(manifest, &manifest_data);
+    status = AJ_ManifestArrayToBuffer(manifests, &manifests_data);
     if (AJ_OK != status) {
         goto Exit;
     }
 
     /* Validate Identity chain */
-    status = VerifyIdentityCertificateChain(identity, &ca.pub, &manifest_data);
+    status = VerifyIdentityCertificateChain(identity, &ca.pub);
     if (AJ_OK != status) {
-        status = VerifyIdentityCertificateChain(identity, &admin.pub, &manifest_data);
+        status = VerifyIdentityCertificateChain(identity, &admin.pub);
         if (AJ_OK != status) {
             AJ_InfoPrintf(("AJ_SecurityClaimMethod(msg=%p, reply=%p): %s\n", msg, reply, AJ_StatusText(status)));
             goto Exit;
@@ -796,7 +775,7 @@ AJ_Status AJ_SecurityClaimMethod(AJ_Message* msg, AJ_Message* reply)
         goto Exit;
     }
     /* Store manifest as raw marshalled body */
-    status = AJ_CredentialSet(AJ_CRED_TYPE_MANIFEST, NULL, 0xFFFFFFFF, &manifest_data);
+    status = AJ_CredentialSet(AJ_CRED_TYPE_MANIFESTS, NULL, 0xFFFFFFFF, &manifests_data);
     if (AJ_OK != status) {
         goto Exit;
     }
@@ -813,7 +792,7 @@ AJ_Status AJ_SecurityClaimMethod(AJ_Message* msg, AJ_Message* reply)
 
     /* Clear master secrets, do not fail on error (missing entries) */
     AJ_ClearCredentials(AJ_GENERIC_MASTER_SECRET | AJ_CRED_TYPE_GENERIC);
-    AJ_ClearCredentials(AJ_GENERIC_ECDSA_MANIFEST | AJ_CRED_TYPE_GENERIC);
+    AJ_ClearCredentials(AJ_GENERIC_ECDSA_THUMBPRINT | AJ_CRED_TYPE_GENERIC);
     AJ_ClearCredentials(AJ_GENERIC_ECDSA_KEYS | AJ_CRED_TYPE_GENERIC);
 
     /* Set claim state and save to nvram */
@@ -828,8 +807,8 @@ AJ_Status AJ_SecurityClaimMethod(AJ_Message* msg, AJ_Message* reply)
 Exit:
     AJ_X509ChainFree(identity);
     AJ_CredFieldFree(&identity_data);
-    AJ_ManifestFree(manifest);
-    AJ_CredFieldFree(&manifest_data);
+    AJ_ManifestArrayFree(manifests);
+    AJ_CredFieldFree(&manifests_data);
     if (AJ_OK == status) {
         if (msg->bus->policyChangedCallback) {
             msg->bus->policyChangedCallback();
@@ -839,7 +818,7 @@ Exit:
         /* Remove stored values on error */
         AJ_ClearCredentials(AJ_CONFIG_ADMIN_GROUP | AJ_CRED_TYPE_CONFIG);
         AJ_ClearCredentials(AJ_CERTIFICATE_IDN_X509 | AJ_CRED_TYPE_CERTIFICATE);
-        AJ_ClearCredentials(AJ_CRED_TYPE_MANIFEST);
+        AJ_ClearCredentials(AJ_CRED_TYPE_MANIFESTS);
         AJ_ClearCredentials(AJ_POLICY_DEFAULT | AJ_CRED_TYPE_POLICY);
         return AJ_MarshalStatusMsg(msg, reply, status);
     }
@@ -917,14 +896,13 @@ Exit:
     return AJ_ERR_SECURITY;
 }
 
-
 AJ_Status AJ_SecurityUpdateIdentityMethod(AJ_Message* msg, AJ_Message* reply)
 {
     AJ_Status status;
     X509CertificateChain* identity = NULL;
     AJ_CredField identity_data = { 0, NULL };
-    AJ_Manifest* manifest = NULL;
-    AJ_CredField manifest_data = { 0, NULL };
+    AJ_ManifestArray* manifests = NULL;
+    AJ_CredField manifests_data = { 0, NULL };
 
     AJ_InfoPrintf(("AJ_SecurityUpdateIdentityMethod(msg=%p, reply=%p)\n", msg, reply));
 
@@ -948,28 +926,28 @@ AJ_Status AJ_SecurityUpdateIdentityMethod(AJ_Message* msg, AJ_Message* reply)
         goto Exit;
     }
 
-    /* Unmarshal manifest */
-    manifest_data.data = msg->bus->sock.rx.readPtr;
-    status = AJ_ManifestUnmarshal(&manifest, msg);
+    /* Unmarshal manifests */
+    manifests_data.data = msg->bus->sock.rx.readPtr;
+    status = AJ_ManifestArrayUnmarshal(&manifests, msg);
     if (AJ_OK != status) {
-        manifest_data.data = NULL;
+        manifests_data.data = NULL;
         goto Exit;
     }
-    manifest_data.size = msg->bus->sock.rx.readPtr - manifest_data.data;
+    manifests_data.size = msg->bus->sock.rx.readPtr - manifests_data.data;
     /* Allow additional 8 bytes for maximum padding */
-    manifest_data.size += 8;
-    manifest_data.data = AJ_Malloc(manifest_data.size);
-    if (NULL == manifest_data.data) {
+    manifests_data.size += 8;
+    manifests_data.data = AJ_Malloc(manifests_data.size);
+    if (NULL == manifests_data.data) {
         status = AJ_ERR_RESOURCES;
         goto Exit;
     }
-    status = AJ_ManifestToBuffer(manifest, &manifest_data);
+    status = AJ_ManifestArrayToBuffer(manifests, &manifests_data);
     if (AJ_OK != status) {
         goto Exit;
     }
 
     /* Validate Identity chain */
-    status = VerifyIdentityCertificateChain(identity, NULL, &manifest_data);
+    status = VerifyIdentityCertificateChain(identity, NULL);
     if (AJ_OK != status) {
         AJ_InfoPrintf(("AJ_SecurityUpdateIdentityMethod(msg=%p, reply=%p): %s\n", msg, reply, AJ_StatusText(status)));
         goto Exit;
@@ -981,7 +959,7 @@ AJ_Status AJ_SecurityUpdateIdentityMethod(AJ_Message* msg, AJ_Message* reply)
         goto Exit;
     }
     /* Store manifest as raw marshalled body */
-    status = AJ_CredentialSet(AJ_CRED_TYPE_MANIFEST, NULL, 0xFFFFFFFF, &manifest_data);
+    status = AJ_CredentialSet(AJ_CRED_TYPE_MANIFESTS, NULL, 0xFFFFFFFF, &manifests_data);
     if (AJ_OK != status) {
         goto Exit;
     }
@@ -1002,8 +980,8 @@ AJ_Status AJ_SecurityUpdateIdentityMethod(AJ_Message* msg, AJ_Message* reply)
 Exit:
     AJ_X509ChainFree(identity);
     AJ_CredFieldFree(&identity_data);
-    AJ_ManifestFree(manifest);
-    AJ_CredFieldFree(&manifest_data);
+    AJ_ManifestArrayFree(manifests);
+    AJ_CredFieldFree(&manifests_data);
     if (AJ_OK == status) {
         return AJ_MarshalReplyMsg(msg, reply);
     } else {
@@ -1062,7 +1040,7 @@ AJ_Status AJ_SecurityUpdatePolicyMethod(AJ_Message* msg, AJ_Message* reply)
 
     /* Clear master secrets, do not fail on error (missing entries) */
     AJ_ClearCredentials(AJ_GENERIC_MASTER_SECRET | AJ_CRED_TYPE_GENERIC);
-    AJ_ClearCredentials(AJ_GENERIC_ECDSA_MANIFEST | AJ_CRED_TYPE_GENERIC);
+    AJ_ClearCredentials(AJ_GENERIC_ECDSA_THUMBPRINT | AJ_CRED_TYPE_GENERIC);
     AJ_ClearCredentials(AJ_GENERIC_ECDSA_KEYS | AJ_CRED_TYPE_GENERIC);
 
     /* Clear session keys, can't do it now because we need to reply */
@@ -1087,7 +1065,7 @@ AJ_Status AJ_SecurityResetPolicyMethod(AJ_Message* msg, AJ_Message* reply)
 
     /* Clear master secrets, do not fail on error (missing entries) */
     AJ_ClearCredentials(AJ_GENERIC_MASTER_SECRET | AJ_CRED_TYPE_GENERIC);
-    AJ_ClearCredentials(AJ_GENERIC_ECDSA_MANIFEST | AJ_CRED_TYPE_GENERIC);
+    AJ_ClearCredentials(AJ_GENERIC_ECDSA_THUMBPRINT | AJ_CRED_TYPE_GENERIC);
     AJ_ClearCredentials(AJ_GENERIC_ECDSA_KEYS | AJ_CRED_TYPE_GENERIC);
 
     /* Clear session keys, can't do it now because we need to reply */
@@ -1287,4 +1265,81 @@ AJ_Status AJ_SecurityEndManagement(AJ_BusAttachment* bus)
     }
 
     return AJ_OK;
+}
+
+AJ_Status AJ_SecurityInstallManifestsMethod(AJ_Message* msg, AJ_Message* reply)
+{
+    AJ_Status status;
+    AJ_ManifestArray* currentManifests = NULL;
+    AJ_ManifestArray* newManifests = NULL;
+    AJ_ManifestArray* lastCurr = NULL;
+    AJ_CredField currentManifests_data = { 0, NULL };
+    AJ_CredField newManifests_data = { 0, NULL };
+    AJ_CredField combinedManifests_data = { 0, NULL };
+    uint16_t manifestCount = 0;
+
+    AJ_InfoPrintf(("AJ_SecurityInstallManifestsMethod(msg=%p, reply=%p)\n", msg, reply));
+
+    /* Retrieve existing array of manifests to append to them. */
+    status = AJ_CredentialGet(AJ_CRED_TYPE_MANIFESTS, NULL, NULL, &currentManifests_data);
+    if (AJ_OK != status) {
+        return status;
+    }
+
+    /* Retrieve array of manifests from the message. */
+    status = AJ_ManifestArrayFromBuffer(&currentManifests, &currentManifests_data);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+
+    /* Unmarshal new manifests from message. */
+    newManifests_data.data = msg->bus->sock.rx.readPtr;
+    status = AJ_ManifestArrayUnmarshal(&newManifests, msg);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+
+    /* Append the new list of manifests to the current list. */
+    for (lastCurr = currentManifests; NULL != lastCurr->next; lastCurr = lastCurr->next);
+    lastCurr->next = newManifests;
+    newManifests = NULL; /* currentManifests now owns all this memory. */
+    /* Count the manifests for allocating memory to store the combined list. */
+    for (lastCurr = currentManifests; NULL != lastCurr; lastCurr = lastCurr->next) {
+        manifestCount++;
+    }
+
+    /* Sum the serialized sizes of the two sets of manifests. */
+    combinedManifests_data.size = currentManifests_data.size + (msg->bus->sock.rx.readPtr - newManifests_data.data);
+    /* Allow additional 8 bytes per manifest for maximum padding. */
+    combinedManifests_data.size += (8 * manifestCount);
+    combinedManifests_data.data = AJ_Malloc(combinedManifests_data.size);
+    if (NULL == combinedManifests_data.data) {
+        status = AJ_ERR_RESOURCES;
+        goto Exit;
+    }
+
+    status = AJ_ManifestArrayToBuffer(currentManifests, &combinedManifests_data);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+
+    /* Store manifests as raw marshalled body. */
+    status = AJ_CredentialSet(AJ_CRED_TYPE_MANIFESTS, NULL, 0xFFFFFFFF, &combinedManifests_data);
+    if (AJ_OK != status) {
+        goto Exit;
+    }
+
+Exit:
+
+    AJ_ManifestArrayFree(currentManifests);
+    AJ_ManifestArrayFree(newManifests);
+    AJ_CredFieldFree(&currentManifests_data);
+    AJ_CredFieldFree(&combinedManifests_data);
+    /* Don't AJ_CredFieldFree(&newManifests_data). That memory belongs to the message. */
+
+    if (AJ_OK != status) {
+        return AJ_MarshalErrorMsg(msg, reply, AJ_ErrSecurityViolation);
+    } else {
+        return AJ_MarshalReplyMsg(msg, reply);
+    }
 }

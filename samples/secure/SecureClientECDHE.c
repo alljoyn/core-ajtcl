@@ -83,7 +83,6 @@ static const AJ_Object ProxyObjects[] = {
 
 static AJ_PermissionMember members[] = { { "*", AJ_MEMBER_TYPE_ANY, AJ_ACTION_MODIFY | AJ_ACTION_OBSERVE, NULL } };
 static AJ_PermissionRule rules[] = { { ServicePath, InterfaceName, members, NULL } };
-static AJ_Manifest manifest = { rules };
 
 #define PRX_PING   AJ_PRX_MESSAGE_ID(0, 0, 0)
 
@@ -429,7 +428,7 @@ int AJ_Main(void)
                         break;
                     }
                 }
-                AJ_ManifestTemplateSet(&manifest);
+                AJ_ManifestTemplateSet(rules);
                 AJ_SecurityGetClaimConfig(&state, &capabilities, &info);
                 /* Set app claimable if not already claimed */
                 if (APP_STATE_CLAIMED != state) {

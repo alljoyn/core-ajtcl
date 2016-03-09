@@ -94,8 +94,8 @@ typedef struct _PSKContext {
 typedef struct _ECDSAContext {
     AJ_ECCPublicKey* key;                          /**< Array of public keys (subject + issuers) */
     size_t num;                                    /**< Number of public keys */
-    uint8_t manifest[AJ_SHA256_DIGEST_LENGTH];     /**< Manifest digest */
-    size_t size;                                   /**< Manifest size */
+    uint8_t thumbprint[AJ_SHA256_DIGEST_LENGTH];   /**< Identity certificate SHA-256 thumbprint */
+    size_t thumbprintSize;                         /**< Thumbprint size (should always be 0 or AJ_SHA256_DIGEST_LENGTH) */
 } ECDSAContext;
 
 /**

@@ -558,7 +558,7 @@ void AJ_CredentialDeletePeer(const AJ_GUID* guid)
     id.size = sizeof (AJ_GUID);
     id.data = (uint8_t*) guid;
     AJ_CredentialDelete(AJ_GENERIC_MASTER_SECRET | AJ_CRED_TYPE_GENERIC, &id);
-    AJ_CredentialDelete(AJ_GENERIC_ECDSA_MANIFEST | AJ_CRED_TYPE_GENERIC, &id);
+    AJ_CredentialDelete(AJ_GENERIC_ECDSA_THUMBPRINT | AJ_CRED_TYPE_GENERIC, &id);
     AJ_CredentialDelete(AJ_GENERIC_ECDSA_KEYS | AJ_CRED_TYPE_GENERIC, &id);
 }
 

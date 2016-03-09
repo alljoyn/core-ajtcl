@@ -90,7 +90,7 @@
 #define AJ_METHOD_EXCHANGE_SUITES      AJ_BUS_MESSAGE_ID(2, 1, 4)    /**< method for exchange suites */
 #define AJ_METHOD_KEY_EXCHANGE         AJ_BUS_MESSAGE_ID(2, 1, 5)    /**< method for key exchange */
 #define AJ_METHOD_KEY_AUTHENTICATION   AJ_BUS_MESSAGE_ID(2, 1, 6)    /**< method for authenticating key exchange */
-#define AJ_METHOD_SEND_MANIFEST        AJ_BUS_MESSAGE_ID(2, 1, 7)    /**< method for exchanging manifests */
+#define AJ_METHOD_SEND_MANIFESTS       AJ_BUS_MESSAGE_ID(2, 1, 7)    /**< method for exchanging manifests */
 #define AJ_METHOD_SEND_MEMBERSHIPS     AJ_BUS_MESSAGE_ID(2, 1, 8)    /**< method for exchanging membership certificates */
 
 /*
@@ -172,7 +172,7 @@
  */
 #define AJ_PROPERTY_MANAGED_VERSION                AJ_BUS_MESSAGE_ID(7, 4,  0)
 #define AJ_PROPERTY_MANAGED_IDENTITY               AJ_BUS_MESSAGE_ID(7, 4,  1)
-#define AJ_PROPERTY_MANAGED_MANIFEST               AJ_BUS_MESSAGE_ID(7, 4,  2)
+#define AJ_PROPERTY_MANAGED_MANIFESTS              AJ_BUS_MESSAGE_ID(7, 4,  2)
 #define AJ_PROPERTY_MANAGED_IDENTITY_CERT_ID       AJ_BUS_MESSAGE_ID(7, 4,  3)
 #define AJ_PROPERTY_MANAGED_POLICY_VERSION         AJ_BUS_MESSAGE_ID(7, 4,  4)
 #define AJ_PROPERTY_MANAGED_POLICY                 AJ_BUS_MESSAGE_ID(7, 4,  5)
@@ -186,6 +186,7 @@
 #define AJ_METHOD_MANAGED_REMOVE_MEMBERSHIP        AJ_BUS_MESSAGE_ID(7, 4, 13)
 #define AJ_METHOD_MANAGED_START_MANAGEMENT         AJ_BUS_MESSAGE_ID(7, 4, 14)
 #define AJ_METHOD_MANAGED_END_MANAGEMENT           AJ_BUS_MESSAGE_ID(7, 4, 15)
+#define AJ_METHOD_MANAGED_INSTALL_MANIFESTS        AJ_BUS_MESSAGE_ID(7, 4, 16)
 
 /**
  * Message identifier that indicates a message was invalid.
