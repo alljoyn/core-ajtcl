@@ -101,6 +101,13 @@ AJ_Status AJ_AboutAnnounce(AJ_BusAttachment* bus);
 AJ_Status AJ_AboutUnannounce(AJ_BusAttachment* bus);
 
 /**
+ * Checks whether the icon has been set
+ *
+ * @return      TRUE if the icon struct in the About data has been filled; FALSE otherwise
+ */
+uint8_t AJ_AboutHasIcon();
+
+/**
  * Set a device icon to be returned by About
  *
  * @param icon  Pointer to the icon data blob. This pointer must remain live until the next time this

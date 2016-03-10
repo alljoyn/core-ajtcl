@@ -48,6 +48,7 @@ static struct {
     const uint8_t* data;
     const char* mime;
     const char* URL;
+    uint8_t isSet;
 } icon;
 
 /*
@@ -82,12 +83,18 @@ AJ_Status AJ_AboutInit(AJ_BusAttachment* bus, uint16_t boundPort)
     return AJ_AboutAnnounce(bus);
 }
 
+uint8_t AJ_AboutHasIcon()
+{
+    return icon.isSet;
+}
+
 void AJ_AboutSetIcon(const uint8_t* data, uint16_t size, const char* mime, const char* url)
 {
     icon.data = data;
     icon.size = data ? size : 0;
     icon.mime = mime;
     icon.URL = url;
+    icon.isSet = TRUE;
 }
 
 /*
