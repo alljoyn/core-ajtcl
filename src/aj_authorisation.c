@@ -1807,6 +1807,8 @@ AJ_Status AJ_PolicyApply(AJ_AuthenticationContext* ctx, const char* name)
                         acm->allow[peer] = POLICY_INCOMING | MANIFEST_INCOMING;
                     } else if ((CLAIM_CAPABILITY_ECDHE_PSK & capabilities) && (AUTH_SUITE_ECDHE_PSK == ctx->suite)) {
                         acm->allow[peer] = POLICY_INCOMING | MANIFEST_INCOMING;
+                    } else if ((CLAIM_CAPABILITY_ECDHE_SPEKE & capabilities) && (AUTH_SUITE_ECDHE_SPEKE == ctx->suite)) {
+                        acm->allow[peer] = POLICY_INCOMING | MANIFEST_INCOMING;
                     } else if ((CLAIM_CAPABILITY_ECDHE_ECDSA & capabilities) && (AUTH_SUITE_ECDHE_ECDSA == ctx->suite)) {
                         acm->allow[peer] = POLICY_INCOMING | MANIFEST_INCOMING;
                     }

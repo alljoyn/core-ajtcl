@@ -40,9 +40,16 @@ extern "C" {
 #define APP_STATE_CLAIMED              0x0002
 #define APP_STATE_NEED_UPDATE          0x0003
 
+/* Authentication mechanisms supported for claiming. */
 #define CLAIM_CAPABILITY_ECDHE_NULL    0x0001
 #define CLAIM_CAPABILITY_ECDHE_PSK     0x0002
 #define CLAIM_CAPABILITY_ECDHE_ECDSA   0x0004
+#define CLAIM_CAPABILITY_ECDHE_SPEKE   0x0008
+
+/*
+ * Indicates whether the security manager or application generated the
+ * pre-shared key or password used during claim.
+ */
 #define CLAIM_PSK_SECURITY_MANAGER     0x0001
 #define CLAIM_PSK_APPLICATION          0x0002
 
