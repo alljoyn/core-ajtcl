@@ -700,8 +700,11 @@ AJ_Status AJ_HandleIntrospectRequestInternal(const AJ_Message* msg, AJ_Message* 
         if (strcmp(msg->objPath, obj->path) == 0) {
             break;
         }
-        if (ChildPath(msg->objPath, obj->path, NULL)) {
-            ++children;
+
+        if (0 != strcmp(msg->objPath, "/")) {
+            if (ChildPath(msg->objPath, obj->path, NULL)) {
+                ++children;
+            }
         }
         /*
          * If there was not a direct match but the requested node has children we create
