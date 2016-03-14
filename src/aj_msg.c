@@ -2260,6 +2260,7 @@ AJ_Arg* AJ_InitArg(AJ_Arg* arg, uint8_t typeId, uint8_t flags, const void* val, 
 
 static AJ_Status VMarshalArgs(AJ_Message* msg, const char** sig, va_list* argpp)
 {
+    printf("ANDREY: VMarshalArgs()\n");
     AJ_Status status = AJ_ERR_UNEXPECTED;
     AJ_Arg arg;
     AJ_Arg container;

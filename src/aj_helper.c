@@ -277,7 +277,7 @@ AJ_Status AJ_StartService(AJ_BusAttachment* bus,
     uint8_t serviceStarted = FALSE;
     uint32_t disposition;
     uint16_t retport;
-
+    printf("\n\n\nANDREY: AJ_StartService\n\n\n");
     AJ_InfoPrintf(("AJ_StartService(bus=0x%p, daemonName=\"%s\", timeout=%d., connected=%d., port=%d., name=\"%s\", flags=0x%x, opts=0x%p)\n",
                    bus, daemonName, timeout, connected, port, name, flags, opts));
 

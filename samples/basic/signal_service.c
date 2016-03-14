@@ -154,6 +154,7 @@ int AJ_Main(void)
         AJ_Message msg;
 
         if (!connected) {
+            printf("ANDREY: Start service\n");
             status = AJ_StartService(&busAttachment,
                                      NULL,
                                      CONNECT_TIMEOUT,

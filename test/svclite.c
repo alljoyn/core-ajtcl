@@ -101,15 +101,18 @@ static const AJ_InterfaceDescription testInterfaces[] = {
 
 static AJ_Object AppObjects[] = {
 #ifdef SECURE_OBJECT
-    { "/org/alljoyn/alljoyn_test", testInterfaces, AJ_OBJ_FLAG_ANNOUNCED | AJ_OBJ_FLAG_SECURE },
+    //{ "/org/alljoyn/alljoyn_test", testInterfaces, AJ_OBJ_FLAG_ANNOUNCED | AJ_OBJ_FLAG_SECURE },
+      { "/", testInterfaces, AJ_OBJ_FLAG_ANNOUNCED | AJ_OBJ_FLAG_SECURE },
 #else
-    { "/org/alljoyn/alljoyn_test", testInterfaces, AJ_OBJ_FLAG_ANNOUNCED },
+      { "/", testInterfaces, AJ_OBJ_FLAG_ANNOUNCED | AJ_OBJ_FLAG_SECURE },
+    //{ "/org/alljoyn/alljoyn_test", testInterfaces, AJ_OBJ_FLAG_ANNOUNCED },
 #endif
     { NULL }
 };
 
 static AJ_PermissionMember members[] = { { "*", AJ_MEMBER_TYPE_ANY, AJ_ACTION_PROVIDE | AJ_ACTION_OBSERVE, NULL } };
-static AJ_PermissionRule rules[] = { { "/org/alljoyn/alljoyn_test", "org.alljoyn.alljoyn_test", members, NULL } };
+//static AJ_PermissionRule rules[] = { { "/org/alljoyn/alljoyn_test", "org.alljoyn.alljoyn_test", members, NULL } };
+static AJ_PermissionRule rules[] = { { "/", "", members, NULL } };
 static AJ_Manifest manifest = { rules };
 
 /*
@@ -311,6 +314,7 @@ static AJ_Status MarshalAppId(AJ_Message* msg, const char* appId)
 
 static AJ_Status AboutPropGetter(AJ_Message* reply, const char* language)
 {
+    printf("ANDREY: AboutPropGetter\n");
     AJ_Status status = AJ_OK;
     AJ_Arg array;
     AJ_GUID theAJ_GUID;
@@ -443,7 +447,8 @@ int AJ_Main()
 
             connected = TRUE;
 #ifdef SECURE_OBJECT
-            status = AJ_SetObjectFlags("/org/alljoyn/alljoyn_test", AJ_OBJ_FLAG_SECURE, 0);
+            //status = AJ_SetObjectFlags("/org/alljoyn/alljoyn_test", AJ_OBJ_FLAG_SECURE, 0);
+            status = AJ_SetObjectFlags("/", AJ_OBJ_FLAG_SECURE, 0);
             if (status != AJ_OK) {
                 AJ_ErrPrintf(("Error calling AJ_SetObjectFlags.. [%s] \n", AJ_StatusText(status)));
                 return -1;
@@ -476,6 +481,7 @@ int AJ_Main()
         }
 
         if (status == AJ_OK) {
+            printf("ANDREY: msgId = %u\n", msg.msgId);
             switch (msg.msgId) {
 
             case AJ_REPLY_ID(AJ_METHOD_ADD_MATCH):
