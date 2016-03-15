@@ -837,6 +837,8 @@ int AJ_Main()
         AJ_AlwaysPrintf(("AJ Initialize\n"));
         AJ_Initialize();
 
+        printf("\n\n\n\n\n\n\nANDREY: Delete test!!!!!!!!!!\n\n\n\n\n\n\n");
+        status = TestNvramDelete();
 #ifdef OBS_ONLY
         AJ_RandBytes(&oRand, sizeof(oRand));
         AJ_InfoPrintf(("BEGIN OBSWRITE TEST\n"));
