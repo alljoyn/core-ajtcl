@@ -282,7 +282,7 @@ static AJ_Status DeleteOldestCredential(uint16_t* deleted)
 
     if (oldestslot) {
         AJ_InfoPrintf(("DeleteOldestCredential(deleted=%p): slot=%d exp=%08X\n", deleted, oldestslot, oldestexp));
-        AJ_NVRAM_Delete(oldestslot);
+        AJ_CredentialDeleteSlot(type, oldestslot);
         *deleted = oldestslot;
         return AJ_OK;
     }
@@ -537,16 +537,29 @@ AJ_Status AJ_CredentialGetECCPrivateKey(uint16_t type, const AJ_CredField* id, u
     return AJ_CredentialGet(type | AJ_CRED_TYPE_PRIVATE, id, NULL, &data);
 }
 
+AJ_Status AJ_CredentialDeleteSlot(uint16_t type, uint16_t slot)
+{
+    AJ_Status status = AJ_ERR_FAILURE;
+    if (slot > 0) {
+        if ((type == AJ_CRED_TYPE_AES) ||
+            (type == AJ_CRED_TYPE_PRIVATE) ||
+            (type == AJ_GENERIC_MASTER_SECRET) ||
+            (type == AJ_ECC_SIG)) {
+            status = AJ_NVRAM_SecureDelete(slot);
+        } else {
+            status = AJ_NVRAM_Delete(slot);
+        }
+    }
+    return status;
+}
+
 AJ_Status AJ_CredentialDelete(uint16_t type, const AJ_CredField* id)
 {
     AJ_Status status = AJ_ERR_FAILURE;
     uint16_t slot = CredentialFind(type, id, NULL, NULL, AJ_CREDS_NV_ID_BEGIN);
 
     AJ_InfoPrintf(("AJ_CredentialDelete(type=%04x, id=%p)\n", type, id));
-
-    if (slot > 0) {
-        status = AJ_NVRAM_Delete(slot);
-    }
+    status = AJ_CredentialDeleteSlot(type, slot);
 
     return status;
 }
