@@ -158,6 +158,16 @@ AJ_Status AJ_NVRAM_Close(AJ_NV_DATASET* handle);
 uint8_t AJ_NVRAM_Exist(uint16_t id);
 
 /**
+ * Securely delete (overwrite) a data set specified by the id
+ *
+ * @param id A unique id for a data set.
+ *
+ * @return AJ_OK if the data set is deleted successfully
+ *         AJ_ERR_FAILURE if the data set does not exist.
+ */
+AJ_Status AJ_NVRAM_SecureDelete(uint16_t id);
+
+/**
  * Delete a data set specified by the id
  *
  * @param id A unique id for a data set.

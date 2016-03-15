@@ -151,6 +151,40 @@ AJ_Status AJ_NVRAM_Create(uint16_t id, uint16_t capacity)
     return AJ_OK;
 }
 
+AJ_Status AJ_NVRAM_SecureDelete(uint16_t id)
+{
+    NV_EntryHeader newHeader;
+    uint8_t* ptr = NULL;
+
+    AJ_InfoPrintf(("AJ_NVRAM_SecureDelete(id=%d.)\n", id));
+
+    if (id != INVALID_DATA) {
+        ptr = AJ_FindNVEntry(id);
+    }
+
+    if (!ptr) {
+        AJ_ErrPrintf(("AJ_NVRAM_SecureDelete(): AJ_ERR_FAILURE\n"));
+        return AJ_ERR_FAILURE;
+    }
+
+    memcpy(&newHeader, ptr, ENTRY_HEADER_SIZE);
+    newHeader.id = 0;
+    _AJ_NV_Write(ptr, &newHeader, ENTRY_HEADER_SIZE);
+    isCompact = FALSE;
+
+    uint8_t* buf = calloc(newHeader.capacity, 1);
+
+    if (!buf) {
+        AJ_ErrPrintf(("AJ_NVRAM_SecureDelete(): AJ_ERR_RESOURCES\n"));
+        return AJ_ERR_RESOURCES;
+    }
+
+    _AJ_NV_Write(ptr + ENTRY_HEADER_SIZE, buf, sizeof(buf));
+    free(buf);
+
+    return AJ_OK;
+}
+
 AJ_Status AJ_NVRAM_Delete(uint16_t id)
 {
     NV_EntryHeader newHeader;
@@ -171,6 +205,7 @@ AJ_Status AJ_NVRAM_Delete(uint16_t id)
     newHeader.id = 0;
     _AJ_NV_Write(ptr, &newHeader, ENTRY_HEADER_SIZE);
     isCompact = FALSE;
+
     return AJ_OK;
 }
 
