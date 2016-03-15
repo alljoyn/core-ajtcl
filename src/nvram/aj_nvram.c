@@ -171,6 +171,17 @@ AJ_Status AJ_NVRAM_Delete(uint16_t id)
     newHeader.id = 0;
     _AJ_NV_Write(ptr, &newHeader, ENTRY_HEADER_SIZE);
     isCompact = FALSE;
+
+    uint8_t* buf = calloc(newHeader.capacity, 1);
+
+    if (!buf) {
+        AJ_ErrPrintf(("AJ_NVRAM_Delete(): AJ_ERR_FAILURE\n"));
+        return AJ_ERR_FAILURE;
+    }
+
+    _AJ_NV_Write(ptr + ENTRY_HEADER_SIZE, buf, sizeof(buf));
+    free(buf);
+
     return AJ_OK;
 }
 
