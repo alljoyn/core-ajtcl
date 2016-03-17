@@ -1701,11 +1701,7 @@ AJ_Status AJ_PeerHandleSendManifests(AJ_Message* msg, AJ_Message* reply)
         AJ_InfoPrintf(("AJ_PeerHandleSendManifests(msg=%p, reply=%p): Manifests unmarshal failed\n", msg, reply));
         goto Exit;
     }
-    status = AJ_ManifestArrayApply(manifests, msg->sender, &authContext);
-    if (AJ_OK != status) {
-        AJ_InfoPrintf(("AJ_PeerHandleSendManifestsReply(msg=%p): Manifests application failed\n", msg));
-        goto Exit;
-    }
+    AJ_ManifestArrayApply(manifests, msg->sender, &authContext);
 
     AJ_ManifestArrayFree(manifests);
     manifests = NULL;
@@ -1778,11 +1774,7 @@ AJ_Status AJ_PeerHandleSendManifestsReply(AJ_Message* msg)
         AJ_InfoPrintf(("AJ_PeerHandleSendManifestsReply(msg=%p): Manifests unmarshal failed\n", msg));
         goto Exit;
     }
-    status = AJ_ManifestArrayApply(manifests, msg->sender, &authContext);
-    if (AJ_OK != status) {
-        AJ_InfoPrintf(("AJ_PeerHandleSendManifestsReply(msg=%p): Manifests application failed\n", msg));
-        goto Exit;
-    }
+    AJ_ManifestArrayApply(manifests, msg->sender, &authContext);
     AJ_ManifestArrayFree(manifests);
     manifests = NULL;
 

@@ -1668,27 +1668,22 @@ AJ_Status AJ_ManifestApply(AJ_Manifest* manifest, const char* name, AJ_Authentic
     return AJ_OK;
 }
 
-AJ_Status AJ_ManifestArrayApply(AJ_ManifestArray* manifests, const char* name, AJ_AuthenticationContext* ctx)
+void AJ_ManifestArrayApply(AJ_ManifestArray* manifests, const char* name, AJ_AuthenticationContext* ctx)
 {
     AJ_Status status;
-    uint8_t success = FALSE;
 
-    /* As long as one manifest applies successfully, return success. Only if no manifests are
-     * valid return failure.
-     */
-    for (; manifests; manifests = manifests->next) {
-        status = AJ_ManifestApply(manifests->manifest, name, ctx);
-        if (AJ_OK == status) {
-            success = TRUE;
-        } else {
-            AJ_InfoPrintf(("AJ_ManifestArrayApply: AJ_ManifestApply returned %u\n", status));
-        }
+    /* If the peer isn't enabled for Security 2.0, it won't have any manifests. This is OK. */
+    if (NULL == manifests) {
+        AJ_InfoPrintf(("AJ_ManifestArrayApply(name=%s, ctx=%p): Zero manifests received", name, ctx));
     }
 
-    if (success) {
-        return AJ_OK;
-    } else {
-        return AJ_ERR_SECURITY_DIGEST_MISMATCH;
+    /* Try to apply any manifests we got. Log if they fail but carry on. */
+    for (; NULL != manifests; manifests = manifests->next) {
+        status = AJ_ManifestApply(manifests->manifest, name, ctx);
+        if (AJ_OK != status) {
+            AJ_InfoPrintf(("AJ_ManifestArrayApply(manifests=%p, name=%s, ctx=%p): AJ_ManifestApply of manifest %p returned %u\n",
+                           manifests, name, ctx, manifests->manifest, status));
+        }
     }
 }
 

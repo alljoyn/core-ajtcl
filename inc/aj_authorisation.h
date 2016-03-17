@@ -278,11 +278,8 @@ AJ_Status AJ_ManifestApply(AJ_Manifest* manifest, const char* name, AJ_Authentic
  * @param name         The peer's name
  * @param ctx          The authentication context
  *
- * @return
- *           - AJ_OK if at least one manifest successfully validated and was applied
- *           - AJ_ERR_SECURITY if no manifests passed validation
  */
-AJ_Status AJ_ManifestArrayApply(AJ_ManifestArray* manifests, const char* name, AJ_AuthenticationContext* ctx);
+void AJ_ManifestArrayApply(AJ_ManifestArray* manifests, const char* name, AJ_AuthenticationContext* ctx);
 
 /**
  * Apply the policy access rules
