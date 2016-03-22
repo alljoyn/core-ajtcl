@@ -476,6 +476,28 @@ AJ_Status AJ_PolicyLoad(void);
  */
 void AJ_PolicyUnload(void);
 
+/**
+ * Determine if a manifest has been signed by looking for the presence of the thumbprint and
+ * signature fields. This does not verify the cryptographic signature, as that requires access
+ * to the public key of the signer which may not be available. Instead, this allows rejecting
+ * unsigned manifests which can never be valid.
+ *
+ * @param manifest     The manifest to check
+ *
+ * @return   Return uint8_t
+ *           - TRUE if fields have been set that indicate signature
+ *           - FALSE otherwise
+ */
+uint8_t AJ_ManifestHasSignature(const AJ_Manifest* manifest);
+
+/**
+ * Filter out any unsigned manifests from an array.
+ *
+ * @param manifests    Pointer to a pointer to linked list. Because the first element might be filtered,
+ *                     this might be changed.
+ */
+void AJ_ManifestArrayFilterUnsigned(AJ_ManifestArray** manifests);
+
 #ifdef __cplusplus
 }
 #endif

@@ -616,6 +616,14 @@ void AJ_ManifestFree(AJ_Manifest* manifest)
     }
 }
 
+static void ManifestArrayElementFree(AJ_ManifestArray* node)
+{
+    if (NULL != node) {
+        AJ_ManifestFree(node->manifest);
+        AJ_Free(node);
+    }
+}
+
 void AJ_ManifestArrayFree(AJ_ManifestArray* manifests)
 {
     if (NULL != manifests) {
@@ -623,8 +631,7 @@ void AJ_ManifestArrayFree(AJ_ManifestArray* manifests)
         while (manifests) {
             node = manifests;
             manifests = manifests->next;
-            AJ_ManifestFree(node->manifest);
-            AJ_Free(node);
+            ManifestArrayElementFree(node);
         }
     }
 }
@@ -2093,4 +2100,48 @@ AJ_Status AJ_PolicyFromBuffer(AJ_Policy** policy, AJ_CredField* field)
     status = AJ_PolicyUnmarshal(policy, &msg);
 
     return status;
+}
+
+uint8_t AJ_ManifestHasSignature(const AJ_Manifest* manifest)
+{
+    AJ_InfoPrintf(("AJ_ManifestIsSigned(manifest=%p)\n", manifest));
+
+    if ((NULL == manifest->thumbprintAlgorithmOid) || (0 == strlen(manifest->thumbprintAlgorithmOid))) {
+        AJ_InfoPrintf(("Manifest has no thumbprint algorithm OID\n"));
+        return FALSE;
+    }
+
+    if ((NULL == manifest->thumbprint) || (0 == manifest->thumbprintSize)) {
+        AJ_InfoPrintf(("Manifest has no thumbprint\n"));
+        return FALSE;
+    }
+
+    if ((NULL == manifest->signatureAlgorithmOid) || (0 == strlen(manifest->signatureAlgorithmOid))) {
+        AJ_InfoPrintf(("Manifest has no signature algorithm OID\n"));
+        return FALSE;
+    }
+
+    if ((NULL == manifest->signature) || (0 == manifest->signatureSize)) {
+        AJ_InfoPrintf(("Manifest has no signature\n"));
+        return FALSE;
+    }
+
+    return TRUE;
+}
+
+void AJ_ManifestArrayFilterUnsigned(AJ_ManifestArray** manifests)
+{
+    AJ_ManifestArray** elementAddress = manifests;
+    AJ_ManifestArray* element;
+
+    while (*elementAddress != NULL) {
+        element = *elementAddress;
+
+        if (AJ_ManifestHasSignature(element->manifest)) {
+            elementAddress = &element->next;
+        } else {
+            *elementAddress = element->next;
+            ManifestArrayElementFree(element);
+        }
+    }
 }
