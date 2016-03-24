@@ -247,9 +247,27 @@ AJ_Status AJ_PeerHandleSendMemberships(AJ_Message* msg, AJ_Message* reply);
 AJ_Status AJ_PeerHandleSendMembershipsReply(AJ_Message* msg);
 
 /**
+ * Request manifests be sent to peer
+ *
+ * @param msg      The message being sent or received
+ * @param outgoing TRUE if msg is an outgoing message, FALSE if not
+ *
+ * @return   Return AJ_Status
+ *         - AJ_OK if successful
+ *         - AJ_ERR_RESOURCES if resource error or authentication in progress
+ *         - AJ_ERR_SECURITY if generic security violation
+ */
+AJ_Status AJ_PeerSendManifests(AJ_Message* msg, uint8_t outgoing);
+
+/**
  * Clear the authentication handshake context
  */
 void AJ_ClearAuthContext();
+
+/**
+ * Clear the flag that determines if we've sent manifests to the peer
+ */
+void AJ_ClearSentManifests();
 
 #ifdef __cplusplus
 }

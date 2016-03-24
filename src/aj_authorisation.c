@@ -1672,9 +1672,11 @@ void AJ_ManifestArrayApply(AJ_ManifestArray* manifests, const char* name, AJ_Aut
 {
     AJ_Status status;
 
+    AJ_InfoPrintf(("AJ_ManifestArrayApply(manifests=%p, name=%s, ctx=%p)\n", manifests, name, ctx));
+
     /* If the peer isn't enabled for Security 2.0, it won't have any manifests. This is OK. */
     if (NULL == manifests) {
-        AJ_InfoPrintf(("AJ_ManifestArrayApply(name=%s, ctx=%p): Zero manifests received", name, ctx));
+        AJ_InfoPrintf(("AJ_ManifestArrayApply(name=%s, ctx=%p): Zero manifests received\n", name, ctx));
     }
 
     /* Try to apply any manifests we got. Log if they fail but carry on. */
