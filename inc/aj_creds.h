@@ -226,6 +226,17 @@ AJ_Status AJ_CredentialSetECCPrivateKey(uint16_t type, const AJ_CredField* id, u
 AJ_Status AJ_CredentialGetECCPrivateKey(uint16_t type, const AJ_CredField* id, uint32_t* expiration, AJ_ECCPrivateKey* prv);
 
 /**
+ * Delete a credential from a specified slot in NVRAM
+ *
+ * @param type         Credential type
+ * @param slot         NVRAM slot
+ *
+ * @return
+ *          - AJ_OK if the credentials were deleted
+ */
+AJ_Status AJ_CredentialDeleteSlot(uint16_t type, uint16_t slot);
+
+/**
  * Delete a credential from NVRAM
  *
  * @param type         Credential type
