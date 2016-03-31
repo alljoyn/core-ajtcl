@@ -746,6 +746,17 @@ AJ_Status AJ_SecurityClaimMethod(AJ_Message* msg, AJ_Message* reply)
         manifests_data.data = NULL;
         goto Exit;
     }
+
+    /* Filter out any unsigned manifests. */
+    AJ_ManifestArrayFilterUnsigned(&manifests);
+
+    /* If none succeded, fail. */
+    if (NULL == manifests) {
+        status = AJ_ERR_SECURITY_DIGEST_MISMATCH;
+        manifests_data.data = NULL;
+        goto Exit;
+    }
+
     manifests_data.size = msg->bus->sock.rx.readPtr - manifests_data.data;
     /* Allow additional 8 bytes for maximum padding */
     manifests_data.size += 8;
@@ -926,6 +937,13 @@ AJ_Status AJ_SecurityUpdateIdentityMethod(AJ_Message* msg, AJ_Message* reply)
         goto Exit;
     }
 
+    /* Validate Identity chain */
+    status = VerifyIdentityCertificateChain(identity, NULL);
+    if (AJ_OK != status) {
+        AJ_InfoPrintf(("AJ_SecurityUpdateIdentityMethod(msg=%p, reply=%p): %s\n", msg, reply, AJ_StatusText(status)));
+        goto Exit;
+    }
+
     /* Unmarshal manifests */
     manifests_data.data = msg->bus->sock.rx.readPtr;
     status = AJ_ManifestArrayUnmarshal(&manifests, msg);
@@ -933,6 +951,17 @@ AJ_Status AJ_SecurityUpdateIdentityMethod(AJ_Message* msg, AJ_Message* reply)
         manifests_data.data = NULL;
         goto Exit;
     }
+
+    /* Filter out any unsigned manifests. */
+    AJ_ManifestArrayFilterUnsigned(&manifests);
+
+    /* If none succeded, fail. */
+    if (NULL == manifests) {
+        status = AJ_ERR_SECURITY_DIGEST_MISMATCH;
+        manifests_data.data = NULL;
+        goto Exit;
+    }
+
     manifests_data.size = msg->bus->sock.rx.readPtr - manifests_data.data;
     /* Allow additional 8 bytes for maximum padding */
     manifests_data.size += 8;
@@ -943,13 +972,6 @@ AJ_Status AJ_SecurityUpdateIdentityMethod(AJ_Message* msg, AJ_Message* reply)
     }
     status = AJ_ManifestArrayToBuffer(manifests, &manifests_data);
     if (AJ_OK != status) {
-        goto Exit;
-    }
-
-    /* Validate Identity chain */
-    status = VerifyIdentityCertificateChain(identity, NULL);
-    if (AJ_OK != status) {
-        AJ_InfoPrintf(("AJ_SecurityUpdateIdentityMethod(msg=%p, reply=%p): %s\n", msg, reply, AJ_StatusText(status)));
         goto Exit;
     }
 
@@ -1299,6 +1321,16 @@ AJ_Status AJ_SecurityInstallManifestsMethod(AJ_Message* msg, AJ_Message* reply)
         goto Exit;
     }
 
+    /* Check and make sure each manifest has been signed. */
+    AJ_ManifestArrayFilterUnsigned(&newManifests);
+
+    /* If none passed, fail. */
+    if (NULL == newManifests) {
+        status = AJ_ERR_SECURITY_DIGEST_MISMATCH;
+        newManifests_data.data = NULL;
+        goto Exit;
+    }
+
     /* Append the new list of manifests to the current list. */
     for (lastCurr = currentManifests; NULL != lastCurr->next; lastCurr = lastCurr->next);
     lastCurr->next = newManifests;
@@ -1338,7 +1370,7 @@ Exit:
     /* Don't AJ_CredFieldFree(&newManifests_data). That memory belongs to the message. */
 
     if (AJ_OK != status) {
-        return AJ_MarshalErrorMsg(msg, reply, AJ_ErrSecurityViolation);
+        return AJ_MarshalStatusMsg(msg, reply, status);
     } else {
         return AJ_MarshalReplyMsg(msg, reply);
     }
