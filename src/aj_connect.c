@@ -604,6 +604,11 @@ void AJ_Disconnect(AJ_BusAttachment* bus)
     AJ_ClearAuthContext();
 
     /*
+     * Clear sent manifests flag
+     */
+    AJ_ClearSentManifests();
+
+    /*
      * Set the routing nodes proto version to zero (not connected)
      */
     routingProtoVersion = 0;

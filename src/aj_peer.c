@@ -72,7 +72,6 @@ static AJ_Status ExchangeSuites(AJ_Message* msg);
 static AJ_Status KeyExchange(AJ_BusAttachment* bus);
 static AJ_Status KeyAuthentication(AJ_Message* msg);
 static AJ_Status GenSessionKey(AJ_Message* msg);
-static AJ_Status SendManifests(AJ_Message* msg);
 static AJ_Status SendMemberships(AJ_Message* msg);
 
 typedef enum {
@@ -93,6 +92,7 @@ typedef struct _PeerContext {
 
 static PeerContext peerContext;
 static AJ_AuthenticationContext authContext = { 0 };
+static uint8_t sentManifests = FALSE;
 
 static uint32_t GetAcceptableVersion(uint32_t srcV)
 {
@@ -161,6 +161,11 @@ static AJ_Status KeyGen(const char* peerName, uint8_t role, const char* nonce1, 
     }
     AJ_InfoPrintf(("KeyGen Verifier = %s.\n", outBuf));
     return status;
+}
+
+void AJ_ClearSentManifests()
+{
+    sentManifests = FALSE;
 }
 
 void AJ_ClearAuthContext()
@@ -436,6 +441,7 @@ AJ_Status AJ_PeerAuthenticate(AJ_BusAttachment* bus, const char* peerName, AJ_Pe
      * No handshake in progress or previous timed-out
      */
     AJ_ClearAuthContext();
+    AJ_ClearSentManifests();
     peerContext.callback = callback;
     peerContext.cbContext = cbContext;
     peerContext.peerName = peerName;
@@ -514,6 +520,7 @@ AJ_Status AJ_PeerHandleExchangeGUIDs(AJ_Message* msg, AJ_Message* reply)
      * No handshake in progress or previous timed-out
      */
     AJ_ClearAuthContext();
+    AJ_ClearSentManifests();
     AJ_InitTimer(&peerContext.timer);
     authContext.bus = msg->bus;
     authContext.role = AUTH_SERVER;
@@ -1589,6 +1596,16 @@ AJ_Status AJ_PeerHandleExchangeGroupKeys(AJ_Message* msg, AJ_Message* reply)
         HandshakeComplete(status);
     }
 
+    /* Search for membership certificates from the beginning */
+    authContext.slot = AJ_CREDS_NV_ID_BEGIN;
+    authContext.code = SEND_MEMBERSHIPS_NONE;
+    status = AJ_CredentialGetNext(AJ_CERTIFICATE_MBR_X509 | AJ_CRED_TYPE_CERTIFICATE, NULL, NULL, NULL, &authContext.slot);
+    if (AJ_OK == status) {
+        /* There is at least one cert to send, we don't know if the last yet */
+        authContext.code = SEND_MEMBERSHIPS_MORE;
+    }
+    status = AJ_OK;
+
     return status;
 
 Exit:
@@ -1630,7 +1647,17 @@ AJ_Status AJ_PeerHandleExchangeGroupKeysReply(AJ_Message* msg)
         goto Exit;
     }
     if ((AUTH_SUITE_ECDHE_ECDSA == authContext.suite) && (AJ_UNPACK_AUTH_VERSION(authContext.version) >= CONVERSATION_V4)) {
-        status = SendManifests(msg);
+        /* Search for membership certificates from the beginning */
+        authContext.slot = AJ_CREDS_NV_ID_BEGIN;
+        authContext.code = SEND_MEMBERSHIPS_NONE;
+        status = AJ_CredentialGetNext(AJ_CERTIFICATE_MBR_X509 | AJ_CRED_TYPE_CERTIFICATE, NULL, NULL, NULL, &authContext.slot);
+        AJ_InfoPrintf(("AJ_PeerHandleExchangeGroupKeysReply(msg=%p): Membership slot %d\n", msg, authContext.slot));
+        if (AJ_OK == status) {
+            /* There is at least one certificate to send, we don't know if the last yet */
+            authContext.code = SEND_MEMBERSHIPS_MORE;
+        }
+
+        status = AJ_PeerSendManifests(msg, FALSE);
     } else {
         HandshakeComplete(status);
     }
@@ -1642,16 +1669,38 @@ Exit:
     return AJ_ERR_SECURITY;
 }
 
-static AJ_Status SendManifests(AJ_Message* msg)
+AJ_Status AJ_PeerSendManifests(AJ_Message* msg, uint8_t outgoing)
 {
     AJ_Status status;
     AJ_Message call;
+    const AJ_GUID* peerGuid = AJ_GUID_Find(outgoing ? msg->destination : msg->sender);
     AJ_CredField field = { 0, NULL };
     AJ_ManifestArray* manifests = NULL;
+    uint8_t mustClearAuthContext = FALSE;
 
-    AJ_InfoPrintf(("SendManifests(msg=%p)\n", msg));
+    AJ_InfoPrintf(("AJ_PeerSendManifests(msg=%p, outgoing=%u)\n", msg, outgoing));
 
-    status = AJ_MarshalMethodCall(msg->bus, &call, AJ_METHOD_SEND_MANIFESTS, msg->sender, 0, AJ_FLAG_ENCRYPTED, AJ_AUTH_CALL_TIMEOUT);
+    if (sentManifests) {
+        /* Already sent. */
+        return AJ_OK;
+    }
+
+    if (NULL == authContext.bus) {
+        status = LoadECDSAContext(peerGuid);
+        if (AJ_OK != status) {
+            AJ_InfoPrintf(("AJ_PeerSendManifests(msg=%p, outgoing=%u): Could not load ECDSA context for peer\n", msg, outgoing));
+            return AJ_ERR_SECURITY;
+        }
+        mustClearAuthContext = TRUE;
+    }
+
+    if (AUTH_SUITE_ECDHE_ECDSA != authContext.suite) {
+        /* No need to send. */
+        status = AJ_OK;
+        goto Exit;
+    }
+
+    status = AJ_MarshalMethodCall(msg->bus, &call, AJ_METHOD_SEND_MANIFESTS, (outgoing ? msg->destination : msg->sender), 0, AJ_FLAG_ENCRYPTED, AJ_AUTH_CALL_TIMEOUT);
     if (AJ_OK != status) {
         goto Exit;
     }
@@ -1659,15 +1708,14 @@ static AJ_Status SendManifests(AJ_Message* msg)
     if (AJ_OK == status) {
         status = AJ_ManifestArrayFromBuffer(&manifests, &field);
         if (AJ_OK != status) {
-            AJ_InfoPrintf(("SendManifests(msg=%p): Manifests buffer failed\n", msg));
+            AJ_InfoPrintf(("AJ_PeerSendManifests(msg=%p): Manifests buffer failed\n", msg));
             goto Exit;
         }
-    } else {
-        manifests = NULL;
     }
+
     status = AJ_ManifestArrayMarshal(manifests, &call);
     if (AJ_OK != status) {
-        AJ_InfoPrintf(("SendManifests(msg=%p): Manifests marshal failed\n", msg));
+        AJ_InfoPrintf(("AJ_PeerSendManifests(msg=%p): Manifests marshal failed\n", msg));
         goto Exit;
     }
 
@@ -1675,11 +1723,16 @@ Exit:
     AJ_CredFieldFree(&field);
     AJ_ManifestArrayFree(manifests);
     if (AJ_OK == status) {
-        return AJ_DeliverMsg(&call);
-    } else {
-        HandshakeComplete(AJ_ERR_SECURITY);
-        return AJ_ERR_SECURITY;
+        status = AJ_DeliverMsg(&call);
+        if (AJ_OK == status) {
+            sentManifests = TRUE;
+        }
     }
+    if (mustClearAuthContext) {
+        AJ_ClearAuthContext();
+    }
+
+    return status;
 }
 
 AJ_Status AJ_PeerHandleSendManifests(AJ_Message* msg, AJ_Message* reply)
@@ -1688,12 +1741,21 @@ AJ_Status AJ_PeerHandleSendManifests(AJ_Message* msg, AJ_Message* reply)
     AJ_CredField field = { 0, NULL };
     const AJ_GUID* peerGuid = AJ_GUID_Find(msg->sender);
     AJ_ManifestArray* manifests = NULL;
+    uint8_t mustClearAuthContext = FALSE;
 
     AJ_InfoPrintf(("AJ_PeerHandleSendManifests(msg=%p, reply=%p)\n", msg, reply));
 
-    status = HandshakeValid(peerGuid);
-    if (AJ_OK != status) {
-        return AJ_MarshalErrorMsg(msg, reply, AJ_ErrResources);
+    /*
+     * This might get called during handshake, or after. If after, load the ECDSA context
+     * so the identity certificate thumbprint is available.
+     */
+    if (NULL == authContext.bus) {
+        status = LoadECDSAContext(peerGuid);
+        if (AJ_OK != status) {
+            AJ_InfoPrintf(("AJ_PeerHandleSendManifests(msg=%p, reply=%p): Could not load ECDSA context for peer\n", msg, reply));
+            return AJ_MarshalErrorMsg(msg, reply, AJ_ErrSecurityViolation);
+        }
+        mustClearAuthContext = TRUE;
     }
 
     status = AJ_ManifestArrayUnmarshal(&manifests, msg);
@@ -1718,10 +1780,8 @@ AJ_Status AJ_PeerHandleSendManifests(AJ_Message* msg, AJ_Message* reply)
             AJ_InfoPrintf(("AJ_PeerHandleSendManifests(msg=%p, reply=%p): Manifests buffer failed\n", msg, reply));
             goto Exit;
         }
-    } else {
-        /* Create empty manifest list */
-        manifests = NULL;
     }
+
     status = AJ_ManifestArrayMarshal(manifests, reply);
     if (AJ_OK != status) {
         AJ_InfoPrintf(("AJ_PeerHandleSendManifests(msg=%p, reply=%p): Manifests marshal failed\n", msg, reply));
@@ -1730,23 +1790,16 @@ AJ_Status AJ_PeerHandleSendManifests(AJ_Message* msg, AJ_Message* reply)
     AJ_ManifestArrayFree(manifests);
     manifests = NULL;
 
-    /* Search for membership certificates from the beginning */
-    authContext.slot = AJ_CREDS_NV_ID_BEGIN;
-    authContext.code = SEND_MEMBERSHIPS_NONE;
-    status = AJ_CredentialGetNext(AJ_CERTIFICATE_MBR_X509 | AJ_CRED_TYPE_CERTIFICATE, NULL, NULL, NULL, &authContext.slot);
-    if (AJ_OK == status) {
-        /* There is at least one cert to send, we don't know if the last yet */
-        authContext.code = SEND_MEMBERSHIPS_MORE;
-    }
-    status = AJ_OK;
-
 Exit:
     AJ_CredFieldFree(&field);
     AJ_ManifestArrayFree(manifests);
+    if (mustClearAuthContext) {
+        AJ_ClearAuthContext();
+    }
     if (AJ_OK == status) {
+        sentManifests = TRUE;
         return status;
     } else {
-        HandshakeComplete(AJ_ERR_SECURITY);
         return AJ_MarshalErrorMsg(msg, reply, AJ_ErrSecurityViolation);
     }
 }
@@ -1756,6 +1809,7 @@ AJ_Status AJ_PeerHandleSendManifestsReply(AJ_Message* msg)
     AJ_Status status;
     const AJ_GUID* peerGuid = AJ_GUID_Find(msg->sender);
     AJ_ManifestArray* manifests = NULL;
+    uint8_t mustClearAuthContext = FALSE;
 
     AJ_InfoPrintf(("AJ_PeerHandleSendManifestsReply(msg=%p)\n", msg));
 
@@ -1767,6 +1821,20 @@ AJ_Status AJ_PeerHandleSendManifestsReply(AJ_Message* msg)
     status = HandshakeValid(peerGuid);
     if (AJ_OK != status) {
         return status;
+    }
+
+    /*
+     * This might get called during handshake, or after. If after, load the ECDSA context
+     * so the identity certificate thumbprint is available.
+     */
+    if (NULL == authContext.bus) {
+        status = LoadECDSAContext(peerGuid);
+        if (AJ_OK != status) {
+            AJ_InfoPrintf(("AJ_PeerHandleSendManifestsReply(msg=%p): Could not load ECDSA context for peer\n", msg));
+            status = AJ_ERR_SECURITY;
+            goto Exit;
+        }
+        mustClearAuthContext = TRUE;
     }
 
     status = AJ_ManifestArrayUnmarshal(&manifests, msg);
@@ -1791,7 +1859,11 @@ AJ_Status AJ_PeerHandleSendManifestsReply(AJ_Message* msg)
 
 Exit:
     AJ_ManifestArrayFree(manifests);
+    if (mustClearAuthContext) {
+        AJ_ClearAuthContext();
+    }
     if (AJ_OK == status) {
+        sentManifests = TRUE;
         return SendMemberships(msg);
     } else {
         HandshakeComplete(AJ_ERR_SECURITY);
@@ -2126,8 +2198,17 @@ AJ_Status AJ_PeerHandleSendMemberships(AJ_Message* msg, AJ_Message* reply)
     }
 
     if ((SEND_MEMBERSHIPS_NONE == authContext.code) && (SEND_MEMBERSHIPS_NONE == code)) {
-        /* Nothing more to send or receive */
+        /*
+         * Nothing more to send or receive. Try to send manifests. Don't call HandshakeComplete
+         * until after so the authContext is still present.
+         */
+        status = AJ_PeerSendManifests(msg, FALSE);
+        if (AJ_OK != status) {
+            AJ_InfoPrintf(("AJ_PeerHandleSendMemberships(msg=%p, reply=%p): Couldn't AJ_PeerSendManifests; got %u\n",
+                           msg, reply, status));
+        }
         HandshakeComplete(status);
+
     }
 
     return status;
