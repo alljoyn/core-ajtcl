@@ -208,7 +208,7 @@ void AJ_AES_Enable(const uint8_t* key)
 
 void AJ_AES_Disable(void)
 {
-    memset(&aes_context, 0, sizeof(aes_context));
+    AJ_MemZeroSecure(&aes_context, sizeof(aes_context));
 }
 
 void AJ_AES_CTR_128(const uint8_t* key, const uint8_t* in, uint8_t* out, uint32_t len, uint8_t* ctr)
@@ -231,6 +231,7 @@ void AJ_AES_CTR_128(const uint8_t* key, const uint8_t* in, uint8_t* out, uint32_
         while (n--) {
             *out++ = *p++ ^ *in++;
         }
+        AJ_MemZeroSecure((uint8_t*)tmp, sizeof(tmp));
         /*
          * The counter field is big-endian
          */
@@ -259,6 +260,7 @@ void AJ_AES_CBC_128_ENCRYPT(const uint8_t* key, const uint8_t* in, uint8_t* out,
             xorbuf[i] ^= ivt[i] ^ aes_context.fkey[i];
         }
         EncryptRounds(ivt, xorbuf, &aes_context.fkey[4]);
+        AJ_MemZeroSecure((uint8_t*)xorbuf, sizeof(xorbuf));
         Unpack32(out, ivt);
         out += 16;
         in += 16;
