@@ -1718,7 +1718,7 @@ const AJ_Object* AJ_NextObject(AJ_ObjectIterator* iter)
                 const AJ_Object* obj = &list[iter->n++];
 
                 /* Skip announcing the DeviceIcon interface unless it has been set explicitly */
-                if ((iter->l == AJ_BUS_ID_FLAG) && (0 != strcmp(obj->path, "/About/DeviceIcon"))) {
+                if ((iter->l == AJ_BUS_ID_FLAG) && (0 == strcmp(obj->path, "/About/DeviceIcon"))) {
                     if (!AJ_AboutHasIcon()) {
                         continue;
                     }
