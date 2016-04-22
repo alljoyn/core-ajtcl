@@ -82,6 +82,8 @@ uint32_t AJ_NVRAM_GetSize(void)
     FILE* f;
     struct dirent* entry;
     uint32_t size = 0;
+    size_t outputSizeLeft;
+
     dir = opendir("/sd");
     if (dir) {
         while ((entry = readdir(dir)) != NULL) {
@@ -91,7 +93,8 @@ uint32_t AJ_NVRAM_GetSize(void)
             if (isEntry(entry->d_name)) {
                 strcpy(buf, "/sd/");
                 /* Append 11 characters max: "12345.ajnv\0" */
-                strncat(buf, entry->d_name, 11);
+                outputSizeLeft = ArraySize(buf) - strlen(buf) - 1;
+                strncat(buf, entry->d_name, min(outputSizeLeft, 11));
                 f = fopen(buf, "r");
                 if (f == NULL) {
                     AJ_ErrPrintf(("AJ_NVRAM_GetSize(): Error opening file\n"));
@@ -117,6 +120,8 @@ void AJ_NVRAM_Layout_Print()
     DIR* dir;
     FILE* f;
     struct dirent* entry;
+    size_t outputSizeLeft;
+
     dir = opendir("/sd");
     AJ_AlwaysPrintf(("============ AJ NVRAM Map ===========\n"));
     if (dir) {
@@ -126,7 +131,8 @@ void AJ_NVRAM_Layout_Print()
             buf[0] = '\0';
             if (isEntry(entry->d_name)) {
                 strcpy(buf, "/sd/");
-                strncat(buf, entry->d_name, 11);
+                outputSizeLeft = ArraySize(buf) - strlen(buf) - 1;
+                strncat(buf, entry->d_name, min(outputSizeLeft, 11));
                 f = fopen(buf, "r");
                 if (f == NULL) {
                     AJ_ErrPrintf(("AJ_NVRAM_Layout_Print(): Could not open file, AJ_ERR_FAILURE\n"));
@@ -386,6 +392,8 @@ void AJ_NVRAM_Clear()
     DIR* dir;
     struct dirent* entry;
     int ret = 0;
+    size_t outputSizeLeft;
+
     dir = opendir("/sd");
     if (dir) {
         while ((entry = readdir(dir)) != NULL) {
@@ -393,7 +401,8 @@ void AJ_NVRAM_Clear()
             fname[0] = '\0';
             if (isEntry(entry->d_name)) {
                 strcat(fname, "/sd/");
-                strncat(fname, entry->d_name, 11);
+                outputSizeLeft = ArraySize(fname) - strlen(fname) - 1;
+                strncat(fname, entry->d_name, min(outputSizeLeft, 11));
                 ret = remove(fname);
                 if (ret != 0) {
                     AJ_ErrPrintf(("Could not remove entry %s, ret = %d\n", entry->d_name, ret));
