@@ -78,20 +78,18 @@ static uint8_t asyncForm = TRUE;
 
 static AJ_Status AppHandleCat(AJ_Message* msg)
 {
-#define BUFFER_SIZE 256
     const char* string0;
     const char* string1;
-    char buffer[BUFFER_SIZE];
+    char buffer[256];
     AJ_Message reply;
     AJ_Arg replyArg;
 
     AJ_UnmarshalArgs(msg, "ss", &string0, &string1);
 
     /* We have the arguments. Now do the concatenation. */
-    strncpy(buffer, string0, BUFFER_SIZE);
-    buffer[BUFFER_SIZE - 1] = '\0';
-    strncat(buffer, string1, BUFFER_SIZE - strlen(buffer));
-    buffer[BUFFER_SIZE - 1] = '\0';
+    strncpy(buffer, string0, ArraySize(buffer));
+    buffer[ArraySize(buffer) - 1] = '\0';
+    strncat(buffer, string1, ArraySize(buffer) - strlen(buffer) - 1);
     if (asyncForm) {
         AJ_MsgReplyContext replyCtx;
         AJ_CloseMsgAndSaveReplyContext(msg, &replyCtx);
@@ -103,8 +101,6 @@ static AJ_Status AppHandleCat(AJ_Message* msg)
     AJ_MarshalArg(&reply, &replyArg);
 
     return AJ_DeliverMsg(&reply);
-
-#undef BUFFER_SIZE
 }
 
 /* All times are expressed in milliseconds. */
