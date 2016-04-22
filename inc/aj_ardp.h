@@ -42,7 +42,7 @@ extern "C" {
 #define UDP_INITIAL_DATA_TIMEOUT 1000  /**< Initial value for how long do we wait before retrying sending data */
 #define UDP_TOTAL_DATA_RETRY_TIMEOUT 30000  /**< Initial total amount of time to try and send data before giving up */
 #define UDP_MIN_DATA_RETRIES 5  /**< Minimum number of times to try and send data before giving up */
-#define UDP_LINK_TIMEOUT 30000  /**< How long before we decide a link is down (with no reponses to keepalive probes */
+#define UDP_LINK_TIMEOUT 30000  /**< How long before we decide a link is down (with no responses to keepalive probes */
 #define UDP_KEEPALIVE_RETRIES 5  /**< How many times do we try to probe on an idle link before terminating the connection */
 #define UDP_FAST_RETRANSMIT_ACK_COUNTER 1  /**< How many duplicate acknowledgements to we need to trigger a data retransmission */
 #define UDP_DELAYED_ACK_TIMEOUT 100 /**< How long do we wait until acknowledging received segments */
@@ -50,7 +50,7 @@ extern "C" {
 #define UDP_MINIMUM_TIMEOUT 100 /**< The minimum amount of time between calls to ARDP_Recv, should not be greater than any of the timeout values above */
 
 #define UDP_SEGBMAX 1472  /**< Maximum size of an ARDP segment (quantum of reliable transmission) */
-#define UDP_SEGMAX ((AJ_TX_DATA_SIZE  + UDP_SEGBMAX - 1) / UDP_SEGBMAX)  /**< Maximum number of ARDP segments in-flight (bandwidth-delay product sizing) */
+#define UDP_SEGMAX ((AJ_TX_DATA_SIZE  + UDP_SEGBMAX - 1) / UDP_SEGBMAX + 1)  /**< Maximum number of ARDP segments in-flight (bandwidth-delay product sizing) */
 
 
 /* Protocol specific values */
@@ -60,7 +60,7 @@ extern "C" {
 
 /*
  * SEGMAX and SEGBMAX  on both send and receive sides are indicated by SYN header in Connection request:
- * the acceptor cannot modify these parameters, only reject in case the request cannot be accomodated.
+ * the acceptor cannot modify these parameters, only reject in case the request cannot be accommodated.
  * No EACKs: only acknowledge segments received in sequence.
  */
 #define ARDP_FLAG_SIMPLE_MODE 2
@@ -68,8 +68,8 @@ extern "C" {
 struct _AJ_IOBuffer;
 
 /*
- *       ARDP onnection request. Connect begins the SYN,
- *       SYN-ACK, ACK thre-way handshake.
+ *       ARDP connection request. Connect begins the SYN,
+ *       SYN-ACK, ACK three-way handshake.
  *
  *       Returns error code:
  *         AJ_OK - all is good, connection transitioned to SYN_SENT state;
@@ -91,7 +91,7 @@ void AJ_ARDP_Disconnect(uint8_t forced);
  *      Returns error code:
  *         AJ_OK - all is good
  *         AJ_ERR_ARDP_TTL_EXPIRED - Discard this message. TTL is less than 1/2 estimated roundtrip time.
- *         AJ_ERR_ARDP_INVALID_CONNECTION - Connection does not exist (efffectively connection record is NULL)
+ *         AJ_ERR_ARDP_INVALID_CONNECTION - Connection does not exist (effectively connection record is NULL)
  */
 AJ_Status AJ_ARDP_StartMsgSend(uint32_t ttl);
 
