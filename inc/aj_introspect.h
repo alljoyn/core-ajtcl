@@ -405,7 +405,7 @@ AJ_Status AJ_MarshalPropertyArgs(AJ_Message* msg, uint32_t propId);
  * @return              Return AJ_Status
  */
 AJ_EXPORT
-AJ_Status AJ_MarshalAllPropertiesArgs(AJ_Message* replyMsg, const char* iface, AJ_BusPropGetCallback callback, void* context);
+AJ_Status AJ_MarshalAllPropertiesArgs(AJ_Message* replyMsg, const char* iface, AJ_BusPropGetCallback callback, AJ_BusPropGetWithErrorCallback callbackWithError, char* errorName, char* errorMessage, void* context);
 
 /**
  * Get the introspection data
