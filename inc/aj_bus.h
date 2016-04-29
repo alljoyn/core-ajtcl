@@ -32,6 +32,7 @@
 extern "C" {
 #endif
 
+
 /**
  * Forward declarations
  */
@@ -583,6 +584,25 @@ AJ_Status AJ_BusAuthenticatePeer(AJ_BusAttachment* bus, const char* peerBusName,
 typedef AJ_Status (*AJ_BusPropGetCallback)(AJ_Message* replyMsg, uint32_t propId, void* context);
 
 /**
+ * Callback function prototype for a callback function to GET a property. All this function has to
+ * do is marshal the property value. It can also fill in the passed-in parameters with a custom
+ * error name and description, in case GET property fails.
+ *
+ * @param      replyMsg             The GET_PROPERTY or GET_ALL_PROPERTIES reply message
+ * @param      propId               The property identifier
+ * @param      context              The caller provided context that was passed into AJ_BusPropGet()
+ * @param[out] errorName            Name of the error returned by the callback function
+ * @param      errorNameBufSize     Size of the buffer allocated by the caller to hold the error name string
+ * @param[out] errorMessage         A detailed description of the error
+ * @param      errorMessageBufSize  Size of the buffer allocated by the caller to hold the error message string
+ *
+ * @return                          Return AJ_Status
+ *                                  - AJ_OK if the property was read and marshaled
+ *                                  - An error status if the property could not be returned for any reason
+ */
+typedef AJ_Status (*AJ_BusPropGetWithErrorCallback)(AJ_Message* replyMsg, uint32_t propId, char* errorName, size_t errorNameBufSize, char* errorMessage, size_t errorMessageBufSize, void* context);
+
+/**
  * Helper function that provides all the boilerplate for responding to a GET_PROPERTY. All the
  * application has to do is marshal the property value.
  *
@@ -596,6 +616,20 @@ AJ_EXPORT
 AJ_Status AJ_BusPropGet(AJ_Message* msg, AJ_BusPropGetCallback callback, void* context);
 
 /**
+ * Helper function that provides all the boilerplate for responding to a GET_PROPERTY. All the
+ * application has to do is marshal the property value. In case GET_PROPERTY fails, the callback
+ * function should fill in the appropriate error information.
+ *
+ * @param msg           An unmarshalled GET_PROPERTY message
+ * @param callback      The function called to request the application to marshal the property value
+ * @param context       A caller provided context that is passed into the callback function
+ *
+ * @return              Return AJ_Status
+ */
+AJ_EXPORT
+AJ_Status AJ_BusPropGetWithError(AJ_Message* msg, AJ_BusPropGetWithErrorCallback callback, void* context);
+
+/**
  * Helper function that provides all the boilerplate for responding to a GET_ALL_PROPERTIES. All the
  * application has to do is marshal each of the property values.
  *
@@ -603,10 +637,24 @@ AJ_Status AJ_BusPropGet(AJ_Message* msg, AJ_BusPropGetCallback callback, void* c
  * @param callback  The function called to request the application to marshal the property value.
  * @param context   A caller provided context that is passed into the callback function
  *
- * @return  Return AJ_Status
+ * @return          Return AJ_Status
  */
 AJ_EXPORT
 AJ_Status AJ_BusPropGetAll(AJ_Message* msg, AJ_BusPropGetCallback callback, void* context);
+
+/**
+ * Helper function that provides all the boilerplate for responding to a GET_ALL_PROPERTIES. All the
+ * application has to do is marshal each of the property values. In case GET_ALL_PROPERTIES fails, the
+ * callback function should fill in the appropriate error information.
+ *
+ * @param msg           An unmarshalled GET_ALL_PROPERTIES message
+ * @param callback      The function called to request the application to marshal the property value
+ * @param context       A caller provided context that is passed into the callback function
+ *
+ * @return              Return AJ_Status
+ */
+AJ_EXPORT
+AJ_Status AJ_BusPropGetAllWithError(AJ_Message* msg, AJ_BusPropGetWithErrorCallback callback, void* context);
 
 /**
  * Callback function prototype for a callback function to SET an application property. All this
@@ -623,6 +671,25 @@ AJ_Status AJ_BusPropGetAll(AJ_Message* msg, AJ_BusPropGetCallback callback, void
 typedef AJ_Status (*AJ_BusPropSetCallback)(AJ_Message* replyMsg, uint32_t propId, void* context);
 
 /**
+ * Callback function prototype for a callback function to SET an application property. All this
+ * function has to do is unmarshal the property value. It can also fill in the passed-in parameters
+ * with a custom error name and description, in case SET property fails.
+ *
+ * @param      replyMsg             The SET_PROPERTY reply message
+ * @param      propId               The property identifier
+ * @param[out] errorName            Name of the error returned by the callback function
+ * @param      errorNameBufSize     Size of the buffer allocated by the caller to hold the error name string
+ * @param[out] errorMessage         A detailed description of the error
+ * @param      errorMessageBufSize  Size of the buffer allocated by the caller to hold the error message string
+ * @param      context              The caller provided context that was passed into AJ_BusPropSet()
+ *
+ * @return                          Return AJ_Status
+ *                                  - AJ_OK if the property was unmarshaled
+ *                                  - An error status if the property could not be set for any reason
+ */
+typedef AJ_Status (*AJ_BusPropSetWithErrorCallback)(AJ_Message* replyMsg, uint32_t propId, char* errorName, size_t errorNameBufSize, char* errorMessage, size_t errorMessageBufSize, void* context);
+
+/**
  * Helper function that provides all the boilerplate for responding to a SET_PROPERTY. All the
  * application has to do is unmarshal the property value.
  *
@@ -634,6 +701,20 @@ typedef AJ_Status (*AJ_BusPropSetCallback)(AJ_Message* replyMsg, uint32_t propId
  */
 AJ_EXPORT
 AJ_Status AJ_BusPropSet(AJ_Message* msg, AJ_BusPropSetCallback callback, void* context);
+
+/**
+ * Helper function that provides all the boilerplate for responding to a SET_PROPERTY. All the
+ * application has to do is unmarshal the property value. In case SET_PROPERTY fails, the
+ * callback function should fill in the appropriate error information.
+ *
+ * @param msg           An unmarshalled SET_PROPERTY message
+ * @param callback      The function called to request the application to marshal the property value
+ * @param context       A caller provided context that is passed into the callback function
+ *
+ * @return              Return AJ_Status
+ */
+AJ_EXPORT
+AJ_Status AJ_BusPropSetWithError(AJ_Message* msg, AJ_BusPropSetWithErrorCallback callback, void* context);
 
 /**
  * Function to specify which authentication suites are available.
