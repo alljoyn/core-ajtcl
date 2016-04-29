@@ -29,7 +29,9 @@ progs.extend([
             test_env.Program('doorsvc', ['doorsvc.c']),
             test_env.Program('ecctest', ['ecctest.c']),
             test_env.Program('pcclient', ['pcclient.c']),
-            test_env.Program('pcservice', ['pcservice.c'])
+            test_env.Program('pcservice', ['pcservice.c']),
+            test_env.Program('prop_with_error_test_client', ['prop_with_error_test_client.c']),
+            test_env.Program('prop_with_error_test_svc', ['prop_with_error_test_svc.c'])
         ])
 
 # Build the test programs on win32/linux
