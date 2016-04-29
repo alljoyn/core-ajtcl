@@ -802,8 +802,11 @@ typedef struct {
     union {
         AJ_BusPropGetCallback Get;
         AJ_BusPropSetCallback Set;
+        AJ_BusPropGetWithErrorCallback GetWithError;
+        AJ_BusPropSetWithErrorCallback SetWithError;
     };
 } PropCallback;
+
 
 static AJ_Status PropAccess(AJ_Message* msg, PropCallback* cb, uint8_t op)
 {
@@ -811,6 +814,8 @@ static AJ_Status PropAccess(AJ_Message* msg, PropCallback* cb, uint8_t op)
     AJ_Message reply;
     uint32_t propId;
     const char* sig;
+    char errorName[256] = { '\0' };
+    char errorMessage[256] = { '\0' };
 
     AJ_InfoPrintf(("PropAccess(msg=0x%p, cb=0x%p, op=%s)\n", msg, cb, (op == AJ_PROP_GET) ? "get" : "set"));
 
@@ -825,7 +830,8 @@ static AJ_Status PropAccess(AJ_Message* msg, PropCallback* cb, uint8_t op)
          */
         if (op == AJ_PROP_GET) {
             AJ_MarshalVariant(&reply, sig);
-            status = cb->Get(&reply, propId, cb->context);
+            status = cb->GetWithError ? cb->GetWithError(&reply, propId, errorName, errorMessage, cb->context)
+                     : cb->Get(&reply, propId, cb->context);
         } else {
             const char* variant;
             AJ_UnmarshalVariant(msg, &variant);
@@ -833,7 +839,8 @@ static AJ_Status PropAccess(AJ_Message* msg, PropCallback* cb, uint8_t op)
              * Check that the value has the expected signature
              */
             if (strcmp(sig, variant) == 0) {
-                status = cb->Set(msg, propId, cb->context);
+                status = cb->SetWithError ? cb->SetWithError(&reply, propId, errorName, errorMessage, cb->context)
+                         : cb->Set(msg, propId, cb->context);
             } else {
                 AJ_InfoPrintf(("PropAccess(): AJ_ERR_SIGNATURE\n"));
                 status = AJ_ERR_SIGNATURE;
@@ -841,16 +848,23 @@ static AJ_Status PropAccess(AJ_Message* msg, PropCallback* cb, uint8_t op)
         }
     }
     if (status != AJ_OK) {
-        AJ_MarshalStatusMsg(msg, &reply, status);
+        if (errorName[0] == '\0') {
+            AJ_MarshalStatusMsg(msg, &reply, status);
+        } else {
+            AJ_MarshalErrorMsgWithInfo(msg, &reply, errorName, errorMessage);
+        }
     }
     return AJ_DeliverMsg(&reply);
 }
+
 
 static AJ_Status PropAccessAll(AJ_Message* msg, PropCallback* cb)
 {
     AJ_Status status;
     AJ_Message reply;
     const char* iface;
+    char errorName[256] = { '\0' };
+    char errorMessage[256] = { '\0' };
 
     AJ_InfoPrintf(("PropAccessAll(msg=0x%p, cb=0x%p)\n", msg, cb));
 
@@ -859,13 +873,19 @@ static AJ_Status PropAccessAll(AJ_Message* msg, PropCallback* cb)
         status = AJ_MarshalReplyMsg(msg, &reply);
     }
     if (status == AJ_OK) {
-        status = AJ_MarshalAllPropertiesArgs(&reply, iface, cb->Get, cb->context);
+        status = cb->GetWithError ? AJ_MarshalAllPropertiesArgs(&reply, iface, NULL, cb->GetWithError, errorName, errorMessage, cb->context)
+                 : AJ_MarshalAllPropertiesArgs(&reply, iface, cb->Get, NULL, errorName, errorMessage, cb->context);
     }
     if (status != AJ_OK) {
-        AJ_MarshalStatusMsg(msg, &reply, status);
+        if (errorName[0] == '\0') {
+            AJ_MarshalStatusMsg(msg, &reply, status);
+        } else {
+            AJ_MarshalErrorMsgWithInfo(msg, &reply, errorName, errorMessage);
+        }
     }
     return AJ_DeliverMsg(&reply);
 }
+
 
 AJ_Status AJ_BusPropGet(AJ_Message* msg, AJ_BusPropGetCallback callback, void* context)
 {
@@ -874,7 +894,20 @@ AJ_Status AJ_BusPropGet(AJ_Message* msg, AJ_BusPropGetCallback callback, void* c
     AJ_InfoPrintf(("AJ_BusPropGet(msg=0x%p, callback=0x%p, context=0x%p)\n", msg, callback, context));
 
     cb.context = context;
+    cb.GetWithError = NULL;
     cb.Get = callback;
+    return PropAccess(msg, &cb, AJ_PROP_GET);
+}
+
+AJ_Status AJ_BusPropGetWithError(AJ_Message* msg, AJ_BusPropGetWithErrorCallback callback, void* context)
+{
+    PropCallback cb;
+
+    AJ_InfoPrintf(("AJ_BusPropGetWithError(msg=0x%p, callback=0x%p, context=0x%p)\n", msg, callback, context));
+
+    cb.context = context;
+    cb.Get = NULL;
+    cb.GetWithError = callback;
     return PropAccess(msg, &cb, AJ_PROP_GET);
 }
 
@@ -885,7 +918,20 @@ AJ_Status AJ_BusPropSet(AJ_Message* msg, AJ_BusPropSetCallback callback, void* c
     AJ_InfoPrintf(("AJ_BusPropSet(msg=0x%p, callback=0x%p, context=0x%p)\n", msg, callback, context));
 
     cb.context = context;
+    cb.SetWithError = NULL;
     cb.Set = callback;
+    return PropAccess(msg, &cb, AJ_PROP_SET);
+}
+
+AJ_Status AJ_BusPropSetWithError(AJ_Message* msg, AJ_BusPropSetWithErrorCallback callback, void* context)
+{
+    PropCallback cb;
+
+    AJ_InfoPrintf(("AJ_BusPropSetWithError(msg=0x%p, callback=0x%p, context=0x%p)\n", msg, callback, context));
+
+    cb.context = context;
+    cb.Set = NULL;
+    cb.SetWithError = callback;
     return PropAccess(msg, &cb, AJ_PROP_SET);
 }
 
@@ -896,7 +942,20 @@ AJ_Status AJ_BusPropGetAll(AJ_Message* msg, AJ_BusPropGetCallback callback, void
     AJ_InfoPrintf(("AJ_BusPropGetAll(msg=0x%p, callback=0x%p, context=0x%p)\n", msg, callback, context));
 
     cb.context = context;
+    cb.GetWithError = NULL;
     cb.Get = callback;
+    return PropAccessAll(msg, &cb);
+}
+
+AJ_Status AJ_BusPropGetAllWithError(AJ_Message* msg, AJ_BusPropGetWithErrorCallback callback, void* context)
+{
+    PropCallback cb;
+
+    AJ_InfoPrintf(("AJ_BusPropGetAllWithError(msg=0x%p, callback=0x%p, context=0x%p)\n", msg, callback, context));
+
+    cb.context = context;
+    cb.Get = NULL;
+    cb.GetWithError = callback;
     return PropAccessAll(msg, &cb);
 }
 
