@@ -303,7 +303,8 @@ TEST_FILES +=	test/svclite.c
 TEST_FILES +=	test/nvramtest.c
 TEST_FILES += 	test/clientlite.c
 TEST_FILES += 	test/sessionslite.c
-
+TEST_FILES += 	test/prop_with_error_test_client.c
+TEST_FILES += 	test/prop_with_error_test_svc.c
 		
 SAMPLE_FILES =  	samples/basic/basic_client.c
 SAMPLE_FILES += 	samples/basic/basic_service.c

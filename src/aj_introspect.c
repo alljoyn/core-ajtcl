@@ -1353,7 +1353,7 @@ AJ_Status AJ_UnmarshalPropertyArgs(AJ_Message* msg, uint32_t* propId, const char
     return status;
 }
 
-AJ_Status AJ_MarshalAllPropertiesArgs(AJ_Message* replyMsg, const char* iface, AJ_BusPropGetCallback callback, void* context)
+AJ_Status AJ_MarshalAllPropertiesArgs(AJ_Message* replyMsg, const char* iface, AJ_BusPropGetCallback callback, AJ_BusPropGetWithErrorCallback callbackWithError, char* errorName, size_t errorNameBufSize, char* errorMessage, size_t errorMessageBufSize, void* context)
 {
     AJ_Status status = AJ_ERR_MARSHAL;
     uint8_t oIndex = (replyMsg->msgId >> 24) & ~AJ_REP_ID_FLAG;
@@ -1439,8 +1439,15 @@ AJ_Status AJ_MarshalAllPropertiesArgs(AJ_Message* replyMsg, const char* iface, A
             /*
              * Marshal property value argument
              */
-            if ((status == AJ_OK) && (callback != NULL)) {
-                status = callback(replyMsg, propId, context);
+            if (status == AJ_OK) {
+                if (callbackWithError != NULL) {
+                    status = callbackWithError(replyMsg, propId, errorName, errorNameBufSize, errorMessage, errorMessageBufSize, context);
+                    if ((errorName != NULL) && (strlen(errorName) != 0)) {
+                        goto Exit;
+                    }
+                } else if (callback != NULL) {
+                    status = callback(replyMsg, propId, context);
+                }
             }
 
             if (status == AJ_OK) {

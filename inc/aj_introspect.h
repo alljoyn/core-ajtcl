@@ -395,17 +395,23 @@ AJ_Status AJ_MarshalPropertyArgs(AJ_Message* msg, uint32_t propId);
  *
  * If everything is correct the reply message contains the marshalled response with the ALL the properties
  * defined for the given interface of the object associated with the request. Otherwise, an error reply
- * message is marshalled with the last error status.
+ * message is marshalled with the last error status. If callbackWithError is defined, an error name and
+ * an error description are also set in the message.
  *
- * @param replyMsg      The message to marshal the reply into. Assumes the message header is already set by a previous call to AJ_MarshalReplyMsg().
- * @param iface         The interface name (obtained from the request) whose properties are to be marshalled.
- * @param callback      The function called to request the application to marshal each property value.
- * @param context       A caller provided context that is passed into the callback function.
+ * @param      replyMsg             The message to marshal the reply into. Assumes the message header is already set by a previous call to AJ_MarshalReplyMsg()
+ * @param      iface                The interface name (obtained from the request) whose properties are to be marshalled
+ * @param      callback             The function called to request the application to marshal each property value
+ * @param      callbackWithError    The function called to request the application to marshal each property value, which contains additional parameters to return a possible error
+ * @param[out] errorName            Name of the error returned by the callback function
+ * @param      errorNameBufSize     Size of the buffer allocated by the caller to hold the error name string
+ * @param[out] errorMessage         A detailed description of the error
+ * @param      errorMessageBufSize  Size of the buffer allocated by the caller to hold the error message string
+ * @param      context              A caller provided context that is passed into the callback function
  *
- * @return              Return AJ_Status
+ * @return                          Return AJ_Status
  */
 AJ_EXPORT
-AJ_Status AJ_MarshalAllPropertiesArgs(AJ_Message* replyMsg, const char* iface, AJ_BusPropGetCallback callback, void* context);
+AJ_Status AJ_MarshalAllPropertiesArgs(AJ_Message* replyMsg, const char* iface, AJ_BusPropGetCallback callback, AJ_BusPropGetWithErrorCallback callbackWithError, char* errorName, size_t errorNameBufSize, char* errorMessage, size_t errorMessageBufSize, void* context);
 
 /**
  * Get the introspection data
