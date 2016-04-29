@@ -1,79 +1,41 @@
-AllJoyn Thin Core Version 15.09a Release Notes
+AllJoyn Thin Core Version 16.04 Release Notes
 ==============================================
 
 Fully Validated Platforms
 -------------------------
-1) Linux Ubuntu 14.04 LTS (64 bit)
+* Linux Ubuntu 14.04 LTS (64 bit)
 
 See the release review page for other platforms that have not been fully
 verified, but may work:
-https://wiki.allseenalliance.org/core/core_15.09_release_review#regression_test
+https://wiki.allseenalliance.org/core/core_16.04_release_review#regression_test
 
 
-Features added in Version 15.09a
---------------------------------
-* Reorganize TC code base (ASACORE-1376)
-* Security 2.0 was added as a Developer Preview Feature (ASACORE-1393)
-* The ARDP/UDP transport between TC and RN (Thin Client to Routing Node version
-  of a UDP-based transport) is product ready (ASACORE-1404/ASACORE-1686). This
-  change also includes making ARDP/UDP the default transport, with fall-back to
-  TCP.
-* SC/TC: Expand conversation hash to include all parts of auth conversation
-  (ASACORE-2068)
-* Add APIs to support asynchronous method replies (ASACORE-2272)
+Features added in Version 16.04
+-------------------------------
+* New password-based authentication mechanism ECDHE_SPEKE (ASACORE-2055)
+* Security 2.0 continues to be a Developer Preview Feature (ASACORE-1393)
+* Support for multiple Security 2.0 Manifests for a single app (ASACORE-2710)
+* Each Security 2.0 Manifest must be signed (ASACORE-2750)
 
-
-Issues Addressed in Version 15.09a
-----------------------------------
-ASACORE-2098 RN selection implementation chooses wrong RN
-ASACORE-2135 Thin leaf node connects over TCP even if UDP slots are available.
-ASACORE-2152 Router rank does not change with TL leaf node connection to RN over
-             ARDP
-ASACORE-2158 Quick link lost detection takes more time than usual for TL-RN
-             connection over ARDP
-ASACORE-2169 AJ_BusLinkStateProc() does not work correctly when the network is
-             Unavailable
-ASACORE-2185 PropertiesChanged signal interface mismatch between Thin and Core
-ASACORE-2196 ARDP disconnect is called when a packet with expired TTL is
-             received
-ASACORE-2209 LanguageTag APIs hard to use since there's no prefix matching,
-             e.g., "en" doesn't match "en-US"
-ASACORE-2214 eventaction_service TL test sample crashes if introspected with
-             language not supported by translator
-ASACORE-2301 CancelFindAdvertisedName has an incorrect signature definition
-ASACORE-2400 Must handle AJ_ERR_WRITE returned by AJ_BusHandleBusMessage()
-ASACORE-2513 problem with ARDP timeout
-ASACORE-2554 Potential infinite loop when encountering ARDP backpressure
-ASACORE-2560 Do not blacklist Routing Node with network error during connection
-ASACORE-2580 Identity certificate chain signed by admin group CA is not accepted
-             by thin lib
-ASACORE-2582 Conversation hash mismatch between SC and TC
-ASACORE-2593 Memory leak reported by valgrind for AJ_X509ChainUnmarshal
-ASACORE-2596 Incompatibility between 15.09 TC and 15.04 TC/SC when using
-             Security 1.0
-ASACORE-2612 ECDSA authentication failure between 15.09 TC and 15.04 SC
-ASACORE-2619 AJ_RegisterObjectsACL not using MAX_OBJECT_LISTS
-ASACORE-2622 Introspection fails on some TC bus objects when using ARDP
-ASACORE-2630 Security.ManagedApplication.Reset fails on unclaimed TC application
-ASACORE-2631 Add helper method for Security Reset in TC
-
-For a complete list of fixed issues:
-https://jira.allseenalliance.org/issues/?jql=project%20%3D%20ASACORE%20AND%20issuetype%20%3D%20Bug%20AND%20status%20in%20%28Closed%2C%20Resolved%29%20AND%20resolution%20%3D%20Fixed%20AND%20fixVersion%20in%20%2815.09%2C%2015.09a%29%20AND%20component%20%3D%20%22Thin%20Core%20Library%22%20ORDER%20BY%20key%20ASC
-
-
-Known Issues in Version 15.09a
-------------------------------
-ASACORE-2051 TC: Possible to write beyond the capacity using AJ_NVRAM_Write
-ASACORE-2053 AJ_NVRAM_Read can read beyond the item's capacity
+Issues Addressed in Version 16.04
+---------------------------------
 ASACORE-2177 Introspection in Thin Library doesn't work for app objects that use
              the root path '/'
-ASACORE-2394 TC: Security unit tests require bbservice.
-             Run "bbservice -n org.alljoyn.svclite" at the same time for
-             SecurityTest.Test_ECDHE_NULL and SecurityTest.Test_ECDHE_PSK
-ASACORE-2546 TC: Identity and Membership certificates must have an AKI to be
+ASACORE-2394 Security unit tests require bbservice. Run "bbservice -n org.alljoyn.svclite" at the
+             same time for SecurityTest.Test_ECDHE_NULL and SecurityTest.Test_ECDHE_PS
+ASACORE-2546 Identity and Membership certificates must have an AKI to be
              installed
+
+For a complete list of fixed issues:
+https://jira.allseenalliance.org/issues/?jql=project%20%3D%20ASACORE%20AND%20issuetype%20%3D%20Bug%20AND%20status%20in%20%28Closed%2C%20Resolved%29%20AND%20resolution%20%3D%20Fixed%20AND%20fixVersion%20in%20%2816.04%29%20AND%20component%20%3D%20%22Thin%20Core%20Library%22%20ORDER%20BY%20key%20ASC
+
+
+Known Issues in Version 16.04
+-----------------------------
+ASACORE-2053 AJ_NVRAM_Read can read beyond the item's capacity
 ASACORE-2589 When introspecting object path /org/alljoyn/Bus/Security, the
              introspection xml returned by TCL and SCL differ.
+ASACORE-2623 Access to secure bus object fails after RN disconnect/reconnect
 
 For a complete list of open issues:
 https://jira.allseenalliance.org/issues/?jql=project%20%3D%20%22Core%20SW%22%20AND%20%28component%20in%20%28%22Thin%20Core%20Library%22%2C%20SCONS%29%20OR%20component%20is%20EMPTY%29%20AND%20%28status%20%3D%20closed%20AND%20resolution%20%3D%20Postponed%20OR%20status%20not%20in%20%28closed%2C%20resolved%29%20AND%20issuetype%20%3D%20Bug%29%20ORDER%20BY%20Severity%20DESC%2C%20priority%20DESC%2C%20id%20ASC
@@ -84,44 +46,19 @@ Compatibility
 Starting in Version 16.04
 * The AJ_Connect() API has been removed (was DEPRECATED since 14.02)
 
-Starting in Version 15.09
-* The AJ_Connect() API is DEPRECATED (since 14.02)
-* The APIs for About in the core/about_tcl repo are DEPRECATED (since 14.06)
-* Claimed 15.09 apps/devices (A/D using Security 2.0) cannot interact securely
-  with pre-15.09 A/D using ECDHE_ECDSA key exchange; further, if the A/D only
-  exposes interfaces/objects requiring security it will not be possible to
-  interact with the A/D. This is because once an A/D is claimed, it expects to
-  receive a manifest from the ECDHE_ECDSA peer, and pre-15.09 A/D do not support
-  sending manifests (which were introduced as part Security 2.0 in the 15.09
-  release).
-* Language tag matching uses prefix matching and also will return the default
-  language if there is no match where previously it would return an
-  error. (ASACORE-2209)
-* Moving the PropertiesChanged signal from the org.freedesktop.DBus interface to
-  the org.freedesktop.DBus.Properties interface (ASACORE-2185) stops
-  applications based on AllJoyn 15.04 and older from receiving this signal from
-  those based on 15.09 and newer, and vice versa. The impact should not be
-  significant since the PropertiesChanged functionality prior to the 15.09
-  release did not work.  Note that the change in the alljoyn.git project was
-  done in 14.12, so this makes TC applications compatible with SC applications.
-Source Compatibility
-* Crypto APIs have been changed to enhance target portability
-  * Removed internal AJ_Crypto_PRF() and HMAC APIs that were unused or could be
-    statically scoped
-  * Updated ECC and SHA256 APIs and data types to hide implementation
-  * Moved optional low-level AES and DRBG crypto APIs to new header files
 
 More details on these changes can be found on the release plan page:
-https://wiki.allseenalliance.org/core/core_15.09_release_plan#compatibility_with_previous_releases
+https://wiki.allseenalliance.org/core/core_16.04_release_plan#compatibility_with_previous_releases
 
 For details of previous releases/release families please see the release notes:
+15.09: https://git.allseenalliance.org/cgit/core/ajtcl.git/tree/ReleaseNotes.txt?h=RB15.09
 15.04: https://git.allseenalliance.org/cgit/core/ajtcl.git/tree/ReleaseNotes.txt?h=RB15.04
 14.12: https://git.allseenalliance.org/cgit/core/ajtcl.git/tree/ReleaseNotes.txt?h=RB14.12
 14.06: https://git.allseenalliance.org/cgit/core/ajtcl.git/tree/ReleaseNotes.txt?h=RB14.06
-14.02: https://git.allseenalliance.org/cgit/core/ajtcl.git/tree/ReleaseNotes.txt?id=v14.02
 
 Change history
 --------------
+16.04  - Bug fixes, ECDHE_SPEKE
 15.09a - Bug fixes: ASACORE-2554, ASACORE-2560, ASACORE-2580, ASACORE-2582,
          ASACORE-2593, ASACORE-2596, ASACORE-2612, ASACORE-2619, ASACORE-2622,
          ASACORE-2630, ASACORE-2631
@@ -140,6 +77,3 @@ Change history
 14.06  - Bug fixes, scalability and stability support, several features
          listed in release notes:
          https://git.allseenalliance.org/cgit/core/ajtcl.git/tree/ReleaseNotes.txt?id=v14.06
-14.02  - Bug fixes.
-3.4.1  - Bug fixes.
-3.4.0  - Support for Object Level Security.
