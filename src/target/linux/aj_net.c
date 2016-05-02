@@ -25,6 +25,7 @@
 #define AJ_MODULE NET
 #include <stdio.h>
 #include <stdlib.h>
+#include <limits.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/eventfd.h>
@@ -122,6 +123,7 @@ static MCastContext mCastContext = { INVALID_SOCKET, INVALID_SOCKET, INVALID_SOC
  */
 static AJ_Status AJ_Net_ARDP_Connect(AJ_BusAttachment* bus, const AJ_Service* service);
 static void AJ_Net_ARDP_Disconnect(AJ_NetSocket* netSock);
+static AJ_Status RewriteSenderInfo(AJ_IOBuffer* buf, uint32_t addr, uint16_t port);
 
 #endif // AJ_ARDP
 
@@ -387,7 +389,7 @@ void AJ_Net_Disconnect(AJ_NetSocket* netSock)
     }
 }
 
-static uint8_t sendToBroadcast(int sock, uint16_t port, void* ptr, size_t tx)
+static uint8_t sendToBroadcast(int sock, uint16_t port, AJ_IOBuffer* buf, size_t tx)
 {
     ssize_t ret = -1;
     uint8_t sendSucceeded = FALSE;
@@ -399,13 +401,22 @@ static uint8_t sendToBroadcast(int sock, uint16_t port, void* ptr, size_t tx)
 
     while (addr != NULL) {
         // only care about IPV4
-        if (addr->ifa_addr != NULL && addr->ifa_addr->sa_family == AF_INET) {
-            char buf[INET_ADDRSTRLEN];
+      if (addr->ifa_addr != NULL && addr->ifa_addr->sa_family == AF_INET && (addr->ifa_flags & IFF_UP) && (addr->ifa_flags & IFF_RUNNING)) {
+            char addrbuf[INET_ADDRSTRLEN];
             struct sockaddr_in* sin_bcast = (struct sockaddr_in*) addr->ifa_ifu.ifu_broadaddr;
+
             sin_bcast->sin_port = htons(port);
-            inet_ntop(AF_INET, &(sin_bcast->sin_addr), buf, sizeof(buf));
-            AJ_InfoPrintf(("sendToBroadcast: sending to bcast addr %s\n", buf));
-            ret = sendto(sock, ptr, tx, MSG_NOSIGNAL, (struct sockaddr*) sin_bcast, sizeof(struct sockaddr_in));
+            inet_ntop(AF_INET, &(sin_bcast->sin_addr), addrbuf, sizeof(addrbuf));
+            AJ_InfoPrintf(("sendToBroadcast: sending to bcast addr %s\n", addrbuf));
+            if (buf->flags & AJ_IO_BUF_MDNS) {
+                if (RewriteSenderInfo(buf, ntohl(((struct sockaddr_in *)(addr->ifa_addr))->sin_addr.s_addr), port) != AJ_OK) {
+		    AJ_WarnPrintf(("AJ_Net_SendTo(): RewriteSenderInfo failed.\n"));
+		    continue;
+		} else {
+		    tx = AJ_IO_BUF_AVAIL(buf);
+		}
+            }
+            ret = sendto(sock, buf->readPtr, tx, MSG_NOSIGNAL, (struct sockaddr*) sin_bcast, sizeof(struct sockaddr_in));
             if (tx == ret) {
                 sendSucceeded = TRUE;
             } else {
@@ -535,7 +546,7 @@ AJ_Status AJ_Net_SendTo(AJ_IOBuffer* buf)
                 AJ_ErrPrintf(("AJ_Net_SendTo(): Invalid AJ IP address. errno=\"%s\"\n", strerror(errno)));
             }
 
-            if (sendToBroadcast(context->udpSock, AJ_UDP_PORT, buf->readPtr, tx) == TRUE) {
+            if (sendToBroadcast(context->udpSock, AJ_UDP_PORT, buf, tx) == TRUE) {
                 sendSucceeded = TRUE;
             } // leave sendSucceeded unchanged if FALSE
         }
@@ -586,7 +597,7 @@ AJ_Status AJ_Net_SendTo(AJ_IOBuffer* buf)
                 AJ_ErrPrintf(("AJ_Net_SendTo(): Invalid mDNS IP address. errno=\"%s\"\n", strerror(errno)));
             }
 
-            if (sendToBroadcast(context->mDnsSock, MDNS_UDP_PORT, buf->readPtr, tx) == TRUE) {
+            if (sendToBroadcast(context->mDnsSock, MDNS_UDP_PORT, buf, tx) == TRUE) {
                 sendSucceeded = TRUE;
             } // leave sendSucceeded unchanged if FALSE
         }
@@ -851,15 +862,52 @@ static uint32_t chooseMDnsRecvAddr()
     uint32_t recvAddr = 0;
     struct ifaddrs* addrs;
     struct ifaddrs* addr;
+    FILE *f;
+    char line[100];
+    char *saveptr;
+    char *iface;
+    char defIface[6] = {0};
+    char *dest;
+    char *metricStr;
+    int metric;
+    int defMetric = INT_MAX;
+    /* Grab the interface for the default route */
+    f = fopen("/proc/net/route" , "r");
 
+    while(fgets(line , 100 , f)) {
+        iface = strtok_r(line , " \t", &saveptr); /* Iface */
+        dest = strtok_r(NULL , " \t", &saveptr);  /* Destination */
+	metricStr = strtok_r(NULL," \t", &saveptr);  /* Gateway */
+	metricStr = strtok_r(NULL," \t", &saveptr);  /* Flags */
+	metricStr = strtok_r(NULL," \t", &saveptr);  /* Use */
+	metricStr = strtok_r(NULL," \t", &saveptr);  /* Metric */
+
+        if((NULL != iface)  && (NULL != dest)) {
+            if(strcmp(dest , "00000000") == 0) {
+	        metric = atoi(metricStr);
+		if(metric < defMetric) {
+		    defMetric = metric;
+		    strncpy(defIface,iface, sizeof(defIface));
+		}
+	    }
+	}
+    }
     getifaddrs(&addrs);
     addr = addrs;
     while (addr != NULL) {
-        // Choose first IPv4 address that is not LOOPBACK
+        // Choose the interface that is enabled and matches the best default route otherwise
+        // Choose first IPv4 address that is not LOOPBACK and is enabled
         if (addr->ifa_addr != NULL && addr->ifa_addr->sa_family == AF_INET &&
-            !(addr->ifa_flags & IFF_LOOPBACK)) {
+            !(addr->ifa_flags & IFF_LOOPBACK) && (addr->ifa_flags & IFF_UP) && (addr->ifa_flags & IFF_RUNNING)) {
             struct sockaddr_in* sin = (struct sockaddr_in*) addr->ifa_addr;
-            recvAddr = sin->sin_addr.s_addr;
+	    /* If we have a default route, only choose address on the interface with a default route */
+	    if(NULL != defIface) {
+	      if(!strcmp(defIface, addr->ifa_name)) {
+		recvAddr = sin->sin_addr.s_addr;
+	      }
+	    }else {
+		recvAddr = sin->sin_addr.s_addr;
+	    }
         }
         addr = addr->ifa_next;
     }
