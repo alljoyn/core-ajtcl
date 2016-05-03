@@ -5,8 +5,8 @@ Fully Validated Platforms
 -------------------------
 * Linux Ubuntu 14.04 LTS (64 bit)
 
-See the release review page for other platforms that have not been fully
-verified, but may work:
+See the Core Release Review wiki page for other platforms that have not been
+fully verified, but may work:
 https://wiki.allseenalliance.org/core/core_16.04_release_review#regression_test
 
 
@@ -47,8 +47,8 @@ Starting in Version 16.04
 * The AJ_Connect() API has been removed (was DEPRECATED since 14.02)
 
 
-More details on these changes can be found on the release plan page:
-https://wiki.allseenalliance.org/core/core_16.04_release_plan#compatibility_with_previous_releases
+More details on these changes may be found on the Core Release Review wiki page:
+https://wiki.allseenalliance.org/core/core_16.04_release_review#compatibility
 
 For details of previous releases/release families please see the release notes:
 15.09: https://git.allseenalliance.org/cgit/core/ajtcl.git/tree/ReleaseNotes.txt?h=RB15.09
