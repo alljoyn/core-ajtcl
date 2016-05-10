@@ -94,7 +94,7 @@ uint32_t AJ_NVRAM_GetSize(void)
                 strcpy(buf, "/sd/");
                 /* Append 11 characters max: "12345.ajnv\0" */
                 remainingOutputSize = ArraySize(buf) - strlen(buf) - 1;
-                strncat(buf, entry->d_name, min(remainingOutputSize, 11));
+                strncat(buf, entry->d_name, remainingOutputSize);
                 f = fopen(buf, "r");
                 if (f == NULL) {
                     AJ_ErrPrintf(("AJ_NVRAM_GetSize(): Error opening file\n"));
