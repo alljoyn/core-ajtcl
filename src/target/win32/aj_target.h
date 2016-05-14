@@ -88,7 +88,11 @@ extern uint8_t dbgTARGET_UTIL;
 
 #define inline __inline
 
-#define AJ_DEPRECATED(func) __declspec(deprecated) func
+/**
+ * Macro to mark a function deprecated, with a date.
+ * Include the date of the AllJoyn release when applying this macro (date format: YY.MM).
+ */
+#define AJ_DEPRECATED_ON(func, date) __declspec(deprecated) func
 
 /*
  * Main method allows argc, argv

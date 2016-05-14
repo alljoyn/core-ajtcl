@@ -715,11 +715,11 @@ static AJ_Status ExchangeSuites(AJ_Message* msg)
     if (AJ_IsSuiteEnabled(msg->bus, AUTH_SUITE_ECDHE_ECDSA, AJ_UNPACK_AUTH_VERSION(authContext.version))) {
         suites[num++] = AUTH_SUITE_ECDHE_ECDSA;
     }
-    if (AJ_IsSuiteEnabled(msg->bus, AUTH_SUITE_ECDHE_PSK, AJ_UNPACK_AUTH_VERSION(authContext.version))) {
-        suites[num++] = AUTH_SUITE_ECDHE_PSK;
-    }
     if (AJ_IsSuiteEnabled(msg->bus, AUTH_SUITE_ECDHE_SPEKE, AJ_UNPACK_AUTH_VERSION(authContext.version))) {
         suites[num++] = AUTH_SUITE_ECDHE_SPEKE;
+    }
+    if (AJ_IsSuiteEnabled(msg->bus, AUTH_SUITE_ECDHE_PSK, AJ_UNPACK_AUTH_VERSION(authContext.version))) {
+        suites[num++] = AUTH_SUITE_ECDHE_PSK;
     }
     if (AJ_IsSuiteEnabled(msg->bus, AUTH_SUITE_ECDHE_NULL, AJ_UNPACK_AUTH_VERSION(authContext.version))) {
         suites[num++] = AUTH_SUITE_ECDHE_NULL;
@@ -2095,7 +2095,7 @@ static void UnmarshalCertificates(AJ_Message* msg)
                 goto Exit;
             }
             group = &node->certificate.tbs.extensions.group;
-            AJ_DumpBytes("GROUP", group->data, group->size);
+            AJ_DumpBytes("GROUP", group->data, (uint32_t) group->size);
         }
     }
     if (AJ_ERR_NO_MORE != status) {
