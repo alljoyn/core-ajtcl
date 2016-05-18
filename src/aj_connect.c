@@ -146,8 +146,17 @@ static AJ_Status ReadLine(AJ_IOBuffer* rxBuf)
 
 static AJ_Status WriteLine(AJ_IOBuffer* txBuf, const char* line)
 {
+    size_t lineLen = strlen(line);
+    uint8_t* writeEnd = txBuf->writePtr + lineLen + 1;
+
+    /* Check for integer overflow and that there is enough space. */
+    if ((writeEnd <= txBuf->writePtr) || (writeEnd > txBuf->bufStart + txBuf->bufSize)) {
+        AJ_ErrPrintf(("WriteLine failed: not enough space\n"));
+        return AJ_ERR_RESOURCES;
+    }
+
     strcpy((char*) txBuf->writePtr, line);
-    txBuf->writePtr += strlen(line);
+    txBuf->writePtr += lineLen;
     return txBuf->send(txBuf);
 }
 
@@ -750,7 +759,7 @@ AJ_Status AJ_SelectRoutingNodeFromResponseList(AJ_Service* service)
     uint8_t i = 1;
     uint8_t selectedIndex = 0;
     uint32_t runningSum = 0;
-    uint8_t skip = 0;
+    uint16_t skip = 0;
     uint32_t priority_idx = 0;
     uint32_t priority_srv = 0;
     uint32_t rand32 = 0;
