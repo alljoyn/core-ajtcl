@@ -27,23 +27,29 @@
 extern "C" {
 #endif
 
+#define IPV4ADDRSIZE_U8    4
+#define IPV4ADDRSIZE_U32   1
+#define IPV6ADDRSIZE_U8   16
+#define IPV6ADDRSIZE_U32   4
+
 /**
  * Information about the remote service
  */
 typedef struct _AJ_Service {
-    uint8_t addrTypes;         /**< address type */
-    uint16_t transportMask;    /**< restricts the transports the advertisement */
-    uint16_t ipv4port;         /**< port number of ipv4 */
-    uint16_t ipv6port;         /**< port number of ipv6 */
-    uint32_t ipv4;             /**< ipv4 address */
-    uint16_t priority;         /**< priority */
-    uint32_t pv;               /**< protocol version */
-    uint32_t ipv6[4];          /**< ipv6 address */
+    uint8_t addrTypes;                  /**< address type */
+    uint16_t transportMask;             /**< restricts the transports the advertisement */
+    uint16_t ipv4port;                  /**< port number of ipv4 */
+    uint16_t ipv6port;                  /**< port number of ipv6 */
+    uint32_t ipv4;                      /**< ipv4 address */
+    uint16_t priority;                  /**< priority */
+    uint32_t pv;                        /**< protocol version */
+    uint32_t ipv6[IPV6ADDRSIZE_U32];    /**< ipv6 address */
 
-    uint16_t ipv4portUdp;      /**< port number of ipv4 */
-    uint16_t ipv6portUdp;      /**< port number of ipv6 */
-    uint32_t ipv4Udp;          /**< ipv4 address */
-    uint32_t ipv6Udp[4];       /**< ipv6 address */
+    uint16_t ipv4portUdp;               /**< port number of ipv4 */
+    uint16_t ipv6portUdp;               /**< port number of ipv6 */
+    uint32_t ipv4Udp;                   /**< ipv4 address */
+    uint32_t ipv6Udp[IPV6ADDRSIZE_U32]; /**< ipv6 address */
+    uint32_t scope_id;                  /**< ipv6 scope id for a link local address */
 } AJ_Service;
 
 /**
