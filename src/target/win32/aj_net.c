@@ -269,7 +269,7 @@ static AJ_Status AJ_TCP_Connect(AJ_BusAttachment* bus, const AJ_Service* service
     if (service->addrTypes & AJ_ADDR_TCP4) {
         struct sockaddr_in* sa = (struct sockaddr_in*)&addrBuf;
 
-        sock = WSASocket(AF_INET, SOCK_STREAM, IPPROTO_TCP, NULL, 0, WSA_FLAG_OVERLAPPED);
+        sock = WSASocketW(AF_INET, SOCK_STREAM, IPPROTO_TCP, NULL, 0, WSA_FLAG_OVERLAPPED);
         if (sock == INVALID_SOCKET) {
             AJ_ErrPrintf(("AJ_TCP_Connect(): invalid socket.  status=AJ_ERR_CONNECT\n"));
             return AJ_ERR_CONNECT;
@@ -283,7 +283,7 @@ static AJ_Status AJ_TCP_Connect(AJ_BusAttachment* bus, const AJ_Service* service
     } else if (service->addrTypes & AJ_ADDR_TCP6) {
         struct sockaddr_in6* sa = (struct sockaddr_in6*)&addrBuf;
 
-        sock = WSASocket(AF_INET6, SOCK_STREAM, IPPROTO_TCP, NULL, 0, WSA_FLAG_OVERLAPPED);
+        sock = WSASocketW(AF_INET6, SOCK_STREAM, IPPROTO_TCP, NULL, 0, WSA_FLAG_OVERLAPPED);
         if (sock == INVALID_SOCKET) {
             AJ_ErrPrintf(("AJ_TCP_Connect(): invalid socket.  status=AJ_ERR_CONNECT\n"));
             return AJ_ERR_CONNECT;
@@ -1139,7 +1139,7 @@ static AJ_Status AJ_Net_ARDP_Connect(AJ_BusAttachment* bus, const AJ_Service* se
 
     if (service->addrTypes & AJ_ADDR_UDP4) {
         struct sockaddr_in* sa = (struct sockaddr_in*) &addrBuf;
-        udpSock = WSASocket(AF_INET, SOCK_DGRAM, IPPROTO_UDP, NULL, 0, WSA_FLAG_OVERLAPPED);
+        udpSock = WSASocketW(AF_INET, SOCK_DGRAM, IPPROTO_UDP, NULL, 0, WSA_FLAG_OVERLAPPED);
         if (udpSock == INVALID_SOCKET) {
             AJ_ErrPrintf(("AJ_Net_ARDP_Connect(): socket() failed.  status=AJ_ERR_CONNECT\n"));
             goto ConnectError;
@@ -1152,7 +1152,7 @@ static AJ_Status AJ_Net_ARDP_Connect(AJ_BusAttachment* bus, const AJ_Service* se
         AJ_InfoPrintf(("AJ_Net_ARDP_Connect(): Connect to \"%s:%u\"\n", inet_ntoa(sa->sin_addr), service->ipv4portUdp));;
     } else if (service->addrTypes & AJ_ADDR_UDP6) {
         struct sockaddr_in6* sa = (struct sockaddr_in6*) &addrBuf;
-        udpSock = WSASocket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP, NULL, 0, WSA_FLAG_OVERLAPPED);
+        udpSock = WSASocketW(AF_INET6, SOCK_DGRAM, IPPROTO_UDP, NULL, 0, WSA_FLAG_OVERLAPPED);
         if (udpSock == INVALID_SOCKET) {
             AJ_ErrPrintf(("AJ_Net_ARDP_Connect(): socket() failed.  status=AJ_ERR_CONNECT\n"));
             goto ConnectError;
