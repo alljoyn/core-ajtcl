@@ -44,6 +44,7 @@ typedef struct _AJ_Service {
     uint16_t ipv6portUdp;      /**< port number of ipv6 */
     uint32_t ipv4Udp;          /**< ipv4 address */
     uint32_t ipv6Udp[4];       /**< ipv6 address */
+    uint32_t scope_id;         /**< ipv6 scope id for a link local address */
 } AJ_Service;
 
 /**
