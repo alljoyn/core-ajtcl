@@ -39,6 +39,8 @@ typedef struct _AJ_Message AJ_Message;
 typedef struct _AJ_Arg AJ_Arg;
 
 /**
+ * @deprecated
+ *
  * Callback function prototype for requesting a password or pincode from an application.
  *
  * @param buffer  The buffer to receive the password.
@@ -119,7 +121,7 @@ typedef struct _AJ_BusAttachment {
     char uniqueName[AJ_MAX_NAME_SIZE + 1];          /**< The unique name returned by the hello message */
     AJ_NetSocket sock;                              /**< Abstracts a network socket */
     uint32_t serial;                                /**< Next outgoing message serial number */
-    AJ_AuthPwdFunc pwdCallback;                     /**< Callback for obtaining passwords */
+    AJ_AuthPwdFunc pwdCallback;                     /**< @deprecated Callback for obtaining passwords */
     AJ_AuthListenerFunc authListenerCallback;       /**< Callback for obtaining passwords */
     uint32_t suites[AJ_AUTH_SUITES_NUM];            /**< Supported cipher suites */
     uint8_t isAuthenticated;                        /**< Has authentication already occured? */
@@ -506,14 +508,19 @@ AJ_EXPORT
 AJ_Status AJ_BusHandleBusMessage(AJ_Message* msg);
 
 /**
+ * @deprecated See AJ_BusSetAuthListenerCallback
+ *
  * Set a callback for returning passwords for peer authentication. Authentication is not enabled
  * until a password callback function has been set.
  *
  * @param bus          The bus attachment struct
  * @param pwdCallback  The password callback function.
+ *
+ * Note: this function was deprecated (with a warning added in commit ecb65e07)
+ * in 15.10, but the AJ_DEPRECATED_ON macro was applied in 16.10.
  */
-AJ_EXPORT
-void AJ_BusSetPasswordCallback(AJ_BusAttachment* bus, AJ_AuthPwdFunc pwdCallback);
+AJ_DEPRECATED_ON(AJ_EXPORT
+                 void AJ_BusSetPasswordCallback(AJ_BusAttachment* bus, AJ_AuthPwdFunc pwdCallback); , 15.10)
 
 /**
  * Set a callback for auth listener

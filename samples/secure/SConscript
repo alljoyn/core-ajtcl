@@ -1,8 +1,6 @@
 Import('sample_env')
 
 progs = [
-    sample_env.Program('SecureClient', ['SecureClient.c']),
-    sample_env.Program('SecureService', ['SecureService.c']),
     sample_env.Program('SecureClientECDHE', ['SecureClientECDHE.c']),
     sample_env.Program('SecureServiceECDHE', ['SecureServiceECDHE.c'])
 ]
