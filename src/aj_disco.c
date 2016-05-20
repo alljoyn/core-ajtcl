@@ -246,6 +246,9 @@ typedef struct _MDNSHeader {
 typedef struct _MDNSARData {
     char ipv4Addr[3 * 4 + 3 + 1];
 } MDNSARData;
+typedef struct _MDNSAAAARData {
+    char ipv6Addr[3 * 16 + 3 + 1];
+} MDNSAAAARData;
 
 typedef struct _MDNSDomainName {
     char name[256];
@@ -266,6 +269,7 @@ typedef struct _MDNSTextRData {
 
 typedef union _MDNSRData {
     MDNSARData aRData;
+    MDNSAAAARData aaaaRData;
     MDNSSrvRData srvRData;
     MDNSTextRData textRData;
     MDNSDomainName ptrRData;
@@ -508,6 +512,16 @@ static size_t ParseMDNSARData(uint8_t const* buffer, uint32_t bufsize, MDNSARDat
     return 6;
 }
 
+static size_t ParseMDNSAAAARData(uint8_t const* buffer, uint32_t bufsize, MDNSAAAARData* a)
+{
+    memset(a->ipv6Addr, 0, 52);
+    if (bufsize < 18) {
+        return 0;
+    }
+    memset(a->ipv6Addr, 0, 16);
+    memcpy(a->ipv6Addr, (buffer + 2), 16);
+    return 18;
+}
 static size_t ParseMDNSDefaultRData(uint8_t const* buffer, uint32_t bufsize)
 {
     // Default data is skipped as it's deemed to be a
@@ -755,6 +769,11 @@ static size_t ParseMDNSResourceRecord(uint8_t const* buffer, uint32_t bufsize, M
         processed = ParseMDNSTextRData(p, bufsize, &(record->rdata.textRData), payload, paylen, prefix);
         break;
 
+    case AAAA:
+        AJ_InfoPrintf(("ParseMDNSResourceRecord(): Found an AAAA record\n"));
+        processed = ParseMDNSAAAARData(p, bufsize, &(record->rdata.aaaaRData));
+        break;
+
     case NS:
     case MD:
     case MF:
@@ -764,7 +783,6 @@ static size_t ParseMDNSResourceRecord(uint8_t const* buffer, uint32_t bufsize, M
     case MR:
     case RNULL:
     case HINFO:
-    case AAAA:
     default:
         AJ_InfoPrintf(("ParseMDNSResourceRecord(): Found a non-relevant or unknown record type that will be ignored\n"));
         processed = ParseMDNSDefaultRData(p, bufsize);
@@ -777,7 +795,6 @@ static size_t ParseMDNSResourceRecord(uint8_t const* buffer, uint32_t bufsize, M
     size += processed;
     return size;
 }
-
 static AJ_Status ParseMDNSResp(AJ_IOBuffer* rxBuf, const char* prefix, AJ_Service* service)
 {
     uint8_t* buffer = (uint8_t*)rxBuf->readPtr;
@@ -793,11 +810,13 @@ static AJ_Status ParseMDNSResp(AJ_IOBuffer* rxBuf, const char* prefix, AJ_Servic
     uint8_t bus_transport = 0;
     uint8_t bus_protocol = 0;
     uint8_t bus_a_record = 0;
+    uint8_t bus_aaaa_record = 0;
     uint16_t service_port_tcp = 0;
     uint16_t service_port_udp = 0;
     uint16_t service_priority = 0;
     uint32_t protocol_version;
-    uint8_t bus_addr[3 * 4 + 3 + 1] = { 0 };
+    uint8_t bus_addr[3 * 16 + 3 + 1] = { 0 };
+    uint8_t bus_aaa_addr[3 * 16 + 3 + 1] = { 0 };
     uint8_t service_target[256] = { 0 };
     MDNSResourceRecord r;
 
@@ -941,6 +960,13 @@ static AJ_Status ParseMDNSResp(AJ_IOBuffer* rxBuf, const char* prefix, AJ_Servic
             memcpy(bus_addr, r.rdata.aRData.ipv4Addr, (3 * 4 + 3 + 1));
             bus_a_record = 1;
         }
+        // Ensure the AAAA record refers to the same guid in the SRV record.
+        if (r.rrType == AAAA && !memcmp(r.rrDomainName.name, service_target, 38)) {
+            AJ_InfoPrintf(("Found an AAAA additional record.\n"));
+            memset(bus_aaa_addr, 0, (3 * 4 + 3 + 1));
+            memcpy(bus_aaa_addr, r.rdata.aaaaRData.ipv6Addr, (3 * 4 + 3 + 1));
+            bus_aaaa_record = 1;
+        }
     }
 
     // To report a match, we must have successfully parsed an _alljoyn._tcp.local OR _alljoyn._udp.local
@@ -948,18 +974,27 @@ static AJ_Status ParseMDNSResp(AJ_IOBuffer* rxBuf, const char* prefix, AJ_Servic
     // guid. Note that other records might have been ignored to ensure forward
     // compatibility with other record types that may be in use in the future.
     if ((alljoyn_ptr_record_tcp || alljoyn_ptr_record_udp) && (service_port_tcp || service_port_udp)
-        && bus_transport && bus_protocol && bus_a_record) {
+        && bus_transport && bus_protocol && (bus_a_record || bus_aaaa_record)) {
         // ignore this record if it's TCP-only but we want ARDP-only, or vice-versa
         AJ_Status status = AJ_ERR_NO_MATCH;
 
         // Check for a TCP response, but only if we're looking for TCP responses
 #ifdef AJ_TCP
         if (alljoyn_ptr_record_tcp && service_port_tcp) {
-            service->ipv4port = service_port_tcp;
-            memcpy(&service->ipv4, bus_addr, sizeof(service->ipv4));
-            service->addrTypes |= AJ_ADDR_TCP4;
+            if (bus_a_record) {
+                service->ipv4port = service_port_tcp;
+                memcpy(&service->ipv4, bus_addr, sizeof(service->ipv4));
+                service->addrTypes |= AJ_ADDR_TCP4;
+            }
+            if (bus_aaaa_record) {
+                service->ipv6port = service_port_tcp;
+                service->scope_id = rxBuf->scope_id;
+                memcpy(&service->ipv6, bus_aaa_addr, sizeof(service->ipv6));
+                service->addrTypes |= AJ_ADDR_TCP6;
+            }
             service->pv = protocol_version;
             service->priority = service_priority;
+
             status = AJ_OK;
         }
 #endif
@@ -967,9 +1002,17 @@ static AJ_Status ParseMDNSResp(AJ_IOBuffer* rxBuf, const char* prefix, AJ_Servic
         // similarly, check ARDP only if we care about it.
 #ifdef AJ_ARDP
         if (alljoyn_ptr_record_udp && service_port_udp) {
-            service->ipv4portUdp = service_port_udp;
-            memcpy(&service->ipv4Udp, bus_addr, sizeof(service->ipv4Udp));
-            service->addrTypes |= AJ_ADDR_UDP4;
+            if (bus_a_record) {
+                service->ipv4portUdp = service_port_udp;
+                memcpy(&service->ipv4Udp, bus_addr, sizeof(service->ipv4Udp));
+                service->addrTypes |= AJ_ADDR_UDP4;
+            }
+            if (bus_aaaa_record) {
+                service->ipv6portUdp = service_port_udp;
+                service->scope_id = rxBuf->scope_id;
+                memcpy(&service->ipv6Udp, bus_aaa_addr, sizeof(service->ipv6Udp));
+                service->addrTypes |= AJ_ADDR_UDP6;
+            }
             service->pv = protocol_version;
             service->priority = service_priority;
             status = AJ_OK;
