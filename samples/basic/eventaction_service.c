@@ -295,6 +295,8 @@ int AJ_Main(void)
     AJ_PrintXMLWithDescriptions(AppObjects, "fr");
     AJ_AlwaysPrintf(("XML with sublanguage (EN-US)\n"));
     AJ_PrintXMLWithDescriptions(AppObjects, "EN-US");
+    AJ_AlwaysPrintf(("XML in Unified Format\n"));
+    AJ_PrintXMLWithDescriptions(AppObjects, NULL);
 
     while (TRUE) {
         AJ_Message msg;
