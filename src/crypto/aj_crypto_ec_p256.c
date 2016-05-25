@@ -694,7 +694,7 @@ void fixed_window_recode(digit256_t scalar, unsigned int nbit, unsigned int w, i
     cwords = NBITS_TO_NDIGITS(nbit);            /* Number of computer words to represent scalar */
     t = (nbit + (w - 2)) / (w - 1);             /* Fixed length of the fixed window representation */
     mask = (1 << w) - 1;                        /* w-bit mask */
-    val = (digit_t)(1 << (w - 1));              /* 2^(w-1)  */
+    val = ((digit_t)1) << (w - 1);              /* 2^(w-1)  */
 
     for (i = 0; i <= (t - 1); i++) {
         temp = (scalar[0] & mask) - val;        /* ki = (k mod 2^w) - 2^(w-1)  */

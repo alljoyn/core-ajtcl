@@ -508,9 +508,15 @@ static AJ_Status GenXML(XMLWriterFunc XMLWriter, void* context, const AJ_ObjectI
     if (objIter == NULL) {
         obj = virtualObject;
     } else {
-        if (objIter->l >= ArraySize(objectLists) && virtualObject == NULL) {
-            return AJ_OK;
+        if (objIter->l >= ArraySize(objectLists)) {
+            if (virtualObject == NULL) {
+                return AJ_OK;
+            } else {
+                AJ_ErrPrintf(("Failed to generate XML - Invalid object iterator\n"));
+                return AJ_ERR_UNEXPECTED;
+            }
         }
+
         obj = &(objectLists[objIter->l][objIter->n - 1]);
     }
     if (obj != NULL && obj->path != NULL) {
