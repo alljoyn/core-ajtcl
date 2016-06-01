@@ -130,6 +130,12 @@ static const char* const Direction[] = {
     "\" direction=\"out\">\n"
 };
 
+static const char introspectDocType[] =
+    "<!DOCTYPE"
+    " node PUBLIC \"-//allseen//DTD ALLJOYN Object Introspection 1.1//EN\"\n"
+    "\"http://www.allseen.org/alljoyn/introspect-1.1.dtd\""
+    ">\n";
+
 static const char interfaceOpen[] = "<interface";
 static const char interfaceClose[] = "</interface>\n";
 static const char argOpen[] = "    <arg";
@@ -542,6 +548,7 @@ static AJ_Status GenXML(XMLWriterFunc XMLWriter, void* context, const AJ_ObjectI
         /*
          * Generate object's XML
          */
+        XMLWriter(context, introspectDocType, sizeof(introspectDocType) - 1);
         XMLWriteTag(XMLWriter, context, nodeOpen, nameAttr, obj->path, 0, FALSE);
         if (SecurityApplies(NULL, obj)) {
             XMLWriter(context, annotateSecure, 51);
