@@ -35,42 +35,127 @@
 uint8_t dbgTARGET_NVRAM = 0;
 #endif
 
-uint8_t AJ_EMULATED_NVRAM[AJ_NVRAM_SIZE];
-uint8_t* AJ_NVRAM_BASE_ADDRESS;
-
 extern void AJ_NVRAM_Layout_Print();
 
-#define NV_FILE "ajtcl.nvram"
+static uint8_t emulatedBlock[AJ_NVRAM_SIZE];
 
-const char* nvFile = NV_FILE;
+typedef struct _nvEmulatedNvram {
+    const char* nvFile;
+    uint8_t* blockStart;
+    uint32_t blockSize;
+    uint8_t isCompact;
+} nvEmulatedNvramBlock;
 
-void AJ_SetNVRAM_FilePath(const char* path)
+/*
+ * Pointer initialized inside AJ_NVRAM_Init() or AJ_NVRAM_Init_NewLayout()
+ */
+static nvEmulatedNvramBlock* nvStorages = NULL;
+
+uint8_t isOldNVRAMLayout = TRUE;
+
+static void _AJ_NVRAM_Init(uint8_t index, uint8_t size)
 {
-    if (path) {
-        nvFile = path;
+    for (; index < size; ++index) {
+        _AJ_LoadNVFromFile(index);
+        if (*((uint32_t*)nvStorages[index].blockStart) != AJ_NV_SENTINEL) {
+            _AJ_NVRAM_Clear(index);
+        }
     }
 }
 
 void AJ_NVRAM_Init()
 {
-    AJ_NVRAM_BASE_ADDRESS = AJ_EMULATED_NVRAM;
-    _AJ_LoadNVFromFile();
-    if (*((uint32_t*)AJ_NVRAM_BASE_ADDRESS) != AJ_NV_SENTINEL) {
-        _AJ_NVRAM_Clear();
-        _AJ_StoreNVToFile();
+    if (nvStorages != NULL) {
+        AJ_ErrPrintf(("AJ_NVRAM_Init(): NVRAM already initialized\n"));
+        return;
+    } else {
+        /*
+         * This is to glue new implementation with old NVRAM layout stored in 1 file
+         */
+        static nvEmulatedNvramBlock nvOldEmulatedStorage[] = {
+            { "ajtcl.nvram", emulatedBlock, AJ_NVRAM_SIZE, FALSE }
+        };
+        nvStorages = nvOldEmulatedStorage;
+        isOldNVRAMLayout = TRUE;
+        _AJ_NVRAM_Init(0, 1);
     }
 }
 
-void _AJ_NV_Write(void* dest, const void* buf, uint16_t size)
+AJ_Status AJ_NVRAM_Init_NewLayout()
 {
-    memcpy(dest, buf, size);
-    _AJ_StoreNVToFile();
+    if (nvStorages != NULL) {
+        if (isOldNVRAMLayout) {
+            AJ_ErrPrintf(("AJ_NVRAM_Init_NewLayout(): NVRAM already initialized by AJ_NVRAM_Init()\n"));
+            return AJ_ERR_INVALID;
+        } else {
+            AJ_ErrPrintf(("AJ_NVRAM_Init_NewLayout(): NVRAM already initialized by AJ_NVRAM_Init_NewLayout()\n"));
+            return AJ_ERR_UNEXPECTED;
+        }
+    } else {
+        /*
+         * nvNewEmulatedStorages table is indexed by AJ_NVRAM_Block_Id enum values and is used with new NVRAM file system layout
+         */
+        static nvEmulatedNvramBlock nvNewEmulatedStorages[] = {
+            { 0, 0, 0, 0 },
+            { "ajtcl_creds.nvram", emulatedBlock, AJ_NVRAM_SIZE_CREDS, FALSE },
+            { "ajtcl_services.nvram", emulatedBlock + AJ_NVRAM_SIZE_CREDS, AJ_NVRAM_SIZE_SERVICES, FALSE },
+            { "ajtcl_framework.nvram", emulatedBlock + AJ_NVRAM_SIZE_CREDS + AJ_NVRAM_SIZE_SERVICES, AJ_NVRAM_SIZE_FRAMEWORK, FALSE },
+            { "ajtcl_ajjs.nvram", emulatedBlock + AJ_NVRAM_SIZE_CREDS + AJ_NVRAM_SIZE_SERVICES + AJ_NVRAM_SIZE_FRAMEWORK, AJ_NVRAM_SIZE_ALLJOYNJS, FALSE },
+            { "ajtcl_reserved.nvram", emulatedBlock + AJ_NVRAM_SIZE_CREDS + AJ_NVRAM_SIZE_SERVICES + AJ_NVRAM_SIZE_FRAMEWORK + AJ_NVRAM_SIZE_ALLJOYNJS, AJ_NVRAM_SIZE_RESERVED, FALSE },
+            { "ajtcl_apps.nvram", emulatedBlock + AJ_NVRAM_SIZE_CREDS + AJ_NVRAM_SIZE_SERVICES + AJ_NVRAM_SIZE_FRAMEWORK + AJ_NVRAM_SIZE_ALLJOYNJS + AJ_NVRAM_SIZE_RESERVED, AJ_NVRAM_SIZE_APPS, FALSE }
+        };
+        uint32_t blocksSize = AJ_NVRAM_SIZE_CREDS + AJ_NVRAM_SIZE_SERVICES + AJ_NVRAM_SIZE_FRAMEWORK + AJ_NVRAM_SIZE_ALLJOYNJS +
+                              AJ_NVRAM_SIZE_RESERVED + AJ_NVRAM_SIZE_APPS;
+        uint8_t size = sizeof(nvNewEmulatedStorages) / sizeof(nvNewEmulatedStorages[0]);
+        uint8_t index;
+
+        if (blocksSize > AJ_NVRAM_SIZE) {
+            AJ_ErrPrintf(("AJ_NVRAM_Init_NewLayout(): total size of NVRAM blocks exceeds whole NVRAM size\n"));
+            return AJ_ERR_FAILURE;
+        }
+        nvStorages = nvNewEmulatedStorages;
+        isOldNVRAMLayout = FALSE;
+
+        for (index = 1; index < size; ++index) {
+            if (nvStorages[index].blockSize <= SENTINEL_OFFSET) {
+                AJ_ErrPrintf(("AJ_NVRAM_Init_NewLayout(): specified NVRAM block size is too small\n"));
+                nvStorages = NULL;
+                return AJ_ERR_FAILURE;
+            }
+        }
+        _AJ_NVRAM_Init(1, size);
+        return AJ_OK;
+    }
 }
 
-void _AJ_NV_Move(void* dest, const void* buf, uint16_t size)
+uint8_t* _AJ_GetNVBlockBase(AJ_NVRAM_Block_Id blockId)
+{
+    return nvStorages[isOldNVRAMLayout ? 0 : blockId].blockStart;
+}
+
+uint8_t* _AJ_GetNVBlockEnd(AJ_NVRAM_Block_Id blockId)
+{
+    return nvStorages[isOldNVRAMLayout ? 0 : blockId].blockStart + nvStorages[isOldNVRAMLayout ? 0 : blockId].blockSize;
+}
+
+uint32_t _AJ_GetNVBlockSize(AJ_NVRAM_Block_Id blockId)
+{
+    return nvStorages[isOldNVRAMLayout ? 0 : blockId].blockSize;
+}
+
+void _AJ_NV_Write(AJ_NVRAM_Block_Id blockId, void* dest, const void* buf, uint16_t size, uint8_t isCompact)
+{
+    memcpy(dest, buf, size);
+    if (!isCompact) {
+        nvStorages[blockId].isCompact = FALSE;
+    }
+    _AJ_StoreNVToFile(blockId);
+}
+
+void _AJ_NV_Move(AJ_NVRAM_Block_Id blockId, void* dest, const void* buf, uint16_t size)
 {
     memmove(dest, buf, size);
-    _AJ_StoreNVToFile();
+    _AJ_StoreNVToFile(blockId);
 }
 
 void _AJ_NV_Read(void* src, void* buf, uint16_t size)
@@ -78,57 +163,70 @@ void _AJ_NV_Read(void* src, void* buf, uint16_t size)
     memcpy(buf, src, size);
 }
 
-void _AJ_NVRAM_Clear()
+static void _AJ_NV_Clear(uint8_t index)
 {
-    memset((uint8_t*)AJ_NVRAM_BASE_ADDRESS, INVALID_DATA_BYTE, AJ_NVRAM_SIZE);
-    *((uint32_t*)AJ_NVRAM_BASE_ADDRESS) = AJ_NV_SENTINEL;
-    _AJ_StoreNVToFile();
+    memset((uint8_t*)(nvStorages[index].blockStart), INVALID_DATA_BYTE, nvStorages[index].blockSize);
+    *((uint32_t*)(nvStorages[index].blockStart)) = AJ_NV_SENTINEL;
+    _AJ_StoreNVToFile(index);
 }
 
-
-static AJ_Status _AJ_LoadNVFromFile()
+void _AJ_NVRAM_Clear(AJ_NVRAM_Block_Id blockId)
 {
-    FILE* f = fopen(nvFile, "rb");
+    if ((blockId == AJ_NVRAM_ID_ALL_BLOCKS) && !isOldNVRAMLayout) {
+        AJ_NVRAM_Block_Id _blockId;
+        for (_blockId = blockId + 1; _blockId < AJ_NVRAM_ID_END_SENTINEL; ++_blockId) {
+            _AJ_NV_Clear(_blockId);
+        }
+    } else {
+        _AJ_NV_Clear(blockId);
+    }
+}
+
+AJ_Status _AJ_LoadNVFromFile(AJ_NVRAM_Block_Id blockId)
+{
+    FILE* f;
+    f = fopen(nvStorages[blockId].nvFile, "rb");
     if (f == NULL) {
-        AJ_AlwaysPrintf(("Error: AJ_LoadNVFromFile(\"%s\") failed\n", nvFile));
+        AJ_ErrPrintf(("_AJ_LoadNVFromFile(): LoadNVFromFile(\"%s\") failed. status=AJ_ERR_FAILURE\n", nvStorages[blockId].nvFile));
         return AJ_ERR_FAILURE;
     }
-
-    memset(AJ_NVRAM_BASE_ADDRESS, INVALID_DATA_BYTE, AJ_NVRAM_SIZE);
-    fread(AJ_NVRAM_BASE_ADDRESS, AJ_NVRAM_SIZE, 1, f);
+    memset(nvStorages[blockId].blockStart, INVALID_DATA_BYTE, nvStorages[blockId].blockSize);
+    fread(nvStorages[blockId].blockStart, nvStorages[blockId].blockSize, 1, f);
     fclose(f);
     return AJ_OK;
 }
 
-AJ_Status _AJ_StoreNVToFile()
+AJ_Status _AJ_StoreNVToFile(AJ_NVRAM_Block_Id blockId)
 {
-    FILE* f = fopen(nvFile, "wb");
+    FILE* f;
+    f = fopen(nvStorages[blockId].nvFile, "wb");
     if (!f) {
-        AJ_AlwaysPrintf(("Error: AJ_StoreNVToFile(\"%s\") failed\n", nvFile));
+        AJ_ErrPrintf(("_AJ_StoreNVToFile(): StoreNVToFile(\"%s\") failed. status=AJ_ERR_FAILURE\n", nvStorages[blockId].nvFile));
         return AJ_ERR_FAILURE;
     }
-
-    fwrite(AJ_NVRAM_BASE_ADDRESS, AJ_NVRAM_SIZE, 1, f);
+    fwrite(nvStorages[blockId].blockStart, nvStorages[blockId].blockSize, 1, f);
     fclose(f);
     return AJ_OK;
 }
 
 // Compact the storage by removing invalid entries
-AJ_Status _AJ_CompactNVStorage()
+AJ_Status _AJ_CompactNVStorage(AJ_NVRAM_Block_Id blockId)
 {
     uint16_t capacity = 0;
     uint16_t id = 0;
-    uint16_t* data = (uint16_t*)(AJ_NVRAM_BASE_ADDRESS + SENTINEL_OFFSET);
+    uint16_t* data = (uint16_t*)(nvStorages[blockId].blockStart + SENTINEL_OFFSET);
     uint8_t* writePtr = (uint8_t*)data;
     uint16_t entrySize = 0;
     uint16_t garbage = 0;
-    //AJ_NVRAM_Layout_Print();
-    while ((uint8_t*)data < (uint8_t*)AJ_NVRAM_END_ADDRESS && *data != INVALID_DATA) {
+    if (nvStorages[blockId].isCompact) {
+        return AJ_OK;
+    }
+    while ((uint8_t*)data < (nvStorages[blockId].blockStart + nvStorages[blockId].blockSize) && *data != INVALID_DATA) {
         id = *data;
         capacity = *(data + 1);
         entrySize = ENTRY_HEADER_SIZE + capacity;
         if (id != INVALID_ID) {
-            _AJ_NV_Move(writePtr, data, entrySize);
+            _AJ_NV_Move(blockId, writePtr, data, entrySize);
             writePtr += entrySize;
         } else {
             garbage += entrySize;
@@ -137,7 +235,12 @@ AJ_Status _AJ_CompactNVStorage()
     }
 
     memset(writePtr, INVALID_DATA_BYTE, garbage);
-    _AJ_StoreNVToFile();
-    //AJ_NVRAM_Layout_Print();
+    _AJ_StoreNVToFile(blockId);
+    nvStorages[blockId].isCompact = TRUE;
     return AJ_OK;
+}
+
+void _AJ_NVRAM_ResetLayout()
+{
+    nvStorages = NULL;
 }
