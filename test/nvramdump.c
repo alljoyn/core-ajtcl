@@ -23,7 +23,6 @@
 #include <ajtcl/aj_creds.h>
 #include <ajtcl/aj_nvram.h>
 #include <ajtcl/aj_crypto_ecc.h>
-#include <ajtcl/aj_creds.h>
 
 uint8_t dbgNVRAMDUMP = 1;
 extern void AJ_NVRAM_Layout_Print();
@@ -47,7 +46,6 @@ AJ_Status DumpNVRAM()
     AJ_CredField data;
 
     AJ_NVRAM_Layout_Print();
-    AJ_AlwaysPrintf(("Remaining Size %d\n", AJ_NVRAM_GetSizeRemaining()));
 
     AJ_AlwaysPrintf(("SLOT | TYPE | ID | EXPIRATION | DATA\n"));
     for (; slot < AJ_CREDS_NV_ID_END; slot++) {
@@ -75,11 +73,16 @@ int AJ_Main()
 {
     AJ_Status status = AJ_OK;
     AJ_Initialize();
-    //AJ_NVRAM_Clear();
-    //AJ_AlwaysPrintf(("Clearing NVRAM\n"));
     status = DumpNVRAM();
     AJ_ASSERT(status == AJ_OK);
-    //AJ_DumpPolicy();
+    AJ_AlwaysPrintf(("NVRAM total used size: %d\n", AJ_NVRAM_GetSize(AJ_NVRAM_ID_ALL_BLOCKS)));
+    AJ_AlwaysPrintf(("NVRAM total free size: %d\n", AJ_NVRAM_GetSizeRemaining(AJ_NVRAM_ID_ALL_BLOCKS)));
+    AJ_NVRAM_Block_Id _blockId = AJ_NVRAM_ID_ALL_BLOCKS;
+    for (++_blockId; _blockId < AJ_NVRAM_ID_END_SENTINEL; ++_blockId) {
+        AJ_AlwaysPrintf(("NVRAM total used size of block %d: %d\n", _blockId, AJ_NVRAM_GetSize(_blockId)));
+        AJ_AlwaysPrintf(("NVRAM total free size of block %d: %d\n", _blockId, AJ_NVRAM_GetSizeRemaining(_blockId)));
+    }
+
     return 0;
 }
 

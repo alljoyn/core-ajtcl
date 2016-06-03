@@ -42,14 +42,45 @@ extern "C" {
 #define AJ_NVRAM_ID_APPS_BEGIN       0x8000     /**< First NVRAM ID available for application use */
 #define AJ_NVRAM_ID_APPS_MAX         0xFFFE     /**< Last NVRAM ID available for application use */
 
+/*
+ * Below are enumerated all NVRAM blocks.
+ * Each NVRAM entry having ID falling into boundaries defined above
+ * belongs exclusively to one dedicated NVRAM block.
+ * Mapping of entry_ID:AJ_NVRAM_Block_Id is defined in implementation file (aj_nvram.c) while
+ * address space of each block is defined in target implementation file (aj_target_nvram.c).
+ */
+typedef enum {
+    AJ_NVRAM_ID_ALL_BLOCKS      = 0x00,
+    AJ_NVRAM_ID_CREDS_BLOCK     = 0x01,
+    AJ_NVRAM_ID_SERVICES_BLOCK  = 0x02,
+    AJ_NVRAM_ID_FRAMEWORK_BLOCK = 0x03,
+    AJ_NVRAM_ID_ALLJOYNJS_BLOCK = 0x04,
+    AJ_NVRAM_ID_RESERVED_BLOCK  = 0x05,
+    AJ_NVRAM_ID_APPS_BLOCK      = 0x06,
+    AJ_NVRAM_ID_END_SENTINEL    = 0x07 //note: this entry must be always the last one
+} AJ_NVRAM_Block_Id;
 
 #define AJ_NV_DATASET_MODE_READ      'r'      /**< Data set is in read mode */
 #define AJ_NV_DATASET_MODE_WRITE     'w'      /**< Data set is in write mode */
 
-#ifndef AJ_NVRAM_SIZE
-#define AJ_NVRAM_SIZE (4096)
+#ifndef AJ_NVRAM_SIZE_CREDS
+#define AJ_NVRAM_SIZE_CREDS (1024)
 #endif
-
+#ifndef AJ_NVRAM_SIZE_SERVICES
+#define AJ_NVRAM_SIZE_SERVICES (1024)
+#endif
+#ifndef AJ_NVRAM_SIZE_FRAMEWORK
+#define AJ_NVRAM_SIZE_FRAMEWORK (512)
+#endif
+#ifndef AJ_NVRAM_SIZE_ALLJOYNJS
+#define AJ_NVRAM_SIZE_ALLJOYNJS (512)
+#endif
+#ifndef AJ_NVRAM_SIZE_RESERVED
+#define AJ_NVRAM_SIZE_RESERVED (512)
+#endif
+#ifndef AJ_NVRAM_SIZE_APPS
+#define AJ_NVRAM_SIZE_APPS (512)
+#endif
 /**
  * AllJoyn NVRAM dataset handle. Applications should treat this an opaque data structure. The values
  * of the fields are implementation specific so cannot be relied on to have the same meaning across
@@ -69,24 +100,30 @@ typedef struct _AJ_NV_DATASET {
  */
 void AJ_NVRAM_Init();
 
-/*
+/**
  * Get the number of bytes currently used in the NVRAM memory block
+ *
+ * @param blockId  A unique id of NVRAM memory block.
  *
  * @return      Number of bytes used
  */
-uint32_t AJ_NVRAM_GetSize(void);
+uint32_t AJ_NVRAM_GetSize(AJ_NVRAM_Block_Id blockId);
 
-/*
+/**
  * Get the number of bytes unallocated in the NVRAM memory block
+ *
+ * @param blockId  A unique id of NVRAM memory block.
  *
  * @return      Number of free bytes remaining
  */
-uint32_t AJ_NVRAM_GetSizeRemaining(void);
+uint32_t AJ_NVRAM_GetSizeRemaining(AJ_NVRAM_Block_Id blockId);
 
 /**
  * Completely clear NVRAM
+ *
+ * @param blockId  A unique id of NVRAM memory block.
  */
-void AJ_NVRAM_Clear();
+void AJ_NVRAM_Clear(AJ_NVRAM_Block_Id blockId);
 
 /**
  * Open a data set
