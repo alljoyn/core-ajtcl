@@ -39,7 +39,9 @@ static uint16_t tid4 = 18;
 
 static uint16_t count = 0;
 
-#define AJ_NVRAM_REQUESTED AJ_NVRAM_SIZE
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+
+#define AJ_NVRAM_REQUESTED MIN(AJ_NVRAM_SIZE_CREDS, MIN(AJ_NVRAM_SIZE_SERVICES, MIN(AJ_NVRAM_SIZE_FRAMEWORK, MIN(AJ_NVRAM_SIZE_ALLJOYNJS, MIN(AJ_NVRAM_SIZE_RESERVED, AJ_NVRAM_SIZE_APPS)))))
 #define RAND_DATA
 #define READABLE_LOG
 
@@ -597,7 +599,7 @@ AJ_Status TestNvramDelete()
         AJ_InfoPrintf(("LAYOUT AFTER DELETE OBS\n"));
         AJ_NVRAM_Layout_Print();
     } else {
-        AJ_NVRAM_Clear();
+        AJ_NVRAM_Clear(AJ_NVRAM_ID_ALL_BLOCKS);
         AJ_InfoPrintf(("LAYOUT AFTER CLEAR ALL\n"));
         AJ_NVRAM_Layout_Print();
     }
@@ -675,7 +677,7 @@ AJ_Status TestNVRAMBigWrite()
     uint8_t* read_bytes;
     size_t bytes;
     int i;
-    uint16_t size = 40000;
+    uint16_t size = AJ_NVRAM_REQUESTED * 0.7;
 
     if (size > AJ_NVRAM_REQUESTED) {
         AJ_AlwaysPrintf(("Testing big write not possible, NVRAM not big enough\n"));
@@ -830,11 +832,26 @@ _TEST_NVRAM_EXIT:
     return status;
 }
 
-int AJ_Main()
+int AJ_Main(int argc, char** argv)
 {
     AJ_Status status = AJ_OK;
-    while (status == AJ_OK) {
-        AJ_AlwaysPrintf(("AJ Initialize\n"));
+    uint8_t loop = 1;
+    uint8_t i;
+    for (i = 1; i < argc; ++i) {
+        if (0 == strcmp("--loops", argv[i])) {
+            ++i;
+            if (i < argc) {
+                unsigned long int _loop = strtoul(argv[i], NULL, 10);
+                if ((_loop > 0) && (_loop <= 100)) {
+                    loop = _loop;
+                }
+            }
+        }
+    }
+    AJ_AlwaysPrintf(("Will try to run %d iterations...\n", loop));
+    i = 0;
+    while (status == AJ_OK && loop--) {
+        AJ_AlwaysPrintf(("Iteration %d: AJ Initialize\n", ++i));
         AJ_Initialize();
 
 #ifdef OBS_ONLY
@@ -855,7 +872,7 @@ int AJ_Main()
         status = TestNvramDelete();
         AJ_Reboot();
 #endif
-        AJ_NVRAM_Clear();
+        AJ_NVRAM_Clear(AJ_NVRAM_ID_ALL_BLOCKS);
 
         AJ_AlwaysPrintf(("TEST LOCAL AND REMOTE CREDS\n"));
         status = TestCreds();
@@ -873,33 +890,33 @@ int AJ_Main()
 #ifdef RAND_DATA
         Randomizer();
 #endif
-        AJ_InfoPrintf(("\nBEGIN GUID EXIST TEST\n"));
+        AJ_AlwaysPrintf(("\nBEGIN GUID EXIST TEST\n"));
         status = TestExist();
 #ifdef READABLE_LOG
         AJ_Sleep(1500);
 #endif
-        AJ_InfoPrintf(("\nBEGIN OBSWRITE TEST\n"));
+        AJ_AlwaysPrintf(("\nBEGIN OBSWRITE TEST\n"));
         status = TestObsWrite();
 #ifdef READABLE_LOG
         AJ_Sleep(1500);
 #endif
 
-        AJ_InfoPrintf(("\nOBSWRITE STATUS %u, BEGIN WRITE TEST\n", status));
+        AJ_AlwaysPrintf(("\nOBSWRITE STATUS %u, BEGIN WRITE TEST\n", status));
 #ifdef READABLE_LOG
         AJ_Sleep(1500);
 #endif
         status = TestNvramWrite();
-        AJ_InfoPrintf(("\nWRITE STATUS %u, BEGIN READ TEST\n", status));
+        AJ_AlwaysPrintf(("\nWRITE STATUS %u, BEGIN READ TEST\n", status));
 #ifdef READABLE_LOG
         AJ_Sleep(1500);
 #endif
         status = TestNvramRead();
-        AJ_InfoPrintf(("\nREAD STATUS %u, BEGIN DELETE TEST\n", status));
+        AJ_AlwaysPrintf(("\nREAD STATUS %u, BEGIN DELETE TEST\n", status));
 #ifdef READABLE_LOG
         AJ_Sleep(1500);
 #endif
         status = TestNvramDelete();
-        AJ_InfoPrintf(("\nDONE\n"));
+        AJ_AlwaysPrintf(("\nDONE\n"));
 
         AJ_AlwaysPrintf(("AJ_Main 3\n"));
         AJ_ASSERT(status == AJ_OK);
@@ -910,11 +927,11 @@ int AJ_Main()
 #endif
 
         status = TestNVRAMPeek();
-        AJ_InfoPrintf(("\nNVRAM Peek STATUS %u\n", status));
+        AJ_AlwaysPrintf(("\nNVRAM Peek STATUS %u\n", status));
         AJ_ASSERT(status == AJ_OK);
 
         status = TestNVRAMBigWrite();
-        AJ_InfoPrintf(("\nNVRAM Big Write STATUS %u\n", status));
+        AJ_AlwaysPrintf(("\nNVRAM Big Write STATUS %u\n", status));
         AJ_ASSERT(status == AJ_OK);
 
     }
@@ -922,8 +939,8 @@ int AJ_Main()
 }
 
 #ifdef AJ_MAIN
-int main()
+int main(int argc, char** argv)
 {
-    return AJ_Main();
+    return AJ_Main(argc, argv);
 }
 #endif

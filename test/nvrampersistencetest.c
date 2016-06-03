@@ -21,6 +21,11 @@
 #include <ajtcl/aj_nvram.h>
 #include <ajtcl/aj_crypto.h>
 
+/*
+ * AJ_NVRAM_ID_APPS_BLOCK will be used for this test.
+ */
+#define AJ_NVRAM_BLOCK_ID AJ_NVRAM_ID_APPS_BLOCK
+
 /* Forward Declaration */
 AJ_Status CreateTrailOfBreadcrumbs(void);
 AJ_Status FollowTrailOfBreadcrumbs(void);
@@ -111,9 +116,9 @@ AJ_Status CreateTrailOfBreadcrumbs(void)
     /*
      * Test program would write (place breadcrumbs) over the NVRAM, anyway.
      */
-    AJ_NVRAM_Clear();
+    AJ_NVRAM_Clear(AJ_NVRAM_BLOCK_ID);
 
-    currentAvailableNvramSpace = AJ_NVRAM_GetSizeRemaining();
+    currentAvailableNvramSpace = AJ_NVRAM_GetSizeRemaining(AJ_NVRAM_BLOCK_ID);
 
     /*
      * At minimum, the test needs to store:
@@ -179,7 +184,7 @@ AJ_Status CreateTrailOfBreadcrumbs(void)
 
         numBytesExpectingToWrite =  (lengthOfBreadcrumbTrail != i) ? sizeof(nextId) : sizeof(sensumManifestum);
 
-        currentAvailableNvramSpace = AJ_NVRAM_GetSizeRemaining();
+        currentAvailableNvramSpace = AJ_NVRAM_GetSizeRemaining(AJ_NVRAM_BLOCK_ID);
 
         someDataHandle = AJ_NVRAM_Open(someNvramId, AJTestWriteMode, numBytesExpectingToWrite);
 
@@ -211,7 +216,7 @@ AJ_Status CreateTrailOfBreadcrumbs(void)
          * accurate. Overestimating estimatedOverheadPerNvramItem is fine
          * (erring on the side on caution).
          */
-        if (estimatedOverheadPerNvramItem < currentAvailableNvramSpace - AJ_NVRAM_GetSizeRemaining() - numBytesExpectingToWrite) {
+        if (estimatedOverheadPerNvramItem < currentAvailableNvramSpace - AJ_NVRAM_GetSizeRemaining(AJ_NVRAM_BLOCK_ID) - numBytesExpectingToWrite) {
             AJ_Printf("ERROR: The estimated overhead per NVRAM item (%u bytes) is not accurate. It needs to be increased.\n", estimatedOverheadPerNvramItem);
             return AJ_ERR_FAILURE;
         }
