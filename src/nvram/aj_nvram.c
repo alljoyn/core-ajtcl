@@ -35,19 +35,40 @@
 uint8_t dbgNVRAM = 0;
 #endif
 
-extern uint8_t* AJ_NVRAM_BASE_ADDRESS;
+typedef struct _nvIdToBlockMapping {
+    uint16_t minId;
+    uint16_t maxId;
+    AJ_NVRAM_Block_Id blockId;
+} nvIdToBlockMapping;
 
-static uint8_t isCompact = FALSE;
+static nvIdToBlockMapping nvMemoryMap[] = {
+    { 0, 0, AJ_NVRAM_ID_ALL_BLOCKS },
+    { AJ_NVRAM_ID_CREDS_BEGIN, AJ_NVRAM_ID_CREDS_MAX, AJ_NVRAM_ID_CREDS_BLOCK },
+    { AJ_NVRAM_ID_SERVICES_BEGIN, AJ_NVRAM_ID_SERVICES_MAX, AJ_NVRAM_ID_SERVICES_BLOCK },
+    { AJ_NVRAM_ID_FRAMEWORK_BEGIN, AJ_NVRAM_ID_FRAMEWORK_MAX, AJ_NVRAM_ID_FRAMEWORK_BLOCK },
+    { AJ_NVRAM_ID_ALLJOYNJS_BEGIN, AJ_NVRAM_ID_ALLJOYNJS_MAX, AJ_NVRAM_ID_ALLJOYNJS_BLOCK },
+    { AJ_NVRAM_ID_RESERVED_BEGIN, AJ_NVRAM_ID_RESERVED_MAX, AJ_NVRAM_ID_RESERVED_BLOCK },
+    { AJ_NVRAM_ID_APPS_BEGIN, AJ_NVRAM_ID_APPS_MAX, AJ_NVRAM_ID_APPS_BLOCK }
+};
 
-#define AJ_NVRAM_END_ADDRESS (AJ_NVRAM_BASE_ADDRESS + AJ_NVRAM_SIZE)
+static AJ_NVRAM_Block_Id _AJ_NVRAM_Find_NV_Storage(uint16_t id)
+{
+    uint8_t index;
+    for (index = 0; index < sizeof(nvMemoryMap) / sizeof(nvMemoryMap[0]); ++index) {
+        if (id <= nvMemoryMap[index].maxId) {
+            break;
+        }
+    }
+    return nvMemoryMap[index].blockId;
+}
 
-uint32_t AJ_NVRAM_GetSize(void)
+static uint32_t _AJ_GetNVRAMBlockUsedSize(uint8_t* beginAddress, uint8_t* endAddress)
 {
     uint32_t size = 0;
-    uint16_t* data = (uint16_t*)(AJ_NVRAM_BASE_ADDRESS + SENTINEL_OFFSET);
+    uint16_t* data = (uint16_t*)(beginAddress);
     uint16_t entryId = 0;
     uint16_t capacity = 0;
-    while ((uint8_t*)data < (uint8_t*)AJ_NVRAM_END_ADDRESS && *data != INVALID_DATA) {
+    while ((uint8_t*)data < endAddress && *data != INVALID_DATA) {
         entryId = *data;
         capacity = *(data + 1);
         if (entryId != 0) {
@@ -55,39 +76,65 @@ uint32_t AJ_NVRAM_GetSize(void)
         }
         data += (ENTRY_HEADER_SIZE + capacity) >> 1;
     }
-    return size + SENTINEL_OFFSET;
+    return size;
 }
 
-extern AJ_Status _AJ_CompactNVStorage();
-
-uint32_t AJ_NVRAM_GetSizeRemaining(void)
+uint32_t AJ_NVRAM_GetSize(AJ_NVRAM_Block_Id blockId)
 {
-    if (!isCompact) {
-        _AJ_CompactNVStorage();
-        isCompact = TRUE;
+    if (blockId == AJ_NVRAM_ID_ALL_BLOCKS) {
+        uint32_t sum = SENTINEL_OFFSET; //added AJ_NV_SENTINEL size
+        AJ_NVRAM_Block_Id _blockId = blockId;
+        for (++_blockId; _blockId < AJ_NVRAM_ID_END_SENTINEL; ++_blockId) {
+            sum += _AJ_GetNVRAMBlockUsedSize(_AJ_GetNVBlockBase(_blockId), _AJ_GetNVBlockEnd(_blockId));
+        }
+        return sum;
+    } else {
+        return _AJ_GetNVRAMBlockUsedSize(_AJ_GetNVBlockBase(blockId), _AJ_GetNVBlockEnd(blockId));
     }
-    return AJ_NVRAM_SIZE - AJ_NVRAM_GetSize();
+}
+
+extern AJ_Status _AJ_CompactNVStorage(AJ_NVRAM_Block_Id blockId);
+
+uint32_t AJ_NVRAM_GetSizeRemaining(AJ_NVRAM_Block_Id blockId)
+{
+    if (blockId == AJ_NVRAM_ID_ALL_BLOCKS) {
+        uint32_t sum = 0;
+        AJ_NVRAM_Block_Id _blockId = blockId;
+        for (++_blockId; _blockId < AJ_NVRAM_ID_END_SENTINEL; ++_blockId) {
+            _AJ_CompactNVStorage(_blockId);
+            sum += _AJ_GetNVBlockSize(_blockId);
+        }
+        sum -= AJ_NVRAM_GetSize(blockId);
+        return sum;
+    } else {
+        _AJ_CompactNVStorage(blockId);
+        return _AJ_GetNVBlockSize(blockId) - AJ_NVRAM_GetSize(blockId);
+    }
 }
 
 void AJ_NVRAM_Layout_Print()
 {
-    int i = 0;
-    uint16_t* data = (uint16_t*)(AJ_NVRAM_BASE_ADDRESS + SENTINEL_OFFSET);
+    AJ_NVRAM_Block_Id blockId = AJ_NVRAM_ID_ALL_BLOCKS;
+    uint16_t* data;
     uint16_t entryId = 0;
     uint16_t capacity = 0;
+    uint8_t i;
+
     AJ_AlwaysPrintf(("============ AJ NVRAM Map ===========\n"));
     for (i = 0; i < SENTINEL_OFFSET; i++) {
-        AJ_AlwaysPrintf(("%c", *((uint8_t*)(AJ_NVRAM_BASE_ADDRESS + i))));
+        AJ_AlwaysPrintf(("%c", *((uint8_t*)(_AJ_GetNVBlockBase(blockId) + i))));
     }
     AJ_AlwaysPrintf(("\n"));
-
-    while ((uint8_t*)data < (uint8_t*)AJ_NVRAM_END_ADDRESS && *data != INVALID_DATA) {
-        entryId = *data;
-        capacity = *(data + 1);
-        AJ_AlwaysPrintf(("ID = %d, capacity = %d\n", entryId, capacity));
-        data += (ENTRY_HEADER_SIZE + capacity) >> 1;
+    for (++blockId; blockId < AJ_NVRAM_ID_END_SENTINEL; ++blockId) {
+        data = (uint16_t*)(_AJ_GetNVBlockBase(blockId));
+        while ((uint8_t*)data < _AJ_GetNVBlockEnd(blockId) && *data != INVALID_DATA) {
+            entryId = *data;
+            capacity = *(data + 1);
+            AJ_AlwaysPrintf(("ID = %d, capacity = %d\n", entryId, capacity));
+            data += (ENTRY_HEADER_SIZE + capacity) >> 1;
+        }
+        AJ_AlwaysPrintf(("============ End Block ID = %d ===========\n", blockId));
     }
-    AJ_AlwaysPrintf(("============ End ===========\n"));
 }
 
 /**
@@ -96,14 +143,14 @@ void AJ_NVRAM_Layout_Print()
  * @return Pointer pointing to an entry in the NVRAM if an entry with the specified id is found
  *         NULL otherwise
  */
-uint8_t* AJ_FindNVEntry(uint16_t id)
+uint8_t* AJ_FindNVEntry(AJ_NVRAM_Block_Id blockId, uint16_t id)
 {
     uint16_t capacity = 0;
-    uint16_t* data = (uint16_t*)(AJ_NVRAM_BASE_ADDRESS + SENTINEL_OFFSET);
+    uint16_t* data = (uint16_t*)(_AJ_GetNVBlockBase(blockId));
 
     AJ_InfoPrintf(("AJ_FindNVEntry(id=%d.)\n", id));
 
-    while ((uint8_t*)data < (uint8_t*)AJ_NVRAM_END_ADDRESS) {
+    while ((uint8_t*)data < (uint8_t*)_AJ_GetNVBlockEnd(blockId)) {
         if (*data != id) {
             capacity = *(data + 1);
             if (*data == INVALID_DATA) {
@@ -123,6 +170,7 @@ AJ_Status AJ_NVRAM_Create(uint16_t id, uint16_t capacity)
 {
     uint8_t* ptr;
     NV_EntryHeader header;
+    AJ_NVRAM_Block_Id blockId = _AJ_NVRAM_Find_NV_Storage(id);
 
     AJ_InfoPrintf(("AJ_NVRAM_Create(id=%d., capacity=%d.)\n", id, capacity));
 
@@ -132,22 +180,18 @@ AJ_Status AJ_NVRAM_Create(uint16_t id, uint16_t capacity)
     }
 
     capacity = WORD_ALIGN(capacity); // 4-byte alignment
-    ptr = AJ_FindNVEntry(INVALID_DATA);
-    if (!ptr || (ptr + ENTRY_HEADER_SIZE + capacity > AJ_NVRAM_END_ADDRESS)) {
-        if (!isCompact) {
-            AJ_InfoPrintf(("AJ_NVRAM_Create(): _AJ_CompactNVStorage()\n"));
-            _AJ_CompactNVStorage();
-            isCompact = TRUE;
-        }
-        ptr = AJ_FindNVEntry(INVALID_DATA);
-        if (!ptr || ptr + ENTRY_HEADER_SIZE + capacity > AJ_NVRAM_END_ADDRESS) {
-            AJ_InfoPrintf(("AJ_NVRAM_Create(): AJ_ERR_FAILURE\n"));
+    ptr = AJ_FindNVEntry(blockId, INVALID_DATA);
+    if (!ptr || (ptr + ENTRY_HEADER_SIZE + capacity > _AJ_GetNVBlockEnd(blockId))) {
+        _AJ_CompactNVStorage(blockId);
+        ptr = AJ_FindNVEntry(blockId, INVALID_DATA);
+        if (!ptr || ptr + ENTRY_HEADER_SIZE + capacity > _AJ_GetNVBlockEnd(blockId)) {
+            AJ_ErrPrintf(("AJ_NVRAM_Create(): AJ_ERR_FAILURE, slot = %d, reason: %s\n", blockId, !ptr ? "no empty slot" : "not enough capacity left in nvram block"));
             return AJ_ERR_FAILURE;
         }
     }
     header.id = id;
     header.capacity = capacity;
-    _AJ_NV_Write(ptr, &header, ENTRY_HEADER_SIZE);
+    _AJ_NV_Write(blockId, ptr, &header, ENTRY_HEADER_SIZE, TRUE);
     return AJ_OK;
 }
 
@@ -155,11 +199,12 @@ AJ_Status AJ_NVRAM_SecureDelete(uint16_t id)
 {
     NV_EntryHeader newHeader;
     uint8_t* ptr = NULL;
+    AJ_NVRAM_Block_Id blockId = _AJ_NVRAM_Find_NV_Storage(id);
 
     AJ_InfoPrintf(("AJ_NVRAM_SecureDelete(id=%d.)\n", id));
 
     if (id != INVALID_DATA) {
-        ptr = AJ_FindNVEntry(id);
+        ptr = AJ_FindNVEntry(blockId, id);
     }
 
     if (!ptr) {
@@ -169,8 +214,7 @@ AJ_Status AJ_NVRAM_SecureDelete(uint16_t id)
 
     memcpy(&newHeader, ptr, ENTRY_HEADER_SIZE);
     newHeader.id = 0;
-    _AJ_NV_Write(ptr, &newHeader, ENTRY_HEADER_SIZE);
-    isCompact = FALSE;
+    _AJ_NV_Write(blockId, ptr, &newHeader, ENTRY_HEADER_SIZE, FALSE);
 
     uint8_t* buf = AJ_Malloc(newHeader.capacity);
 
@@ -180,7 +224,7 @@ AJ_Status AJ_NVRAM_SecureDelete(uint16_t id)
     }
 
     AJ_MemZeroSecure(buf, newHeader.capacity);
-    _AJ_NV_Write(ptr + ENTRY_HEADER_SIZE, buf, sizeof(buf));
+    _AJ_NV_Write(blockId, ptr + ENTRY_HEADER_SIZE, buf, sizeof(buf), TRUE);
     free(buf);
 
     return AJ_OK;
@@ -190,11 +234,12 @@ AJ_Status AJ_NVRAM_Delete(uint16_t id)
 {
     NV_EntryHeader newHeader;
     uint8_t* ptr = NULL;
+    AJ_NVRAM_Block_Id blockId = _AJ_NVRAM_Find_NV_Storage(id);
 
     AJ_InfoPrintf(("AJ_NVRAM_Delete(id=%d.)\n", id));
 
     if (id != INVALID_DATA) {
-        ptr = AJ_FindNVEntry(id);
+        ptr = AJ_FindNVEntry(blockId, id);
     }
 
     if (!ptr) {
@@ -204,8 +249,7 @@ AJ_Status AJ_NVRAM_Delete(uint16_t id)
 
     memcpy(&newHeader, ptr, ENTRY_HEADER_SIZE);
     newHeader.id = 0;
-    _AJ_NV_Write(ptr, &newHeader, ENTRY_HEADER_SIZE);
-    isCompact = FALSE;
+    _AJ_NV_Write(blockId, ptr, &newHeader, ENTRY_HEADER_SIZE, FALSE);
 
     return AJ_OK;
 }
@@ -215,6 +259,7 @@ AJ_NV_DATASET* AJ_NVRAM_Open(uint16_t id, const char* mode, uint16_t capacity)
     AJ_Status status = AJ_OK;
     uint8_t* entry = NULL;
     AJ_NV_DATASET* handle = NULL;
+    AJ_NVRAM_Block_Id blockId = _AJ_NVRAM_Find_NV_Storage(id);
 
     AJ_InfoPrintf(("AJ_NVRAM_Open(id=%d., mode=\"%s\", capacity=%d.)\n", id, mode, capacity));
 
@@ -245,13 +290,13 @@ AJ_NV_DATASET* AJ_NVRAM_Open(uint16_t id, const char* mode, uint16_t capacity)
             AJ_ErrPrintf(("AJ_NVRAM_Open(): AJ_NVRAM_Create() failure: status=%s\n", AJ_StatusText(status)));
             goto OPEN_ERR_EXIT;
         }
-        entry = AJ_FindNVEntry(id);
+        entry = AJ_FindNVEntry(blockId, id);
         if (!entry) {
             AJ_ErrPrintf(("AJ_NVRAM_Open(): Data set %d. does not exist\n", id));
             goto OPEN_ERR_EXIT;
         }
     } else {
-        entry = AJ_FindNVEntry(id);
+        entry = AJ_FindNVEntry(blockId, id);
         if (!entry) {
             AJ_WarnPrintf(("AJ_NVRAM_Open(): Data set %d. does not exist\n", id));
             goto OPEN_ERR_EXIT;
@@ -286,6 +331,7 @@ size_t AJ_NVRAM_Write(const void* ptr, uint16_t size, AJ_NV_DATASET* handle)
     uint8_t patchBytes = 0;
     uint8_t* buf = (uint8_t*)ptr;
     NV_EntryHeader* header;
+    AJ_NVRAM_Block_Id blockId = _AJ_NVRAM_Find_NV_Storage(handle->id);
 
     if (!handle || handle->mode == AJ_NV_DATASET_MODE_READ) {
         AJ_ErrPrintf(("AJ_NVRAM_Write(): AJ_ERR_ACCESS\n"));
@@ -313,14 +359,14 @@ size_t AJ_NVRAM_Write(const void* ptr, uint16_t size, AJ_NV_DATASET* handle)
             patchBytes = (uint8_t)bytesWrite;
         }
         memcpy(tmpBuf + (handle->curPos & 0x3), buf, patchBytes);
-        _AJ_NV_Write(handle->inode + sizeof(NV_EntryHeader) + alignedPos, tmpBuf, 4);
+        _AJ_NV_Write(blockId, handle->inode + sizeof(NV_EntryHeader) + alignedPos, tmpBuf, 4, TRUE);
         buf += patchBytes;
         bytesWrite -= patchBytes;
         handle->curPos += patchBytes;
     }
 
     if (bytesWrite > 0) {
-        _AJ_NV_Write(handle->inode + sizeof(NV_EntryHeader) + handle->curPos, buf, bytesWrite);
+        _AJ_NV_Write(blockId, handle->inode + sizeof(NV_EntryHeader) + handle->curPos, buf, bytesWrite, TRUE);
         handle->curPos += bytesWrite;
     }
     return bytesWrite + patchBytes;
@@ -384,11 +430,11 @@ uint8_t AJ_NVRAM_Exist(uint16_t id)
         AJ_ErrPrintf(("AJ_NVRAM_Exist(): AJ_ERR_INVALID\n"));
         return FALSE; // the unique id is not allowed to be 0 or 0xffff
     }
-    return (NULL != AJ_FindNVEntry(id));
+    return (NULL != AJ_FindNVEntry(_AJ_NVRAM_Find_NV_Storage(id), id));
 }
 
-void AJ_NVRAM_Clear()
+void AJ_NVRAM_Clear(AJ_NVRAM_Block_Id blockId)
 {
-    _AJ_NVRAM_Clear();
+    _AJ_NVRAM_Clear(blockId);
 }
 
