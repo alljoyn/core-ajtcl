@@ -381,7 +381,7 @@ AJ_Status AJ_CredentialSet(uint16_t type, const AJ_CredField* id, uint32_t expir
         size = CredentialSize(type, id, expiration, data);
         size = WORD_ALIGN(size);
         slot = FindCredsEmptySlot();
-        while ((AJ_OK == status) && (!slot || (size >= AJ_NVRAM_GetSizeRemaining()))) {
+        while ((AJ_OK == status) && (!slot || (size >= AJ_NVRAM_GetSizeRemaining(AJ_NVRAM_ID_CREDS_BLOCK)))) {
             status = DeleteOldestCredential(&slot);
         }
     }
