@@ -42,6 +42,23 @@ extern "C" {
 #define AJ_NVRAM_ID_APPS_BEGIN       0x8000     /**< First NVRAM ID available for application use */
 #define AJ_NVRAM_ID_APPS_MAX         0xFFFE     /**< Last NVRAM ID available for application use */
 
+/*
+ * Below are enumerated all NVRAM blocks.
+ * Each NVRAM entry having ID falling into boundaries defined above
+ * belongs exclusively to one dedicated NVRAM block.
+ * Mapping of entry_ID:AJ_NVRAM_Block_Id is defined in implementation file (aj_nvram.c) while
+ * address space of each block is defined in target implementation file (aj_target_nvram.c).
+ */
+typedef enum {
+    AJ_NVRAM_ID_ALL_BLOCKS      = 0x00,
+    AJ_NVRAM_ID_CREDS_BLOCK     = 0x01,
+    AJ_NVRAM_ID_SERVICES_BLOCK  = 0x02,
+    AJ_NVRAM_ID_FRAMEWORK_BLOCK = 0x03,
+    AJ_NVRAM_ID_ALLJOYNJS_BLOCK = 0x04,
+    AJ_NVRAM_ID_RESERVED_BLOCK  = 0x05,
+    AJ_NVRAM_ID_APPS_BLOCK      = 0x06,
+    AJ_NVRAM_ID_END_SENTINEL /* note: this entry must be always the last one */
+} AJ_NVRAM_Block_Id;
 
 #define AJ_NV_DATASET_MODE_READ      'r'      /**< Data set is in read mode */
 #define AJ_NV_DATASET_MODE_WRITE     'w'      /**< Data set is in write mode */
@@ -50,6 +67,24 @@ extern "C" {
 #define AJ_NVRAM_SIZE (4096)
 #endif
 
+#ifndef AJ_NVRAM_SIZE_CREDS
+#define AJ_NVRAM_SIZE_CREDS (1024)
+#endif
+#ifndef AJ_NVRAM_SIZE_SERVICES
+#define AJ_NVRAM_SIZE_SERVICES (1024)
+#endif
+#ifndef AJ_NVRAM_SIZE_FRAMEWORK
+#define AJ_NVRAM_SIZE_FRAMEWORK (512)
+#endif
+#ifndef AJ_NVRAM_SIZE_ALLJOYNJS
+#define AJ_NVRAM_SIZE_ALLJOYNJS (512)
+#endif
+#ifndef AJ_NVRAM_SIZE_RESERVED
+#define AJ_NVRAM_SIZE_RESERVED (512)
+#endif
+#ifndef AJ_NVRAM_SIZE_APPS
+#define AJ_NVRAM_SIZE_APPS (512)
+#endif
 /**
  * AllJoyn NVRAM dataset handle. Applications should treat this an opaque data structure. The values
  * of the fields are implementation specific so cannot be relied on to have the same meaning across
@@ -66,27 +101,105 @@ typedef struct _AJ_NV_DATASET {
 
 /**
  * Initialize NVRAM
+ *
+ * @remarks
+ *  If AJ_NVRAM_Init_NewLayout() was already called, call to AJ_NVRAM_Init() has no effect.
  */
 void AJ_NVRAM_Init();
 
-/*
+/**
+ * Initialize NVRAM using new layout
+ *
+ * @remarks
+ *  This function must be called before AJ_NVRAM_Init() to use new NVRAM layout.
+ *  New layout splits continuous memory into logical segments which makes it more efficient
+ *  on targets with file system where each segment maps on a dedicated file.
+ *  It's important to note that with this layout there is no total NVRAM capacity when creating
+ *  new NVRAM entry but each entry belongs to one segment (see AJ_NVRAM_Block_Id enum) of fixed size.
+ *  This implies that even if there plenty of available NVRAM space in total, the segment which
+ *  data-to-be-written belongs to may be full so this data cannot be written.
+ *
+ *  See supporting API calls:
+ *  - AJ_NVRAM_GetSize_NewLayout(AJ_NVRAM_Block_Id blockId)
+ *  - AJ_NVRAM_GetSizeRemaining_NewLayout(AJ_NVRAM_Block_Id blockId)
+ *  - AJ_NVRAM_Clear_NewLayout(AJ_NVRAM_Block_Id blockId)
+ *
+ * @return AJ_OK if init was successfull
+ *         AJ_ERR_UNEXPECTED in case NVRAM was already initialized by AJ_NVRAM_Init_NewLayout()
+ *         AJ_ERR_INVALID in case NVRAM was already initialized by AJ_NVRAM_Init()
+ *         AJ_ERR_FAILURE in case of any other failure.
+ */
+AJ_Status AJ_NVRAM_Init_NewLayout();
+
+/**
  * Get the number of bytes currently used in the NVRAM memory block
+ *
+ * @remarks
+ *  Should not be used with NVRAM initialized by AJ_NVRAM_Init_NewLayout().
+ *  Deprecated due to new AJ_NVRAM_GetSize_NewLayout(AJ_NVRAM_Block_Id blockId) call.
  *
  * @return      Number of bytes used
  */
-uint32_t AJ_NVRAM_GetSize(void);
+AJ_DEPRECATED_ON(uint32_t AJ_NVRAM_GetSize(), 16.10);
 
-/*
+/**
+ * Get the number of bytes currently used in the NVRAM memory block
+ *
+ * @param blockId  A unique id of NVRAM memory block.
+ *
+ * @remarks
+ *  If NVRAM was initialized by AJ_NVRAM_Init() it returns the used size of
+ *  whole NVRAM, blockId is ignored, so it works like AJ_NVRAM_GetSize().
+ *
+ * @return      Number of bytes used
+ */
+uint32_t AJ_NVRAM_GetSize_NewLayout(AJ_NVRAM_Block_Id blockId);
+
+/**
  * Get the number of bytes unallocated in the NVRAM memory block
+ *
+ * @remarks
+ *  Should not be used with NVRAM initialized by AJ_NVRAM_Init_NewLayout().
+ *  Deprecated due to new AJ_NVRAM_GetSizeRemaining_NewLayout(AJ_NVRAM_Block_Id blockId) call.
  *
  * @return      Number of free bytes remaining
  */
-uint32_t AJ_NVRAM_GetSizeRemaining(void);
+AJ_DEPRECATED_ON(uint32_t AJ_NVRAM_GetSizeRemaining(), 16.10);
+
+/**
+ * Get the number of bytes unallocated in the NVRAM memory block
+ *
+ * @param blockId  A unique id of NVRAM memory block.
+ *
+ * @remarks
+ *  If NVRAM was initialized by AJ_NVRAM_Init() it returns the free size of
+ *  whole NVRAM, blockId is ignored, so it works like AJ_NVRAM_GetSizeRemaining().
+ *
+ * @return      Number of free bytes remaining
+ */
+uint32_t AJ_NVRAM_GetSizeRemaining_NewLayout(AJ_NVRAM_Block_Id blockId);
 
 /**
  * Completely clear NVRAM
+ *
+ * @remarks
+ *  Should not be used with NVRAM initialized by AJ_NVRAM_Init_NewLayout().
+ *  Deprecated due to new AJ_NVRAM_Clear_NewLayout(AJ_NVRAM_Block_Id blockId) call.
+ *
  */
-void AJ_NVRAM_Clear();
+AJ_DEPRECATED_ON(void AJ_NVRAM_Clear(), 16.10);
+
+/**
+ * Completely clear NVRAM
+ *
+ * @param blockId  A unique id of NVRAM memory block.
+ *
+ * @remarks
+ *  If NVRAM was initialized by AJ_NVRAM_Init() clears all NVRAM, blockId is ignored,
+ *  so it works like AJ_NVRAM_Clear().
+ *
+ */
+void AJ_NVRAM_Clear_NewLayout(AJ_NVRAM_Block_Id blockId);
 
 /**
  * Open a data set
