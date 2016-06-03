@@ -520,7 +520,7 @@ AJ_Status AJ_BusHandleBusMessage(AJ_Message* msg);
  * in 15.10, but the AJ_DEPRECATED_ON macro was applied in 16.10.
  */
 AJ_DEPRECATED_ON(AJ_EXPORT
-                 void AJ_BusSetPasswordCallback(AJ_BusAttachment* bus, AJ_AuthPwdFunc pwdCallback); , 15.10)
+                 void AJ_BusSetPasswordCallback(AJ_BusAttachment* bus, AJ_AuthPwdFunc pwdCallback), 15.10);
 
 /**
  * Set a callback for auth listener

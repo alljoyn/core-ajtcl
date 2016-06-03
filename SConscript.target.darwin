@@ -68,5 +68,10 @@ else:
 #env['connectivity_options'] = [ 'tcp', 'ardp' ]
 
 # Large Memory Platform
-env.Append(CPPDEFINES = ['AJ_NVRAM_SIZE=64000'])
+env.Append(CPPDEFINES = ['AJ_NVRAM_SIZE_CREDS=10000'])
+env.Append(CPPDEFINES = ['AJ_NVRAM_SIZE_SERVICES=10000'])
+env.Append(CPPDEFINES = ['AJ_NVRAM_SIZE_FRAMEWORK=10000'])
+env.Append(CPPDEFINES = ['AJ_NVRAM_SIZE_ALLJOYNJS=10000'])
+env.Append(CPPDEFINES = ['AJ_NVRAM_SIZE_RESERVED=10000'])
+env.Append(CPPDEFINES = ['AJ_NVRAM_SIZE_APPS=10000'])
 env.Append(CPPDEFINES = ['AJ_NUM_REPLY_CONTEXTS=8'])
