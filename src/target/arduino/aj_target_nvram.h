@@ -36,16 +36,17 @@ typedef struct _NV_EntryHeader {
 } NV_EntryHeader;
 
 #define ENTRY_HEADER_SIZE (sizeof(NV_EntryHeader))
-#define AJ_NVRAM_END_ADDRESS (AJ_NVRAM_BASE_ADDRESS + AJ_NVRAM_SIZE)
 
 /**
  * Write a block of data to NVRAM
  *
+ * @param blockId  A unique id of NVRAM memory block
  * @param dest  Pointer a location of NVRAM
  * @param buf   Pointer to data to be written
  * @param size  The number of bytes to be written
+ * @param isCompact Boolean value set to FALSE in case operation causes defragmentation (delete)
  */
-void _AJ_NV_Write(void* dest, const void* buf, uint16_t size);
+void _AJ_NV_Write(AJ_NVRAM_Block_Id blockId, void* dest, const void* buf, uint16_t size, uint8_t isCompact);
 
 /**
  * Read a block of data from NVRAM
@@ -59,7 +60,18 @@ void _AJ_NV_Read(void* src, void* buf, uint16_t size);
 
 /**
  * Erase the whole NVRAM sector and write the sentinel data
+ *
+ * @param blockId  A unique id of NVRAM memory block
  */
-void _AJ_NVRAM_Clear();
+void _AJ_NVRAM_Clear(AJ_NVRAM_Block_Id blockId);
+
+/**
+ * Get NVRAM memory block informations: begin address, end address, block size
+ *
+ * @param blockId  A unique id of NVRAM memory block
+ */
+uint8_t* _AJ_GetNVBlockBase(AJ_NVRAM_Block_Id blockId);
+uint8_t* _AJ_GetNVBlockEnd(AJ_NVRAM_Block_Id blockId);
+uint32_t _AJ_GetNVBlockSize(AJ_NVRAM_Block_Id blockId);
 
 #endif
