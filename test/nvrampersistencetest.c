@@ -21,6 +21,11 @@
 #include <ajtcl/aj_nvram.h>
 #include <ajtcl/aj_crypto.h>
 
+/*
+ * AJ_NVRAM_ID_APPS_BLOCK will be used for this test.
+ */
+#define AJ_NVRAM_BLOCK_ID AJ_NVRAM_ID_APPS_BLOCK
+
 /* Forward Declaration */
 AJ_Status CreateTrailOfBreadcrumbs(void);
 AJ_Status FollowTrailOfBreadcrumbs(void);
@@ -53,10 +58,25 @@ static const uint16_t countId = 0x8193;
 
 static uint16_t lengthOfBreadcrumbTrail = 0;
 
+#ifdef MAIN_ALLOWS_ARGS
+int AJ_Main(int argc, char** argv)
+#else
 int AJ_Main(void)
+#endif
 {
     AJ_Status status = AJ_ERR_INVALID;
-
+    uint8_t useNewLayout = FALSE;
+#ifdef MAIN_ALLOWS_ARGS
+    uint8_t i;
+    for (i = 1; i < argc; ++i) {
+        if (0 == strcmp("--newlayout", argv[i])) {
+            useNewLayout = TRUE;
+        }
+    }
+#endif
+    if (useNewLayout) {
+        AJ_NVRAM_Init_NewLayout();
+    }
     AJ_NVRAM_Init();
 
     AJ_Printf("\nAllJoyn Release: %s\n\n", AJ_GetVersion());
@@ -111,9 +131,9 @@ AJ_Status CreateTrailOfBreadcrumbs(void)
     /*
      * Test program would write (place breadcrumbs) over the NVRAM, anyway.
      */
-    AJ_NVRAM_Clear();
+    AJ_NVRAM_Clear_NewLayout(AJ_NVRAM_BLOCK_ID);
 
-    currentAvailableNvramSpace = AJ_NVRAM_GetSizeRemaining();
+    currentAvailableNvramSpace = AJ_NVRAM_GetSizeRemaining_NewLayout(AJ_NVRAM_BLOCK_ID);
 
     /*
      * At minimum, the test needs to store:
@@ -179,7 +199,7 @@ AJ_Status CreateTrailOfBreadcrumbs(void)
 
         numBytesExpectingToWrite =  (lengthOfBreadcrumbTrail != i) ? sizeof(nextId) : sizeof(sensumManifestum);
 
-        currentAvailableNvramSpace = AJ_NVRAM_GetSizeRemaining();
+        currentAvailableNvramSpace = AJ_NVRAM_GetSizeRemaining_NewLayout(AJ_NVRAM_BLOCK_ID);
 
         someDataHandle = AJ_NVRAM_Open(someNvramId, AJTestWriteMode, numBytesExpectingToWrite);
 
@@ -211,7 +231,7 @@ AJ_Status CreateTrailOfBreadcrumbs(void)
          * accurate. Overestimating estimatedOverheadPerNvramItem is fine
          * (erring on the side on caution).
          */
-        if (estimatedOverheadPerNvramItem < currentAvailableNvramSpace - AJ_NVRAM_GetSizeRemaining() - numBytesExpectingToWrite) {
+        if (estimatedOverheadPerNvramItem < currentAvailableNvramSpace - AJ_NVRAM_GetSizeRemaining_NewLayout(AJ_NVRAM_BLOCK_ID) - numBytesExpectingToWrite) {
             AJ_Printf("ERROR: The estimated overhead per NVRAM item (%u bytes) is not accurate. It needs to be increased.\n", estimatedOverheadPerNvramItem);
             return AJ_ERR_FAILURE;
         }
@@ -337,8 +357,15 @@ AJ_Status FollowTrailOfBreadcrumbs(void)
 }
 
 #ifdef AJ_MAIN
-int main(void)
+#ifdef MAIN_ALLOWS_ARGS
+int main(int argc, char** argv)
+{
+    return AJ_Main(argc, argv);
+}
+#else
+int main()
 {
     return AJ_Main();
 }
+#endif
 #endif
