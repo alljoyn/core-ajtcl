@@ -77,7 +77,7 @@ extern uint8_t dbgTARGET_UTIL;
  * Include the date of the AllJoyn release when applying this macro (date format: YY.MM).
  */
 #if (__GNUC__ >= 4) || ((__GNUC__ == 3) && (__GNUC_MINOR__ >= 1))
-#define AJ_DEPRECATED_ON(func, date) func __attribute__((deprecated)) /**< mark a function as deprecated in gcc. */
+#define AJ_DEPRECATED_ON(func, date) __attribute__((deprecated)) func /**< mark a function as deprecated in gcc. */
 #else
 #define AJ_DEPRECATED_ON(func, date) func  /**< not all gcc versions support the deprecated attribute. */
 #endif
