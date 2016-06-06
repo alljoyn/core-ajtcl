@@ -303,8 +303,8 @@ const AJ_Object AJ_StandardObjects[] = {
     { PeerObjectPath,        PeerIfaces,        0,                     NULL },
     { "?",                   CommonIfaces,      0,                     NULL },
     { DaemonObjectPath,      DaemonIfaces,      AJ_OBJ_FLAG_IS_PROXY,  NULL },
-    { AboutObjectPath,       AboutIfaces,       AJ_OBJ_FLAG_ANNOUNCED, NULL },
-    { AboutIconObjectPath,   AboutIconIfaces,   AJ_OBJ_FLAG_ANNOUNCED, NULL },
+    { AboutObjectPath,       AboutIfaces,       0,                     NULL },
+    { AboutIconObjectPath,   AboutIconIfaces,   0,                     NULL },
     { SecurityObjectPath,    SecurityIfaces,    0,                     NULL },
     { NULL,                  NULL,              0,                     NULL }
 };
