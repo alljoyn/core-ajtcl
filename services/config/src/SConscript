@@ -21,3 +21,4 @@ if config_env['build_shared']:
     config_lib = config_env.SharedLibrary("ajtcl_services_config", config_objs)
     config_env.Install("#dist/lib", config_lib)
 
+ 

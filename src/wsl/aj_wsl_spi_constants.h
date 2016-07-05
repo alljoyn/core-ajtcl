@@ -197,3 +197,4 @@ enum AJ_WSL_HTC_ENDPOINT_COUNT {
 
 #pragma pack(pop)
 #endif /* AJ_WSL_SPI_CONSTANTS_H_ */
+ 

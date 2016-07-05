@@ -68,3 +68,4 @@ void AJ_AES_ECB_128_ENCRYPT(const uint8_t* key, const uint8_t* in, uint8_t* out)
  * @}
  */
 #endif
+ 

@@ -172,3 +172,4 @@ else:
 
 env['build_shared'] = False
 #env['connectivity_options'] = [ 'tcp', 'ardp' ]
+ 

@@ -193,3 +193,4 @@ AJ_Status AJSVC_UnmarshalAppId(AJ_Message* msg, char* buf, size_t bufLen);
 #define AJ_OBS_NV_ID_BEGIN                 (AJ_PROPERTIES_NV_ID_MAX + 1)
 
 #endif /* _SERVICES_COMMON_H_ */
+ 

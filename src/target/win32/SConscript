@@ -8,3 +8,4 @@ src_env['nvram'] = True
 
 # Build target source
 src_env['srcs'] += src_env.Glob('*.c')
+ 

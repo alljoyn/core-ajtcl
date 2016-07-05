@@ -99,3 +99,4 @@ void ASSERT(int i);
 
 
 #endif /* AJ_TARGET_PLATFORM_H_ */
+ 

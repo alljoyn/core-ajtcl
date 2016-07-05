@@ -20,3 +20,4 @@
 #define assert_param(expr) ((void)0)
 
 #endif /* STM32F4XX_HAL_CONF_H_ */
+ 

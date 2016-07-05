@@ -59,3 +59,4 @@ if src_env['build_shared']:
     objs = src_env.SharedObject(src_env['srcs'])
     lib = src_env.SharedLibrary("ajtcl", objs)
     src_env.Install('#dist/lib', lib)
+ 

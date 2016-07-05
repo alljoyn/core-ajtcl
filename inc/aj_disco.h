@@ -63,3 +63,4 @@ AJ_Status AJ_Discover(const char* prefix, AJ_Service* service, uint32_t timeout,
 #endif
 
 #endif
+ 

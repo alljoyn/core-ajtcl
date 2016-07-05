@@ -705,3 +705,4 @@ AJ_Status AJ_StartClientByPeerDescription(AJ_BusAttachment* bus,
     return StartClient(bus, daemonName, timeout, connected, NULL, port, NULL, sessionId, uniqueName, opts, NULL);
 }
 #endif
+ 

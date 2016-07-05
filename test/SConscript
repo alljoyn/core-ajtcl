@@ -77,3 +77,4 @@ if test_env['TARG'] == 'win32' or test_env['TARG'] == 'linux':
 
 if progs:
     test_env.Install('#dist/test', progs)
+ 

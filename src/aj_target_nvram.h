@@ -86,3 +86,4 @@ uint8_t* _AJ_GetNVBlockEnd(AJ_NVRAM_Block_Id blockId);
 uint32_t _AJ_GetNVBlockSize(AJ_NVRAM_Block_Id blockId);
 
 #endif
+ 

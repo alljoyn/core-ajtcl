@@ -1096,3 +1096,4 @@ char* SHA384_Data(const sha2_byte* data, size_t len, char digest[SHA384_DIGEST_S
 	return SHA384_End(&context, digest);
 }
 
+ 

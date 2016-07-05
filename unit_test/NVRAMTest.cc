@@ -308,3 +308,4 @@ TEST(NVRAMTest, OldApiWithNewLayout)
 
     testOldApi();
 }
+ 

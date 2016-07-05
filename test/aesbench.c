@@ -69,3 +69,4 @@ ErrorExit:
     AJ_AlwaysPrintf(("AES CCM unit test FAILED\n"));
     return 1;
 }
+ 

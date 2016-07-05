@@ -430,3 +430,4 @@ AJ_Status AJ_GUID_HandleRemoveMatchReply(AJ_Message* msg)
     }
     return AJ_OK;
 }
+ 

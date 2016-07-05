@@ -18,3 +18,4 @@ Assets Control’s Specially Designated Nationals List.  The country in which
 you are currently located may have restrictions on the import, possession,
 use of encryption software. You are responsible for compliance with the
 laws where You are located.
+ 

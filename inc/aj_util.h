@@ -341,3 +341,4 @@ void BigEndianU8ToHostU32(uint8_t* u8, uint32_t* u32, size_t len);
  * @}
  */
 #endif
+ 

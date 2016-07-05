@@ -59,3 +59,4 @@ void AJ_IOBufRebase(AJ_IOBuffer* ioBuf, size_t preserve)
     ioBuf->readPtr = ioBuf->bufStart + preserve;
     ioBuf->writePtr = ioBuf->bufStart + preserve + unconsumed;
 }
+ 

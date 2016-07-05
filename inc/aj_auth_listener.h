@@ -70,3 +70,4 @@ typedef struct _AJ_Credential {
  * @}
  */
 #endif
+ 

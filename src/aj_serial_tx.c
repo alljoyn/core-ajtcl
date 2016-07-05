@@ -761,3 +761,4 @@ void AJ_FillTxBufferList()
 }
 
 #endif /* AJ_SERIAL_CONNECTION */
+ 
