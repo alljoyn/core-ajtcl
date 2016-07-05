@@ -74,3 +74,4 @@ uint32_t AJ_SeedRNG(void)
     }
     return rand_num;
 }
+ 

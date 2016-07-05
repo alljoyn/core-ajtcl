@@ -616,3 +616,4 @@ void AJ_ProcessRxBufferList()
     AJ_ResumeRX();
 }
 #endif /* AJ_SERIAL_CONNECTION */
+ 

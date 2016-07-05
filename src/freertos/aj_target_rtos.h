@@ -106,3 +106,4 @@ AJ_Status AJ_ResumeTask(struct AJ_TaskHandle* handle, uint8_t inISR);
 #endif
 
 #endif /* AJ_TARGET_RTOS_H_ */
+ 

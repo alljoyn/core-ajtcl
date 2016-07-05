@@ -52,3 +52,4 @@ void AJ_CRC16_Complete(uint16_t crc,
 #endif
 
 #endif /* _AJ_CRC16_H */
+ 

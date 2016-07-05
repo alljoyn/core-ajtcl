@@ -190,3 +190,4 @@ AJ_Status AJ_GenerateSPEKEKeyPair(const uint8_t* pw, size_t pwLen, const AJ_GUID
  * @}
  */
 #endif
+ 

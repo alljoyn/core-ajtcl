@@ -660,3 +660,4 @@ AJ_Status AJ_BusEnableSecurity(AJ_BusAttachment* bus, const uint32_t* suites, si
  * @}
  */
 #endif
+ 

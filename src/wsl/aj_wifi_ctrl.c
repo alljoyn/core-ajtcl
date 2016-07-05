@@ -606,3 +606,4 @@ AJ_Status AJ_SetIPAddress(uint32_t ip, uint32_t mask, uint32_t gateway)
 {
     return AJ_WSL_ipconfig(IPCONFIG_STATIC, &ip, &mask, &gateway);
 }
+ 

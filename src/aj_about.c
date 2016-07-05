@@ -727,3 +727,4 @@ AJ_Status AJ_AboutHandleAnnounce(AJ_Message* announcement, uint16_t* outAboutVer
     return status;
 }
 #endif
+ 

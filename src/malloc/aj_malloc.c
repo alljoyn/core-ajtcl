@@ -257,3 +257,4 @@ void AJ_PoolDump(void)
     AJ_AlwaysPrintf(("======= heap hwm = %d use = %d waste = %d ======\n", (int)memHigh, (int)memUse, (int)(memHigh - memTotal)));
 }
 #endif
+ 

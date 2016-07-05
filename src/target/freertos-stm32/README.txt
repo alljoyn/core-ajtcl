@@ -14,3 +14,4 @@ BSP you are welcome to do so, but there may be bugs, and there will be limited s
 If problems are found with this BSP it would be helpful if that problem could be
 communicated to the AllJoyn community, or better yet if fixes are provided as
 contributions to the project, as the intent is to keep this under active development.
+ 

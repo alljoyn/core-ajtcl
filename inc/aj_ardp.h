@@ -163,3 +163,4 @@ void AJ_ARDP_InitFunctions(ReceiveFunction recv, SendFunction send);
 #endif // AJ_ARDP
 
 #endif // _ALLJOYN_ARDP_PROTOCOL_H
+ 

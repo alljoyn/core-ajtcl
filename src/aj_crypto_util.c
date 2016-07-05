@@ -56,3 +56,4 @@ int AJ_Crypto_Compare(const void* buf1, const void* buf2, size_t count)
 
     return (int)different;
 }
+ 

@@ -127,3 +127,4 @@ void AJ_ResumeTX();
  * @}
  */
 #endif /* _AJ_SERIO_H */
+ 

@@ -2740,3 +2740,4 @@ void AJ_LocalMsg(AJ_BusAttachment* bus, AJ_MsgHeader* hdr, AJ_Message* msg, cons
     bus->sock.tx.readPtr = bus->sock.tx.bufStart;
     bus->sock.tx.writePtr = bus->sock.tx.bufStart;
 }
+ 

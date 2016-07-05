@@ -723,3 +723,4 @@ AJ_Status AJ_CheckIncomingSerial(AJ_SerialNum* prev, uint32_t curr);
  * @}
  */
 #endif
+ 

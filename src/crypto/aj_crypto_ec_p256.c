@@ -830,3 +830,4 @@ AJ_Status ec_scalarmul(const ecpoint_t* P, digit256_t k, ecpoint_t* Q, ec_t* cur
     return status;
 }
 
+ 

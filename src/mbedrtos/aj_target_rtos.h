@@ -64,3 +64,4 @@ void AJ_PlatformInit(void);
 #endif
 
 #endif /* AJ_TARGET_RTOS_H_ */
+ 

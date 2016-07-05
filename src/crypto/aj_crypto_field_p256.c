@@ -756,4 +756,4 @@ void fpsqrt_p256(digit256_tc a, digit256_t sqrt, digit_t* temps)
 
     /* Since p = 3 mod 4, a^((p+1)/4) is a square root of a. */
     fpexp_naive_p256(a, P256p1div4, sqrt, temps);
-}
+} 

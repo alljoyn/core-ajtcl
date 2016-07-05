@@ -75,3 +75,4 @@ AJ_Status AJSVC_DisconnectHandler(AJ_BusAttachment* busAttachment);
 AJ_Status AJSVC_RoutingNodeDisconnect(AJ_BusAttachment* busAttachment, uint8_t disconnectWiFi, uint32_t preDisconnectPause, uint32_t postDisconnectPause, uint8_t* isConnected);
 
 #endif /* _SERVICES_HANDLERS_H_ */
+ 

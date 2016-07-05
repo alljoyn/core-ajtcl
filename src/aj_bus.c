@@ -1241,3 +1241,4 @@ unmarshal_error:
     AJ_ErrPrintf(("AJ_BusHandleJoinSessionReply(msg=0x%p): Unmarshal error\n", msg));
     return status;
 }
+ 

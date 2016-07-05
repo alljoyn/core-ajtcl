@@ -255,4 +255,4 @@ AJ_Status _AJ_CompactNVStorage(AJ_NVRAM_Block_Id blockId)
 void _AJ_NVRAM_ResetLayout()
 {
     nvStorages = NULL;
-}
+} 

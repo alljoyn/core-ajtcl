@@ -640,3 +640,4 @@ void AJ_CredFieldFree(AJ_CredField* field)
         field->data = NULL;
     }
 }
+ 

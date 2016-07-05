@@ -132,3 +132,4 @@ AJ_Status AJSVC_UnmarshalAppId(AJ_Message* msg, char* buf, size_t bufLen)
 
     return status;
 }
+ 

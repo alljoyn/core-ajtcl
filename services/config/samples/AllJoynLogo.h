@@ -74,3 +74,4 @@ static const uint8_t AJ_LogoData[] = {
 static const char AJ_LogoURL[] = "https://www.allseenalliance.org/";
 
 #endif
+ 
