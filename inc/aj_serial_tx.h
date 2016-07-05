@@ -100,3 +100,4 @@ void AJ_FillTxBufferList();
 #endif /* AJ_SERIAL_CONNECTION */
 
 #endif /* _AJ_SERIAL_TX_H */
+ 

@@ -56,3 +56,4 @@ void AJ_ProcessRxBufferList();
 #endif /* AJ_SERIAL_CONNECTION */
 
 #endif /* _AJ_SERIAL_RX_H */
+ 

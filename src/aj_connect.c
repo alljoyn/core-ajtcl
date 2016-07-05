@@ -892,3 +892,4 @@ void AJ_InitRoutingNodeBlacklist()
     memset(RNBlacklistPort, 0, sizeof(RNBlacklistPort));
     RNBlacklistIndex = 0;
 }
+ 

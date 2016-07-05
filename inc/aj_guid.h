@@ -262,3 +262,4 @@ AJ_Status AJ_GUID_HandleNameOwnerChanged(AJ_Message* msg);
  * @}
  */
 #endif
+ 

@@ -201,4 +201,4 @@ void ec_get_REDP_basepoints(ecpoint_t* Q1, ecpoint_t* Q2, curveid_t curveid);
 }
 #endif
 
-#endif /* AJ_CRYPTO_EC_P256_H */
+#endif /* AJ_CRYPTO_EC_P256_H */ 

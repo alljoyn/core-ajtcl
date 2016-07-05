@@ -460,4 +460,4 @@ void AJ_NVRAM_Clear()
 void AJ_NVRAM_Clear_NewLayout(AJ_NVRAM_Block_Id blockId)
 {
     _AJ_NVRAM_Clear(isOldNVRAMLayout ? AJ_NVRAM_ID_ALL_BLOCKS : blockId);
-}
+} 

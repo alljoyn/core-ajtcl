@@ -197,3 +197,4 @@ void _AJ_NVRAM_ResetLayout()
     nvStorages = NULL;
 }
 
+ 

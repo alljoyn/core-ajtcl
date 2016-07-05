@@ -2264,3 +2264,4 @@ Exit:
     HandshakeComplete(AJ_ERR_SECURITY);
     return AJ_ERR_SECURITY;
 }
+ 

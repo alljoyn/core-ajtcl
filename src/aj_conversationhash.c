@@ -205,3 +205,4 @@ void AJ_ConversationHash_SetSensitiveMode(AJ_AuthenticationContext* ctx, uint8_t
 {
     ctx->sensitiveMode = mode;
 }
+ 

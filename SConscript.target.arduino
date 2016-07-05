@@ -70,3 +70,4 @@ for sample in securesamples:
     sdir = arduinoLibDir + 'samples/AJ_' + sample
     env.Install(sdir, 'src/target/arduino/samples/AJ_' + sample + '/AJ_' + sample + '.ino')
     env.InstallAs(sdir + '/' + sample + '.cpp', 'samples/secure/' + sample + '.c')
+ 

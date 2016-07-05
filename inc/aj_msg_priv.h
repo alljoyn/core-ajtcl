@@ -139,3 +139,4 @@ AJ_Status AJ_IdentifyProperty(AJ_Message* msg, const char* iface, const char* pr
  */
 #endif
 
+ 

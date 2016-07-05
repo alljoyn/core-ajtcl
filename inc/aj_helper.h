@@ -289,3 +289,4 @@ AJ_Status AJ_StartClientByPeerDescription(AJ_BusAttachment* bus,
  * @}
  */
 #endif /* _AJ_HELPER_H */
+ 

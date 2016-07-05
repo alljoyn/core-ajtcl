@@ -21,3 +21,4 @@ config_objs = config_env.Object(config_env.Glob('*.c'))
 config_progs = config_env.Program('ConfigSample', common_objs + config_objs)
 
 config_env.Install('#dist/bin/services', config_progs)
+ 

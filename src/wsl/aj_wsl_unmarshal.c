@@ -195,3 +195,4 @@ int32_t WMI_Unmarshal(void* data, const char* sig, ...)
     va_end(args);
     return ptr - (uint8_t*)data;
 }
+ 

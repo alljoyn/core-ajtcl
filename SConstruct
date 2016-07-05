@@ -225,3 +225,4 @@ if found_ws:
 
     if env.get('WS', 'off') != 'off':
         env.Command('#ws_ajtcl', '#dist', Action(wsbuild, '$WSCOMSTR'))
+ 

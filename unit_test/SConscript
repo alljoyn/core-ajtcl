@@ -70,3 +70,4 @@ if (system_gtest or custom_gtest) and os.path.exists(str(gtest_all_path)):
 
     unittest_prog = unittest_env.Program('ajtcltest', objs)
     unittest_env.Install('#dist/test', unittest_prog)
+ 

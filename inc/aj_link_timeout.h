@@ -85,3 +85,4 @@ AJ_Status AJ_SetIdleTimeouts(AJ_BusAttachment* bus, uint32_t idleTo, uint32_t pr
  * @}
  */
 #endif
+ 

@@ -469,3 +469,4 @@ TEST_F(SerialNumberTest, Test6)
     curr = 0x1UL;
     ASSERT_EQ(AJ_OK, AJ_CheckIncomingSerial(&prev, curr));
 }
+ 

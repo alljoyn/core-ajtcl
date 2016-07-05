@@ -299,3 +299,4 @@ uint8_t* getDeviceMac(void);
 #endif
 
 #endif /* AJ_WSL_WMI_H_ */
+ 

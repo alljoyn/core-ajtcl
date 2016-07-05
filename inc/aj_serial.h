@@ -227,3 +227,4 @@ void AJ_SerialDisconnect(void);
 #endif /* AJ_SERIAL_CONNECTION */
 
 #endif /* _AJ_SERIAL_H */
+ 

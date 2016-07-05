@@ -44,3 +44,4 @@ src_env['srcs'].extend(File([
     src_env['ATMEL_DIR'] + '/sam/utils/syscalls/gcc/syscalls.c',
     src_env['ATMEL_DIR'] + '/sam/drivers/dmac/dmac.c'
 ]))
+ 

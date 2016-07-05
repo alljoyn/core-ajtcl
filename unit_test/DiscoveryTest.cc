@@ -232,3 +232,4 @@ TEST_F(DiscoveryTest, SelectProtocolVersionPriorityListFullEqual)
     EXPECT_EQ(AJ_OK, status) << "Unable to select any routing node from the response list ";
     EXPECT_EQ(serviceHigherScore.ipv4, service.ipv4) << "Wrong ipv4 address selected from the response list";
 }
+ 

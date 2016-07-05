@@ -137,3 +137,4 @@ wsl_scan_item* WMI_UnmarshalScan(void* data, uint16_t length);
 #ifdef __cplusplus
 }
 #endif
+ 
