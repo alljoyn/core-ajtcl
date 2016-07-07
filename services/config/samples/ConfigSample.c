@@ -69,26 +69,22 @@ static AJ_BusAttachment busAttachment;
  * Application wide callbacks
  */
 
-static uint32_t PasswordCallback(uint8_t* buffer, uint32_t bufLen)
+static AJ_Status AuthListenerCallback(uint32_t mechanism, uint32_t command, AJ_Credential* cred)
 {
-    AJ_Status status = AJ_OK;
-    const char* hexPassword = AJSVC_PropertyStore_GetValue(AJSVC_PROPERTY_STORE_PASSCODE);
-    size_t hexPasswordLen;
-    uint32_t len = 0;
+    AJ_Status status = AJ_ERR_INVALID;
 
-    if (hexPassword == NULL) {
-        AJ_ErrPrintf(("Password is NULL!\n"));
-        return len;
-    }
-    AJ_InfoPrintf(("Configured password=%s\n", hexPassword));
-    hexPasswordLen = strlen(hexPassword);
-    len = hexPasswordLen / 2;
-    status = AJ_HexToRaw(hexPassword, hexPasswordLen, buffer, bufLen);
-    if (status == AJ_ERR_RESOURCES) {
-        len = 0;
-    }
+    AJ_AlwaysPrintf(("AuthListener called with mechanism %x command %x\n", mechanism, command));
 
-    return len;
+    switch (mechanism) {
+    case AUTH_SUITE_ECDHE_NULL:
+        cred->expiration = 0;
+        status = AJ_OK;
+        break;
+
+    default:
+        break;
+    }
+    return status;
 }
 
 /**
@@ -405,7 +401,7 @@ int AJ_Main(void)
                 continue; // Retry establishing connection to Routing Node.
             }
             /* Setup password based authentication listener for secured peer to peer connections */
-            AJ_BusSetPasswordCallback(&busAttachment, PasswordCallback);
+            AJ_BusSetAuthListenerCallback(&busAttachment, AuthListenerCallback);
         }
 
         status = AJApp_ConnectedHandler(&busAttachment);
