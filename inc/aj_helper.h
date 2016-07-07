@@ -101,6 +101,7 @@ typedef struct {
     const AJ_SessionOpts* opts;     /**< The session option setting. */
 
     AJ_AuthPwdFunc password_callback;   /**<  @deprecated The auth password callback */
+    AJ_AuthListenerFunc authlistener_callback;   /**< The auth password callback */
     uint32_t link_timeout;              /**< The daemon connection's link timeout */
 
     AcceptSessionHandler acceptor;          /**< The AcceptSession callback */
