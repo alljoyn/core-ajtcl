@@ -58,7 +58,9 @@ typedef uint32_t (*AJ_AuthPwdFunc)(uint8_t* buffer, uint32_t bufLen);
  * @param command The listener command
  * @param creds The credentials
  *
- * @return  Returns true if authorized; false otherwise.
+ * @return
+ *         - AJ_OK if credentials data was set
+ *         - An error status otherwise
  */
 typedef AJ_Status (*AJ_AuthListenerFunc)(uint32_t authmechanism, uint32_t command, AJ_Credential* creds);
 
