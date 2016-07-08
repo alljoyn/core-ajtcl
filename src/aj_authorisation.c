@@ -522,10 +522,25 @@ static void PermissionMemberDump(AJ_PermissionMember* member)
     }
 }
 
+static const char* SecurityLevelToString(AJ_SecurityLevel level)
+{
+    switch (level) {
+    case UNAUTHORIZED:
+        return "UNAUTHORIZED";
+
+    case NON_PRIVILEGED:
+        return "NON_PRIVILEGED";
+
+    case PRIVILEGED:
+        return "PRIVILEGED";
+    }
+    return "";
+}
+
 static void PermissionRuleDump(AJ_PermissionRule* rule)
 {
     while (rule) {
-        AJ_InfoPrintf(("  Rule : %s : %s\n", rule->obj, rule->ifn));
+        AJ_InfoPrintf(("  Rule : %s : %s : %s\n", rule->obj, rule->ifn, SecurityLevelToString(rule->securityLevel)));
         PermissionMemberDump(rule->members);
         rule = rule->next;
     }
@@ -810,8 +825,8 @@ AJ_Status AJ_MarshalDefaultPolicy(AJ_CredField* field, AJ_PermissionPeer* peer_c
         AJ_PermissionMember member_any0 = { "*", AJ_MEMBER_TYPE_ANY, AJ_ACTION_PROVIDE, NULL };
         AJ_PermissionMember member_any1 = { "*", AJ_MEMBER_TYPE_SIGNAL, AJ_ACTION_OBSERVE, &member_any0 };
 
-        AJ_PermissionRule rule_admin = { "*", "*", &member_admin, NULL };
-        AJ_PermissionRule rule_any = { "*", "*", &member_any1, NULL };
+        AJ_PermissionRule rule_admin = { "*", "*", PRIVILEGED, &member_admin, NULL };
+        AJ_PermissionRule rule_any = { "*", "*", UNAUTHORIZED, &member_any1, NULL };
 
         AJ_PermissionACL acl_ca = { peer_ca, NULL, NULL };
         AJ_PermissionACL acl_admin = { peer_admin, &rule_admin, &acl_ca };
