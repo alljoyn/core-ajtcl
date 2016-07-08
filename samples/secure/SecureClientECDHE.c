@@ -82,7 +82,7 @@ static const AJ_Object ProxyObjects[] = {
 };
 
 static AJ_PermissionMember members[] = { { "*", AJ_MEMBER_TYPE_ANY, AJ_ACTION_MODIFY | AJ_ACTION_OBSERVE, NULL } };
-static AJ_PermissionRule rules[] = { { ServicePath, InterfaceName, members, NULL } };
+static AJ_PermissionRule rules[] = { { ServicePath, InterfaceName, PRIVILEGED, members, NULL } };
 
 #define PRX_PING   AJ_PRX_MESSAGE_ID(0, 0, 0)
 

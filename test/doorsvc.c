@@ -83,7 +83,7 @@ static AJ_Object AppObjects[] = {
 };
 
 static AJ_PermissionMember members[] = { { "*", AJ_MEMBER_TYPE_ANY, AJ_ACTION_PROVIDE | AJ_ACTION_OBSERVE, NULL } };
-static AJ_PermissionRule rules[] = { { doorObj, doorIfn, members, NULL } };
+static AJ_PermissionRule rules[] = { { doorObj, doorIfn, PRIVILEGED, members, NULL } };
 
 #define OPEN   TRUE
 #define CLOSED FALSE
