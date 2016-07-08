@@ -45,6 +45,7 @@ extern "C" {
 #define AJ_ACTION_PROVIDE            0x1
 #define AJ_ACTION_OBSERVE            0x2
 #define AJ_ACTION_MODIFY             0x4
+
 typedef struct _AJ_PermissionMember {
     const char* mbr;                   /**< Member name */
     uint8_t type;                      /**< Member type (METHOD, SIGNAL, etc.) */
@@ -52,9 +53,19 @@ typedef struct _AJ_PermissionMember {
     struct _AJ_PermissionMember* next;
 } AJ_PermissionMember;
 
+/**
+ * Enum indicating the suggested security level for the interface
+ */
+typedef enum {
+    PRIVILEGED = 0,
+    NON_PRIVILEGED = 1,
+    UNAUTHENTICATED = 2
+} AJ_SecurityLevel;
+
 typedef struct _AJ_PermissionRule {
     const char* obj;                   /**< Object name */
     const char* ifn;                   /**< Interface name */
+    AJ_SecurityLevel securityLevel;    /**< Security level */
     AJ_PermissionMember* members;      /**< Members */
     struct _AJ_PermissionRule* next;
 } AJ_PermissionRule;
