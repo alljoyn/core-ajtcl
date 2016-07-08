@@ -49,9 +49,9 @@ uint8_t dbgAUTHORISATION = 0;
 /**
  * Constants for some message argument signatures.
  */
-static const char* s_ManifestMsgArgSignature = "(ua(ssa(syy))saysay)";
-static const char* s_ManifestMsgArgDigestSignature = "(ua(ssa(syy))says)";
-static const char* s_ManifestArrayMsgArgSignature = "a(ua(ssa(syy))saysay)";
+static const char* s_ManifestMsgArgSignature = "(ua(ssya(syy))saysay)";
+static const char* s_ManifestMsgArgDigestSignature = "(ua(ssya(syy))says)";
+static const char* s_ManifestArrayMsgArgSignature = "a(ua(ssya(syy))saysay)";
 
 /*
  * Policy helper struct.
@@ -522,10 +522,25 @@ static void PermissionMemberDump(AJ_PermissionMember* member)
     }
 }
 
+static const char* SecurityLevelToString(AJ_SecurityLevel level)
+{
+    switch (level) {
+    case UNAUTHORIZED:
+        return "UNAUTHORIZED";
+
+    case NON_PRIVILEGED:
+        return "NON_PRIVILEGED";
+
+    case PRIVILEGED:
+        return "PRIVILEGED";
+    }
+    return "";
+}
+
 static void PermissionRuleDump(AJ_PermissionRule* rule)
 {
     while (rule) {
-        AJ_InfoPrintf(("  Rule : %s : %s\n", rule->obj, rule->ifn));
+        AJ_InfoPrintf(("  Rule : %s : %s : %s\n", rule->obj, rule->ifn, SecurityLevelToString(rule->securityLevel)));
         PermissionMemberDump(rule->members);
         rule = rule->next;
     }
@@ -688,7 +703,7 @@ static AJ_Status AJ_PermissionMemberMarshal(const AJ_PermissionMember* head, AJ_
     return status;
 }
 
-//SIG = a(ssa(syy))
+//SIG = a(ssya(syy))
 static AJ_Status AJ_PermissionRuleMarshal(const AJ_PermissionRule* head, AJ_Message* msg)
 {
     AJ_Status status;
@@ -704,7 +719,7 @@ static AJ_Status AJ_PermissionRuleMarshal(const AJ_PermissionRule* head, AJ_Mess
         if (AJ_OK != status) {
             return status;
         }
-        status = AJ_MarshalArgs(msg, "ss", head->obj, head->ifn);
+        status = AJ_MarshalArgs(msg, "ssy", head->obj, head->ifn, head->securityLevel);
         if (AJ_OK != status) {
             return status;
         }
@@ -723,8 +738,8 @@ static AJ_Status AJ_PermissionRuleMarshal(const AJ_PermissionRule* head, AJ_Mess
     return status;
 }
 
-/* SIG = (ua(ssa(syy))saysay)       if useForDigest is FALSE
- * SIG = (ua(ssa(syy))says)         if useForDigest is TRUE
+/* SIG = (ua(ssya(syy))saysay)       if useForDigest is FALSE
+ * SIG = (ua(ssya(syy))says)         if useForDigest is TRUE
  */
 AJ_Status AJ_ManifestMarshal(AJ_Manifest* manifest, AJ_Message* msg, uint8_t useForDigest)
 {
@@ -743,7 +758,7 @@ AJ_Status AJ_ManifestMarshal(AJ_Manifest* manifest, AJ_Message* msg, uint8_t use
     if (AJ_OK != status) {
         return status;
     }
-    status = AJ_PermissionRuleMarshal(manifest->rules, msg); // SIG = a(ssa(syy))
+    status = AJ_PermissionRuleMarshal(manifest->rules, msg); // SIG = a(ssya(syy))
     if (AJ_OK != status) {
         return status;
     }
@@ -769,7 +784,7 @@ AJ_Status AJ_ManifestMarshal(AJ_Manifest* manifest, AJ_Message* msg, uint8_t use
     return status;
 }
 
-//SIG = a(ua(ssa(syy))saysay)
+//SIG = a(ua(ssya(syy))saysay)
 AJ_Status AJ_ManifestArrayMarshal(AJ_ManifestArray* manifests, AJ_Message* msg)
 {
     AJ_Status status;
@@ -780,7 +795,7 @@ AJ_Status AJ_ManifestArrayMarshal(AJ_ManifestArray* manifests, AJ_Message* msg)
         return status;
     }
     while (manifests) {
-        status = AJ_ManifestMarshal(manifests->manifest, msg, FALSE); // SIG = (ua(ssa(syy))saysay)
+        status = AJ_ManifestMarshal(manifests->manifest, msg, FALSE); // SIG = (ua(ssya(syy))saysay)
         if (AJ_OK != status) {
             return status;
         }
@@ -810,8 +825,8 @@ AJ_Status AJ_MarshalDefaultPolicy(AJ_CredField* field, AJ_PermissionPeer* peer_c
         AJ_PermissionMember member_any0 = { "*", AJ_MEMBER_TYPE_ANY, AJ_ACTION_PROVIDE, NULL };
         AJ_PermissionMember member_any1 = { "*", AJ_MEMBER_TYPE_SIGNAL, AJ_ACTION_OBSERVE, &member_any0 };
 
-        AJ_PermissionRule rule_admin = { "*", "*", &member_admin, NULL };
-        AJ_PermissionRule rule_any = { "*", "*", &member_any1, NULL };
+        AJ_PermissionRule rule_admin = { "*", "*", PRIVILEGED, &member_admin, NULL };
+        AJ_PermissionRule rule_any = { "*", "*", UNAUTHORIZED, &member_any1, NULL };
 
         AJ_PermissionACL acl_ca = { peer_ca, NULL, NULL };
         AJ_PermissionACL acl_admin = { peer_admin, &rule_admin, &acl_ca };
@@ -888,7 +903,7 @@ static AJ_Status AJ_PermissionPeerMarshal(const AJ_PermissionPeer* head, AJ_Mess
     return status;
 }
 
-//SIG = a(a(ya(yyayay)ay)a(ssa(syy)))
+//SIG = a(a(ya(yyayay)ay)a(ssya(syy)))
 static AJ_Status AJ_PermissionACLMarshal(const AJ_PermissionACL* head, AJ_Message* msg)
 {
     AJ_Status status;
@@ -923,7 +938,7 @@ static AJ_Status AJ_PermissionACLMarshal(const AJ_PermissionACL* head, AJ_Messag
     return status;
 }
 
-//SIG = (qua(a(ya(yyayay)ay)a(ssa(syy))))
+//SIG = (qua(a(ya(yyayay)ay)a(ssya(syy))))
 AJ_Status AJ_PolicyMarshal(const AJ_Policy* policy, AJ_Message* msg)
 {
     AJ_Status status;
@@ -1002,7 +1017,7 @@ Exit:
     return AJ_ERR_INVALID;
 }
 
-//SIG = a(ssa(syy))
+//SIG = a(ssya(syy))
 static AJ_Status AJ_PermissionRuleUnmarshal(AJ_PermissionRule** head, AJ_Message* msg)
 {
     AJ_Status status;
@@ -1033,7 +1048,7 @@ static AJ_Status AJ_PermissionRuleUnmarshal(AJ_PermissionRule** head, AJ_Message
             *head = node;
         }
         curr = node;
-        status = AJ_UnmarshalArgs(msg, "ss", &node->obj, &node->ifn);
+        status = AJ_UnmarshalArgs(msg, "ssy", &node->obj, &node->ifn, &node->securityLevel);
         if (AJ_OK != status) {
             goto Exit;
         }
@@ -1060,7 +1075,7 @@ Exit:
     return AJ_ERR_INVALID;
 }
 
-//SIG = a(ua(ssa(syy))saysay)
+//SIG = a(ua(ssya(syy))saysay)
 AJ_Status AJ_ManifestUnmarshal(AJ_Manifest** manifest, AJ_Message* msg)
 {
     AJ_Status status;
@@ -1087,7 +1102,7 @@ AJ_Status AJ_ManifestUnmarshal(AJ_Manifest** manifest, AJ_Message* msg)
         goto Exit;
     }
 
-    status = AJ_PermissionRuleUnmarshal(&tmp->rules, msg); // SIG = a(ssa(syy))
+    status = AJ_PermissionRuleUnmarshal(&tmp->rules, msg); // SIG = a(ssya(syy))
     if (AJ_OK != status) {
         goto Exit;
     }
@@ -1256,7 +1271,7 @@ Exit:
     return AJ_ERR_INVALID;
 }
 
-//SIG = a(a(ya(yyayayay)ay)a(ssa(syy)))
+//SIG = a(a(ya(yyayayay)ay)a(ssya(syy)))
 static AJ_Status AJ_PermissionACLUnmarshal(AJ_PermissionACL** head, AJ_Message* msg)
 {
     AJ_Status status;
@@ -1315,7 +1330,7 @@ Exit:
     return AJ_ERR_INVALID;
 }
 
-//SIG = (qua(a(ya(yyayayay)ay)a(ssa(syy))))
+//SIG = (qua(a(ya(yyayayay)ay)a(ssya(syy))))
 AJ_Status AJ_PolicyUnmarshal(AJ_Policy** policy, AJ_Message* msg)
 {
     AJ_Status status;
@@ -2083,7 +2098,7 @@ AJ_Status AJ_PolicyToBuffer(AJ_Policy* policy, AJ_CredField* field)
     AJ_MsgHeader hdr;
     AJ_Message msg;
 
-    AJ_LocalMsg(&bus, &hdr, &msg, "(qua(a(ya(yyayayay)ay)a(ssa(syy))))", field->data, field->size);
+    AJ_LocalMsg(&bus, &hdr, &msg, "(qua(a(ya(yyayayay)ay)a(ssya(syy))))", field->data, field->size);
     status = AJ_PolicyMarshal(policy, &msg);
     AJ_ASSERT((bus.sock.tx.writePtr - field->data) <= 0xFFFF);
     field->size = (uint16_t)(bus.sock.tx.writePtr - field->data);
@@ -2098,7 +2113,7 @@ AJ_Status AJ_PolicyFromBuffer(AJ_Policy** policy, AJ_CredField* field)
     AJ_MsgHeader hdr;
     AJ_Message msg;
 
-    AJ_LocalMsg(&bus, &hdr, &msg, "(qua(a(ya(yyayayay)ay)a(ssa(syy))))", field->data, field->size);
+    AJ_LocalMsg(&bus, &hdr, &msg, "(qua(a(ya(yyayayay)ay)a(ssya(syy))))", field->data, field->size);
     status = AJ_PolicyUnmarshal(policy, &msg);
 
     return status;
