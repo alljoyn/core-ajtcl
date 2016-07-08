@@ -688,8 +688,9 @@ static AJ_Status AJ_PermissionMemberMarshal(const AJ_PermissionMember* head, AJ_
     return status;
 }
 
-//SIG = a(ssa(syy))
-static AJ_Status AJ_PermissionRuleMarshal(const AJ_PermissionRule* head, AJ_Message* msg)
+//SIG = a(ssa(syy))  => non template case
+//SIG = a(ssya(syy)) => template case
+static AJ_Status AJ_PermissionRuleMarshal(const AJ_PermissionRule* head, AJ_Message* msg, uint8_t isTemplate)
 {
     AJ_Status status;
     AJ_Arg container1;
@@ -704,7 +705,11 @@ static AJ_Status AJ_PermissionRuleMarshal(const AJ_PermissionRule* head, AJ_Mess
         if (AJ_OK != status) {
             return status;
         }
-        status = AJ_MarshalArgs(msg, "ss", head->obj, head->ifn);
+        if (isTemplate) {
+            status = AJ_MarshalArgs(msg, "ssy", head->obj, head->ifn, head->securityLevel);
+        } else {
+            status = AJ_MarshalArgs(msg, "ss", head->obj, head->ifn);
+        }
         if (AJ_OK != status) {
             return status;
         }
@@ -743,7 +748,7 @@ AJ_Status AJ_ManifestMarshal(AJ_Manifest* manifest, AJ_Message* msg, uint8_t use
     if (AJ_OK != status) {
         return status;
     }
-    status = AJ_PermissionRuleMarshal(manifest->rules, msg); // SIG = a(ssa(syy))
+    status = AJ_PermissionRuleMarshal(manifest->rules, msg, FALSE); // SIG = a(ssa(syy))
     if (AJ_OK != status) {
         return status;
     }
@@ -793,7 +798,7 @@ AJ_Status AJ_ManifestArrayMarshal(AJ_ManifestArray* manifests, AJ_Message* msg)
 
 AJ_Status AJ_ManifestTemplateMarshal(AJ_Message* msg)
 {
-    return AJ_PermissionRuleMarshal(g_manifestRules, msg);
+    return AJ_PermissionRuleMarshal(g_manifestRules, msg, TRUE);
 }
 
 AJ_Status AJ_MarshalDefaultPolicy(AJ_CredField* field, AJ_PermissionPeer* peer_ca, AJ_PermissionPeer* peer_admin)
@@ -810,8 +815,8 @@ AJ_Status AJ_MarshalDefaultPolicy(AJ_CredField* field, AJ_PermissionPeer* peer_c
         AJ_PermissionMember member_any0 = { "*", AJ_MEMBER_TYPE_ANY, AJ_ACTION_PROVIDE, NULL };
         AJ_PermissionMember member_any1 = { "*", AJ_MEMBER_TYPE_SIGNAL, AJ_ACTION_OBSERVE, &member_any0 };
 
-        AJ_PermissionRule rule_admin = { "*", "*", &member_admin, NULL };
-        AJ_PermissionRule rule_any = { "*", "*", &member_any1, NULL };
+        AJ_PermissionRule rule_admin = { "*", "*", PRIVILEGED, &member_admin, NULL };
+        AJ_PermissionRule rule_any = { "*", "*", UNAUTHORIZED, &member_any1, NULL };
 
         AJ_PermissionACL acl_ca = { peer_ca, NULL, NULL };
         AJ_PermissionACL acl_admin = { peer_admin, &rule_admin, &acl_ca };
@@ -908,7 +913,7 @@ static AJ_Status AJ_PermissionACLMarshal(const AJ_PermissionACL* head, AJ_Messag
         if (AJ_OK != status) {
             return status;
         }
-        status = AJ_PermissionRuleMarshal(head->rules, msg);
+        status = AJ_PermissionRuleMarshal(head->rules, msg, FALSE);
         if (AJ_OK != status) {
             return status;
         }
