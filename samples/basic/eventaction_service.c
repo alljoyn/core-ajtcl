@@ -109,7 +109,14 @@ static const char* MyTranslator(uint32_t descId, const char* lang) {
         return joinOutArgDesc[langIndex];
 
     case SAMPLE_SOMESIGNAL_ARG_DESC:
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
+#endif
         sprintf(buffer, someSignalArgDesc[langIndex], "Some replacement value");
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
         return buffer;
 
     case SAMPLE_SOMESESSIONLESSSIGNAL_DESC:

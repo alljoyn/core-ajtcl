@@ -53,12 +53,12 @@ static nvEmulatedNvramBlock* nvStorages = NULL;
 
 uint8_t isOldNVRAMLayout = TRUE;
 
-static void _AJ_NVRAM_Init(uint8_t index, uint8_t size)
+static void _AJ_NVRAM_Init(uint8_t idx, uint8_t size)
 {
-    for (; index < size; ++index) {
-        _AJ_LoadNVFromFile(index);
-        if (*((uint32_t*)nvStorages[index].blockStart) != AJ_NV_SENTINEL) {
-            _AJ_NVRAM_Clear(index);
+    for (; idx < size; ++idx) {
+        _AJ_LoadNVFromFile(idx);
+        if (*((uint32_t*)nvStorages[idx].blockStart) != AJ_NV_SENTINEL) {
+            _AJ_NVRAM_Clear(idx);
         }
     }
 }
@@ -93,7 +93,7 @@ AJ_Status AJ_NVRAM_Init_NewLayout()
         }
     } else {
         /*
-         * nvNewEmulatedStorages table is indexed by AJ_NVRAM_Block_Id enum values and is used with new NVRAM file system layout
+         * nvNewEmulatedStorages table is idxed by AJ_NVRAM_Block_Id enum values and is used with new NVRAM file system layout
          */
         static nvEmulatedNvramBlock nvNewEmulatedStorages[] = {
             { 0, 0, 0, 0 },
@@ -107,7 +107,7 @@ AJ_Status AJ_NVRAM_Init_NewLayout()
         uint32_t blocksSize = AJ_NVRAM_SIZE_CREDS + AJ_NVRAM_SIZE_SERVICES + AJ_NVRAM_SIZE_FRAMEWORK + AJ_NVRAM_SIZE_ALLJOYNJS +
                               AJ_NVRAM_SIZE_RESERVED + AJ_NVRAM_SIZE_APPS;
         uint8_t size = sizeof(nvNewEmulatedStorages) / sizeof(nvNewEmulatedStorages[0]);
-        uint8_t index;
+        uint8_t idx;
 
         if (blocksSize > AJ_NVRAM_SIZE) {
             AJ_ErrPrintf(("AJ_NVRAM_Init_NewLayout(): total size of NVRAM blocks exceeds whole NVRAM size\n"));
@@ -116,8 +116,8 @@ AJ_Status AJ_NVRAM_Init_NewLayout()
         nvStorages = nvNewEmulatedStorages;
         isOldNVRAMLayout = FALSE;
 
-        for (index = 1; index < size; ++index) {
-            if (nvStorages[index].blockSize <= SENTINEL_OFFSET) {
+        for (idx = 1; idx < size; ++idx) {
+            if (nvStorages[idx].blockSize <= SENTINEL_OFFSET) {
                 AJ_ErrPrintf(("AJ_NVRAM_Init_NewLayout(): specified NVRAM block size is too small\n"));
                 nvStorages = NULL;
                 return AJ_ERR_FAILURE;
@@ -171,14 +171,14 @@ void _AJ_NV_Read(void* src, void* buf, uint16_t size)
     memcpy(buf, src, size);
 }
 
-static void _AJ_NV_Clear(uint8_t index)
+static void _AJ_NV_Clear(uint8_t idx)
 {
-    memset(nvStorages[index].blockStart, INVALID_DATA_BYTE, nvStorages[index].blockSize);
-    *((uint32_t*)(nvStorages[index].blockStart)) = AJ_NV_SENTINEL;
+    memset(nvStorages[idx].blockStart, INVALID_DATA_BYTE, nvStorages[idx].blockSize);
+    *((uint32_t*)(nvStorages[idx].blockStart)) = AJ_NV_SENTINEL;
 #ifndef NDEBUG
     AJ_Status status =
 #endif
-    _AJ_StoreNVToFile(index);
+    _AJ_StoreNVToFile(idx);
     AJ_ASSERT(AJ_OK == status);
 }
 
