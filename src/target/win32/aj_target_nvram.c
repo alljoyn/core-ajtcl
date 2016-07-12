@@ -197,15 +197,16 @@ void _AJ_NVRAM_Clear(AJ_NVRAM_Block_Id blockId)
 AJ_Status _AJ_LoadNVFromFile(AJ_NVRAM_Block_Id blockId)
 {
     FILE* f;
+    size_t readCount;
     f = fopen(nvStorages[blockId].nvFile, "rb");
     if (f == NULL) {
         AJ_WarnPrintf(("_AJ_LoadNVFromFile(): LoadNVFromFile(\"%s\") failed. status=AJ_ERR_FAILURE\n", nvStorages[blockId].nvFile));
         return AJ_ERR_FAILURE;
     }
     memset(nvStorages[blockId].blockStart, INVALID_DATA_BYTE, nvStorages[blockId].blockSize);
-    fread(nvStorages[blockId].blockStart, nvStorages[blockId].blockSize, 1, f);
+    readCount = fread(nvStorages[blockId].blockStart, nvStorages[blockId].blockSize, 1, f);
     fclose(f);
-    return AJ_OK;
+    return ((readCount != 1) ? AJ_OK : AJ_ERR_FAILURE);
 }
 
 AJ_Status _AJ_StoreNVToFile(AJ_NVRAM_Block_Id blockId)

@@ -354,7 +354,7 @@ static AJ_Status PropertyStore_ReadConfig(uint16_t index, void* ptr, uint16_t si
     return status;
 }
 
-static AJ_Status PropertyStore_WriteConfig(uint16_t index, void* ptr, uint16_t size, char* mode)
+static AJ_Status PropertyStore_WriteConfig(uint16_t index, void* ptr, uint16_t size, const char* mode)
 {
     AJ_Status status = AJ_OK;
     uint16_t sizeWritten = 0;
