@@ -578,7 +578,7 @@ static AJ_Status PSKCallbackV1(AJ_AuthenticationContext* ctx, AJ_Message* msg)
 
 static AJ_Status PSKCallbackV2(AJ_AuthenticationContext* ctx, AJ_Message* msg)
 {
-    AJ_Status status;
+    AJ_Status status = AJ_ERR_SECURITY;
     AJ_Credential cred;
 
     switch (ctx->role) {

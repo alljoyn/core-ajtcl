@@ -61,8 +61,8 @@ AJ_EXPORT uint8_t dbgAJSVCAPP = ER_DEBUG_AJSVCAPP;
  */
 
 #define ROUTING_NODE_NAME "org.alljoyn.BusNode"
-static uint8_t isBusConnected = FALSE;
-static AJ_BusAttachment busAttachment;
+static uint8_t _isBusConnected = FALSE;
+static AJ_BusAttachment _busAttachment;
 #define AJ_ABOUT_SERVICE_PORT 900
 
 /**
@@ -322,7 +322,7 @@ PropertyStoreConfigEntry propertyStoreRuntimeValues[AJSVC_PROPERTY_STORE_NUMBER_
 /**
  * AboutIcon Provisioning
  */
-const char* aboutIconMimetype = AJ_LogoMimeType;
+const char* aboutIconMimetype = (const char*)(AJ_LogoMimeType);
 const uint8_t* aboutIconContent = AJ_LogoData;
 const size_t aboutIconContentSize = AJ_LogoSize;
 const char* aboutIconUrl = AJ_LogoURL;
@@ -421,32 +421,32 @@ int AJ_Main(void)
         status = AJ_OK;
         serviceStatus = AJSVC_SERVICE_STATUS_NOT_HANDLED;
 
-        if (!isBusConnected) {
-            status = AJSVC_RoutingNodeConnect(&busAttachment, ROUTING_NODE_NAME, AJAPP_CONNECT_TIMEOUT, AJAPP_CONNECT_PAUSE, AJAPP_BUS_LINK_TIMEOUT, &isBusConnected);
-            if (!isBusConnected) { // Failed to connect to Routing Node.
+        if (!_isBusConnected) {
+            status = AJSVC_RoutingNodeConnect(&_busAttachment, ROUTING_NODE_NAME, AJAPP_CONNECT_TIMEOUT, AJAPP_CONNECT_PAUSE, AJAPP_BUS_LINK_TIMEOUT, &_isBusConnected);
+            if (!_isBusConnected) { // Failed to connect to Routing Node.
                 continue; // Retry establishing connection to Routing Node.
             }
             /* Setup authentication listener for secured peer to peer connections */
             uint32_t suites[] = { AUTH_SUITE_ECDHE_NULL, AUTH_SUITE_ECDHE_SPEKE };
-            AJ_BusEnableSecurity(&busAttachment, suites, sizeof(suites) / sizeof(*suites));
-            AJ_BusSetAuthListenerCallback(&busAttachment, AuthListenerCallback);
+            AJ_BusEnableSecurity(&_busAttachment, suites, sizeof(suites) / sizeof(*suites));
+            AJ_BusSetAuthListenerCallback(&_busAttachment, AuthListenerCallback);
         }
 
-        status = AJApp_ConnectedHandler(&busAttachment);
+        status = AJApp_ConnectedHandler(&_busAttachment);
 
         if (status == AJ_OK) {
-            status = AJ_UnmarshalMsg(&busAttachment, &msg, AJAPP_UNMARSHAL_TIMEOUT);
+            status = AJ_UnmarshalMsg(&_busAttachment, &msg, AJAPP_UNMARSHAL_TIMEOUT);
             isUnmarshalingSuccessful = (status == AJ_OK);
 
             if (status == AJ_ERR_TIMEOUT) {
-                if (AJ_ERR_LINK_TIMEOUT == AJ_BusLinkStateProc(&busAttachment)) {
+                if (AJ_ERR_LINK_TIMEOUT == AJ_BusLinkStateProc(&_busAttachment)) {
                     status = AJ_ERR_READ;             // something's not right. force disconnect
                 }
             }
 
             if (isUnmarshalingSuccessful) {
                 if (serviceStatus == AJSVC_SERVICE_STATUS_NOT_HANDLED) {
-                    serviceStatus = AJApp_MessageProcessor(&busAttachment, &msg, &status);
+                    serviceStatus = AJApp_MessageProcessor(&_busAttachment, &msg, &status);
                 }
                 if (serviceStatus == AJSVC_SERVICE_STATUS_NOT_HANDLED) {
                     //Pass to the built-in bus message handlers
@@ -460,11 +460,11 @@ int AJ_Main(void)
         }
 
         if (status == AJ_ERR_READ || status == AJ_ERR_WRITE || status == AJ_ERR_RESTART || status == AJ_ERR_RESTART_APP) {
-            if (isBusConnected) {
+            if (_isBusConnected) {
                 forcedDisconnnect = (status != AJ_ERR_READ);
                 rebootRequired = (status == AJ_ERR_RESTART_APP);
-                AJApp_DisconnectHandler(&busAttachment, forcedDisconnnect);
-                AJSVC_RoutingNodeDisconnect(&busAttachment, forcedDisconnnect, AJAPP_SLEEP_TIME, AJAPP_SLEEP_TIME, &isBusConnected);
+                AJApp_DisconnectHandler(&_busAttachment, forcedDisconnnect);
+                AJSVC_RoutingNodeDisconnect(&_busAttachment, forcedDisconnnect, AJAPP_SLEEP_TIME, AJAPP_SLEEP_TIME, &_isBusConnected);
                 if (rebootRequired) {
                     AJ_Reboot();
                 }

@@ -17,8 +17,13 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 #define AJ_MODULE TARGET_UTIL
-#include "aj_target.h"
+/*
+ * _GNU_SOURCE macro definition is neded for strptime declaration
+ * To read more see: man feature_test_macros
+ */
+#define _GNU_SOURCE 1
 #include <time.h>
+#include "aj_target.h"
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -340,9 +345,13 @@ void AJ_Printf(const char* fmat, ...)
                 void* buf = malloc(logLim);
                 if (buf) {
                     fseek(logFile, -logLim, SEEK_CUR);
-                    fread(buf, logLim, 1, logFile);
+                    if (fread(buf, logLim, 1, logFile) != 1) {
+                        AJ_ErrPrintf(("AJ_Printf(): fread() failed. errno=\"%s\"\n", strerror(errno)));
+                    }
                     fseek(logFile, 0, SEEK_SET);
-                    ftruncate(fileno(logFile), 0);
+                    if (ftruncate(fileno(logFile), 0) < 0) {
+                        AJ_ErrPrintf(("AJ_Printf(): ftruncate() failed. errno=\"%s\"\n", strerror(errno)));
+                    }
                     fwrite(buf, logLim, 1, logFile);
                     free(buf);
                 }
