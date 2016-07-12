@@ -51,7 +51,7 @@ static const char* const joinDesc[] = { "Join two strings and return the result"
 static const char* const joinInArg1Desc[] = { "First part of string", "ES: First part of string" };
 static const char* const joinInArg2Desc[] = { "Second part of string", "ES: Second part of string" };
 static const char* const joinOutArgDesc[] = { "Return result", "ES: Return result" };
-static const char* const someSignalArgDesc[] = { "EN: %s", "ES: %s" };
+static const char* const someSignalArgDesc[] = { "EN: ", "ES: " };
 static const char* const someSessionlessSignalDesc[] = { "An example sessionless signal", "ES: An example sessionless signal" };
 
 /*
@@ -109,7 +109,8 @@ static const char* MyTranslator(uint32_t descId, const char* lang) {
         return joinOutArgDesc[langIndex];
 
     case SAMPLE_SOMESIGNAL_ARG_DESC:
-        sprintf(buffer, someSignalArgDesc[langIndex], "Some replacement value");
+        strcpy(buffer, someSignalArgDesc[langIndex]);
+        sprintf(buffer + strlen(someSignalArgDesc[langIndex]), "%s", "Some replacement value");
         return buffer;
 
     case SAMPLE_SOMESESSIONLESSSIGNAL_DESC:
