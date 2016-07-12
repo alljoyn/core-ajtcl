@@ -17,8 +17,15 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 #define AJ_MODULE TARGET_UTIL
-#include "aj_target.h"
+/*
+ * Following macro definition is neded for strptime declaration
+ * To read more see: man feature_test_macros
+ */
+#ifdef __GNUC__
+#define _GNU_SOURCE 1
+#endif
 #include <time.h>
+#include "aj_target.h"
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
