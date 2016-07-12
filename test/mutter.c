@@ -22,6 +22,8 @@
 #include <ajtcl/aj_debug.h>
 #include <ajtcl/aj_bufio.h>
 
+#include <math.h>
+
 static uint8_t wireBuffer[8 * 1024];
 static size_t wireBytes = 0;
 
@@ -1780,7 +1782,7 @@ int AJ_Main()
         case 19:
             memset(&d, 0, sizeof(double));
             status = AJ_UnmarshalArgs(&rxMsg, "d", &d);
-            if (d != 1234.5678) {
+            if (fabs(d - 1234.5678) > 0) {
                 AJ_ErrPrintf(("Double test failure\n"));
                 status = AJ_ERR_FAILURE;
             }
