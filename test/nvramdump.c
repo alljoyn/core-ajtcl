@@ -75,7 +75,7 @@ int AJ_Main(int argc, char** argv)
 int AJ_Main(void)
 #endif
 {
-    AJ_Status status = AJ_OK;
+    AJ_Status status;
     uint8_t useNewLayout = FALSE;
 #ifdef MAIN_ALLOWS_ARGS
     uint8_t i;
@@ -101,7 +101,7 @@ int AJ_Main(void)
         }
     }
 
-    return 0;
+    return ((status == AJ_OK) ? 0 : -1);
 }
 
 #ifdef AJ_MAIN
