@@ -1094,7 +1094,9 @@ static AJ_Status AJ_ARDP_UDP_Recv(void* context, uint8_t** data, uint32_t* recve
         return AJ_ERR_READ;
     } else if ((interruptFd > 0) && FD_ISSET(interruptFd, &fds)) {
         uint64_t u64;
-        read(interruptFd, &u64, sizeof(u64));
+        if (read(interruptFd, &u64, sizeof(u64)) < 0) {
+            AJ_ErrPrintf(("AJ_ARDP_UDP_Recv(): read() failed during interrupt. errno=\"%s\"\n", strerror(errno)));
+        }
         return AJ_ERR_INTERRUPTED;
     } else if (FD_ISSET(ctx->udpSock, &fds)) {
         ret = recvfrom(ctx->udpSock, buffer, sizeof(buffer), 0, NULL, 0);

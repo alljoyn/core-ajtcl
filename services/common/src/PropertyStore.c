@@ -337,12 +337,12 @@ AJ_Status PropertyStore_Init()
 }
 
 #ifdef CONFIG_SERVICE
-static AJ_Status PropertyStore_ReadConfig(uint16_t index, void* ptr, uint16_t size)
+static AJ_Status PropertyStore_ReadConfig(uint16_t idx, void* ptr, uint16_t size)
 {
     AJ_Status status = AJ_OK;
     uint16_t sizeRead = 0;
 
-    AJ_NV_DATASET* nvramHandle = AJ_NVRAM_Open(index, "r", 0);
+    AJ_NV_DATASET* nvramHandle = AJ_NVRAM_Open(idx, "r", 0);
     if (nvramHandle != NULL) {
         sizeRead = AJ_NVRAM_Read(ptr, size, nvramHandle);
         status = AJ_NVRAM_Close(nvramHandle);
@@ -354,12 +354,12 @@ static AJ_Status PropertyStore_ReadConfig(uint16_t index, void* ptr, uint16_t si
     return status;
 }
 
-static AJ_Status PropertyStore_WriteConfig(uint16_t index, void* ptr, uint16_t size, char* mode)
+static AJ_Status PropertyStore_WriteConfig(uint16_t idx, void* ptr, uint16_t size, const char* mode)
 {
     AJ_Status status = AJ_OK;
     uint16_t sizeWritten = 0;
 
-    AJ_NV_DATASET* nvramHandle = AJ_NVRAM_Open(index, mode, size);
+    AJ_NV_DATASET* nvramHandle = AJ_NVRAM_Open(idx, mode, size);
     if (nvramHandle != NULL) {
         sizeWritten = AJ_NVRAM_Write(ptr, size, nvramHandle);
         status = AJ_NVRAM_Close(nvramHandle);
@@ -456,7 +456,7 @@ AJ_Status AJSVC_PropertyStore_ReadAll(AJ_Message* msg, AJSVC_PropertyStoreCatego
     AJ_Arg array2;
     AJ_Arg dict;
     const char* value;
-    uint8_t index;
+    uint8_t idx;
     const char* ajVersion;
     int8_t fieldIndex;
 
@@ -551,8 +551,8 @@ AJ_Status AJSVC_PropertyStore_ReadAll(AJ_Message* msg, AJSVC_PropertyStoreCatego
             return status;
         }
 
-        for (index = 0; index < AJSVC_PROPERTY_STORE_NUMBER_OF_LANGUAGES; index++) {
-            status = AJ_MarshalArgs(msg, "s", propertyStoreDefaultLanguages[index]);
+        for (idx = 0; idx < AJSVC_PROPERTY_STORE_NUMBER_OF_LANGUAGES; idx++) {
+            status = AJ_MarshalArgs(msg, "s", propertyStoreDefaultLanguages[idx]);
             if (status != AJ_OK) {
                 return status;
             }

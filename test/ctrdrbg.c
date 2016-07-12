@@ -103,7 +103,7 @@ int AJ_Main(void)
     size_t size;
     uint8_t* d;
     uint8_t* data;
-    uint8_t* rand;
+    uint8_t* urand;
     char* hex;
 
     for (i = 0; i < ArraySize(testVector); i++) {
@@ -138,10 +138,10 @@ int AJ_Main(void)
 
         size = strlen(testVector[i].rand) / 2;
         data = AJ_Malloc(size);
-        rand = AJ_Malloc(size);
+        urand = AJ_Malloc(size);
         AJ_ASSERT(data);
-        AJ_ASSERT(rand);
-        AJ_HexToRaw(testVector[i].rand, 2 * size, rand, size);
+        AJ_ASSERT(urand);
+        AJ_HexToRaw(testVector[i].rand, 2 * size, urand, size);
 
         status = AES_CTR_DRBG_Generate(&ctx, data, size);
         if (AJ_OK != status) {
@@ -153,14 +153,14 @@ int AJ_Main(void)
             AJ_AlwaysPrintf(("Generate failed for test #%zu\n", i));
             goto Exit;
         }
-        if (0 != memcmp(data, rand, size)) {
+        if (0 != memcmp(data, urand, size)) {
             AJ_AlwaysPrintf(("Expected failed for test #%zu\n", i));
             status = AJ_ERR_SECURITY;
             goto Exit;
         }
 
         AJ_Free(data);
-        AJ_Free(rand);
+        AJ_Free(urand);
     }
 
     // Initialize the core context
@@ -168,16 +168,16 @@ int AJ_Main(void)
 
     // Get some random data
     size = 64;
-    rand = AJ_Malloc(size);
-    AJ_ASSERT(rand);
+    urand = AJ_Malloc(size);
+    AJ_ASSERT(urand);
     hex = AJ_Malloc(2 * size + 1);
     AJ_ASSERT(hex);
     for (i = 0; i < 64; i++) {
-        AJ_RandBytes(rand, size);
-        AJ_RawToHex(rand, size, hex, 2 * size + 1, 0);
+        AJ_RandBytes(urand, size);
+        AJ_RawToHex(urand, size, hex, 2 * size + 1, 0);
         AJ_AlwaysPrintf(("%s\n", hex));
     }
-    AJ_Free(rand);
+    AJ_Free(urand);
     AJ_Free(hex);
 
 Exit:

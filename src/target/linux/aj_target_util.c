@@ -17,6 +17,11 @@
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 #define AJ_MODULE TARGET_UTIL
+/*
+ * _GNU_SOURCE macro definition is needed for strptime declaration
+ * To read more see: man feature_test_macros
+ */
+#define _GNU_SOURCE 1
 #include "aj_target.h"
 #include <time.h>
 #include <unistd.h>
@@ -339,11 +344,25 @@ void AJ_Printf(const char* fmat, ...)
             if (pos >= (2 * logLim)) {
                 void* buf = malloc(logLim);
                 if (buf) {
-                    fseek(logFile, -logLim, SEEK_CUR);
-                    fread(buf, logLim, 1, logFile);
-                    fseek(logFile, 0, SEEK_SET);
-                    ftruncate(fileno(logFile), 0);
-                    fwrite(buf, logLim, 1, logFile);
+                    if (fseek(logFile, -logLim, SEEK_CUR) < 0) {
+                        AJ_ErrPrintf(("AJ_Printf(): fseek() failed. errno=\"%s\"\n", strerror(errno)));
+                        goto Cleanup; /* no point to continue */
+                    }
+                    if (fread(buf, logLim, 1, logFile) != 1) {
+                        AJ_ErrPrintf(("AJ_Printf(): fread() failed. errno=\"%s\"\n", strerror(errno)));
+                        goto Cleanup; /* no point to continue */
+                    }
+                    if (fseek(logFile, 0, SEEK_SET) < 0) {
+                        AJ_ErrPrintf(("AJ_Printf(): fseek() failed. errno=\"%s\"\n", strerror(errno)));
+                        goto Cleanup; /* no point to continue */
+                    }
+                    if (ftruncate(fileno(logFile), 0) < 0) {
+                        AJ_ErrPrintf(("AJ_Printf(): ftruncate() failed. errno=\"%s\"\n", strerror(errno)));
+                    }
+                    if (fwrite(buf, logLim, 1, logFile) != 1) {
+                        AJ_ErrPrintf(("AJ_Printf(): fwrite() failed. errno=\"%s\"\n", strerror(errno)));
+                    }
+                Cleanup:
                     free(buf);
                 }
             }
