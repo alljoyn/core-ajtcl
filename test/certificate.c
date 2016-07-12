@@ -320,7 +320,7 @@ AJ_Status ParseCertificate(X509Certificate* certificate, const char* pem, uint8_
 
 int AJ_Main(int ac, char** av)
 {
-    AJ_Status status = AJ_OK;
+    AJ_Status status;
     X509Certificate certificate;
     AJ_ECCPublicKey pub;
     AJ_ECCPrivateKey prv;
@@ -367,7 +367,7 @@ int AJ_Main(int ac, char** av)
     }
     AJ_X509FreeDecodedCertificateChain(chain);
 
-    return 0;
+    return ((status == AJ_OK) ? 0 : -1);
 }
 
 #ifdef AJ_MAIN

@@ -27,6 +27,14 @@
 #include <ajtcl/aj_config.h>
 #include <ajtcl/aj_security.h>
 
+/*
+ * Added due to deprecated AJ_BusSetPasswordCallback.
+ */
+#if defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
+
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
  * (usually in debugger).
