@@ -287,6 +287,7 @@ static AJ_Status SetDefaultPolicy(AJ_PermissionPeer* ca, AJ_PermissionPeer* admi
     data.size = 512;
     data.data = AJ_Malloc(data.size);
     if (NULL == data.data) {
+        status = AJ_ERR_RESOURCES;
         goto Exit;
     }
     status = AJ_MarshalDefaultPolicy(&data, ca, admin);
