@@ -109,7 +109,7 @@ static AJ_Object AppObjects[] = {
 };
 
 static AJ_PermissionMember members[] = { { "*", AJ_MEMBER_TYPE_ANY, AJ_ACTION_PROVIDE | AJ_ACTION_OBSERVE, NULL } };
-static AJ_PermissionRule rules[] = { { "/org/alljoyn/alljoyn_test", "org.alljoyn.alljoyn_test", members, NULL } };
+static AJ_PermissionRule rules[] = { { "/org/alljoyn/alljoyn_test", "org.alljoyn.alljoyn_test", PRIVILEGED, members, NULL } };
 
 /*
  * Message identifiers for the method calls this application implements
