@@ -55,16 +55,16 @@ extern uint8_t isOldNVRAMLayout;
 
 static AJ_NVRAM_Block_Id _AJ_NVRAM_Find_NV_Storage(uint16_t id)
 {
-    uint8_t index;
+    uint8_t idx;
     if (isOldNVRAMLayout) {
         return AJ_NVRAM_ID_ALL_BLOCKS;
     }
-    for (index = 0; index < sizeof(nvMemoryMap) / sizeof(nvMemoryMap[0]); ++index) {
-        if (id <= nvMemoryMap[index].maxId) {
+    for (idx = 0; idx < sizeof(nvMemoryMap) / sizeof(nvMemoryMap[0]); ++idx) {
+        if (id <= nvMemoryMap[idx].maxId) {
             break;
         }
     }
-    return nvMemoryMap[index].blockId;
+    return nvMemoryMap[idx].blockId;
 }
 
 static uint32_t _AJ_GetNVRAMBlockUsedSize(uint8_t* beginAddress, uint8_t* endAddress)

@@ -135,8 +135,15 @@ AJ_Status AJ_RunAllJoynService(AJ_BusAttachment* bus, AllJoynConfiguration* conf
 
             connected = TRUE;
 
+#if defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
             /* Register a callback for providing bus authentication password */
             AJ_BusSetPasswordCallback(bus, config->password_callback);
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
 
             /* Register a callback for authentication listener */
             AJ_BusSetAuthListenerCallback(bus, config->authlistener_callback);

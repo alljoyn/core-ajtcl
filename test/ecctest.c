@@ -467,10 +467,10 @@ int run_fp256_tests()
 
 int test_curve_basics()
 {
-    ec_t curve = { 0 };
-    ecpoint_t P = { 0 };
-    ecpoint_t P2 = { 0 };
-    ecpoint_jacobian_t Pj = { 0 };
+    ec_t curve = { NISTP256r1, 0, 0, NULL, NULL, NULL, NULL, { { 0 }, { 0 } }, NULL, NULL };
+    ecpoint_t P = { { 0 }, { 0 } };
+    ecpoint_t P2 = { { 0 }, { 0 } };
+    ecpoint_jacobian_t Pj = { { 0 }, { 0 }, { 0 } };
     AJ_Status status;
 
     status = ec_getcurve(&curve, NISTP256r1);
@@ -512,8 +512,8 @@ Exit:
 
 int ecpoint_jacobian_areequal(ecpoint_jacobian_t* A, ecpoint_jacobian_t* B, ec_t* curve)
 {
-    ecpoint_t a = { 0 };
-    ecpoint_t b = { 0 };
+    ecpoint_t a = { { 0 }, { 0 } };
+    ecpoint_t b = { { 0 }, { 0 } };
 
     ec_toaffine(A, &a, curve);
     ec_toaffine(B, &b, curve);
@@ -540,17 +540,17 @@ int ecpoint_areequal(ecpoint_t* A, ecpoint_t* B, ec_t* curve)
 
 int test_curve_arith_basics()
 {
-    ec_t curve = { 0 };
-    ecpoint_t g = { 0 };
-    ecpoint_jacobian_t G = { 0 };
-    ecpoint_jacobian_t anotherG = { 0 };
+    ec_t curve = { NISTP256r1, 0, 0, NULL, NULL, NULL, NULL, { { 0 }, { 0 } }, NULL, NULL };
+    ecpoint_t g = { { 0 }, { 0 } };
+    ecpoint_jacobian_t G = { { 0 }, { 0 }, { 0 } };
+    ecpoint_jacobian_t anotherG = { { 0 }, { 0 }, { 0 } };
     AJ_Status status;
     ecpoint_t R2_known = { { 11964737083406719352UL, 13873736548487404341UL, 9967090510939364035UL, 9003393950442278782UL },
                            { 11386427643415524305UL, 13438088067519447593UL, 2971701507003789531UL, 537992211385471040UL } };       // 2*G
     ecpoint_t R3_known = { { 18104864246493347180UL, 16629180030495074693UL, 14481306550553801061UL, 6830804848925149764UL },
                            { 11131122737810853938UL, 15576456008133752893UL, 3984285777615168236UL, 9742521897846374270UL } };   // 3*G
-    ecpoint_jacobian_t R2 = { 0 };
-    ecpoint_jacobian_t R3 = { 0 };
+    ecpoint_jacobian_t R2 = { { 0 }, { 0 }, { 0 } };
+    ecpoint_jacobian_t R3 = { { 0 }, { 0 }, { 0 } };
 
     status = ec_getcurve(&curve, NISTP256r1);
     if (status != AJ_OK) {
@@ -609,9 +609,9 @@ Exit:
 
 int test_scalarmul_kat(digit256_t k, digit256_t x, digit256_t y, int i)
 {
-    ec_t curve = { 0 };
-    ecpoint_t P = { 0 };
-    ecpoint_t Q;
+    ec_t curve = { NISTP256r1, 0, 0, NULL, NULL, NULL, NULL, { { 0 }, { 0 } }, NULL, NULL };
+    ecpoint_t P = { { 0 }, { 0 } };
+    ecpoint_t Q = { { 0 }, { 0 } };
     AJ_Status status;
 
     status = ec_getcurve(&curve, NISTP256r1);
@@ -761,7 +761,7 @@ Exit:
     ec_freecurve(&curve);
 }
 
-void print_digits(char* label, digit256_t a)
+void print_digits(const char* label, digit256_t a)
 {
     size_t i;
 
@@ -992,12 +992,12 @@ int test_conversion()
 
 int test_redp()
 {
-    ec_t curve = { 0 };
-    ecpoint_t Q1 = { 0 };
-    ecpoint_t Q2 = { 0 };
-    ecpoint_t P1 = { 0 };
-    ecpoint_t P2 = { 0 };
-    ecpoint_t R = { 0 };
+    ec_t curve = { NISTP256r1, 0, 0, NULL, NULL, NULL, NULL, { { 0 }, { 0 } }, NULL, NULL };
+    ecpoint_t Q1 = { { 0 }, { 0 } };
+    ecpoint_t Q2 = { { 0 }, { 0 } };
+    ecpoint_t P1 = { { 0 }, { 0 } };
+    ecpoint_t P2 = { { 0 }, { 0 } };
+    ecpoint_t R = { { 0 }, { 0 } };
     AJ_Status status;
     unsigned char point1[18] = "ALLJOYN-ECSPEKE-1";
     unsigned char point2[18] = "ALLJOYN-ECSPEKE-2";
