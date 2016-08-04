@@ -147,7 +147,7 @@ const char* AJ_StatusText(AJ_Status status)
     static char code[4];
 
 #ifdef _WIN32
-    _snprintf_s(code, sizeof(code), sizeof(code), "%03u", status);
+    _snprintf_s(code, sizeof(code), _TRUNCATE, "%03u", status);
 #else
     snprintf(code, sizeof(code), "%03u", status);
 #endif
