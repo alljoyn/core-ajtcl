@@ -363,6 +363,21 @@ int _AJ_DbgHeader(AJ_DebugLevel level, const char* file, int line);
 #endif
 
 /**
+ * Macro used to avoid the need for a local variable just for an assert. Using a local
+ * variable just for assert, instead of this macro, can cause compiler warnings on
+ * NDEBUG builds.
+ * Example: AJ_VERIFY(foo() == 0); instead of {int local = foo(); AJ_ASSERT(local == 0);}
+ *
+ * @param _cmd  Statement to be executed on both types of builds, and asserted just
+ *              on non-NDEBUG builds.
+ */
+#if defined(NDEBUG)
+#define AJ_VERIFY(_cmd) ((void)(_cmd))
+#else
+#define AJ_VERIFY(_cmd) AJ_ASSERT(_cmd)
+#endif
+
+/**
  * Utility function that converts numerical status to a readable string
  *
  * @param status  A status code
