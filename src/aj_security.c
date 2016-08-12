@@ -696,6 +696,14 @@ AJ_Status AJ_SecurityClaimMethod(AJ_Message* msg, AJ_Message* reply)
     if (AJ_OK != status) {
         goto Exit;
     }
+
+    /* Calling "StartManagement" remotely is impossible before claiming, so it has to be done here. */
+    status = AJ_SecurityStartManagement(msg->bus);
+    if (AJ_OK != status) {
+        AJ_InfoPrintf(("%s(msg=%p, reply=%p): Error calling StartManagement before claiming: %x.\n", __FUNCTION__, msg, reply, status));
+        goto Exit;
+    }
+
     /* Store the admin group guid */
     data.size = admin.group.size;
     data.data = admin.group.data;
@@ -832,6 +840,14 @@ Exit:
         AJ_ClearCredentials(AJ_CERTIFICATE_IDN_X509 | AJ_CRED_TYPE_CERTIFICATE);
         AJ_ClearCredentials(AJ_CRED_TYPE_MANIFESTS);
         AJ_ClearCredentials(AJ_POLICY_DEFAULT | AJ_CRED_TYPE_POLICY);
+
+        /* Result ignored, because this call only fails if management did not start,
+         * what is possible if claiming failed. AJ_VERIFY is used instead of AJ_ASSERT
+         * so that release builds wouldn't fail due to the unused variable.
+         */
+        AJ_Status endStatus = AJ_SecurityEndManagement(msg->bus);
+        AJ_VERIFY((AJ_OK == endStatus) || (AJ_ERR_MANAGEMENT_NOT_STARTED == endStatus));
+
         return AJ_MarshalStatusMsg(msg, reply, status);
     }
 }
@@ -850,6 +866,14 @@ AJ_Status AJ_SecurityResetMethod(AJ_Message* msg, AJ_Message* reply)
     if (AJ_OK != status) {
         return AJ_MarshalErrorMsg(msg, reply, AJ_ErrSecurityViolation);
     } else {
+        /* After Reset it's impossible to call "EndManagement" remotely.
+         * Failure here shouldn't break the reset - it only means
+         * "StartManagement" wasn't called beforehand.
+         */
+        AJ_Status endStatus = AJ_SecurityEndManagement(msg->bus);
+        if (AJ_OK != endStatus) {
+            AJ_InfoPrintf(("%s(msg=%p, reply=%p): StartManagement not ran before reset. Skipping EndManagement: %x.\n", __FUNCTION__, msg, reply, endStatus));
+        }
         return AJ_MarshalReplyMsg(msg, reply);
     }
 }
