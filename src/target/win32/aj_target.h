@@ -93,6 +93,7 @@ extern uint8_t dbgTARGET_UTIL;
  * Include the date of the AllJoyn release when applying this macro (date format: YY.MM).
  */
 #define AJ_DEPRECATED_ON(func, date) __declspec(deprecated) func
+#define QCC_DEPRECATED_MSG(func, msg, date) __declspec(deprecated(msg)) func /**< same as QCC_DEPRECATED_ON, but with user-defined text message to be displayed. */
 
 /*
  * Main method allows argc, argv
