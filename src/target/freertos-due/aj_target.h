@@ -79,15 +79,24 @@ extern uint8_t dbgTARGET_UTIL;
 
 #define AJ_GetDebugTime(x) AJ_ERR_RESOURCES
 
+#define GCC_VERSION ((__GNUC__ * 10000) + (__GNUC_MINOR__ * 100) + __GNUC_PATCHLEVEL__)
 /**
  * Macro to mark a function deprecated, with a date.
  * Include the date of the AllJoyn release when applying this macro (date format: YY.MM).
  */
 #if (__GNUC__ >= 4) || ((__GNUC__ == 3) && (__GNUC_MINOR__ >= 1))
 #define AJ_DEPRECATED_ON(func, date) __attribute__((deprecated)) func /**< mark a function as deprecated in gcc. */
+
+#if (GCC_VERSION >= 40500L)
+#define AJ_DEPRECATED_MSG(func, msg, date) func __attribute__((deprecated(msg))) /**< same as AJ_DEPRECATED_ON, but with user-defined text message to be displayed. */
+#else
+#define AJ_DEPRECATED_MSG(func, msg, date) AJ_DEPRECATED_ON(func, date) /**< gcc versions older than 4.5 do not support the text message. */
+#endif // GCC version >= 4.5
+
 #else
 #define AJ_DEPRECATED_ON(func, date) func /**< not all gcc versions support the deprecated attribute. */
-#endif
+#define AJ_DEPRECATED_MSG(func, msg, date) func /**< not all gcc versions support the deprecated attribute. */
+#endif // GCC version >= 3.1
 
 #ifdef __cplusplus
 }
