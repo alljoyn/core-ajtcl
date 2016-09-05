@@ -285,7 +285,7 @@ static AJ_Status SetDefaultPolicy(AJ_PermissionPeer* ca, AJ_PermissionPeer* admi
 
     /* Create a marshalled policy message - 512 bytes should be sufficient */
     data.size = 512;
-    data.data = AJ_Malloc(data.size);
+    data.data = (uint8_t*)AJ_Malloc(data.size);
     if (NULL == data.data) {
         status = AJ_ERR_RESOURCES;
         goto Exit;
@@ -738,7 +738,7 @@ AJ_Status AJ_SecurityClaimMethod(AJ_Message* msg, AJ_Message* reply)
     identity_data.size = msg->bus->sock.rx.readPtr - identity_data.data;
     /* Allow additional 8 bytes for maximum padding */
     identity_data.size += 8;
-    identity_data.data = AJ_Malloc(identity_data.size);
+    identity_data.data = (uint8_t*)AJ_Malloc(identity_data.size);
     if (NULL == identity_data.data) {
         status = AJ_ERR_RESOURCES;
         goto Exit;
@@ -769,7 +769,7 @@ AJ_Status AJ_SecurityClaimMethod(AJ_Message* msg, AJ_Message* reply)
     manifests_data.size = msg->bus->sock.rx.readPtr - manifests_data.data;
     /* Allow additional 8 bytes for maximum padding */
     manifests_data.size += 8;
-    manifests_data.data = AJ_Malloc(manifests_data.size);
+    manifests_data.data = (uint8_t*)AJ_Malloc(manifests_data.size);
     if (NULL == manifests_data.data) {
         status = AJ_ERR_RESOURCES;
         goto Exit;
@@ -952,7 +952,7 @@ AJ_Status AJ_SecurityUpdateIdentityMethod(AJ_Message* msg, AJ_Message* reply)
     identity_data.size = msg->bus->sock.rx.readPtr - identity_data.data;
     /* Allow additional 8 bytes for maximum padding */
     identity_data.size += 8;
-    identity_data.data = AJ_Malloc(identity_data.size);
+    identity_data.data = (uint8_t*)AJ_Malloc(identity_data.size);
     if (NULL == identity_data.data) {
         status = AJ_ERR_RESOURCES;
         goto Exit;
@@ -990,7 +990,7 @@ AJ_Status AJ_SecurityUpdateIdentityMethod(AJ_Message* msg, AJ_Message* reply)
     manifests_data.size = msg->bus->sock.rx.readPtr - manifests_data.data;
     /* Allow additional 8 bytes for maximum padding */
     manifests_data.size += 8;
-    manifests_data.data = AJ_Malloc(manifests_data.size);
+    manifests_data.data = (uint8_t*)AJ_Malloc(manifests_data.size);
     if (NULL == manifests_data.data) {
         status = AJ_ERR_RESOURCES;
         goto Exit;
@@ -1067,7 +1067,7 @@ AJ_Status AJ_SecurityUpdatePolicyMethod(AJ_Message* msg, AJ_Message* reply)
     policy_data.size = msg->bus->sock.rx.readPtr - policy_data.data;
     /* Allow additional 8 bytes for maximum padding */
     policy_data.size += 8;
-    policy_data.data = AJ_Malloc(policy_data.size);
+    policy_data.data = (uint8_t*)AJ_Malloc(policy_data.size);
     if (NULL == policy_data.data) {
         status = AJ_ERR_RESOURCES;
         goto Exit;
@@ -1142,7 +1142,7 @@ AJ_Status AJ_SecurityInstallMembershipMethod(AJ_Message* msg, AJ_Message* reply)
     membership_data.size = msg->bus->sock.rx.readPtr - membership_data.data;
     /* Allow additional 8 bytes for maximum padding */
     membership_data.size += 8;
-    membership_data.data = AJ_Malloc(membership_data.size);
+    membership_data.data = (uint8_t*)AJ_Malloc(membership_data.size);
     if (NULL == membership_data.data) {
         status = AJ_ERR_RESOURCES;
         goto Exit;
@@ -1166,7 +1166,7 @@ AJ_Status AJ_SecurityInstallMembershipMethod(AJ_Message* msg, AJ_Message* reply)
     }
 
     id.size = certificate.serial.size + certificate.aki.size;
-    id.data = AJ_Malloc(id.size);
+    id.data = (uint8_t*)AJ_Malloc(id.size);
     if (NULL == id.data) {
         goto Exit;
     }
@@ -1230,7 +1230,7 @@ AJ_Status AJ_SecurityRemoveMembershipMethod(AJ_Message* msg, AJ_Message* reply)
 
     /* Delete membership certificate */
     id.size = certificate.serial.size + certificate.aki.size;
-    id.data = AJ_Malloc(id.size);
+    id.data = (uint8_t*)AJ_Malloc(id.size);
     if (NULL == id.data) {
         goto Exit;
     }
@@ -1369,7 +1369,7 @@ AJ_Status AJ_SecurityInstallManifestsMethod(AJ_Message* msg, AJ_Message* reply)
     combinedManifests_data.size = currentManifests_data.size + (msg->bus->sock.rx.readPtr - newManifests_data.data);
     /* Allow additional 8 bytes per manifest for maximum padding. */
     combinedManifests_data.size += (8 * manifestCount);
-    combinedManifests_data.data = AJ_Malloc(combinedManifests_data.size);
+    combinedManifests_data.data = (uint8_t*)AJ_Malloc(combinedManifests_data.size);
     if (NULL == combinedManifests_data.data) {
         status = AJ_ERR_RESOURCES;
         goto Exit;

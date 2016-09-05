@@ -78,13 +78,13 @@ static digit256_tc P256_MODULUS = { 18446744073709551615ULL, 4294967295ULL, 0ULL
 
 
 /* Is x != 0? */
-inline digit_t is_digit_nonzero_ct(digit_t x)
+digit_t is_digit_nonzero_ct(digit_t x)
 {
     return ((x | (0 - x)) >> (RADIX_BITS - 1));
 }
 
 /* Is x == 0? */
-inline digit_t is_digit_zero_ct(digit_t x)
+digit_t is_digit_zero_ct(digit_t x)
 {
     return (1 ^ is_digit_nonzero_ct(x));
 }
@@ -316,7 +316,7 @@ boolean_t validate_256(digit256_tc a, digit256_tc modulus)
 
     fpcopy_p256(a, t1);
     valid = fpneg_p256(t1);                     /* valid = B_TRUE if a <= modulus  */
-    valid = (valid & (fpiszero_p256(t1) ^ 1));  /* valid = B_TRUE if a < modulus (use & instead of && for constant-time execution) */
+    valid = (boolean_t)(valid & (fpiszero_p256(t1) ^ 1));  /* valid = B_TRUE if a < modulus (use & instead of && for constant-time execution) */
 
     /* cleanup  */
     fpzero_p256(t1);
@@ -646,7 +646,7 @@ boolean_t fpequal_p256(digit256_tc f1, digit256_tc f2)
     temp |= (f1[2] ^ f2[2]);
     temp |= (f1[3] ^ f2[3]);
 
-    equal = (boolean_t) ~((((sdigit_t)temp) >> (RADIX_BITS - 1)) | (-((sdigit_t)temp) >> (RADIX_BITS - 1))) & 1;
+    equal = (boolean_t) (~((((sdigit_t)temp) >> (RADIX_BITS - 1)) | (-((sdigit_t)temp) >> (RADIX_BITS - 1))) & 1);
 
     return equal;
 }
