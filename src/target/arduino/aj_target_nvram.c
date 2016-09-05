@@ -18,7 +18,7 @@
  ******************************************************************************/
 
 #include <ajtcl/aj_nvram.h>
-#include <aj_target_nvram.h>
+#include <ajtcl/aj_target_nvram.h>
 
 extern void AJ_NVRAM_Layout_Print();
 
@@ -41,7 +41,7 @@ static void _AJ_NVRAM_Init(uint8_t index, uint8_t size)
 {
     for (; index < size; ++index) {
         if (*((uint32_t*)nvStorages[index].blockStart) != AJ_NV_SENTINEL) {
-            _AJ_NVRAM_Clear(index);
+            _AJ_NVRAM_Clear((AJ_NVRAM_Block_Id)index);
         }
     }
 }
@@ -134,7 +134,7 @@ void _AJ_NV_Write(AJ_NVRAM_Block_Id blockId, void* dest, const void* buf, uint16
     }
 }
 
-void _AJ_NV_Move(void* dest, const void* buf, uint16_t size)
+void _AJ_NV_Move(AJ_NVRAM_Block_Id blockId, void* dest, const void* buf, uint16_t size)
 {
     memmove(dest, buf, size);
 }
@@ -154,7 +154,7 @@ void _AJ_NVRAM_Clear(AJ_NVRAM_Block_Id blockId)
 {
     if ((blockId == AJ_NVRAM_ID_ALL_BLOCKS) && !isOldNVRAMLayout) {
         AJ_NVRAM_Block_Id _blockId;
-        for (_blockId = blockId + 1; _blockId < AJ_NVRAM_ID_END_SENTINEL; ++_blockId) {
+        for (_blockId = (AJ_NVRAM_Block_Id)(blockId + 1); _blockId < AJ_NVRAM_ID_END_SENTINEL; _blockId = (AJ_NVRAM_Block_Id)(_blockId + 1)) {
             _AJ_NV_Clear(_blockId);
         }
     } else {

@@ -196,6 +196,7 @@ env.Append(CPPDEFINES = [ v for k, v in ARGLIST if k.lower() == 'define' ])
 # Install header files
 #######################################################
 env.Install('#dist/include/ajtcl', env.Glob('inc/*.h'))
+env.Install('#dist/include/ajtcl', env.Glob('src/*.h'))
 env.Install('#dist/include/ajtcl', env.Glob('src/target/$TARG/aj_target.h'))
 # Need to force a dpendency here because SCons can't follow nested
 # #include dependencies otherwise

@@ -511,7 +511,7 @@ static AJ_Status PSKSetHint(AJ_AuthenticationContext* ctx, const uint8_t* hint, 
               ((NULL != ctx->kactx.psk.hint) && (ctx->kactx.psk.hintSize > 0)));
     AJ_Free(ctx->kactx.psk.hint);
 
-    ctx->kactx.psk.hint = AJ_Malloc(hintSize);
+    ctx->kactx.psk.hint = (uint8_t*)AJ_Malloc(hintSize);
     if (NULL == ctx->kactx.psk.hint) {
         ctx->kactx.psk.hintSize = 0;
         return AJ_ERR_RESOURCES;
@@ -530,7 +530,7 @@ static AJ_Status PSKSetKey(AJ_AuthenticationContext* ctx, const uint8_t* key, si
         AJ_Free(ctx->kactx.psk.key);
     }
 
-    ctx->kactx.psk.key = AJ_Malloc(keySize);
+    ctx->kactx.psk.key = (uint8_t*)AJ_Malloc(keySize);
     if (NULL == ctx->kactx.psk.key) {
         ctx->kactx.psk.keySize = 0;
         return AJ_ERR_RESOURCES;

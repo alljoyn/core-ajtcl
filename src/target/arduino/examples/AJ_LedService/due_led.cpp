@@ -23,6 +23,7 @@
 #include "due_led.h"
 #include <ajtcl/aj_debug.h>
 #include <ajtcl/alljoyn.h>
+#include <ajtcl/aj_util.h>
 
 uint8_t dbgDUE_LED = 0;
 
