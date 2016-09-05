@@ -73,7 +73,7 @@ static AJ_Status AJ_HMAC_SHA256_Final(AJ_HMAC_SHA256_CTX* ctx, uint8_t* digest);
 AJ_SHA256_Context* AJ_SHA256_Init(void)
 {
     AJ_SHA256_Context* context;
-    context = AJ_Malloc(sizeof(*context));
+    context = (AJ_SHA256_Context*)AJ_Malloc(sizeof(*context));
     if (context) {
         SHA256_Init(&context->internal);
     } else {
