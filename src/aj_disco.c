@@ -244,8 +244,12 @@ typedef struct _MDNSHeader {
 } MDNSHeader;
 
 typedef struct _MDNSARData {
-    char ipv4Addr[3 * 4 + 3 + 1];
+    char ipv4Addr[IPV4ADDRSIZE_U8];
 } MDNSARData;
+
+typedef struct _MDNSAAAARData {
+    char ipv6Addr[IPV6ADDRSIZE_U8];
+} MDNSAAAARData;
 
 typedef struct _MDNSDomainName {
     char name[256];
@@ -266,6 +270,7 @@ typedef struct _MDNSTextRData {
 
 typedef union _MDNSRData {
     MDNSARData aRData;
+    MDNSAAAARData aaaaRData;
     MDNSSrvRData srvRData;
     MDNSTextRData textRData;
     MDNSDomainName ptrRData;
@@ -493,19 +498,33 @@ static size_t ParseMDNSHeader(uint8_t const* buffer, uint32_t bufsize, MDNSHeade
 
 }
 
+/**
+   For A and AAAA records, the passed buffer contains a 16 bit length then the address data
+ **/
 static size_t ParseMDNSARData(uint8_t const* buffer, uint32_t bufsize, MDNSARData* a)
 {
-    memset(a->ipv4Addr, 0, 16);
-    if (bufsize < 6) {
+    if (bufsize < (IPV4ADDRSIZE_U8 + sizeof(uint16_t))) {
         return 0;
     }
-    if (buffer[0] != 0 || buffer[1] != 4) {
+    if (buffer[0] != 0 || buffer[1] != IPV4ADDRSIZE_U8) {
         return 0;
+    }
+    memset(a->ipv4Addr, 0, IPV4ADDRSIZE_U8);
+    memcpy(a->ipv4Addr, (buffer + sizeof(uint16_t)), IPV4ADDRSIZE_U8);
+    return (IPV4ADDRSIZE_U8 + sizeof(uint16_t));
+}
 
+static size_t ParseMDNSAAAARData(uint8_t const* buffer, uint32_t bufsize, MDNSAAAARData* a)
+{
+    if (bufsize < (IPV6ADDRSIZE_U8 + sizeof(uint16_t))) {
+        return 0;
     }
-    memset(a->ipv4Addr, 0, 4);
-    memcpy(a->ipv4Addr, (buffer + 2), 4);
-    return 6;
+    if (buffer[0] != 0 || buffer[1] != IPV6ADDRSIZE_U8) {
+        return 0;
+    }
+    memset(a->ipv6Addr, 0, IPV6ADDRSIZE_U8);
+    memcpy(a->ipv6Addr, (buffer + sizeof(uint16_t)), IPV6ADDRSIZE_U8);
+    return (IPV6ADDRSIZE_U8 + sizeof(uint16_t));
 }
 
 static size_t ParseMDNSDefaultRData(uint8_t const* buffer, uint32_t bufsize)
@@ -755,6 +774,11 @@ static size_t ParseMDNSResourceRecord(uint8_t const* buffer, uint32_t bufsize, M
         processed = ParseMDNSTextRData(p, bufsize, &(record->rdata.textRData), payload, paylen, prefix);
         break;
 
+    case AAAA:
+        AJ_InfoPrintf(("ParseMDNSResourceRecord(): Found an AAAA record\n"));
+        processed = ParseMDNSAAAARData(p, bufsize, &(record->rdata.aaaaRData));
+        break;
+
     case NS:
     case MD:
     case MF:
@@ -764,7 +788,6 @@ static size_t ParseMDNSResourceRecord(uint8_t const* buffer, uint32_t bufsize, M
     case MR:
     case RNULL:
     case HINFO:
-    case AAAA:
     default:
         AJ_InfoPrintf(("ParseMDNSResourceRecord(): Found a non-relevant or unknown record type that will be ignored\n"));
         processed = ParseMDNSDefaultRData(p, bufsize);
@@ -793,11 +816,13 @@ static AJ_Status ParseMDNSResp(AJ_IOBuffer* rxBuf, const char* prefix, AJ_Servic
     uint8_t bus_transport = 0;
     uint8_t bus_protocol = 0;
     uint8_t bus_a_record = 0;
+    uint8_t bus_aaaa_record = 0;
     uint16_t service_port_tcp = 0;
     uint16_t service_port_udp = 0;
     uint16_t service_priority = 0;
-    uint32_t protocol_version;
-    uint8_t bus_addr[3 * 4 + 3 + 1] = { 0 };
+    uint32_t protocol_version = 0;
+    uint8_t bus_addr[IPV4ADDRSIZE_U8] = { 0 };
+    uint8_t bus_aaa_addr[IPV6ADDRSIZE_U8] = { 0 };
     uint8_t service_target[256] = { 0 };
     MDNSResourceRecord r;
 
@@ -937,9 +962,16 @@ static AJ_Status ParseMDNSResp(AJ_IOBuffer* rxBuf, const char* prefix, AJ_Servic
         // Ensure the A record refers to the same guid in the SRV record.
         if (r.rrType == A && !memcmp(r.rrDomainName.name, service_target, 38)) {
             AJ_InfoPrintf(("Found an A additional record.\n"));
-            memset(bus_addr, 0, (3 * 4 + 3 + 1));
-            memcpy(bus_addr, r.rdata.aRData.ipv4Addr, (3 * 4 + 3 + 1));
+            memset(bus_addr, 0, IPV4ADDRSIZE_U8);
+            memcpy(bus_addr, r.rdata.aRData.ipv4Addr, IPV4ADDRSIZE_U8);
             bus_a_record = 1;
+        }
+        // Ensure the AAAA record refers to the same guid in the SRV record.
+        if (r.rrType == AAAA && !memcmp(r.rrDomainName.name, service_target, 38)) {
+            AJ_InfoPrintf(("Found an AAAA additional record.\n"));
+            memset(bus_aaa_addr, 0, IPV6ADDRSIZE_U8);
+            memcpy(bus_aaa_addr, r.rdata.aaaaRData.ipv6Addr, IPV6ADDRSIZE_U8);
+            bus_aaaa_record = 1;
         }
     }
 
@@ -948,7 +980,7 @@ static AJ_Status ParseMDNSResp(AJ_IOBuffer* rxBuf, const char* prefix, AJ_Servic
     // guid. Note that other records might have been ignored to ensure forward
     // compatibility with other record types that may be in use in the future.
     if ((alljoyn_ptr_record_tcp || alljoyn_ptr_record_udp) && (service_port_tcp || service_port_udp)
-        && bus_transport && bus_protocol && bus_a_record) {
+        && bus_transport && bus_protocol && (bus_a_record || bus_aaaa_record)) {
         // ignore this record if it's TCP-only but we want ARDP-only, or vice-versa
         AJ_Status status = AJ_ERR_NO_MATCH;
 
@@ -967,15 +999,22 @@ static AJ_Status ParseMDNSResp(AJ_IOBuffer* rxBuf, const char* prefix, AJ_Servic
         // similarly, check ARDP only if we care about it.
 #ifdef AJ_ARDP
         if (alljoyn_ptr_record_udp && service_port_udp) {
-            service->ipv4portUdp = service_port_udp;
-            memcpy(&service->ipv4Udp, bus_addr, sizeof(service->ipv4Udp));
-            service->addrTypes |= AJ_ADDR_UDP4;
+            if (bus_a_record) {
+                service->ipv4portUdp = service_port_udp;
+                memcpy(&service->ipv4Udp, bus_addr, sizeof(service->ipv4Udp));
+                service->addrTypes |= AJ_ADDR_UDP4;
+            }
+            if (bus_aaaa_record) {
+                service->ipv6portUdp = service_port_udp;
+                service->scope_id = rxBuf->scope_id;
+                memcpy(&service->ipv6Udp, bus_aaa_addr, sizeof(service->ipv6Udp));
+                service->addrTypes |= AJ_ADDR_UDP6;
+            }
             service->pv = protocol_version;
             service->priority = service_priority;
             status = AJ_OK;
         }
 #endif
-
         return status;
     } else {
         return AJ_ERR_NO_MATCH;
