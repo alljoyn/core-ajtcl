@@ -81,6 +81,7 @@ typedef struct _AJ_IOBuffer {
         AJ_TxFunc send;
         AJ_RxFunc recv;
     };
+    uint32_t scope_id;  /**< Scope id of the interface that received an IPV6 packet */
     void* context;      /**< Abstracted context for managing I/O */
 
 } AJ_IOBuffer;
