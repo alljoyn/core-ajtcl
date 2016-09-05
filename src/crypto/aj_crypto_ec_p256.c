@@ -19,6 +19,7 @@
 
 #include <ajtcl/aj_util.h>
 #include <ajtcl/aj_crypto_ecc.h>
+#include <ajtcl/aj_crypto_fp.h>
 #include <ajtcl/aj_crypto_ec_p256.h>
 
 #define W_VARBASE 6     /* Parameter for scalar multiplication.  Should use 2-2.5 KB.  Must be >= 2. */
@@ -45,10 +46,10 @@ AJ_Status ec_getcurve(ec_t* curve, curveid_t curveid)
         curve->rbits = 256;
         curve->pbits = 256;
 
-        curve->prime = AJ_Malloc(sizeof(digit256_t));
-        curve->a = AJ_Malloc(sizeof(digit256_tc));
-        curve->b = AJ_Malloc(sizeof(digit256_tc));
-        curve->order = AJ_Malloc(sizeof(digit256_tc));
+        curve->prime = (uint64_t*) AJ_Malloc(sizeof(digit256_t));
+        curve->a = (uint64_t*)AJ_Malloc(sizeof(digit256_tc));
+        curve->b = (uint64_t*)AJ_Malloc(sizeof(digit256_tc));
+        curve->order = (uint64_t*)AJ_Malloc(sizeof(digit256_tc));
         if (curve->prime == NULL || curve->a == NULL || curve->b == NULL || curve->order == NULL) {
             status = AJ_ERR_RESOURCES;
             goto Exit;
@@ -154,7 +155,7 @@ boolean_t ec_is_infinity(const ecpoint_t* P, ec_t* curve)
         c = c | P->x[i] | P->y[i];
     }
 
-    return is_digit_zero_ct(c);
+    return (is_digit_zero_ct(c) == 0 ? B_FALSE : B_TRUE);
 }
 
 /* Check if Jacobian point P is the point at infinity (0:Y:0) */
@@ -168,7 +169,7 @@ boolean_t ec_is_infinity_jacobian(const ecpoint_jacobian_t* P, ec_t* curve)
         c = c | P->X[i] | P->Z[i];
     }
 
-    return is_digit_zero_ct(c);
+    return (is_digit_zero_ct(c) == 0 ? B_FALSE : B_TRUE);
 }
 
 boolean_t ec_oncurve(const ecpoint_t* P, ec_t* curve)
