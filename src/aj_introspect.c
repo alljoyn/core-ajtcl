@@ -409,7 +409,7 @@ static AJ_Status ExpandInterfaces(XMLWriterFunc XMLWriter, void* context, const 
                         descriptionAvailable = IsDescriptionAvailable(descLookup, attrDescId);
                     } else {
                         description = GetDescription(descLookup, attrDescId, languageTag);
-                        descriptionAvailable = (description != NULL);
+                        descriptionAvailable = (description != NULL) ? B_TRUE : B_FALSE;
                     }
                     if (descriptionAvailable) {
                         dir += 3;
@@ -432,7 +432,7 @@ static AJ_Status ExpandInterfaces(XMLWriterFunc XMLWriter, void* context, const 
                 descriptionAvailable = IsDescriptionAvailable(descLookup, memberDescId);
             } else {
                 description = GetDescription(descLookup, memberDescId, languageTag);
-                descriptionAvailable = (description != NULL);
+                descriptionAvailable = (description != NULL) ? B_TRUE : B_FALSE;
             }
             if (descriptionAvailable) {
                 if (memberType == PROPERTY) {
@@ -583,7 +583,7 @@ static AJ_Status GenXML(XMLWriterFunc XMLWriter, void* context, const AJ_ObjectI
     AJ_Status status = AJ_OK;
     const AJ_Object* obj;
     AJ_DescriptionLookupFunc descLookup = NULL;
-    boolean_t unifiedFormat = (languageTag == NULL);
+    boolean_t unifiedFormat = (languageTag == NULL) ? B_TRUE : B_FALSE;
 
     if (objIter == NULL) {
         obj = virtualObject;
@@ -673,7 +673,7 @@ static AJ_Status GenXML(XMLWriterFunc XMLWriter, void* context, const AJ_ObjectI
                         descriptionAvailable = IsDescriptionAvailable(descLookup, descId);
                     } else {
                         description = GetDescription(descLookup, descId, languageTag);
-                        descriptionAvailable = (description != NULL);
+                        descriptionAvailable = (description != NULL) ? B_TRUE : B_FALSE;
                     }
                     if (descriptionAvailable) {
                         XMLWriteTag(XMLWriter, context, nodeOpen, nameAttr, child, len, FALSE);

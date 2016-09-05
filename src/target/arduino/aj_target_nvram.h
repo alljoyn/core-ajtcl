@@ -57,13 +57,24 @@ void _AJ_NV_Write(AJ_NVRAM_Block_Id blockId, void* dest, const void* buf, uint16
  */
 void _AJ_NV_Read(void* src, void* buf, uint16_t size);
 
-
 /**
  * Erase the whole NVRAM sector and write the sentinel data
  *
  * @param blockId  A unique id of NVRAM memory block
  */
 void _AJ_NVRAM_Clear(AJ_NVRAM_Block_Id blockId);
+
+/**
+ * Load NVRAM data from a file
+ */
+AJ_Status _AJ_LoadNVFromFile();
+
+/**
+ * Write NVRAM data to a file for persistent storage
+ *
+ * @param blockId  A unique id of NVRAM memory block
+ */
+AJ_Status _AJ_StoreNVToFile(AJ_NVRAM_Block_Id blockId);
 
 /**
  * Get NVRAM memory block informations: begin address, end address, block size

@@ -25,7 +25,11 @@
 
 #include <ajtcl/aj_nvram.h>
 #include <ajtcl/aj_debug.h>
+#ifdef ARDUINO
+#include <ajtcl/aj_target_nvram.h>
+#else
 #include "../aj_target_nvram.h"
+#endif
 
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
@@ -89,7 +93,7 @@ uint32_t AJ_NVRAM_GetSize_NewLayout(AJ_NVRAM_Block_Id blockId)
     if ((blockId == AJ_NVRAM_ID_ALL_BLOCKS) && !isOldNVRAMLayout) {
         uint32_t sum = 0;
         AJ_NVRAM_Block_Id _blockId;
-        for (_blockId = blockId + 1; _blockId < AJ_NVRAM_ID_END_SENTINEL; ++_blockId) {
+        for (_blockId = (AJ_NVRAM_Block_Id)(blockId + 1); _blockId < AJ_NVRAM_ID_END_SENTINEL; _blockId = (AJ_NVRAM_Block_Id)(_blockId + 1)) {
             sum += _AJ_GetNVRAMBlockUsedSize(_AJ_GetNVBlockBase(_blockId), _AJ_GetNVBlockEnd(_blockId));
         }
         return sum;
@@ -110,7 +114,7 @@ uint32_t AJ_NVRAM_GetSizeRemaining_NewLayout(AJ_NVRAM_Block_Id blockId)
     if ((blockId == AJ_NVRAM_ID_ALL_BLOCKS) && !isOldNVRAMLayout) {
         uint32_t sum = 0;
         AJ_NVRAM_Block_Id _blockId;
-        for (_blockId = blockId + 1; _blockId < AJ_NVRAM_ID_END_SENTINEL; ++_blockId) {
+        for (_blockId = (AJ_NVRAM_Block_Id)(blockId + 1); _blockId < AJ_NVRAM_ID_END_SENTINEL; _blockId = (AJ_NVRAM_Block_Id)(_blockId + 1)) {
             _AJ_CompactNVStorage(_blockId);
             sum += _AJ_GetNVBlockSize(_blockId);
         }
@@ -137,7 +141,7 @@ void AJ_NVRAM_Layout_Print()
 
     AJ_AlwaysPrintf(("============ AJ NVRAM Map ===========\n"));
 
-    for (blockId = (isOldNVRAMLayout ? AJ_NVRAM_ID_ALL_BLOCKS : AJ_NVRAM_ID_ALL_BLOCKS + 1); blockId < AJ_NVRAM_ID_END_SENTINEL; ++blockId) {
+    for (blockId = (AJ_NVRAM_Block_Id)(isOldNVRAMLayout ? AJ_NVRAM_ID_ALL_BLOCKS : AJ_NVRAM_ID_ALL_BLOCKS + 1); blockId < AJ_NVRAM_ID_END_SENTINEL; blockId = (AJ_NVRAM_Block_Id)(blockId + 1)) {
         for (i = 0; i < SENTINEL_OFFSET; i++) {
             AJ_AlwaysPrintf(("%c", *((uint8_t*)(_AJ_GetNVBlockBase(blockId) + i))));
         }
@@ -237,7 +241,7 @@ AJ_Status AJ_NVRAM_SecureDelete(uint16_t id)
     newHeader.id = 0;
     _AJ_NV_Write(blockId, ptr, &newHeader, ENTRY_HEADER_SIZE, FALSE);
 
-    uint8_t* buf = AJ_Malloc(newHeader.capacity);
+    uint8_t* buf = (uint8_t*)AJ_Malloc(newHeader.capacity);
 
     if (!buf) {
         AJ_ErrPrintf(("AJ_NVRAM_SecureDelete(): AJ_ERR_RESOURCES\n"));
