@@ -1064,15 +1064,15 @@ COND_STATIC boolean_t in_curveP(affine_point_t const* P)
         return B_FALSE;
     }
 
-    fInfinity = P->infinity;
+    fInfinity = (P->infinity != 0) ? B_TRUE : B_FALSE;
 
     bigval_to_digit256(&P->x, Pt.x);
     bigval_to_digit256(&P->y, Pt.y);
 
-    fValid = (boolean_t)ecpoint_validation(&Pt, &curve);
+    fValid = (ecpoint_validation(&Pt, &curve)  != 0) ? B_TRUE : B_FALSE;
 
     ec_freecurve(&curve);
-    return(fInfinity | fValid);
+    return ((fInfinity | fValid)  != 0) ? B_TRUE : B_FALSE;;
 
 }
 
@@ -1129,8 +1129,8 @@ COND_STATIC boolean_t ECDH_derive_pt(affine_point_t* tgt, bigval_t const* k, aff
 
     /* Convert to internal representation */
     status = bigval_to_digit256(k, ourPrivate);
-    status = status && bigval_to_digit256(&(Q->x), theirPublic.x);
-    status = status && bigval_to_digit256(&(Q->y), theirPublic.y);
+    status = ((status && bigval_to_digit256(&(Q->x), theirPublic.x))  != 0) ? B_TRUE : B_FALSE;
+    status = ((status && bigval_to_digit256(&(Q->y), theirPublic.y)) != 0) ? B_TRUE : B_FALSE;
     if (!status) {
         goto Exit;
     }
@@ -1270,8 +1270,8 @@ static verify_res_t ECDSA_verify_inner(bigval_t const* msgdgst,
     ec_get_generator(&G, &curve);
 
     status = bigval_to_digit256(&(pubkey->x), Q.x);
-    status = status && bigval_to_digit256(&(pubkey->y), Q.y);
-    status = status && ecpoint_validation(&Q, &curve);
+    status = ((status && bigval_to_digit256(&(pubkey->y), Q.y)) != 0) ? B_TRUE : B_FALSE;
+    status = ((status && ecpoint_validation(&Q, &curve)) != 0) ? B_TRUE : B_FALSE;
     if (!status) {
         res = (V_INTERNAL);
         goto Exit;
@@ -1301,7 +1301,7 @@ static verify_res_t ECDSA_verify_inner(bigval_t const* msgdgst,
     big_precise_reduce(&u2, &u2, &orderP);
 
     status = bigval_to_digit256(&u1, digU1);
-    status = status && bigval_to_digit256(&u2, digU2);
+    status = ((status && bigval_to_digit256(&u2, digU2)) != 0) ? B_TRUE : B_FALSE;
     if (!status) {
         res = (V_INTERNAL);
         goto Exit;
@@ -1623,7 +1623,7 @@ AJ_Status ec_REDP1(const uint8_t* pi, size_t len, ecpoint_t* Q, ec_t* curve)
         AJ_SHA256_Final(ctx, bytes_O3);
 
         /* Convert octets O3 to the field element x -- Step (e) */
-        fpimport_p256(bytes_O3, x, temps, TRUE);
+        fpimport_p256(bytes_O3, x, temps, B_TRUE);
 
         /* Compute alpha = x^3 + a*x + b (mod p)  */
         fpmul_p256(x, x, alpha, temps);             /* alpha = x^2 */
@@ -1681,7 +1681,7 @@ AJ_Status ec_REDP2(const uint8_t pi[sizeof(digit256_t)], const ecpoint_t* Q1, co
     digit_t temps[P256_TEMPS];
     AJ_Status status = AJ_OK;
 
-    fpimport_p256(pi, t, temps, TRUE);
+    fpimport_p256(pi, t, temps, B_TRUE);
     status = ec_scalarmul(Q2, t, R, curve);         /* R = Q2^t*/
     ec_add(R, Q1, curve);                           /* R = Q1*Q2^t*/
 
