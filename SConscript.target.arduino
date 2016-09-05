@@ -20,12 +20,12 @@ env['build'] = False
 arduinoLibDir = '#dist/arduino_due/libraries/AllJoyn/'
 
 # Install the .c files as .cpp files for the Arduino IDE to consume.
-srcs = [
-    Glob('src/*.c'),
-    Glob('src/target/$TARG/*.c'),
-    Glob('src/crypto/*.c'),
-    Glob('external/sha2/*.c')
-]
+srcs = []
+srcs.extend(Glob('src/*.c'))
+srcs.extend(Glob('src/target/$TARG/*.c'))
+srcs.extend(Glob('src/crypto/*.c'))
+srcs.extend(Glob('external/sha2/*.c'))
+
 env.InstallAs([ File(arduinoLibDir + f.name.replace('.c' , '.cpp')) for f in srcs ], srcs)
 
 # Install the related header files as well.
@@ -79,6 +79,15 @@ for sample in basicsamples:
 securesamples = [
     'SecureClient',
     'SecureService'
+]
+for sample in securesamples:
+    sdir = arduinoLibDir + 'samples/AJ_' + sample
+    env.Install(sdir, 'src/target/arduino/samples/AJ_' + sample + '/AJ_' + sample + '.ino')
+
+# Install secure samples with Elliptic Curve Diffie-Hellman Ephemeral (ECDHE) based auth
+securesamples = [
+    'SecureClientECDHE',
+    'SecureServiceECDHE'
 ]
 for sample in securesamples:
     sdir = arduinoLibDir + 'samples/AJ_' + sample
