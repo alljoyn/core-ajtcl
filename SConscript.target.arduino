@@ -19,6 +19,9 @@ env['build'] = False
 
 arduinoLibDir = '#dist/arduino_due/libraries/AllJoyn/'
 
+#######################################################
+# Install source files
+#######################################################
 # Install the .c files as .cpp files for the Arduino IDE to consume.
 srcs = []
 srcs.extend(Glob('src/*.c'))
@@ -26,18 +29,41 @@ srcs.extend(Glob('src/target/$TARG/*.c'))
 srcs.extend(Glob('src/crypto/*.c'))
 srcs.extend(Glob('external/sha2/*.c'))
 
-env.InstallAs([ File(arduinoLibDir + f.name.replace('.c' , '.cpp')) for f in srcs ], srcs)
+env.InstallAs([ File(arduinoLibDir + 'src/'+ f.name.replace('.c' , '.cpp')) for f in srcs ], srcs)
+
+#######################################################
+# Install arduino library
+#######################################################
+env.Install(arduinoLibDir, env.Glob('src/target/$TARG/library.properties'))
+
+
+#######################################################
+# Install header files
+#######################################################
+env.Install(arduinoLibDir + 'src/ajtcl', env.Glob('inc/*.h'))
+# Need to force a dpendency here because SCons can't follow nested
+# #include dependencies otherwise
+env.Depends('#build/$VARIANT', '#dist/include')
+
+# Install service headers
+env.Install(arduinoLibDir + 'src/ajtcl/services', env.Glob('services/common/inc/*.h'))
+env.Install(arduinoLibDir + 'src/ajtcl/services', env.Glob('services/config/inc/*.h'))
 
 # Install the related header files as well.
-hdrs = [
-    Glob('inc/ajtcl/*.h'),
-    Glob('src/*.h'),
-    Glob('src/target/$TARG/*.h'),
-    Glob('src/crypto/*.h'),
-    Glob('external/sha2/*.h')
-]
-env.Install(arduinoLibDir + 'ajtcl', hdrs)
+env.Install(arduinoLibDir + 'src', Glob('inc/ajtcl/*.h'))
+env.Install(arduinoLibDir + 'src', Glob('src/*.h'))
+env.Install(arduinoLibDir + 'src', Glob('src/target/arduino/*.h'))
+env.Install(arduinoLibDir + 'src', Glob('src/crypto/*.h'))
+env.Install(arduinoLibDir + 'src', Glob('external/sha2/*.h'))
 
+# Install scpecific files
+env.Install(arduinoLibDir + 'src', env.Glob('inc/AllJoyn.h'))
+env.Install(arduinoLibDir + 'src/ajtcl', env.Glob('src/target/$TARG/aj_target.h'))
+
+
+#######################################################
+# Install arduino examples
+#######################################################
 # Install the Arduino specific examples into their source
 env.Install(Dir(arduinoLibDir).abspath, Dir('src/target/arduino/examples/'))
 
@@ -84,6 +110,7 @@ for sample in securesamples:
     sdir = arduinoLibDir + 'samples/AJ_' + sample
     env.Install(sdir, 'src/target/arduino/samples/AJ_' + sample + '/AJ_' + sample + '.ino')
 
+	
 # Install secure samples with Elliptic Curve Diffie-Hellman Ephemeral (ECDHE) based auth
 securesamples = [
     'SecureClientECDHE',
@@ -93,3 +120,5 @@ for sample in securesamples:
     sdir = arduinoLibDir + 'samples/AJ_' + sample
     env.Install(sdir, 'src/target/arduino/samples/AJ_' + sample + '/AJ_' + sample + '.ino')
     env.InstallAs(sdir + '/' + sample + '.cpp', 'samples/secure/' + sample + '.c')
+
+	
