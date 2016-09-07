@@ -25,7 +25,7 @@ arduinoLibDir = '#dist/arduino_due/libraries/AllJoyn/'
 # Install the .c files as .cpp files for the Arduino IDE to consume.
 srcs = []
 srcs.extend(Glob('src/*.c'))
-srcs.extend(Glob('src/target/$TARG/*.c'))
+srcs.extend(Glob('src/target/arduino/*.c'))
 srcs.extend(Glob('src/crypto/*.c'))
 srcs.extend(Glob('external/sha2/*.c'))
 
@@ -54,7 +54,7 @@ env.Install(arduinoLibDir + 'src', Glob('inc/ajtcl/*.h'))
 env.Install(arduinoLibDir + 'src', Glob('src/*.h'))
 env.Install(arduinoLibDir + 'src', Glob('src/target/arduino/*.h'))
 env.Install(arduinoLibDir + 'src', Glob('src/crypto/*.h'))
-env.Install(arduinoLibDir + 'src', Glob('external/sha2/*.h'))
+env.Install(arduinoLibDir + 'src', Glob('src/external/sha2/*.h'))
 
 # Install scpecific files
 env.Install(arduinoLibDir + 'src', env.Glob('inc/AllJoyn.h'))

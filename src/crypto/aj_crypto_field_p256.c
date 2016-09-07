@@ -316,7 +316,7 @@ boolean_t validate_256(digit256_tc a, digit256_tc modulus)
 
     fpcopy_p256(a, t1);
     valid = fpneg_p256(t1);                     /* valid = B_TRUE if a <= modulus  */
-    valid = (valid & (fpiszero_p256(t1) ^ 1));  /* valid = B_TRUE if a < modulus (use & instead of && for constant-time execution) */
+    valid = (boolean_t)(valid & (fpiszero_p256(t1) ^ 1));  /* valid = B_TRUE if a < modulus (use & instead of && for constant-time execution) */
 
     /* cleanup  */
     fpzero_p256(t1);
@@ -646,7 +646,7 @@ boolean_t fpequal_p256(digit256_tc f1, digit256_tc f2)
     temp |= (f1[2] ^ f2[2]);
     temp |= (f1[3] ^ f2[3]);
 
-    equal = (boolean_t) ~((((sdigit_t)temp) >> (RADIX_BITS - 1)) | (-((sdigit_t)temp) >> (RADIX_BITS - 1))) & 1;
+    equal = (boolean_t) (~((((sdigit_t)temp) >> (RADIX_BITS - 1)) | (-((sdigit_t)temp) >> (RADIX_BITS - 1))) & 1);
 
     return equal;
 }
