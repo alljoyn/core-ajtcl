@@ -229,12 +229,12 @@ Exit:
 
 static AJ_Status SaveMasterSecret(const AJ_GUID* peerGuid, uint32_t expiration)
 {
-    AJ_Status status;
+    AJ_Status status = AJ_ERR_SECURITY;
 
     AJ_InfoPrintf(("SaveMasterSecret(peerGuid=%p, expiration=%d)\n", peerGuid, expiration));
 
     if (NULL == peerGuid) {
-        return AJ_ERR_SECURITY;
+        return status;
     }
     /*
      * If the authentication was succesful write the credentials for the authenticated peer to
@@ -715,11 +715,11 @@ static AJ_Status ExchangeSuites(AJ_Message* msg)
     if (AJ_IsSuiteEnabled(msg->bus, AUTH_SUITE_ECDHE_ECDSA, AJ_UNPACK_AUTH_VERSION(authContext.version))) {
         suites[num++] = AUTH_SUITE_ECDHE_ECDSA;
     }
-    if (AJ_IsSuiteEnabled(msg->bus, AUTH_SUITE_ECDHE_PSK, AJ_UNPACK_AUTH_VERSION(authContext.version))) {
-        suites[num++] = AUTH_SUITE_ECDHE_PSK;
-    }
     if (AJ_IsSuiteEnabled(msg->bus, AUTH_SUITE_ECDHE_SPEKE, AJ_UNPACK_AUTH_VERSION(authContext.version))) {
         suites[num++] = AUTH_SUITE_ECDHE_SPEKE;
+    }
+    if (AJ_IsSuiteEnabled(msg->bus, AUTH_SUITE_ECDHE_PSK, AJ_UNPACK_AUTH_VERSION(authContext.version))) {
+        suites[num++] = AUTH_SUITE_ECDHE_PSK;
     }
     if (AJ_IsSuiteEnabled(msg->bus, AUTH_SUITE_ECDHE_NULL, AJ_UNPACK_AUTH_VERSION(authContext.version))) {
         suites[num++] = AUTH_SUITE_ECDHE_NULL;
@@ -1806,7 +1806,7 @@ Exit:
 
 AJ_Status AJ_PeerHandleSendManifestsReply(AJ_Message* msg)
 {
-    AJ_Status status;
+    AJ_Status status = AJ_ERR_SECURITY;
     const AJ_GUID* peerGuid = AJ_GUID_Find(msg->sender);
     AJ_ManifestArray* manifests = NULL;
     uint8_t mustClearAuthContext = FALSE;
@@ -2054,7 +2054,7 @@ static void UnmarshalCertificates(AJ_Message* msg)
     X509CertificateChain* root = NULL;
     X509CertificateChain* node = NULL;
     AJ_ECCPublicKey* pub = NULL;
-    DER_Element* group;
+    DER_Element* group = NULL;
     uint32_t type;
 
     status = AJ_UnmarshalContainer(msg, &container, AJ_ARG_ARRAY);
@@ -2095,7 +2095,7 @@ static void UnmarshalCertificates(AJ_Message* msg)
                 goto Exit;
             }
             group = &node->certificate.tbs.extensions.group;
-            AJ_DumpBytes("GROUP", group->data, group->size);
+            AJ_DumpBytes("GROUP", group->data, (uint32_t) group->size);
         }
     }
     if (AJ_ERR_NO_MORE != status) {

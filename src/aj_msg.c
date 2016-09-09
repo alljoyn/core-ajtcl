@@ -788,7 +788,7 @@ AJ_Status AJ_CloseMsgAndSaveReplyContext(AJ_Message* msg, AJ_MsgReplyContext* re
             AJ_CloseMsg(msg);
             return AJ_ERR_RESOURCES;
         }
-        memcpy(replyCtx->sender, msg->sender, len + 1);
+        memcpy(replyCtx->sender, msg->sender, len);
         replyCtx->bus = msg->bus;
         replyCtx->flags = msg->hdr->flags;
         replyCtx->serialNum = msg->hdr->serialNum;

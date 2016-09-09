@@ -61,34 +61,56 @@ AJ_EXPORT uint8_t dbgAJSVCAPP = ER_DEBUG_AJSVCAPP;
  */
 
 #define ROUTING_NODE_NAME "org.alljoyn.BusNode"
-static uint8_t isBusConnected = FALSE;
-static AJ_BusAttachment busAttachment;
+static uint8_t s_isBusConnected = FALSE;
+static AJ_BusAttachment s_busAttachment;
 #define AJ_ABOUT_SERVICE_PORT 900
 
 /**
  * Application wide callbacks
  */
 
-static uint32_t PasswordCallback(uint8_t* buffer, uint32_t bufLen)
+static AJ_Status AuthListenerCallback(uint32_t mechanism, uint32_t command, AJ_Credential* cred)
 {
-    AJ_Status status = AJ_OK;
-    const char* hexPassword = AJSVC_PropertyStore_GetValue(AJSVC_PROPERTY_STORE_PASSCODE);
+    AJ_Status status = AJ_ERR_INVALID;
+    static uint8_t PASSWORD_BUFFER[UINT8_MAX];
+    static const uint32_t keyexpiration = 0xFFFFFFFF;
+    const char* hexPassword;
     size_t hexPasswordLen;
-    uint32_t len = 0;
 
-    if (hexPassword == NULL) {
-        AJ_ErrPrintf(("Password is NULL!\n"));
-        return len;
-    }
-    AJ_InfoPrintf(("Configured password=%s\n", hexPassword));
-    hexPasswordLen = strlen(hexPassword);
-    len = hexPasswordLen / 2;
-    status = AJ_HexToRaw(hexPassword, hexPasswordLen, buffer, bufLen);
-    if (status == AJ_ERR_RESOURCES) {
-        len = 0;
-    }
+    memset(PASSWORD_BUFFER, 0, UINT8_MAX);
 
-    return len;
+    AJ_AlwaysPrintf(("AuthListener called with mechanism %x command %x\n", mechanism, command));
+
+    switch (mechanism) {
+    case AUTH_SUITE_ECDHE_NULL:
+        cred->expiration = keyexpiration;
+        status = AJ_OK;
+        break;
+
+    case AUTH_SUITE_ECDHE_SPEKE:
+        switch (command) {
+        case AJ_CRED_PASSWORD:
+            hexPassword = AJSVC_PropertyStore_GetValue(AJSVC_PROPERTY_STORE_PASSCODE);
+            if (hexPassword != NULL) {
+                hexPasswordLen = strlen(hexPassword);
+                status = AJ_HexToRaw(hexPassword, hexPasswordLen, PASSWORD_BUFFER, UINT8_MAX);
+                if (status == AJ_OK) {
+                    cred->len = hexPasswordLen / 2;
+                    cred->data = PASSWORD_BUFFER;
+                    cred->expiration = keyexpiration;
+                }
+            } else {
+                status = AJ_ERR_FAILURE;
+            }
+            break;
+        }
+        break;
+
+    default:
+        AJ_ErrPrintf(("Unsupported authentication mechanism\n"));
+        break;
+    }
+    return status;
 }
 
 /**
@@ -300,7 +322,7 @@ PropertyStoreConfigEntry propertyStoreRuntimeValues[AJSVC_PROPERTY_STORE_NUMBER_
 /**
  * AboutIcon Provisioning
  */
-const char* aboutIconMimetype = AJ_LogoMimeType;
+const char* aboutIconMimetype = (const char*)(AJ_LogoMimeType);
 const uint8_t* aboutIconContent = AJ_LogoData;
 const size_t aboutIconContentSize = AJ_LogoSize;
 const char* aboutIconUrl = AJ_LogoURL;
@@ -399,30 +421,32 @@ int AJ_Main(void)
         status = AJ_OK;
         serviceStatus = AJSVC_SERVICE_STATUS_NOT_HANDLED;
 
-        if (!isBusConnected) {
-            status = AJSVC_RoutingNodeConnect(&busAttachment, ROUTING_NODE_NAME, AJAPP_CONNECT_TIMEOUT, AJAPP_CONNECT_PAUSE, AJAPP_BUS_LINK_TIMEOUT, &isBusConnected);
-            if (!isBusConnected) { // Failed to connect to Routing Node.
+        if (!s_isBusConnected) {
+            status = AJSVC_RoutingNodeConnect(&s_busAttachment, ROUTING_NODE_NAME, AJAPP_CONNECT_TIMEOUT, AJAPP_CONNECT_PAUSE, AJAPP_BUS_LINK_TIMEOUT, &s_isBusConnected);
+            if (!s_isBusConnected) { // Failed to connect to Routing Node.
                 continue; // Retry establishing connection to Routing Node.
             }
-            /* Setup password based authentication listener for secured peer to peer connections */
-            AJ_BusSetPasswordCallback(&busAttachment, PasswordCallback);
+            /* Setup authentication listener for secured peer to peer connections */
+            uint32_t suites[] = { AUTH_SUITE_ECDHE_NULL, AUTH_SUITE_ECDHE_SPEKE };
+            AJ_BusEnableSecurity(&s_busAttachment, suites, sizeof(suites) / sizeof(*suites));
+            AJ_BusSetAuthListenerCallback(&s_busAttachment, AuthListenerCallback);
         }
 
-        status = AJApp_ConnectedHandler(&busAttachment);
+        status = AJApp_ConnectedHandler(&s_busAttachment);
 
         if (status == AJ_OK) {
-            status = AJ_UnmarshalMsg(&busAttachment, &msg, AJAPP_UNMARSHAL_TIMEOUT);
+            status = AJ_UnmarshalMsg(&s_busAttachment, &msg, AJAPP_UNMARSHAL_TIMEOUT);
             isUnmarshalingSuccessful = (status == AJ_OK);
 
             if (status == AJ_ERR_TIMEOUT) {
-                if (AJ_ERR_LINK_TIMEOUT == AJ_BusLinkStateProc(&busAttachment)) {
+                if (AJ_ERR_LINK_TIMEOUT == AJ_BusLinkStateProc(&s_busAttachment)) {
                     status = AJ_ERR_READ;             // something's not right. force disconnect
                 }
             }
 
             if (isUnmarshalingSuccessful) {
                 if (serviceStatus == AJSVC_SERVICE_STATUS_NOT_HANDLED) {
-                    serviceStatus = AJApp_MessageProcessor(&busAttachment, &msg, &status);
+                    serviceStatus = AJApp_MessageProcessor(&s_busAttachment, &msg, &status);
                 }
                 if (serviceStatus == AJSVC_SERVICE_STATUS_NOT_HANDLED) {
                     //Pass to the built-in bus message handlers
@@ -436,11 +460,11 @@ int AJ_Main(void)
         }
 
         if (status == AJ_ERR_READ || status == AJ_ERR_WRITE || status == AJ_ERR_RESTART || status == AJ_ERR_RESTART_APP) {
-            if (isBusConnected) {
+            if (s_isBusConnected) {
                 forcedDisconnnect = (status != AJ_ERR_READ);
                 rebootRequired = (status == AJ_ERR_RESTART_APP);
-                AJApp_DisconnectHandler(&busAttachment, forcedDisconnnect);
-                AJSVC_RoutingNodeDisconnect(&busAttachment, forcedDisconnnect, AJAPP_SLEEP_TIME, AJAPP_SLEEP_TIME, &isBusConnected);
+                AJApp_DisconnectHandler(&s_busAttachment, forcedDisconnnect);
+                AJSVC_RoutingNodeDisconnect(&s_busAttachment, forcedDisconnnect, AJAPP_SLEEP_TIME, AJAPP_SLEEP_TIME, &s_isBusConnected);
                 if (rebootRequired) {
                     AJ_Reboot();
                 }

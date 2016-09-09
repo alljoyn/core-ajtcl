@@ -130,6 +130,12 @@ static const char* const Direction[] = {
     "\" direction=\"out\">\n"
 };
 
+static const char introspectDocType[] =
+    "<!DOCTYPE"
+    " node PUBLIC \"-//allseen//DTD ALLJOYN Object Introspection 1.1//EN\"\n"
+    "\"http://www.allseen.org/alljoyn/introspect-1.1.dtd\""
+    ">\n";
+
 static const char interfaceOpen[] = "<interface";
 static const char interfaceClose[] = "</interface>\n";
 static const char argOpen[] = "    <arg";
@@ -140,7 +146,7 @@ static const char typeAttr[] = " type=\"";
 static const char sessionlessAttr[] = " sessionless=\"";
 static const char trueVal[] = "true\"";
 static const char falseVal[] = "false\"";
-static const char annotateSessionless[] = "<annotation name=\"org.alljoyn.Bus.Signal.Sessionless\" value=\"true\" /";
+static const char annotateSessionless[] = "    <annotation name=\"org.alljoyn.Bus.Signal.Sessionless\" value=\"true\" /";
 
 static const char nodeOpen[] = "<node";
 static const char nodeClose[] = "</node>\n";
@@ -196,31 +202,73 @@ static const char* GetDescription(AJ_DescriptionLookupFunc descLookup, uint32_t 
     return descLookup(descId, languageTag);
 }
 
-static void XMLWriteDescription(XMLWriterFunc XMLWriter, void* context, uint8_t level, const char* description, const char* languageTag)
+static boolean_t IsDescriptionAvailable(AJ_DescriptionLookupFunc descLookup, uint32_t descId)
 {
-    if (description != NULL) {
-        const uint8_t unifiedFormat = (languageTag == NULL);
-        uint8_t i;
-        for (i = 0; i < level; i++) {
-            XMLWriter(context, "    ", 4);
-        }
-        if (unifiedFormat) {
-            XMLWriter(context, "<annotation name=\"org.alljoyn.Bus.DocString\" value=\"", 52);
-            XMLWriter(context, description, 0);
-            XMLWriter(context, "\" />\n", 5);
-        } else {
-            XMLWriter(context, "<description", 12);
-            if (languageTag != NULL && strlen(languageTag) > 0) {
-                XMLWriter(context, " language=\"", 11);
-                XMLWriter(context, languageTag, 0);
-                XMLWriter(context, "\"", 1);
-            }
-            XMLWriter(context, ">", 1);
-            XMLWriter(context, description, 0);
-            XMLWriter(context, "</description>\n", 15);
+    size_t idx;
+    if (descLookup == NULL || languageList == NULL) {
+        return B_FALSE;
+    }
+
+    for (idx = 0; languageList[idx] != NULL; idx++) {
+        if (descLookup(descId, languageList[idx]) != NULL) {
+            return B_TRUE;
         }
     }
-    return;
+
+    return B_FALSE;
+}
+
+static void XMLWriteDescription(XMLWriterFunc XMLWriter, void* context, uint8_t level, const char* description, const char* languageTag)
+{
+    uint8_t i;
+    if (description == NULL) {
+        return;
+    }
+
+    for (i = 0; i < level; i++) {
+        XMLWriter(context, "    ", 4);
+    }
+    XMLWriter(context, "<description", 12);
+    if (languageTag != NULL && strlen(languageTag) > 0) {
+        XMLWriter(context, " language=\"", 11);
+        XMLWriter(context, languageTag, 0);
+        XMLWriter(context, "\"", 1);
+    }
+    XMLWriter(context, ">", 1);
+    XMLWriter(context, description, 0);
+    XMLWriter(context, "</description>\n", 15);
+}
+
+static void XMLWriteUnifiedDescription(XMLWriterFunc XMLWriter, void* context, uint8_t level, const char* description, const char* languageTag)
+{
+    uint8_t i;
+    if (description == NULL) {
+        return;
+    }
+
+    for (i = 0; i < level; i++) {
+        XMLWriter(context, "  ", 2);
+    }
+
+    XMLWriter(context, "<annotation name=\"org.alljoyn.Bus.DocString", 43);
+    if (languageTag != NULL && strlen(languageTag) > 0) {
+        XMLWriter(context, ".", 1);
+        XMLWriter(context, languageTag, 0);
+    }
+    XMLWriter(context, "\" value=\"", 9);
+    XMLWriter(context, description, 0);
+    XMLWriter(context, "\"/>\n", 4);
+}
+
+static void XMLWriteUnifiedDescriptions(XMLWriterFunc XMLWriter, void* context, uint8_t level, AJ_DescriptionLookupFunc descLookup, uint32_t descId)
+{
+    size_t idx;
+    for (idx = 0; languageList[idx] != NULL; idx++) {
+        const char* description = GetDescription(descLookup, descId, languageList[idx]);
+        if (description != NULL) {
+            XMLWriteUnifiedDescription(XMLWriter, context, level, description, languageList[idx]);
+        }
+    }
 }
 
 static AJ_Status ExpandInterfaces(XMLWriterFunc XMLWriter, void* context, const AJ_InterfaceDescription* iface, AJ_DescriptionLookupFunc descLookup, uint32_t descObjId, const char* languageTag)
@@ -267,9 +315,15 @@ static AJ_Status ExpandInterfaces(XMLWriterFunc XMLWriter, void* context, const 
         } else {
             XMLWriteTag(XMLWriter, context, interfaceOpen, nameAttr, entries[0], 0, FALSE);
         }
-        description = GetDescription(descLookup, descId, languageTag);
-        if (description != NULL) {
-            XMLWriteDescription(XMLWriter, context, 0, description, languageTag);
+        if (unifiedFormat) {
+            if (IsDescriptionAvailable(descLookup, descId)) {
+                XMLWriteUnifiedDescriptions(XMLWriter, context, 1, descLookup, descId);
+            }
+        } else {
+            description = GetDescription(descLookup, descId, languageTag);
+            if (description != NULL) {
+                XMLWriteDescription(XMLWriter, context, 0, description, languageTag);
+            }
         }
 
         while (*(++entries)) {
@@ -278,6 +332,8 @@ static AJ_Status ExpandInterfaces(XMLWriterFunc XMLWriter, void* context, const 
             uint8_t memberType = MEMBER_TYPE(*member++);
             uint8_t attr;
             uint8_t isSessionless = FALSE;
+            uint32_t memberDescId = 0;
+            boolean_t descriptionAvailable = B_FALSE;
 
             /* Increase index since we start at 1 */
             ++memberIndex;
@@ -327,9 +383,11 @@ static AJ_Status ExpandInterfaces(XMLWriterFunc XMLWriter, void* context, const 
                 XMLWriter(context, ">\n", 2);
                 while (attr) {
                     uint8_t dir;
+                    uint32_t attrDescId = 0;
 
                     /* increase arg index since we start at 1 */
                     ++argIndex;
+                    attrDescId = (descId | (((uint32_t)memberIndex) << 8) | ((uint32_t)argIndex));
 
                     XMLWriter(context, argOpen, sizeof(argOpen) - 1);
                     if (IS_DIRECTION(*member)) {
@@ -347,19 +405,36 @@ static AJ_Status ExpandInterfaces(XMLWriterFunc XMLWriter, void* context, const 
                     /*
                      * If we have a description then wait to close the tag until after adding in a description tag
                      */
-                    description = GetDescription(descLookup, (descId | (((uint32_t)memberIndex) << 8) | ((uint32_t)argIndex)), languageTag);
-                    if (description != NULL) {
+                    if (unifiedFormat) {
+                        descriptionAvailable = IsDescriptionAvailable(descLookup, attrDescId);
+                    } else {
+                        description = GetDescription(descLookup, attrDescId, languageTag);
+                        descriptionAvailable = (description != NULL);
+                    }
+                    if (descriptionAvailable) {
                         dir += 3;
                     }
                     attr = ExpandAttribute(XMLWriter, context, &member, typeAttr, Direction[dir]);
-                    if (description != NULL) {
-                        XMLWriteDescription(XMLWriter, context, 2, description, languageTag);
+
+                    if (descriptionAvailable) {
+                        if (unifiedFormat) {
+                            XMLWriteUnifiedDescriptions(XMLWriter, context, 3, descLookup, attrDescId);
+                        } else {
+                            XMLWriteDescription(XMLWriter, context, 2, description, languageTag);
+                        }
                         XMLWriter(context, argClose, sizeof(argClose) - 1);
                     }
                 }
             }
-            description = GetDescription(descLookup, (descId | (((uint32_t)memberIndex) << 8)), languageTag);
-            if (description != NULL) {
+
+            memberDescId = (descId | (((uint32_t)memberIndex) << 8));
+            if (unifiedFormat) {
+                descriptionAvailable = IsDescriptionAvailable(descLookup, memberDescId);
+            } else {
+                description = GetDescription(descLookup, memberDescId, languageTag);
+                descriptionAvailable = (description != NULL);
+            }
+            if (descriptionAvailable) {
                 if (memberType == PROPERTY) {
                     XMLWriter(context, ">\n", 2);
                     /*
@@ -368,7 +443,11 @@ static AJ_Status ExpandInterfaces(XMLWriterFunc XMLWriter, void* context, const 
                      */
                     memberType++;
                 }
-                XMLWriteDescription(XMLWriter, context, 1, description, languageTag);
+                if (unifiedFormat) {
+                    XMLWriteUnifiedDescriptions(XMLWriter, context, 2, descLookup, memberDescId);
+                } else {
+                    XMLWriteDescription(XMLWriter, context, 1, description, languageTag);
+                }
             }
             XMLWriter(context, MemberClose[memberType], 0);
         }
@@ -504,13 +583,20 @@ static AJ_Status GenXML(XMLWriterFunc XMLWriter, void* context, const AJ_ObjectI
     AJ_Status status = AJ_OK;
     const AJ_Object* obj;
     AJ_DescriptionLookupFunc descLookup = NULL;
+    boolean_t unifiedFormat = (languageTag == NULL);
 
     if (objIter == NULL) {
         obj = virtualObject;
     } else {
-        if (objIter->l >= ArraySize(objectLists) && virtualObject == NULL) {
-            return AJ_OK;
+        if (objIter->l >= ArraySize(objectLists)) {
+            if (virtualObject == NULL) {
+                return AJ_OK;
+            } else {
+                AJ_ErrPrintf(("Failed to generate XML - Invalid object iterator\n"));
+                return AJ_ERR_UNEXPECTED;
+            }
         }
+
         obj = &(objectLists[objIter->l][objIter->n - 1]);
     }
     if (obj != NULL && obj->path != NULL) {
@@ -525,28 +611,38 @@ static AJ_Status GenXML(XMLWriterFunc XMLWriter, void* context, const AJ_ObjectI
             return AJ_OK;
         }
         /*
-         * Find matching description lookup function. NULL indicates no descriptions
+         * Find matching description lookup function.
          */
-        if (languageTag != NULL) {
-            if (objIter != NULL) {
-                descLookup = descriptionLookups[objIter->l];
-            }
+        if (objIter != NULL) {
+            descLookup = descriptionLookups[objIter->l];
+        }
+        if (!unifiedFormat) {
             languageTag = GetBestLanguage(languageTag);
         }
         /*
          * Generate object's XML
          */
+        XMLWriter(context, introspectDocType, sizeof(introspectDocType) - 1);
         XMLWriteTag(XMLWriter, context, nodeOpen, nameAttr, obj->path, 0, FALSE);
         if (SecurityApplies(NULL, obj)) {
             XMLWriter(context, annotateSecure, 51);
             XMLWriter(context, secureTrue, 8);
         }
         if (objIter != NULL) {
-            description = GetDescription(descLookup, (objIter->n - 1) << 24, languageTag);
+            uint32_t descId = (objIter->n - 1) << 24;
+
+            if (unifiedFormat) {
+                if (IsDescriptionAvailable(descLookup, descId)) {
+                    XMLWriteUnifiedDescriptions(XMLWriter, context, 0, descLookup, descId);
+                }
+            } else {
+                description = GetDescription(descLookup, descId, languageTag);
+                if (description != NULL) {
+                    XMLWriteDescription(XMLWriter, context, 0, description, languageTag);
+                }
+            }
         }
-        if (description != NULL) {
-            XMLWriteDescription(XMLWriter, context, 0, description, languageTag);
-        }
+
         if (status == AJ_OK) {
             if (objIter != NULL) {
                 status = ExpandInterfaces(XMLWriter, context, obj->interfaces, descLookup, (objIter->n - 1) << 24, languageTag);
@@ -565,15 +661,27 @@ static AJ_Status GenXML(XMLWriterFunc XMLWriter, void* context, const AJ_ObjectI
                  * If there is a child check that this is the first instance of this child.
                  */
                 if (child && (FirstInstance(obj->path, child, len) == childObj)) {
-                    if (languageTag != NULL && childObjectIter.l < AJ_MAX_OBJECT_LISTS) {
+                    boolean_t descriptionAvailable = B_FALSE;
+                    uint32_t descId = (childObjectIter.n - 1) << 24;
+                    if (childObjectIter.l < AJ_MAX_OBJECT_LISTS) {
                         descLookup = descriptionLookups[childObjectIter.l];
                     } else {
                         descLookup = NULL;
                     }
-                    description = GetDescription(descLookup, (childObjectIter.n - 1) << 24, languageTag);
-                    if (description != NULL) {
+
+                    if (unifiedFormat) {
+                        descriptionAvailable = IsDescriptionAvailable(descLookup, descId);
+                    } else {
+                        description = GetDescription(descLookup, descId, languageTag);
+                        descriptionAvailable = (description != NULL);
+                    }
+                    if (descriptionAvailable) {
                         XMLWriteTag(XMLWriter, context, nodeOpen, nameAttr, child, len, FALSE);
-                        XMLWriteDescription(XMLWriter, context, 0, description, languageTag);
+                        if (unifiedFormat) {
+                            XMLWriteUnifiedDescriptions(XMLWriter, context, 0, descLookup, descId);
+                        } else {
+                            XMLWriteDescription(XMLWriter, context, 0, description, languageTag);
+                        }
                         XMLWriter(context, nodeClose, 8);
                     } else {
                         XMLWriteTag(XMLWriter, context, nodeOpen, nameAttr, child, len, TRUE);

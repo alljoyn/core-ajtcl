@@ -23,7 +23,6 @@
 #include <ajtcl/aj_creds.h>
 #include <ajtcl/aj_nvram.h>
 #include <ajtcl/aj_crypto_ecc.h>
-#include <ajtcl/aj_creds.h>
 
 uint8_t dbgNVRAMDUMP = 1;
 extern void AJ_NVRAM_Layout_Print();
@@ -47,7 +46,6 @@ AJ_Status DumpNVRAM()
     AJ_CredField data;
 
     AJ_NVRAM_Layout_Print();
-    AJ_AlwaysPrintf(("Remaining Size %d\n", AJ_NVRAM_GetSizeRemaining()));
 
     AJ_AlwaysPrintf(("SLOT | TYPE | ID | EXPIRATION | DATA\n"));
     for (; slot < AJ_CREDS_NV_ID_END; slot++) {
@@ -71,21 +69,51 @@ AJ_Status DumpNVRAM()
     return AJ_OK;
 }
 
-int AJ_Main()
+#ifdef MAIN_ALLOWS_ARGS
+int AJ_Main(int argc, char** argv)
+#else
+int AJ_Main(void)
+#endif
 {
-    AJ_Status status = AJ_OK;
+    AJ_Status status;
+    uint8_t useNewLayout = FALSE;
+#ifdef MAIN_ALLOWS_ARGS
+    uint8_t i;
+    for (i = 1; i < argc; ++i) {
+        if (0 == strcmp("--newlayout", argv[i])) {
+            useNewLayout = TRUE;
+        }
+    }
+#endif
+    if (useNewLayout) {
+        AJ_NVRAM_Init_NewLayout();
+    }
     AJ_Initialize();
-    //AJ_NVRAM_Clear();
-    //AJ_AlwaysPrintf(("Clearing NVRAM\n"));
     status = DumpNVRAM();
     AJ_ASSERT(status == AJ_OK);
-    //AJ_DumpPolicy();
-    return 0;
+    AJ_AlwaysPrintf(("NVRAM total used size: %d\n", AJ_NVRAM_GetSize_NewLayout(AJ_NVRAM_ID_ALL_BLOCKS)));
+    AJ_AlwaysPrintf(("NVRAM total free size: %d\n", AJ_NVRAM_GetSizeRemaining_NewLayout(AJ_NVRAM_ID_ALL_BLOCKS)));
+    AJ_NVRAM_Block_Id _blockId = AJ_NVRAM_ID_ALL_BLOCKS;
+    if (useNewLayout) {
+        for (++_blockId; _blockId < AJ_NVRAM_ID_END_SENTINEL; ++_blockId) {
+            AJ_AlwaysPrintf(("NVRAM total used size of block %d: %d\n", _blockId, AJ_NVRAM_GetSize_NewLayout(_blockId)));
+            AJ_AlwaysPrintf(("NVRAM total free size of block %d: %d\n", _blockId, AJ_NVRAM_GetSizeRemaining_NewLayout(_blockId)));
+        }
+    }
+
+    return ((status == AJ_OK) ? 0 : -1);
 }
 
 #ifdef AJ_MAIN
+#ifdef MAIN_ALLOWS_ARGS
+int main(int argc, char** argv)
+{
+    return AJ_Main(argc, argv);
+}
+#else
 int main()
 {
     return AJ_Main();
 }
+#endif
 #endif
