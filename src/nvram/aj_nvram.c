@@ -64,7 +64,7 @@ static AJ_NVRAM_Block_Id _AJ_NVRAM_Find_NV_Storage(uint16_t id)
             break;
         }
     }
-    return nvMemoryMap[idx].blockId;
+    return ((idx == AJ_NVRAM_ID_END_SENTINEL) ? AJ_NVRAM_ID_END_SENTINEL : nvMemoryMap[idx].blockId);
 }
 
 static uint32_t _AJ_GetNVRAMBlockUsedSize(uint8_t* beginAddress, uint8_t* endAddress)
@@ -189,15 +189,16 @@ AJ_Status AJ_NVRAM_Create(uint16_t id, uint16_t capacity)
 {
     uint8_t* ptr;
     NV_EntryHeader header;
-    AJ_NVRAM_Block_Id blockId = _AJ_NVRAM_Find_NV_Storage(id);
+    AJ_NVRAM_Block_Id blockId;
 
     AJ_InfoPrintf(("AJ_NVRAM_Create(id=%d., capacity=%d.)\n", id, capacity));
 
-    if (id == INVALID_DATA || !capacity || AJ_NVRAM_Exist(id)) {
+    if ((id == INVALID_DATA) || !capacity || AJ_NVRAM_Exist(id)) {
         AJ_ErrPrintf(("AJ_NVRAM_Create(): AJ_ERR_FAILURE\n"));
         return AJ_ERR_FAILURE;
     }
 
+    blockId = _AJ_NVRAM_Find_NV_Storage(id);
     capacity = WORD_ALIGN(capacity); // 4-byte alignment
     ptr = AJ_FindNVEntry(blockId, INVALID_DATA);
     if (!ptr || (ptr + ENTRY_HEADER_SIZE + capacity > _AJ_GetNVBlockEnd(blockId))) {
@@ -218,11 +219,12 @@ AJ_Status AJ_NVRAM_SecureDelete(uint16_t id)
 {
     NV_EntryHeader newHeader;
     uint8_t* ptr = NULL;
-    AJ_NVRAM_Block_Id blockId = _AJ_NVRAM_Find_NV_Storage(id);
+    AJ_NVRAM_Block_Id blockId;
 
     AJ_InfoPrintf(("AJ_NVRAM_SecureDelete(id=%d.)\n", id));
 
     if (id != INVALID_DATA) {
+        blockId = _AJ_NVRAM_Find_NV_Storage(id);
         ptr = AJ_FindNVEntry(blockId, id);
     }
 
@@ -253,11 +255,12 @@ AJ_Status AJ_NVRAM_Delete(uint16_t id)
 {
     NV_EntryHeader newHeader;
     uint8_t* ptr = NULL;
-    AJ_NVRAM_Block_Id blockId = _AJ_NVRAM_Find_NV_Storage(id);
+    AJ_NVRAM_Block_Id blockId;
 
     AJ_InfoPrintf(("AJ_NVRAM_Delete(id=%d.)\n", id));
 
     if (id != INVALID_DATA) {
+        blockId = _AJ_NVRAM_Find_NV_Storage(id);
         ptr = AJ_FindNVEntry(blockId, id);
     }
 
@@ -278,11 +281,11 @@ AJ_NV_DATASET* AJ_NVRAM_Open(uint16_t id, const char* mode, uint16_t capacity)
     AJ_Status status = AJ_OK;
     uint8_t* entry = NULL;
     AJ_NV_DATASET* handle = NULL;
-    AJ_NVRAM_Block_Id blockId = _AJ_NVRAM_Find_NV_Storage(id);
+    AJ_NVRAM_Block_Id blockId;
 
     AJ_InfoPrintf(("AJ_NVRAM_Open(id=%d., mode=\"%s\", capacity=%d.)\n", id, mode, capacity));
 
-    if (!id || id == INVALID_DATA) {
+    if (!id || (id == INVALID_DATA)) {
         AJ_ErrPrintf(("AJ_NVRAM_Open(): invalid id\n"));
         goto OPEN_ERR_EXIT;
     }
@@ -290,6 +293,7 @@ AJ_NV_DATASET* AJ_NVRAM_Open(uint16_t id, const char* mode, uint16_t capacity)
         AJ_ErrPrintf(("AJ_NVRAM_Open(): invalid access mode\n"));
         goto OPEN_ERR_EXIT;
     }
+    blockId = _AJ_NVRAM_Find_NV_Storage(id);
     if (*mode == AJ_NV_DATASET_MODE_WRITE) {
         if (capacity == 0) {
             AJ_ErrPrintf(("AJ_NVRAM_Open(): invalid capacity\n"));
@@ -350,9 +354,9 @@ size_t AJ_NVRAM_Write(const void* ptr, uint16_t size, AJ_NV_DATASET* handle)
     uint8_t patchBytes = 0;
     uint8_t* buf = (uint8_t*)ptr;
     NV_EntryHeader* header;
-    AJ_NVRAM_Block_Id blockId = _AJ_NVRAM_Find_NV_Storage(handle->id);
+    AJ_NVRAM_Block_Id blockId;
 
-    if (!handle || handle->mode == AJ_NV_DATASET_MODE_READ) {
+    if (!handle || (handle->mode == AJ_NV_DATASET_MODE_READ) || (handle->id == INVALID_DATA)) {
         AJ_ErrPrintf(("AJ_NVRAM_Write(): AJ_ERR_ACCESS\n"));
         return -1;
     }
@@ -366,6 +370,7 @@ size_t AJ_NVRAM_Write(const void* ptr, uint16_t size, AJ_NV_DATASET* handle)
         return -1;
     }
 
+    blockId = _AJ_NVRAM_Find_NV_Storage(handle->id);
     bytesWrite = header->capacity - handle->curPos;
     bytesWrite = (bytesWrite < size) ? bytesWrite : size;
     if (bytesWrite > 0 && ((handle->curPos & 0x3) != 0)) {
@@ -445,7 +450,7 @@ uint8_t AJ_NVRAM_Exist(uint16_t id)
 {
     AJ_InfoPrintf(("AJ_NVRAM_Exist(id=%d.)\n", id));
 
-    if (!id || id == INVALID_DATA) {
+    if (!id || (id == INVALID_DATA)) {
         AJ_ErrPrintf(("AJ_NVRAM_Exist(): AJ_ERR_INVALID\n"));
         return FALSE; // the unique id is not allowed to be 0 or 0xffff
     }
