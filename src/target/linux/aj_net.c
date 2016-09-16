@@ -729,7 +729,7 @@ AJ_Status AJ_Net_RecvFrom(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)
             } else {
                 AJ_InfoPrintf(("AJ_Net_RecvFrom(): recv'd %d from mDNS over IPv6\n", (int) ret));
                 if (sa.ss_family == AF_INET6) {
-                    struct sockaddr_in6*sin6 = (struct sockaddr_in6*)&sa;
+                    struct sockaddr_in6* sin6 = (struct sockaddr_in6*)&sa;
                     buf->scope_id = sin6->sin6_scope_id;
                 }
                 buf->flags |= AJ_IO_BUF_MDNS;
@@ -745,7 +745,7 @@ AJ_Status AJ_Net_RecvFrom(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)
         rx = min(rx, len);
         if (rx) {
             addrlen = sizeof(sa);
-            ret = recvfrom(context->udp6Sock, buf->writePtr, rx, 0, NULL, 0);
+            ret = recvfrom(context->udp6Sock, buf->writePtr, rx, 0, (struct sockaddr*)&sa, &addrlen);
             if (ret == -1) {
                 AJ_ErrPrintf(("AJ_Net_RecvFrom(): recvfrom() failed. errno=\"%s\"\n", strerror(errno)));
                 status = AJ_ERR_READ;
@@ -1089,8 +1089,10 @@ AJ_Status AJ_Net_MCastUp(AJ_MCastSocket* mcastSock)
     mCastContext.mDns6RecvSock = MDns6RecvUp();
     if (mCastContext.mDns6RecvSock == INVALID_SOCKET) {
         AJ_ErrPrintf(("AJ_Net_MCastUp(): MDns6RecvUp for mDns6RecvSock failed"));
-        return status;
+        goto ExitError;
     }
+    memset(&addrBuf, 0, sizeof(addrBuf));
+    addrLen = sizeof(addrBuf);
     if (getsockname(mCastContext.mDns6RecvSock, (struct sockaddr*) &addrBuf, &addrLen)) {
         AJ_ErrPrintf(("AJ_Net_MCastUp(): getsockname for mDns6RecvSock failed"));
         goto ExitError;
