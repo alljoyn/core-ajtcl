@@ -149,7 +149,7 @@ static AJ_Status AJ_Net_Send(AJ_IOBuffer* buf)
 
     AJ_InfoPrintf(("AJ_Net_Send(buf=0x%p)\n", buf));
 
-    assert(buf->direction == AJ_IO_BUF_TX);
+    AJ_ASSERT(buf->direction == AJ_IO_BUF_TX);
 
     if (tx > 0) {
         NetContext* ctx = (NetContext*) buf->context;
@@ -192,7 +192,7 @@ static AJ_Status AJ_Net_Recv(AJ_IOBuffer* buf, uint32_t len, uint32_t timeout)
 
     AJ_InfoPrintf(("AJ_Net_Recv(buf=0x%p, len=%d, timeout=%d)\n", buf, len, timeout));
 
-    assert(buf->direction == AJ_IO_BUF_RX);
+    AJ_ASSERT(buf->direction == AJ_IO_BUF_RX);
 
     rx = min(rx, len);
     if (!rx) {
@@ -375,28 +375,31 @@ typedef struct {
     SOCKET sock;
     int family;
     struct in_addr v4_bcast;
-    uint16_t recv_port;
     uint8_t is_mdns;
     uint8_t is_mdnsrecv;
     uint8_t has_mcast4;
     uint8_t has_mcast6;
-    struct in_addr v4_addr;
+    struct sockaddr_in v4Addr;
+    struct sockaddr_in6 v6Addr;
 } mcast_info_t;
 
 static mcast_info_t* McastSocks = NULL;
 static size_t NumMcastSocks = 0;
 
-static AJ_Status RewriteSenderInfo(AJ_IOBuffer* buf, uint32_t addr, uint16_t port)
+static AJ_Status RewriteSenderInfo(AJ_IOBuffer* buf, struct sockaddr* saddr)
 {
-    size_t tx = AJ_IO_BUF_AVAIL(buf);
     uint16_t sidVal;
-    const char send[4] = { 'd', 'n', 'e', 's' };
+    const char snd[] = { 'd', 'n', 'e', 's' };
     const char sid[] = { 's', 'i', 'd', '=' };
-    const char ipv4[] = { 'i', 'p', 'v', '4', '=' };
-    const char upcv4[] = { 'u', 'p', 'c', 'v', '4', '=' };
+    const char ipv4[] = { 'i', 'p', 'v', '4', '=', '\0' };
+    const char upcv4[] = { 'u', 'p', 'c', 'v', '4', '=', '\0' };
+    const char ipv6[] = { 'i', 'p', 'v', '6', '=', '\0' };
+    const char upcv6[] = { 'u', 'p', 'c', 'v', '6', '=', '\0' };
+    const char* ipToUse = NULL;
+    const char* upcToUse = NULL;
     char sidStr[6];
-    char ipv4Str[17];
-    char upcv4Str[6];
+    char ipStr[INET6_ADDRSTRLEN];
+    char upcStr[6];
     uint8_t* pkt;
     uint16_t dataLength;
     int match;
@@ -411,24 +414,37 @@ static AJ_Status RewriteSenderInfo(AJ_IOBuffer* buf, uint32_t addr, uint16_t por
     if (status != AJ_OK) {
         return AJ_ERR_WRITE;
     }
-    status = AJ_IntToString((int32_t) port, upcv4Str, sizeof(upcv4Str));
-    if (status != AJ_OK) {
-        return AJ_ERR_WRITE;
+    if (saddr->sa_family == AF_INET) {
+        upcToUse = upcv4;
+        ipToUse = ipv4;
+        status = AJ_IntToString((int32_t)(((struct sockaddr_in*)saddr)->sin_port), upcStr, sizeof(upcStr));
+        if (status != AJ_OK) {
+            return AJ_ERR_WRITE;
+        }
+        status = AJ_InetToString(htonl(((struct sockaddr_in*)saddr)->sin_addr.s_addr), ipStr, sizeof(ipStr));
+        if (status != AJ_OK) {
+            return AJ_ERR_WRITE;
+        }
+    } else if (saddr->sa_family == AF_INET6) {
+        upcToUse = upcv6;
+        ipToUse = ipv6;
+        status = AJ_IntToString((int32_t)(((struct sockaddr_in6*)saddr)->sin6_port), upcStr, sizeof(upcStr));
+        if (status != AJ_OK) {
+            return AJ_ERR_WRITE;
+        }
+        if (NULL == inet_ntop(AF_INET6, &((struct sockaddr_in6*)saddr)->sin6_addr, ipStr, sizeof(ipStr))) {
+            return AJ_ERR_WRITE;
+        }
     }
-    status = AJ_InetToString(addr, ipv4Str, sizeof(ipv4Str));
-    if (status != AJ_OK) {
-        return AJ_ERR_WRITE;
-    }
-
     // ASSUMPTIONS: sender-info resource record is the final resource record in the packet.
-    // sid, ipv4, and upcv4 key value pairs are the final three key/value pairs in the record.
+    // sid, ipv4/ipv6, and upcv4/ipcv6 key value pairs are the final three key/value pairs in the record.
     // The length of the other fields in the record are static.
     //
     // search backwards through packet to find the start of "sender-info"
     pkt = buf->writePtr;
     match = 0;
     do {
-        if (*(pkt--) == send[match]) {
+        if (*(pkt--) == snd[match]) {
             match++;
         } else {
             match = 0;
@@ -443,7 +459,7 @@ static AJ_Status RewriteSenderInfo(AJ_IOBuffer* buf, uint32_t addr, uint16_t por
 
     // actual data length is the length of the static values already in the buffer plus
     // the three dynamic key-value pairs to re-write
-    dataLength = 23 + 1 + sizeof(sid) + strlen(sidStr) + 1 + sizeof(ipv4) + strlen(ipv4Str) + 1 + sizeof(upcv4) + strlen(upcv4Str);
+    dataLength = 23 + 1 + sizeof(sid) + strlen(sidStr) + 1 + strlen(ipToUse) + strlen(ipStr) + 1 + strlen(upcToUse) + strlen(upcStr);
     *pkt++ = (dataLength >> 8) & 0xFF;
     *pkt++ = dataLength & 0xFF;
 
@@ -451,7 +467,7 @@ static AJ_Status RewriteSenderInfo(AJ_IOBuffer* buf, uint32_t addr, uint16_t por
     pkt += 23;
 
     // ASSERT: must be at the start of "sid="
-    assert(*(pkt + 1) == 's');
+    AJ_ASSERT(*(pkt + 1) == 's');
 
     // re-write new values
     *pkt++ = sizeof(sid) + strlen(sidStr);
@@ -460,17 +476,17 @@ static AJ_Status RewriteSenderInfo(AJ_IOBuffer* buf, uint32_t addr, uint16_t por
     memcpy(pkt, sidStr, strlen(sidStr));
     pkt += strlen(sidStr);
 
-    *pkt++ = sizeof(ipv4) + strlen(ipv4Str);
-    memcpy(pkt, ipv4, sizeof(ipv4));
-    pkt += sizeof(ipv4);
-    memcpy(pkt, ipv4Str, strlen(ipv4Str));
-    pkt += strlen(ipv4Str);
+    *pkt++ = strlen(ipToUse) + strlen(ipStr);
+    memcpy(pkt, ipToUse, strlen(ipToUse));
+    pkt += strlen(ipToUse);
+    memcpy(pkt, ipStr, strlen(ipStr));
+    pkt += strlen(ipStr);
 
-    *pkt++ = sizeof(upcv4) + strlen(upcv4Str);
-    memcpy(pkt, upcv4, sizeof(upcv4));
-    pkt += sizeof(upcv4);
-    memcpy(pkt, upcv4Str, strlen(upcv4Str));
-    pkt += strlen(upcv4Str);
+    *pkt++ = strlen(upcToUse) + strlen(upcStr);
+    memcpy(pkt, upcToUse, strlen(upcToUse));
+    pkt += strlen(upcToUse);
+    memcpy(pkt, upcStr, strlen(upcStr));
+    pkt += strlen(upcStr);
 
     buf->writePtr = pkt;
 
@@ -485,8 +501,8 @@ static AJ_Status AJ_Net_SendTo(AJ_IOBuffer* buf)
 
     AJ_InfoPrintf(("AJ_Net_SendTo(buf=0x%p)\n", buf));
 
-    assert(buf->direction == AJ_IO_BUF_TX);
-    assert(NumMcastSocks > 0);
+    AJ_ASSERT(buf->direction == AJ_IO_BUF_TX);
+    AJ_ASSERT(NumMcastSocks > 0);
 
     if (tx > 0) {
         size_t i;
@@ -545,27 +561,26 @@ static AJ_Status AJ_Net_SendTo(AJ_IOBuffer* buf)
             }
 
             if ((buf->flags & AJ_IO_BUF_MDNS) && McastSocks[i].is_mdns) {
-
-                // Update the packet with receiver info for this socket
-                if (RewriteSenderInfo(buf, ntohl(McastSocks[i].v4_addr.s_addr), McastSocks[i].recv_port) != AJ_OK) {
-                    AJ_WarnPrintf(("AJ_Net_SendTo(): RewriteSenderInfo failed.\n"));
-                    continue;
-                }
-                tx = AJ_IO_BUF_AVAIL(buf);
-
                 // try sending IPv4 multicast
                 if (family == AF_INET && McastSocks[i].has_mcast4) {
                     struct sockaddr_in sin;
                     memset(&sin, 0, sizeof(sin));
                     sin.sin_family = AF_INET;
                     sin.sin_port = htons(MDNS_UDP_PORT);
-                    inet_pton(AF_INET, MDNS_IPV4_MULTICAST_GROUP, &sin.sin_addr);
-
-                    ret = sendto(sock, buf->readPtr, tx, 0, (struct sockaddr*) &sin, sizeof(struct sockaddr_in));
-                    if (ret == SOCKET_ERROR) {
-                        AJ_ErrPrintf(("AJ_Net_SendTo(): sendto() multicast failed (IPV4). WSAGetLastError()=0x%x\n", WSAGetLastError()));
+                    if (inet_pton(AF_INET, MDNS_IPV4_MULTICAST_GROUP, &sin.sin_addr) == 1) {
+                        if (RewriteSenderInfo(buf, (struct sockaddr*)&McastSocks[i].v4Addr) == AJ_OK) {
+                            tx = AJ_IO_BUF_AVAIL(buf);
+                            ret = sendto(sock, buf->readPtr, tx, 0, (struct sockaddr*) &sin, sizeof(struct sockaddr_in));
+                            if (ret == SOCKET_ERROR) {
+                                AJ_ErrPrintf(("AJ_Net_SendTo(): sendto() multicast failed (IPv4). WSAGetLastError()=0x%x\n", WSAGetLastError()));
+                            } else {
+                                ++numWrites;
+                            }
+                        } else {
+                            AJ_WarnPrintf(("AJ_Net_SendTo(): RewriteSenderInfo for IPv4 address failed.\n"));
+                        }
                     } else {
-                        ++numWrites;
+                        AJ_ErrPrintf(("AJ_Net_SendTo(): Invalid mDNS IPv4 address. errno=\"%s\"\n", strerror(errno)));
                     }
                 }
 
@@ -576,11 +591,16 @@ static AJ_Status AJ_Net_SendTo(AJ_IOBuffer* buf)
                     bsin.sin_family = AF_INET;
                     bsin.sin_port = htons(MDNS_UDP_PORT);
                     bsin.sin_addr.s_addr = McastSocks[i].v4_bcast.s_addr;
-                    ret = sendto(sock, buf->readPtr, tx, 0, (struct sockaddr*) &bsin, sizeof(struct sockaddr_in));
-                    if (ret == SOCKET_ERROR) {
-                        AJ_ErrPrintf(("AJ_Net_SendTo(): sendto() broadcast failed. WSAGetLastError()=0x%x\n", WSAGetLastError()));
+                    if (RewriteSenderInfo(buf, (struct sockaddr*)&McastSocks[i].v4Addr) == AJ_OK) {
+                        tx = AJ_IO_BUF_AVAIL(buf);
+                        ret = sendto(sock, buf->readPtr, tx, 0, (struct sockaddr*) &bsin, sizeof(struct sockaddr_in));
+                        if (ret == SOCKET_ERROR) {
+                            AJ_ErrPrintf(("AJ_Net_SendTo(): sendto() broadcast failed. WSAGetLastError()=0x%x\n", WSAGetLastError()));
+                        } else {
+                            ++numWrites;
+                        }
                     } else {
-                        ++numWrites;
+                        AJ_WarnPrintf(("AJ_Net_SendTo(): RewriteSenderInfo for IPv4 broadcast failed.\n"));
                     }
                 }
 
@@ -590,12 +610,20 @@ static AJ_Status AJ_Net_SendTo(AJ_IOBuffer* buf)
                     memset(&sin6, 0, sizeof(struct sockaddr_in6));
                     sin6.sin6_family = AF_INET6;
                     sin6.sin6_port = htons(MDNS_UDP_PORT);
-                    inet_pton(AF_INET6, MDNS_IPV6_MULTICAST_GROUP, &sin6.sin6_addr);
-                    ret = sendto(sock, buf->readPtr, tx, 0, (struct sockaddr*) &sin6, sizeof(struct sockaddr_in6));
-                    if (ret == SOCKET_ERROR) {
-                        AJ_ErrPrintf(("AJ_Net_SendTo(): sendto() failed (IPV6). WSAGetLastError()=0x%x\n", WSAGetLastError()));
+                    if (inet_pton(AF_INET6, MDNS_IPV6_MULTICAST_GROUP, &sin6.sin6_addr) == 1) {
+                        if (RewriteSenderInfo(buf, (struct sockaddr*)&McastSocks[i].v6Addr) == AJ_OK) {
+                            tx = AJ_IO_BUF_AVAIL(buf);
+                            ret = sendto(sock, buf->readPtr, tx, 0, (struct sockaddr*) &sin6, sizeof(struct sockaddr_in6));
+                            if (ret == SOCKET_ERROR) {
+                                AJ_ErrPrintf(("AJ_Net_SendTo(): sendto() failed (IPV6). WSAGetLastError()=0x%x\n", WSAGetLastError()));
+                            } else {
+                                ++numWrites;
+                            }
+                        } else {
+                            AJ_WarnPrintf(("AJ_Net_SendTo(): RewriteSenderInfo for IPv6 address failed.\n"));
+                        }
                     } else {
-                        ++numWrites;
+                        AJ_ErrPrintf(("AJ_Net_SendTo(): Invalid mDNS IPv6 address. errno=\"%s\"\n", strerror(errno)));
                     }
                 }
             }
@@ -623,11 +651,14 @@ static AJ_Status AJ_Net_RecvFrom(AJ_IOBuffer* buf, uint32_t len, uint32_t timeou
     const struct timeval tv = { timeout / 1000, 1000 * (timeout % 1000) };
     SOCKET sock;
     int numSocks = 0;
+    uint8_t sockIsIpv6 = FALSE;
+    struct sockaddr_storage sa;
+    socklen_t addrlen;
 
     AJ_InfoPrintf(("AJ_Net_RecvFrom(buf=0x%p, len=%d., timeout=%d.)\n", buf, len, timeout));
 
-    assert(buf->direction == AJ_IO_BUF_RX);
-    assert(NumMcastSocks > 0);
+    AJ_ASSERT(buf->direction == AJ_IO_BUF_RX);
+    AJ_ASSERT(NumMcastSocks > 0);
 
     // we sent the discovery requests out on ALL broadcast and multicast interfaces
     // now we need to listen on the NS version 1 sockets and the mDNS recv sockets
@@ -661,17 +692,27 @@ static AJ_Status AJ_Net_RecvFrom(AJ_IOBuffer* buf, uint32_t len, uint32_t timeou
                 } else {
                     buf->flags |= AJ_IO_BUF_AJ;
                 }
+                sockIsIpv6 = (McastSocks[i].family == AF_INET6);
                 break;
             }
         }
     }
 
     if (sock != INVALID_SOCKET) {
-        ret = recvfrom(sock, buf->writePtr, rx, 0, NULL, 0);
+        if (sockIsIpv6) {
+            addrlen = sizeof(sa);
+            ret = recvfrom(sock, buf->writePtr, rx, 0, (struct sockaddr*)&sa, &addrlen);
+        } else {
+            ret = recvfrom(sock, buf->writePtr, rx, 0, NULL, 0);
+        }
         if (ret == SOCKET_ERROR) {
             AJ_ErrPrintf(("AJ_Net_RecvFrom(): recvfrom() failed. WSAGetLastError()=0x%x, status=AJ_ERR_READ\n", WSAGetLastError()));
             status = AJ_ERR_READ;
         } else {
+            if (sockIsIpv6) {
+                struct sockaddr_in6* sin6 = (struct sockaddr_in6*)&sa;
+                buf->scope_id = sin6->sin6_scope_id;
+            }
             buf->writePtr += ret;
             status = AJ_OK;
         }
@@ -701,6 +742,7 @@ static void Mcast6Up(const char* group, uint16_t port, uint8_t mdns, uint16_t re
     PIP_ADAPTER_ADDRESSES interfaces = (PIP_ADAPTER_ADDRESSES) iface_buffer;
     PIP_ADAPTER_ADDRESSES v4_interfaces = (PIP_ADAPTER_ADDRESSES) v4_iface_buffer;
     DWORD num_bytes = sizeof(iface_buffer);
+    int reuse = 1;
 
     // Get the IPv6 adapter addresses
     if (ERROR_SUCCESS != GetAdaptersAddresses(AF_INET6, GAA_FLAG_SKIP_MULTICAST | GAA_FLAG_SKIP_ANYCAST | GAA_FLAG_SKIP_DNS_SERVER, NULL, interfaces, &num_bytes)) {
@@ -724,35 +766,30 @@ static void Mcast6Up(const char* group, uint16_t port, uint8_t mdns, uint16_t re
 
         new_sock.sock = INVALID_SOCKET;
         new_sock.family = AF_INET6;
-        new_sock.recv_port = recv_port;
         new_sock.has_mcast4 = FALSE;
         new_sock.is_mdns = mdns;
         new_sock.v4_bcast.s_addr = 0;
-        new_sock.v4_addr.s_addr = 0;
-
+        memset(&(new_sock.v4Addr), 0, sizeof(new_sock.v4Addr));
+        memset(&(new_sock.v6Addr), 0, sizeof(new_sock.v6Addr));
         memset(&mreq6, 0, sizeof(struct ipv6_mreq));
 
         if (interfaces->OperStatus != IfOperStatusUp || interfaces->NoMulticast) {
             continue;
         }
 
-        memcpy(&addr, interfaces->FirstUnicastAddress->Address.lpSockaddr, sizeof(struct sockaddr_in6));
-
         // find and save the IPv4 address from this same adapter
         for (; v4_addr_begin != NULL; v4_addr_begin = v4_addr_begin->Next) {
             if (interfaces->Ipv6IfIndex == v4_addr_begin->IfIndex) {
                 memcpy(&v4_addr, v4_addr_begin->FirstUnicastAddress->Address.lpSockaddr, sizeof(struct sockaddr_in));
-                new_sock.v4_addr.s_addr = v4_addr.sin_addr.s_addr;
+                new_sock.v4Addr.sin_addr.s_addr = v4_addr.sin_addr.s_addr;
                 break;
             }
         }
 
-        if (!new_sock.v4_addr.s_addr) {
+        if (!new_sock.v4Addr.sin_addr.s_addr) {
             AJ_ErrPrintf(("Mcast6Up(): IPV4 address not found for interface %u\n", interfaces->Ipv6IfIndex));
             continue;
         }
-
-
 
         // create a socket
         new_sock.sock = socket(AF_INET6, SOCK_DGRAM, 0);
@@ -761,7 +798,26 @@ static void Mcast6Up(const char* group, uint16_t port, uint8_t mdns, uint16_t re
             continue;
         }
 
+        ret = setsockopt(new_sock.sock, SOL_SOCKET, SO_REUSEADDR, (char*) &reuse, sizeof(reuse));
+
+        if (ret != 0) {
+            AJ_ErrPrintf(("MCast6Up(): setsockopt(SO_REUSEADDR) failed. errno=\"%s\", status=AJ_ERR_READ\n", strerror(errno)));
+            closesocket(new_sock.sock);
+            new_sock.sock = INVALID_SOCKET;
+            continue;
+        }
+
+        memcpy(&(new_sock.v6Addr), interfaces->FirstUnicastAddress->Address.lpSockaddr, sizeof(struct sockaddr_in6));
+        new_sock.v6Addr.sin6_family = AF_INET6;
+        new_sock.v6Addr.sin6_port = recv_port;
+
         // bind the socket to the supplied port
+        memset(&addr, 0, sizeof(struct sockaddr_in6));
+        if (mdns) {
+            addr.sin6_addr = in6addr_any;
+        } else {
+            memcpy(&addr, interfaces->FirstUnicastAddress->Address.lpSockaddr, sizeof(struct sockaddr_in6));
+        }
         addr.sin6_family = AF_INET6;
         addr.sin6_port = htons(port);
 
@@ -830,8 +886,10 @@ static void Mcast4Up(const char* group, uint16_t port, uint8_t mdns, uint16_t re
         new_sock.is_mdnsrecv = FALSE;
         new_sock.is_mdns = mdns;
         new_sock.v4_bcast.s_addr = 0;
-        new_sock.recv_port = recv_port;
-        new_sock.v4_addr.s_addr = 0;
+        memset(&(new_sock.v4Addr), 0, sizeof(new_sock.v4Addr));
+        new_sock.v4Addr.sin_family = AF_INET;
+        new_sock.v4Addr.sin_port = recv_port;
+        memset(&(new_sock.v6Addr), 0, sizeof(new_sock.v6Addr));
 
         if (!(info->iiFlags & IFF_UP)) {
             continue;
@@ -852,7 +910,7 @@ static void Mcast4Up(const char* group, uint16_t port, uint8_t mdns, uint16_t re
             new_sock.sock = INVALID_SOCKET;
             continue;
         }
-        new_sock.v4_addr.s_addr = info->iiAddress.AddressIn.sin_addr.s_addr;
+        new_sock.v4Addr.sin_addr.s_addr = info->iiAddress.AddressIn.sin_addr.s_addr;
 
         // if this address supports IPV4 broadcast, calculate the subnet bcast address and save it
         if (info->iiFlags & IFF_BROADCAST) {
@@ -916,8 +974,7 @@ static void Mcast4Up(const char* group, uint16_t port, uint8_t mdns, uint16_t re
     }
 }
 
-
-static SOCKET MDnsRecvUp()
+static SOCKET MDns4RecvUp()
 {
     int ret = 0;
     SOCKET tmp_sock;
@@ -925,9 +982,12 @@ static SOCKET MDnsRecvUp()
     struct sockaddr_in sin;
     mcast_info_t new_sock;
 
+    struct sockaddr_storage addrBuf;
+    socklen_t addrLen = sizeof(addrBuf);
+
     tmp_sock = socket(AF_INET, SOCK_DGRAM, 0);
     if (tmp_sock == INVALID_SOCKET) {
-        AJ_ErrPrintf(("MDnsRecvUp(): socket failed. WSAGetLastError()=0x%x\n", WSAGetLastError()));
+        AJ_ErrPrintf(("%s: socket failed. WSAGetLastError()=0x%x\n", __FUNCTION__, WSAGetLastError()));
         return tmp_sock;
     }
 
@@ -938,7 +998,7 @@ static SOCKET MDnsRecvUp()
 
     ret = bind(tmp_sock, (struct sockaddr*) &sin, sizeof(sin));
     if (ret == SOCKET_ERROR) {
-        AJ_ErrPrintf(("MDnsRecvUp(): bind() failed. WSAGetLastError()=0x%x\n", WSAGetLastError()));
+        AJ_ErrPrintf(("%s: bind() failed. WSAGetLastError()=0x%x\n", __FUNCTION__, WSAGetLastError()));
         closesocket(tmp_sock);
         tmp_sock = INVALID_SOCKET;
         return tmp_sock;
@@ -950,13 +1010,58 @@ static SOCKET MDnsRecvUp()
     new_sock.is_mdns = FALSE;
     new_sock.is_mdnsrecv = TRUE;
     new_sock.v4_bcast.s_addr = 0;
-    new_sock.v4_addr.s_addr = 0;
+    memset(&(new_sock.v4Addr), 0, sizeof(struct sockaddr_in));
+    memset(&(new_sock.v6Addr), 0, sizeof(struct sockaddr_in6));
     NumMcastSocks++;
     McastSocks = realloc(McastSocks, NumMcastSocks * sizeof(mcast_info_t));
     memcpy(&McastSocks[NumMcastSocks - 1], &new_sock, sizeof(mcast_info_t));
     return tmp_sock;
 }
 
+static SOCKET MDns6RecvUp()
+{
+    int ret = 0;
+    SOCKET tmp_sock;
+    uint32_t i = 0;
+    struct sockaddr_in6 sin6;
+    mcast_info_t new_sock;
+
+    struct sockaddr_storage addrBuf;
+    socklen_t addrLen = sizeof(addrBuf);
+
+    tmp_sock = socket(AF_INET6, SOCK_DGRAM, 0);
+    if (tmp_sock == INVALID_SOCKET) {
+        AJ_ErrPrintf(("%s: socket failed. WSAGetLastError()=0x%x\n", __FUNCTION__, WSAGetLastError()));
+        return tmp_sock;
+    }
+
+    // bind the socket to an ephemeral port
+    memset(&sin6, 0, sizeof(struct sockaddr_in6));
+    sin6.sin6_family = AF_INET6;
+    sin6.sin6_port = htons(0);
+    sin6.sin6_addr = in6addr_any;
+
+    ret = bind(tmp_sock, (struct sockaddr*) &sin6, sizeof(sin6));
+    if (ret == SOCKET_ERROR) {
+        AJ_ErrPrintf(("%s: bind() failed [%d]. WSAGetLastError()=0x%x\n", __FUNCTION__, ret, WSAGetLastError()));
+        closesocket(tmp_sock);
+        tmp_sock = INVALID_SOCKET;
+        return tmp_sock;
+    }
+
+    new_sock.sock = tmp_sock;
+    new_sock.family = AF_INET6;
+    new_sock.has_mcast4 = FALSE;
+    new_sock.is_mdns = FALSE;
+    new_sock.is_mdnsrecv = TRUE;
+    new_sock.v4_bcast.s_addr = 0;
+    memset(&(new_sock.v4Addr), 0, sizeof(struct sockaddr_in));
+    memset(&(new_sock.v6Addr), 0, sizeof(struct sockaddr_in6));
+    NumMcastSocks++;
+    McastSocks = realloc(McastSocks, NumMcastSocks * sizeof(mcast_info_t));
+    memcpy(&McastSocks[NumMcastSocks - 1], &new_sock, sizeof(mcast_info_t));
+    return tmp_sock;
+}
 
 AJ_Status AJ_Net_MCastUp(AJ_MCastSocket* mcastSock)
 {
@@ -964,19 +1069,38 @@ AJ_Status AJ_Net_MCastUp(AJ_MCastSocket* mcastSock)
     size_t numMDnsRecvSocks;
     struct sockaddr_storage addrBuf;
     socklen_t addrLen = sizeof(addrBuf);
-    struct sockaddr_in* sin;
+    uint16_t ipv4RecvPort = 0;
+    uint16_t ipv6RecvPort = 0;
     SOCKET tmp_sock = INVALID_SOCKET;
     // bring up WinSock
     WinsockCheck();
 
     AJ_InfoPrintf(("AJ_Net_MCastUp(mcastSock=0x%p)\n", mcastSock));
 
-    // create the mDNS recv socket
-    tmp_sock = MDnsRecvUp();
+    // create the mDNS IPv4 recv socket
+    tmp_sock = MDns4RecvUp();
     if (tmp_sock != INVALID_SOCKET) {
-        getsockname(tmp_sock, (struct sockaddr*) &addrBuf, &addrLen);
-        sin = (struct sockaddr_in*) &addrBuf;
-        AJ_InfoPrintf(("AJ_Net_MCastUp(): mDNS recv port: %d\n", ntohs(sin->sin_port)));
+        if (getsockname(tmp_sock, (struct sockaddr*) &addrBuf, &addrLen) == SOCKET_ERROR) {
+            AJ_ErrPrintf(("AJ_Net_MCastUp(): getsockname for IPv4 sock failed. WSAGetLastError()=%d\n", WSAGetLastError()));
+            closesocket(tmp_sock);
+        } else {
+            ipv4RecvPort = ((struct sockaddr_in*)&addrBuf)->sin_port;
+            AJ_InfoPrintf(("AJ_Net_MCastUp(): mDNS IPv4 recv port: %u\n", ntohs(ipv4RecvPort)));
+        }
+    }
+
+    memset(&addrBuf, 0, sizeof(addrBuf));
+    addrLen = sizeof(addrBuf);
+    // create the mDNS IPv6 recv socket
+    tmp_sock = MDns6RecvUp();
+    if (tmp_sock != INVALID_SOCKET) {
+        if (getsockname(tmp_sock, (struct sockaddr*) &addrBuf, &addrLen) == SOCKET_ERROR) {
+            AJ_ErrPrintf(("AJ_Net_MCastUp(): getsockname for IPv6 sock failed. WSAGetLastError()=%d\n", WSAGetLastError()));
+            closesocket(tmp_sock);
+        } else {
+            ipv6RecvPort = ((struct sockaddr_in6*)&addrBuf)->sin6_port;
+            AJ_InfoPrintf(("AJ_Net_MCastUp(): mDNS IPv6 recv port: %u\n", ntohs(ipv6RecvPort)));
+        }
     }
 
     if (NumMcastSocks == 0) {
@@ -987,8 +1111,12 @@ AJ_Status AJ_Net_MCastUp(AJ_MCastSocket* mcastSock)
     numMDnsRecvSocks = NumMcastSocks;
 
     // create the sending sockets
-    Mcast4Up(MDNS_IPV4_MULTICAST_GROUP, MDNS_UDP_PORT, TRUE, ntohs(sin->sin_port));
-    Mcast6Up(MDNS_IPV6_MULTICAST_GROUP, MDNS_UDP_PORT, TRUE, ntohs(sin->sin_port));
+    if (ipv4RecvPort != 0) {
+        Mcast4Up(MDNS_IPV4_MULTICAST_GROUP, MDNS_UDP_PORT, TRUE, ntohs(ipv4RecvPort));
+    }
+    if (ipv6RecvPort != 0) {
+        Mcast6Up(MDNS_IPV6_MULTICAST_GROUP, MDNS_UDP_PORT, TRUE, ntohs(ipv6RecvPort));
+    }
 
     // create the NS sockets only if considering pre-14.06 routers
     if (AJ_GetMinProtoVersion() < 10) {
@@ -1125,55 +1253,59 @@ static AJ_Status AJ_ARDP_UDP_Recv(void* context, uint8_t** data, uint32_t* recve
     }
 }
 
-static AJ_Status AJ_Net_ARDP_Connect(AJ_BusAttachment* bus, const AJ_Service* service)
+static SOCKET AJ_Net_ARDP_PrepareConnectIPv4(const AJ_Service* service, struct sockaddr_storage* destAddr)
 {
     SOCKET udpSock = INVALID_SOCKET;
-    AJ_Status status;
-    SOCKADDR_STORAGE addrBuf;
-    socklen_t addrSize;
-    DWORD ret;
+    char ipStr[INET_ADDRSTRLEN];
 
-    AJ_ARDP_InitFunctions(AJ_ARDP_UDP_Recv, AJ_ARDP_UDP_Send);
+    AJ_ASSERT(service->addrTypes & AJ_ADDR_UDP4);
 
-    memset(&addrBuf, 0, sizeof(addrBuf));
-
-    if (service->addrTypes & AJ_ADDR_UDP4) {
-        struct sockaddr_in* sa = (struct sockaddr_in*) &addrBuf;
-        udpSock = WSASocketW(AF_INET, SOCK_DGRAM, IPPROTO_UDP, NULL, 0, WSA_FLAG_OVERLAPPED);
-        if (udpSock == INVALID_SOCKET) {
-            AJ_ErrPrintf(("AJ_Net_ARDP_Connect(): socket() failed.  status=AJ_ERR_CONNECT\n"));
-            goto ConnectError;
-        }
-
-        sa->sin_family = AF_INET;
-        sa->sin_port = htons(service->ipv4portUdp);
-        sa->sin_addr.s_addr = service->ipv4Udp;
-        addrSize = sizeof(struct sockaddr_in);
-        AJ_InfoPrintf(("AJ_Net_ARDP_Connect(): Connect to \"%s:%u\"\n", inet_ntoa(sa->sin_addr), service->ipv4portUdp));;
-    } else if (service->addrTypes & AJ_ADDR_UDP6) {
-        struct sockaddr_in6* sa = (struct sockaddr_in6*) &addrBuf;
-        udpSock = WSASocketW(AF_INET6, SOCK_DGRAM, IPPROTO_UDP, NULL, 0, WSA_FLAG_OVERLAPPED);
-        if (udpSock == INVALID_SOCKET) {
-            AJ_ErrPrintf(("AJ_Net_ARDP_Connect(): socket() failed.  status=AJ_ERR_CONNECT\n"));
-            goto ConnectError;
-        }
-
-        sa->sin6_family = AF_INET6;
-        sa->sin6_port = htons(service->ipv6portUdp);
-        memcpy(sa->sin6_addr.s6_addr, service->ipv6Udp, sizeof(sa->sin6_addr.s6_addr));
-        addrSize = sizeof(struct sockaddr_in6);
-    } else {
-        AJ_ErrPrintf(("AJ_Net_ARDP_Connect(): Invalid addrTypes %u, status=AJ_ERR_CONNECT\n", service->addrTypes));
-        return AJ_ERR_CONNECT;
+    struct sockaddr_in* sa = (struct sockaddr_in*)destAddr;
+    udpSock = WSASocketW(AF_INET, SOCK_DGRAM, IPPROTO_UDP, NULL, 0, WSA_FLAG_OVERLAPPED);
+    if (udpSock == INVALID_SOCKET) {
+        AJ_ErrPrintf(("%s(): socket() failed.  status=AJ_ERR_CONNECT\n", __FUNCTION__));
+        return udpSock;
     }
 
+    sa->sin_family = AF_INET;
+    sa->sin_port = htons(service->ipv4portUdp);
+    sa->sin_addr.s_addr = service->ipv4Udp;
+    AJ_InetToString(htonl(((struct sockaddr_in*)destAddr)->sin_addr.s_addr), ipStr, sizeof(ipStr));
+    AJ_InfoPrintf(("%s(): Connect to \"%s:%u\"\n", __FUNCTION__, ipStr, service->ipv4portUdp));
+    return udpSock;
+}
 
-    ret = connect(udpSock, (struct sockaddr*) &addrBuf, addrSize);
+static SOCKET AJ_Net_ARDP_PrepareConnectIPv6(const AJ_Service* service, struct sockaddr_storage* destAddr)
+{
+    SOCKET udpSock = INVALID_SOCKET;
+    char ipStr[INET6_ADDRSTRLEN];
+
+    AJ_ASSERT(service->addrTypes & AJ_ADDR_UDP6);
+
+    struct sockaddr_in6* sa = (struct sockaddr_in6*)destAddr;
+    udpSock = WSASocketW(AF_INET6, SOCK_DGRAM, IPPROTO_UDP, NULL, 0, WSA_FLAG_OVERLAPPED);
+    if (udpSock == INVALID_SOCKET) {
+        AJ_ErrPrintf(("%s(): socket() failed. status=AJ_ERR_CONNECT\n", __FUNCTION__));
+        return udpSock;
+    }
+
+    sa->sin6_family = AF_INET6;
+    sa->sin6_port = htons(service->ipv6portUdp);
+    memcpy(sa->sin6_addr.s6_addr, service->ipv6Udp, sizeof(sa->sin6_addr.s6_addr));
+    if (inet_ntop(sa->sin6_family, &(sa->sin6_addr),
+                  ipStr, sizeof(ipStr)) != NULL) {
+        AJ_InfoPrintf(("%s(): Connect to \"%s:%u\"\n", __FUNCTION__, ipStr,  service->ipv6portUdp));
+    }
+    return udpSock;
+}
+
+static AJ_Status AJ_Net_ARDP_DoConnect(AJ_BusAttachment* bus, const AJ_Service* service,
+                                       SOCKET udpSock, const struct sockaddr_storage* destAddr, socklen_t destAddrSize)
+{
+    DWORD ret = connect(udpSock, (struct sockaddr*)destAddr, destAddrSize);
+
     // must do this before calling AJ_MarshalMethodCall!
-    if (ret == SOCKET_ERROR) {
-        AJ_ErrPrintf(("AJ_Net_Connect(): connect() failed. WSAGetLastError()=0x%x, status=AJ_ERR_CONNECT\n", WSAGetLastError()));
-        goto ConnectError;
-    } else {
+    if (ret == 0) {
         netContext.udpSock = udpSock;
         AJ_IOBufInit(&bus->sock.rx, rxData, sizeof(rxData), AJ_IO_BUF_RX, &netContext);
         bus->sock.rx.recv = AJ_ARDP_Recv;
@@ -1184,21 +1316,51 @@ static AJ_Status AJ_Net_ARDP_Connect(AJ_BusAttachment* bus, const AJ_Service* se
         recvEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
         interruptEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
         wsaOverlapped.hEvent = INVALID_HANDLE_VALUE;
+    } else {
+        AJ_ErrPrintf(("%s(): Error connecting. WSAGetLastError()=0x%x, status=AJ_ERR_CONNECT\n", __FUNCTION__, WSAGetLastError()));
+        return AJ_ERR_CONNECT;
     }
 
-    status = AJ_ARDP_UDP_Connect(bus, &netContext, service, &bus->sock);
-    if (status != AJ_OK) {
-        goto ConnectError;
+    if (AJ_ARDP_UDP_Connect(bus, &netContext, service, &bus->sock) != AJ_OK) {
+        AJ_ErrPrintf(("%s(): ARDP_Connect failed\n", __FUNCTION__));
+        return AJ_ERR_CONNECT;
     }
 
     return AJ_OK;
+}
 
-ConnectError:
+static AJ_Status AJ_Net_ARDP_Connect(AJ_BusAttachment* bus, const AJ_Service* service)
+{
+    SOCKET udpSock = INVALID_SOCKET;
+    struct sockaddr_storage destAddr;
 
-    if (udpSock != INVALID_SOCKET) {
-        closesocket(udpSock);
+    AJ_ARDP_InitFunctions(AJ_ARDP_UDP_Recv, AJ_ARDP_UDP_Send);
+
+    memset(&destAddr, 0, sizeof(destAddr));
+
+    if (service->addrTypes & AJ_ADDR_UDP4) {
+        udpSock = AJ_Net_ARDP_PrepareConnectIPv4(service, &destAddr);
+        if (udpSock != INVALID_SOCKET) {
+            if (AJ_Net_ARDP_DoConnect(bus, service, udpSock, &destAddr, sizeof(struct sockaddr_in)) == AJ_OK) {
+                return AJ_OK;
+            } else {
+                closesocket(udpSock);
+            }
+        }
     }
 
+    if (service->addrTypes & AJ_ADDR_UDP6) {
+        udpSock = AJ_Net_ARDP_PrepareConnectIPv6(service, &destAddr);
+        if (udpSock != INVALID_SOCKET) {
+            if (AJ_Net_ARDP_DoConnect(bus, service, udpSock, &destAddr, sizeof(struct sockaddr_in6)) == AJ_OK) {
+                return AJ_OK;
+            } else {
+                closesocket(udpSock);
+            }
+        }
+    }
+
+    AJ_ErrPrintf(("%s(): failed to connect\n", __FUNCTION__));
     return AJ_ERR_CONNECT;
 }
 
