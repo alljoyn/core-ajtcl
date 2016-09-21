@@ -485,7 +485,7 @@ static AJ_Status RewriteSenderInfo(AJ_IOBuffer* buf, struct sockaddr* saddr)
         }
     }
     // ASSUMPTIONS: sender-info resource record is the final resource record in the packet.
-    // sid, ipv4/ipv6, and upcv4/ipcv6 key value pairs are the final three key/value pairs in the record.
+    // sid, ipv4/ipv6, and upcv4/upcv6 key value pairs are the final three key/value pairs in the record.
     // The length of the other fields in the record are static.
     //
     // search backwards through packet to find the start of "sender-info"
@@ -914,7 +914,7 @@ ExitError:
     return INVALID_SOCKET;
 }
 
-static uint8_t chooseMDnsRecvAddr(sa_family_t family, struct sockaddr* saddr)
+static uint8_t chooseMDnsRecvAddr(sa_family_t family, MCastContext* mcast_info)
 {
     struct ifaddrs* addrs;
     struct ifaddrs* addr;
@@ -966,13 +966,13 @@ static uint8_t chooseMDnsRecvAddr(sa_family_t family, struct sockaddr* saddr)
             if ((defIface[0] == 0) || (strcmp(defIface, addr->ifa_name) == 0)) {
                 if (addr->ifa_addr->sa_family == AF_INET) {
                     if (inet_ntop(addr->ifa_addr->sa_family, &((struct sockaddr_in*)addr->ifa_addr)->sin_addr, addrbuf, sizeof(addrbuf)) != NULL) {
-                        memcpy(saddr, addr->ifa_addr, sizeof(struct sockaddr_in));
+                        memcpy(&(mcast_info->mDnsRecvAddr), addr->ifa_addr, sizeof(struct sockaddr_in));
                         freeifaddrs(addrs);
                         return TRUE;
                     }
                 } else if (addr->ifa_addr->sa_family == AF_INET6) {
                     if (inet_ntop(addr->ifa_addr->sa_family, &((struct sockaddr_in6*)addr->ifa_addr)->sin6_addr, addrbuf, sizeof(addrbuf)) != NULL) {
-                        memcpy(saddr, addr->ifa_addr, sizeof(struct sockaddr_in6));
+                        memcpy(&(mcast_info->mDns6RecvAddr), addr->ifa_addr, sizeof(struct sockaddr_in6));
                         freeifaddrs(addrs);
                         return TRUE;
                     }
@@ -985,7 +985,7 @@ static uint8_t chooseMDnsRecvAddr(sa_family_t family, struct sockaddr* saddr)
     return FALSE;
 }
 
-static int MDnsRecvUp()
+static int MDns4RecvUp()
 {
     int ret;
     struct sockaddr_in sin;
@@ -994,13 +994,13 @@ static int MDnsRecvUp()
 
     recvSock = socket(AF_INET, SOCK_DGRAM, 0);
     if (recvSock == INVALID_SOCKET) {
-        AJ_ErrPrintf(("MDnsRecvUp(): socket() fails. status=AJ_ERR_READ\n"));
+        AJ_ErrPrintf(("MDns4RecvUp(): socket() fails. status=AJ_ERR_READ\n"));
         goto ExitError;
     }
 
     ret = setsockopt(recvSock, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
     if (ret != 0) {
-        AJ_ErrPrintf(("MDnsRecvUp(): setsockopt(SO_REUSEADDR) failed. errno=\"%s\", status=AJ_ERR_READ\n", strerror(errno)));
+        AJ_ErrPrintf(("MDns4RecvUp(): setsockopt(SO_REUSEADDR) failed. errno=\"%s\", status=AJ_ERR_READ\n", strerror(errno)));
         goto ExitError;
     }
 
@@ -1009,7 +1009,7 @@ static int MDnsRecvUp()
     sin.sin_addr.s_addr = INADDR_ANY;
     ret = bind(recvSock, (struct sockaddr*) &sin, sizeof(sin));
     if (ret < 0) {
-        AJ_ErrPrintf(("MDnsRecvUp(): bind() failed. errno=\"%s\", status=AJ_ERR_READ\n", strerror(errno)));
+        AJ_ErrPrintf(("MDns4RecvUp(): bind() failed. errno=\"%s\", status=AJ_ERR_READ\n", strerror(errno)));
         goto ExitError;
     }
     return recvSock;
@@ -1043,6 +1043,8 @@ static int MDns6RecvUp()
     sin6.sin6_family = AF_INET6;
     sin6.sin6_port = htons(0);
     sin6.sin6_addr = in6addr_any;
+    sin6.sin6_flowinfo = 0;
+    sin6.sin6_scope_id = 0;
     ret = bind(recvSock, (struct sockaddr*) &sin6, sizeof(sin6));
     if (ret < 0) {
         AJ_ErrPrintf(("%s(): bind() failed. errno=\"%s\", status=AJ_ERR_READ\n", __FUNCTION__, strerror(errno)));
@@ -1065,7 +1067,7 @@ AJ_Status AJ_Net_MCastUp(AJ_MCastSocket* mcastSock)
     char ipStr[INET6_ADDRSTRLEN];
     AJ_Status status = AJ_ERR_READ;
 
-    mCastContext.mDnsRecvSock = MDnsRecvUp();
+    mCastContext.mDnsRecvSock = MDns4RecvUp();
     if (mCastContext.mDnsRecvSock == INVALID_SOCKET) {
         AJ_ErrPrintf(("AJ_Net_MCastUp(): MDnsRecvUp for mDnsRecvSock failed"));
         return status;
@@ -1075,7 +1077,7 @@ AJ_Status AJ_Net_MCastUp(AJ_MCastSocket* mcastSock)
         goto ExitError;
     }
 
-    if (chooseMDnsRecvAddr(AF_INET, (struct sockaddr*)&mCastContext.mDnsRecvAddr) == FALSE) {
+    if (chooseMDnsRecvAddr(AF_INET, &mCastContext) == FALSE) {
         AJ_ErrPrintf(("AJ_Net_MCastUp(): no mDNS recv address"));
         goto ExitError;
     }
@@ -1098,7 +1100,7 @@ AJ_Status AJ_Net_MCastUp(AJ_MCastSocket* mcastSock)
         goto ExitError;
     }
 
-    if (chooseMDnsRecvAddr(AF_INET6, (struct sockaddr*)&mCastContext.mDns6RecvAddr) == FALSE) {
+    if (chooseMDnsRecvAddr(AF_INET6, &mCastContext) == FALSE) {
         AJ_ErrPrintf(("AJ_Net_MCastUp(): no mDNS recv address"));
         goto ExitError;
     }
