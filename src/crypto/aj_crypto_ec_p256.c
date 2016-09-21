@@ -19,6 +19,7 @@
 
 #include <ajtcl/aj_util.h>
 #include <ajtcl/aj_crypto_ecc.h>
+#include <ajtcl/aj_crypto_fp.h>
 #include <ajtcl/aj_crypto_ec_p256.h>
 
 #define W_VARBASE 6     /* Parameter for scalar multiplication.  Should use 2-2.5 KB.  Must be >= 2. */

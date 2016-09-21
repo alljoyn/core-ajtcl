@@ -78,13 +78,13 @@ static digit256_tc P256_MODULUS = { 18446744073709551615ULL, 4294967295ULL, 0ULL
 
 
 /* Is x != 0? */
-inline digit_t is_digit_nonzero_ct(digit_t x)
+digit_t is_digit_nonzero_ct(digit_t x)
 {
     return ((x | (0 - x)) >> (RADIX_BITS - 1));
 }
 
 /* Is x == 0? */
-inline digit_t is_digit_zero_ct(digit_t x)
+digit_t is_digit_zero_ct(digit_t x)
 {
     return (1 ^ is_digit_nonzero_ct(x));
 }

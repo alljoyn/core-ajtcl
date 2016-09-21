@@ -25,9 +25,10 @@ arduinoLibDir = '#dist/arduino_due/libraries/AllJoyn/'
 # Install the .c files as .cpp files for the Arduino IDE to consume.
 srcs = []
 srcs.extend(Glob('src/*.c'))
+srcs.extend(Glob('src/nvram/*.c'))
 srcs.extend(Glob('src/target/arduino/*.c'))
 srcs.extend(Glob('src/crypto/*.c'))
-srcs.extend(Glob('external/sha2/*.c'))
+srcs.extend(Glob('src/external/sha2/*.c'))
 
 env.InstallAs([ File(arduinoLibDir + 'src/'+ f.name.replace('.c' , '.cpp')) for f in srcs ], srcs)
 
