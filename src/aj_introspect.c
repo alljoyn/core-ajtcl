@@ -1595,7 +1595,10 @@ AJ_Status AJ_IdentifyMessage(AJ_Message* msg)
 
             AJ_DumpMsg("Rejecting unidentified method call", msg, FALSE);
             AJ_MarshalStatusMsg(msg, &reply, status);
-            status = AJ_DeliverMsg(&reply);
+            AJ_Status resStatus = AJ_DeliverMsg(&reply);
+            if (AJ_OK != resStatus) {
+                AJ_ErrPrintf(("AJ_IdentifyMessage(): failed to send error response by AJ_DeliverMsg() %s\n", AJ_StatusText(resStatus)));
+            }
             /*
              * Cleanup the message we are ignoring.
              */
