@@ -961,7 +961,7 @@ static AJ_Session* AJ_BusGetBoundSession(AJ_BusAttachment* bus, uint16_t port)
 
 static AJ_Session* SessionAlloc()
 {
-    AJ_Session* session = AJ_Malloc(sizeof(AJ_Session));
+    AJ_Session* session = (AJ_Session*)AJ_Malloc(sizeof(AJ_Session));
     if (session) {
         AJ_MemZeroSecure(session, sizeof(AJ_Session));
     } else {
@@ -987,7 +987,7 @@ static void AJ_BusAddPendingSession(AJ_BusAttachment* bus, const char* host, uin
      * the JoinSession reply handler (see ProcessBusMessages)
      */
     session->multipoint = FALSE;
-    session->otherParticipant = AJ_Malloc(hostlen + 1);
+    session->otherParticipant = (char*)AJ_Malloc(hostlen + 1);
     if (!session->otherParticipant) {
         AJ_ErrPrintf(("Could not allocate Session structure -- out of memory.\n"));
         AJ_BusReleaseOngoingSession(session);
@@ -1076,7 +1076,7 @@ static void AJ_BusAddOngoingSession(AJ_BusAttachment* bus, uint32_t sessionId, u
     session->multipoint = multipoint;
     if (otherParticipant) {
         size_t otherlen = strlen(otherParticipant);
-        session->otherParticipant = AJ_Malloc(otherlen + 1);
+        session->otherParticipant = (char*)AJ_Malloc(otherlen + 1);
         if (!session->otherParticipant) {
             AJ_ErrPrintf(("Could not allocate Session structure -- out of memory.\n"));
             AJ_BusReleaseOngoingSession(session);
