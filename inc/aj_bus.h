@@ -58,8 +58,19 @@ typedef uint32_t (*AJ_AuthPwdFunc)(uint8_t* buffer, uint32_t bufLen);
  * @param command The listener command
  * @param creds The credentials
  *
+ * The authentication listener is called when AllJoyn either (i) needs
+ * credentials from the application, or (ii) provides credentials for review
+ * by the application.  For example, with ECDHE_SPEKE, AllJoyn requests the
+ * password from the application.  With ECDHE_ECDSA, AllJoyn provides the
+ * certificate chain presented by the peer to the application, so the
+ * application can perform additional validation. For Security 2.0 peers
+ * already claimed by a security manager, most applications will not need to do
+ * anything in the auth listener. For an example see
+ * samples\secure\SecureClientECDHE.c.  The possible commands are defined in
+ * aj_auth_listener.h.
+ *
  * @return
- *         - AJ_OK if credentials data was set
+ *         - AJ_OK if credentials data was set, or validated
  *         - An error status otherwise
  */
 typedef AJ_Status (*AJ_AuthListenerFunc)(uint32_t authmechanism, uint32_t command, AJ_Credential* creds);
