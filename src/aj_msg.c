@@ -1454,7 +1454,7 @@ AJ_Status AJ_UnmarshalMsg(AJ_BusAttachment* bus, AJ_Message* msg, uint32_t timeo
          * load the entire message into the buffer.
          * Only do this if it wasn't done above (encrypted message).
          */
-        if ((AJ_BUS_MESSAGE_ID(0xFF, 0xFF, 0) & msg->msgId) == AJ_PEER_AUTHENTICATION_IFN) {
+        if ((AJ_OK == status) && ((AJ_BUS_MESSAGE_ID(0xFF, 0xFF, 0) & msg->msgId) == AJ_PEER_AUTHENTICATION_IFN)) {
             if (!(msg->hdr->flags & AJ_FLAG_ENCRYPTED)) {
                 status = LoadBytes(ioBuf, msg->hdr->bodyLen, 0, msg);
             }
