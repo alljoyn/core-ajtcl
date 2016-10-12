@@ -52,7 +52,6 @@ env.Install(arduinoLibDir + 'src/ajtcl/services', env.Glob('services/config/inc/
 
 # Install the related header files as well.
 env.Install(arduinoLibDir + 'src', Glob('inc/ajtcl/*.h'))
-env.Install(arduinoLibDir + 'src/ajtcl', Glob('src/*.h'))
 env.Install(arduinoLibDir + 'src/ajtcl', Glob('src/target/arduino/*.h'))
 env.Install(arduinoLibDir + 'src', Glob('src/crypto/*.h'))
 env.Install(arduinoLibDir + 'src', Glob('src/external/sha2/*.h'))
