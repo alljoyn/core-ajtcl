@@ -93,8 +93,10 @@ static AJ_Object AppObjects[] = {
     { NULL }
 };
 
+#if defined(SECURE_INTERFACE) || defined(SECURE_OBJECT)
 static AJ_PermissionMember members[] = { { "*", AJ_MEMBER_TYPE_ANY, AJ_ACTION_PROVIDE | AJ_ACTION_OBSERVE, NULL } };
 static AJ_PermissionRule rules[] = { { "/org/alljoyn/alljoyn_test/PropertiesChanged", "org.alljoyn.alljoyn_test.PropertiesChanged", PRIVILEGED, members, NULL } };
+#endif
 
 /*
  * Message identifiers for the method calls this application implements
@@ -409,7 +411,9 @@ int AJ_Main()
     AJ_BusAttachment bus;
     uint8_t connected = FALSE;
     uint32_t sessionId = 0;
+#if defined(SECURE_INTERFACE) || defined(SECURE_OBJECT)
     uint8_t claim = FALSE;
+#endif
 
     /*
      * One time initialization before calling any other AllJoyn APIs
