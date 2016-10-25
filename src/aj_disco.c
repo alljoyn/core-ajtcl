@@ -990,7 +990,7 @@ static AJ_Status ParseMDNSResp(AJ_IOBuffer* rxBuf, const char* prefix, AJ_Servic
 
         // Check for a TCP response, but only if we're looking for TCP responses
 #ifdef AJ_TCP
-        if (alljoyn_ptr_record_tcp && service_port_tcp) {
+        if (alljoyn_ptr_record_tcp && service_port_tcp && bus_a_record) {
             service->ipv4port = service_port_tcp;
             memcpy(&service->ipv4, bus_addr, sizeof(service->ipv4));
             service->addrTypes |= AJ_ADDR_TCP4;
