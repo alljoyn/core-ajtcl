@@ -991,12 +991,24 @@ static AJ_Status ParseMDNSResp(AJ_IOBuffer* rxBuf, const char* prefix, AJ_Servic
         // Check for a TCP response, but only if we're looking for TCP responses
 #ifdef AJ_TCP
         if (alljoyn_ptr_record_tcp && service_port_tcp) {
-            service->ipv4port = service_port_tcp;
-            memcpy(&service->ipv4, bus_addr, sizeof(service->ipv4));
-            service->addrTypes |= AJ_ADDR_TCP4;
-            service->pv = protocol_version;
-            service->priority = service_priority;
-            status = AJ_OK;
+            /*
+             * Alljoyn 16.10 release introduced support for IPv6 but only for UDP.
+             * MDNS response may come over IPv4 (when response contains MDNS-A record)
+             * or over IPv6 (when response contains MDNS-AAAA record).
+             * Hence for TCP we may only accept answers which contain MDNS-A record
+             * (bus_a_record flag must be set).
+             */
+            if (bus_a_record) {
+                service->ipv4port = service_port_tcp;
+                memcpy(&service->ipv4, bus_addr, sizeof(service->ipv4));
+                service->addrTypes |= AJ_ADDR_TCP4;
+                service->pv = protocol_version;
+                service->priority = service_priority;
+                status = AJ_OK;
+            }
+            if (bus_aaaa_record) {
+                AJ_InfoPrintf(("Ignorining not supported TCP IPv6 MDNS response\n"));
+            }
         }
 #endif
 
