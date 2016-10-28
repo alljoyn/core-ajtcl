@@ -435,8 +435,8 @@ int AJ_Main()
             if (status != AJ_OK) {
                 continue;
             }
-            AJ_InfoPrintf(("StartService returned AJ_OK\n"));
-            AJ_InfoPrintf(("Connected to Daemon:%s\n", AJ_GetUniqueName(&bus)));
+            AJ_AlwaysPrintf(("StartService returned AJ_OK\n"));
+            AJ_AlwaysPrintf(("Connected to Daemon:%s\n", AJ_GetUniqueName(&bus)));
 
             AJ_SetIdleTimeouts(&bus, 10, 4);
 

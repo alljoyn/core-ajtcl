@@ -440,8 +440,8 @@ int AJ_Main()
             if (status != AJ_OK) {
                 continue;
             }
-            AJ_InfoPrintf(("StartService returned AJ_OK\n"));
-            AJ_InfoPrintf(("Connected to Daemon:%s\n", AJ_GetUniqueName(&bus)));
+            AJ_AlwaysPrintf(("StartService returned AJ_OK\n"));
+            AJ_AlwaysPrintf(("Connected to Daemon:%s\n", AJ_GetUniqueName(&bus)));
 
             AJ_SetIdleTimeouts(&bus, 10, 4);
 
@@ -572,8 +572,8 @@ int AJ_Main()
         AJ_CloseMsg(&msg);
 
         if ((status == AJ_ERR_READ) || (status == AJ_ERR_LINK_DEAD)) {
-            AJ_InfoPrintf(("AllJoyn disconnect\n"));
-            AJ_InfoPrintf(("Disconnected from Daemon:%s\n", AJ_GetUniqueName(&bus)));
+            AJ_AlwaysPrintf(("AllJoyn disconnect\n"));
+            AJ_AlwaysPrintf(("Disconnected from Daemon:%s\n", AJ_GetUniqueName(&bus)));
             AJ_Disconnect(&bus);
             connected = FALSE;
             /*
