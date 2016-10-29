@@ -16,8 +16,6 @@
  *    ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
-#define AJ_MODULE SESSIONS
-
 
 /**
  * Per-module definition of the current module for debug logging.  Must be defined

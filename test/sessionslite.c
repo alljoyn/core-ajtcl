@@ -182,8 +182,8 @@ void Do_Connect(AJ_BusAttachment* bus)
         }
         connected = TRUE;
         AJ_BusAddSignalRule(bus, "Chat", InterfaceName, AJ_BUS_SIGNAL_ALLOW);
-        AJ_InfoPrintf(("AllJoyn service connected to bus\n"));
-        AJ_InfoPrintf(("Connected to Daemon:%s\n", AJ_GetUniqueName(bus)));
+        AJ_AlwaysPrintf(("AllJoyn service connected to bus\n"));
+        AJ_AlwaysPrintf(("Connected to Daemon:%s\n", AJ_GetUniqueName(bus)));
     }
 }
 /*
