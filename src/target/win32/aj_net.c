@@ -1253,10 +1253,10 @@ static SOCKET AJ_Net_ARDP_PrepareConnectIPv4(const AJ_Service* service, struct s
 {
     SOCKET udpSock = INVALID_SOCKET;
     char ipStr[INET_ADDRSTRLEN];
+    struct sockaddr_in* sa = (struct sockaddr_in*)destAddr;
 
     AJ_ASSERT(service->addrTypes & AJ_ADDR_UDP4);
 
-    struct sockaddr_in* sa = (struct sockaddr_in*)destAddr;
     udpSock = WSASocketW(AF_INET, SOCK_DGRAM, IPPROTO_UDP, NULL, 0, WSA_FLAG_OVERLAPPED);
     if (udpSock == INVALID_SOCKET) {
         AJ_ErrPrintf(("%s(): socket() failed.  status=AJ_ERR_CONNECT\n", __FUNCTION__));
@@ -1275,10 +1275,10 @@ static SOCKET AJ_Net_ARDP_PrepareConnectIPv6(const AJ_Service* service, struct s
 {
     SOCKET udpSock = INVALID_SOCKET;
     char ipStr[INET6_ADDRSTRLEN];
+    struct sockaddr_in6* sa = (struct sockaddr_in6*)destAddr;
 
     AJ_ASSERT(service->addrTypes & AJ_ADDR_UDP6);
 
-    struct sockaddr_in6* sa = (struct sockaddr_in6*)destAddr;
     udpSock = WSASocketW(AF_INET6, SOCK_DGRAM, IPPROTO_UDP, NULL, 0, WSA_FLAG_OVERLAPPED);
     if (udpSock == INVALID_SOCKET) {
         AJ_ErrPrintf(("%s(): socket() failed. status=AJ_ERR_CONNECT\n", __FUNCTION__));

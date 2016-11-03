@@ -1592,10 +1592,11 @@ AJ_Status AJ_IdentifyMessage(AJ_Message* msg)
          */
         if ((status != AJ_OK) && (msg->hdr->msgType == AJ_MSG_METHOD_CALL) && !(msg->hdr->flags & AJ_FLAG_NO_REPLY_EXPECTED)) {
             AJ_Message reply;
+            AJ_Status resStatus = AJ_OK;
 
             AJ_DumpMsg("Rejecting unidentified method call", msg, FALSE);
             AJ_MarshalStatusMsg(msg, &reply, status);
-            AJ_Status resStatus = AJ_DeliverMsg(&reply);
+            resStatus = AJ_DeliverMsg(&reply);
             if (AJ_OK != resStatus) {
                 AJ_ErrPrintf(("AJ_IdentifyMessage(): failed to send error response by AJ_DeliverMsg() %s\n", AJ_StatusText(resStatus)));
             }
@@ -1826,6 +1827,7 @@ const AJ_Object* AJ_NextObject(AJ_ObjectIterator* iter)
         if (list) {
             while (list[iter->n].path) {
 
+                uint8_t objFlags = 0;
                 const AJ_Object* obj = &list[iter->n++];
 
                 /* Skip announcing the DeviceIcon interface unless it has been set explicitly */
@@ -1834,7 +1836,7 @@ const AJ_Object* AJ_NextObject(AJ_ObjectIterator* iter)
                         continue;
                     }
                 }
-                uint8_t objFlags = obj->flags;
+                objFlags = obj->flags;
 
                 /*
                  * For backwards compatibility the third entry is reserved for proxy objects. Going forward

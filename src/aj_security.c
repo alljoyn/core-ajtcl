@@ -835,6 +835,7 @@ Exit:
         }
         return AJ_MarshalReplyMsg(msg, reply);
     } else {
+        AJ_Status endStatus = AJ_OK;
         /* Remove stored values on error */
         AJ_ClearCredentials(AJ_CONFIG_ADMIN_GROUP | AJ_CRED_TYPE_CONFIG);
         AJ_ClearCredentials(AJ_CERTIFICATE_IDN_X509 | AJ_CRED_TYPE_CERTIFICATE);
@@ -845,7 +846,7 @@ Exit:
          * which is possible if claiming failed. AJ_VERIFY is used instead of AJ_ASSERT
          * so that release builds wouldn't fail due to the unused variable.
          */
-        AJ_Status endStatus = AJ_SecurityEndManagement(msg->bus);
+        endStatus = AJ_SecurityEndManagement(msg->bus);
         AJ_VERIFY((AJ_OK == endStatus) || (AJ_ERR_MANAGEMENT_NOT_STARTED == endStatus));
 
         return AJ_MarshalStatusMsg(msg, reply, status);
