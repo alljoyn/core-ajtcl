@@ -223,6 +223,7 @@ AJ_Status AJ_NVRAM_SecureDelete(uint16_t id)
 {
     NV_EntryHeader newHeader;
     uint8_t* ptr = NULL;
+    uint8_t* buf = NULL;
     AJ_NVRAM_Block_Id blockId;
 
     AJ_InfoPrintf(("AJ_NVRAM_SecureDelete(id=%d.)\n", id));
@@ -241,7 +242,7 @@ AJ_Status AJ_NVRAM_SecureDelete(uint16_t id)
     newHeader.id = 0;
     _AJ_NV_Write(blockId, ptr, &newHeader, ENTRY_HEADER_SIZE, FALSE);
 
-    uint8_t* buf = (uint8_t*)AJ_Malloc(newHeader.capacity);
+    buf = (uint8_t*)AJ_Malloc(newHeader.capacity);
 
     if (!buf) {
         AJ_ErrPrintf(("AJ_NVRAM_SecureDelete(): AJ_ERR_RESOURCES\n"));
@@ -250,7 +251,7 @@ AJ_Status AJ_NVRAM_SecureDelete(uint16_t id)
 
     AJ_MemZeroSecure(buf, newHeader.capacity);
     _AJ_NV_Write(blockId, ptr + ENTRY_HEADER_SIZE, buf, sizeof(buf), TRUE);
-    free(buf);
+    AJ_Free(buf);
 
     return AJ_OK;
 }

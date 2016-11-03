@@ -145,12 +145,15 @@ uint32_t _AJ_GetNVBlockSize(AJ_NVRAM_Block_Id blockId)
 
 void _AJ_NV_Write(AJ_NVRAM_Block_Id blockId, void* dest, const void* buf, uint16_t size, uint8_t isCompact)
 {
+#ifndef NDEBUG
+    AJ_Status status = AJ_OK;
+#endif
     memcpy(dest, buf, size);
     if (!isCompact) {
         nvStorages[blockId].isCompact = FALSE;
     }
 #ifndef NDEBUG
-    AJ_Status status =
+    status =
 #endif
     _AJ_StoreNVToFile(blockId);
     AJ_ASSERT(AJ_OK == status);
@@ -158,9 +161,12 @@ void _AJ_NV_Write(AJ_NVRAM_Block_Id blockId, void* dest, const void* buf, uint16
 
 void _AJ_NV_Move(AJ_NVRAM_Block_Id blockId, void* dest, const void* buf, uint16_t size)
 {
+#ifndef NDEBUG
+    AJ_Status status = AJ_OK;
+#endif
     memmove(dest, buf, size);
 #ifndef NDEBUG
-    AJ_Status status =
+    status =
 #endif
     _AJ_StoreNVToFile(blockId);
     AJ_ASSERT(AJ_OK == status);
@@ -173,10 +179,13 @@ void _AJ_NV_Read(void* src, void* buf, uint16_t size)
 
 static void _AJ_NV_Clear(uint8_t idx)
 {
+#ifndef NDEBUG
+    AJ_Status status = AJ_OK;
+#endif
     memset(nvStorages[idx].blockStart, INVALID_DATA_BYTE, nvStorages[idx].blockSize);
     *((uint32_t*)(nvStorages[idx].blockStart)) = AJ_NV_SENTINEL;
 #ifndef NDEBUG
-    AJ_Status status =
+    status =
 #endif
     _AJ_StoreNVToFile(idx);
     AJ_ASSERT(AJ_OK == status);
