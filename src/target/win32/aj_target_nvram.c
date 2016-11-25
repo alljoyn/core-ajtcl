@@ -2,19 +2,32 @@
  * @file
  */
 /******************************************************************************
- * Copyright AllSeen Alliance. All rights reserved.
+ *    Copyright (c) Open Connectivity Foundation (OCF) and AllJoyn Open
+ *    Source Project (AJOSP) Contributors and others.
  *
- *    Permission to use, copy, modify, and/or distribute this software for any
- *    purpose with or without fee is hereby granted, provided that the above
- *    copyright notice and this permission notice appear in all copies.
+ *    SPDX-License-Identifier: Apache-2.0
  *
- *    THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- *    WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- *    MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- *    ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- *    WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- *    ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ *    All rights reserved. This program and the accompanying materials are
+ *    made available under the terms of the Apache License, Version 2.0
+ *    which accompanies this distribution, and is available at
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *    Copyright (c) Open Connectivity Foundation and Contributors to AllSeen
+ *    Alliance. All rights reserved.
+ *
+ *    Permission to use, copy, modify, and/or distribute this software for
+ *    any purpose with or without fee is hereby granted, provided that the
+ *    above copyright notice and this permission notice appear in all
+ *    copies.
+ *
+ *    THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL
+ *    WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED
+ *    WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE
+ *    AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL
+ *    DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR
+ *    PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
+ *    TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+ *    PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
 /**
@@ -145,12 +158,15 @@ uint32_t _AJ_GetNVBlockSize(AJ_NVRAM_Block_Id blockId)
 
 void _AJ_NV_Write(AJ_NVRAM_Block_Id blockId, void* dest, const void* buf, uint16_t size, uint8_t isCompact)
 {
+#ifndef NDEBUG
+    AJ_Status status = AJ_OK;
+#endif
     memcpy(dest, buf, size);
     if (!isCompact) {
         nvStorages[blockId].isCompact = FALSE;
     }
 #ifndef NDEBUG
-    AJ_Status status =
+    status =
 #endif
     _AJ_StoreNVToFile(blockId);
     AJ_ASSERT(AJ_OK == status);
@@ -158,9 +174,12 @@ void _AJ_NV_Write(AJ_NVRAM_Block_Id blockId, void* dest, const void* buf, uint16
 
 void _AJ_NV_Move(AJ_NVRAM_Block_Id blockId, void* dest, const void* buf, uint16_t size)
 {
+#ifndef NDEBUG
+    AJ_Status status = AJ_OK;
+#endif
     memmove(dest, buf, size);
 #ifndef NDEBUG
-    AJ_Status status =
+    status =
 #endif
     _AJ_StoreNVToFile(blockId);
     AJ_ASSERT(AJ_OK == status);
@@ -173,10 +192,13 @@ void _AJ_NV_Read(void* src, void* buf, uint16_t size)
 
 static void _AJ_NV_Clear(uint8_t idx)
 {
+#ifndef NDEBUG
+    AJ_Status status = AJ_OK;
+#endif
     memset(nvStorages[idx].blockStart, INVALID_DATA_BYTE, nvStorages[idx].blockSize);
     *((uint32_t*)(nvStorages[idx].blockStart)) = AJ_NV_SENTINEL;
 #ifndef NDEBUG
-    AJ_Status status =
+    status =
 #endif
     _AJ_StoreNVToFile(idx);
     AJ_ASSERT(AJ_OK == status);
