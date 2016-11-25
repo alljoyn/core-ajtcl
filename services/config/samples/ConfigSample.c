@@ -422,12 +422,12 @@ int AJ_Main(void)
         serviceStatus = AJSVC_SERVICE_STATUS_NOT_HANDLED;
 
         if (!s_isBusConnected) {
+            uint32_t suites[] = { AUTH_SUITE_ECDHE_NULL, AUTH_SUITE_ECDHE_SPEKE };
             status = AJSVC_RoutingNodeConnect(&s_busAttachment, ROUTING_NODE_NAME, AJAPP_CONNECT_TIMEOUT, AJAPP_CONNECT_PAUSE, AJAPP_BUS_LINK_TIMEOUT, &s_isBusConnected);
             if (!s_isBusConnected) { // Failed to connect to Routing Node.
                 continue; // Retry establishing connection to Routing Node.
             }
             /* Setup authentication listener for secured peer to peer connections */
-            uint32_t suites[] = { AUTH_SUITE_ECDHE_NULL, AUTH_SUITE_ECDHE_SPEKE };
             AJ_BusEnableSecurity(&s_busAttachment, suites, sizeof(suites) / sizeof(*suites));
             AJ_BusSetAuthListenerCallback(&s_busAttachment, AuthListenerCallback);
         }

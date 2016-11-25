@@ -76,6 +76,7 @@ int AJ_Main(void)
 #endif
 {
     AJ_Status status;
+    AJ_NVRAM_Block_Id _blockId;
     uint8_t useNewLayout = FALSE;
 #ifdef MAIN_ALLOWS_ARGS
     uint8_t i;
@@ -93,7 +94,7 @@ int AJ_Main(void)
     AJ_ASSERT(status == AJ_OK);
     AJ_AlwaysPrintf(("NVRAM total used size: %d\n", AJ_NVRAM_GetSize_NewLayout(AJ_NVRAM_ID_ALL_BLOCKS)));
     AJ_AlwaysPrintf(("NVRAM total free size: %d\n", AJ_NVRAM_GetSizeRemaining_NewLayout(AJ_NVRAM_ID_ALL_BLOCKS)));
-    AJ_NVRAM_Block_Id _blockId = AJ_NVRAM_ID_ALL_BLOCKS;
+    _blockId = AJ_NVRAM_ID_ALL_BLOCKS;
     if (useNewLayout) {
         for (++_blockId; _blockId < AJ_NVRAM_ID_END_SENTINEL; ++_blockId) {
             AJ_AlwaysPrintf(("NVRAM total used size of block %d: %d\n", _blockId, AJ_NVRAM_GetSize_NewLayout(_blockId)));
