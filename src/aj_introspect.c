@@ -2,19 +2,32 @@
  * @file
  */
 /******************************************************************************
- * Copyright AllSeen Alliance. All rights reserved.
+ * Copyright (c) Open Connectivity Foundation (OCF) and AllJoyn Open
+ *    Source Project (AJOSP) Contributors and others.
  *
- *    Permission to use, copy, modify, and/or distribute this software for any
- *    purpose with or without fee is hereby granted, provided that the above
- *    copyright notice and this permission notice appear in all copies.
+ *    SPDX-License-Identifier: Apache-2.0
  *
- *    THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- *    WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- *    MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- *    ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- *    WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- *    ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- *    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ *    All rights reserved. This program and the accompanying materials are
+ *    made available under the terms of the Apache License, Version 2.0
+ *    which accompanies this distribution, and is available at
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *    Copyright (c) Open Connectivity Foundation and Contributors to AllSeen
+ *    Alliance. All rights reserved.
+ *
+ *    Permission to use, copy, modify, and/or distribute this software for
+ *    any purpose with or without fee is hereby granted, provided that the
+ *    above copyright notice and this permission notice appear in all
+ *    copies.
+ *
+ *     THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL
+ *     WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED
+ *     WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE
+ *     AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL
+ *     DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR
+ *     PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
+ *     TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+ *     PERFORMANCE OF THIS SOFTWARE.
  ******************************************************************************/
 
 /**
@@ -1592,10 +1605,11 @@ AJ_Status AJ_IdentifyMessage(AJ_Message* msg)
          */
         if ((status != AJ_OK) && (msg->hdr->msgType == AJ_MSG_METHOD_CALL) && !(msg->hdr->flags & AJ_FLAG_NO_REPLY_EXPECTED)) {
             AJ_Message reply;
+            AJ_Status resStatus = AJ_OK;
 
             AJ_DumpMsg("Rejecting unidentified method call", msg, FALSE);
             AJ_MarshalStatusMsg(msg, &reply, status);
-            AJ_Status resStatus = AJ_DeliverMsg(&reply);
+            resStatus = AJ_DeliverMsg(&reply);
             if (AJ_OK != resStatus) {
                 AJ_ErrPrintf(("AJ_IdentifyMessage(): failed to send error response by AJ_DeliverMsg() %s\n", AJ_StatusText(resStatus)));
             }
@@ -1826,6 +1840,7 @@ const AJ_Object* AJ_NextObject(AJ_ObjectIterator* iter)
         if (list) {
             while (list[iter->n].path) {
 
+                uint8_t objFlags = 0;
                 const AJ_Object* obj = &list[iter->n++];
 
                 /* Skip announcing the DeviceIcon interface unless it has been set explicitly */
@@ -1834,7 +1849,7 @@ const AJ_Object* AJ_NextObject(AJ_ObjectIterator* iter)
                         continue;
                     }
                 }
-                uint8_t objFlags = obj->flags;
+                objFlags = obj->flags;
 
                 /*
                  * For backwards compatibility the third entry is reserved for proxy objects. Going forward
