@@ -226,7 +226,6 @@ static uint8_t asyncForm = FALSE;
 
 /* All times are expressed in milliseconds. */
 #define CONNECT_TIMEOUT     (1000 * 60)
-#define UNMARSHAL_TIMEOUT   (1000 * 5)
 #define SLEEP_TIME          (1000 * 2)
 #define METHOD_TIMEOUT     (100 * 10)
 
@@ -2020,7 +2019,7 @@ int AJ_ClientMain(bool padding) {
             }
         }
 
-        status = AJ_UnmarshalMsg(&bus, &msg, UNMARSHAL_TIMEOUT);
+        status = AJ_UnmarshalMsg(&bus, &msg, AJ_UNMARSHAL_TIMEOUT);
 
         if (AJ_ERR_TIMEOUT == status) {
             continue;
@@ -3328,7 +3327,7 @@ int AJ_ServiceMain(void) {
         }
 
         //if (AJ_OK == status) {
-        status = AJ_UnmarshalMsg(&bus, &msg, UNMARSHAL_TIMEOUT);
+        status = AJ_UnmarshalMsg(&bus, &msg, AJ_UNMARSHAL_TIMEOUT);
         //}
 
         if (AJ_ERR_TIMEOUT == status) {

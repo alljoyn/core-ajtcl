@@ -108,7 +108,6 @@ static AJ_Status AppHandleOnOff(AJ_Message* msg, uint8_t on)
 
 
 #define CONNECT_TIMEOUT    (1000 * 1000)
-#define UNMARSHAL_TIMEOUT  (1000 * 5)
 
 int AJ_Main(void)
 {
@@ -139,7 +138,7 @@ int AJ_Main(void)
             AJ_BusSetPasswordCallback(&bus, PasswordCallback);
         }
 
-        status = AJ_UnmarshalMsg(&bus, &msg, UNMARSHAL_TIMEOUT);
+        status = AJ_UnmarshalMsg(&bus, &msg, AJ_UNMARSHAL_TIMEOUT);
         if (status != AJ_OK) {
             if (status == AJ_ERR_TIMEOUT) {
                 AppDoWork();

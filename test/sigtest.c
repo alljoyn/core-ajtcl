@@ -68,7 +68,6 @@ static const AJ_Object ProxyObjects[] = {
 #define APP_BOOL_VAL_PROP  AJ_APP_PROPERTY_ID(0, 0, 1)
 
 static const uint32_t CONNECT_TIMEOUT = 1000 * 200;
-static const uint32_t UNMARSHAL_TIMEOUT = 100 * 5;
 
 #define ARRAY_SIZE 10000
 static const uint8_t byte_array[ARRAY_SIZE];
@@ -276,7 +275,7 @@ void AJ_Main(void)
             }
         }
 
-        status = AJ_UnmarshalMsg(&g_bus, &msg, UNMARSHAL_TIMEOUT);
+        status = AJ_UnmarshalMsg(&g_bus, &msg, AJ_UNMARSHAL_TIMEOUT);
         if ((AJ_ERR_TIMEOUT != status) && (AJ_OK != status)) {
             AJ_Printf("ERROR: UnmarshalMsg returned %s \n", AJ_StatusText(status));
         }

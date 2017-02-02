@@ -23,7 +23,6 @@
 static const char ServiceName[] = "org.alljoyn.ajlite";
 
 #define CONNECT_TIMEOUT    (1000 * 60)
-#define UNMARSHAL_TIMEOUT  (1000 * 5)
 
 int AJ_Main()
 {
@@ -38,7 +37,7 @@ int AJ_Main()
     }
     while (status == AJ_OK) {
         AJ_Message msg;
-        status = AJ_UnmarshalMsg(&bus, &msg, UNMARSHAL_TIMEOUT);
+        status = AJ_UnmarshalMsg(&bus, &msg, AJ_UNMARSHAL_TIMEOUT);
         if (status == AJ_OK) {
             status = AJ_BusHandleBusMessage(&msg);
         }

@@ -134,7 +134,6 @@ static AJ_Status SetName(AJ_Message* replyMsg, uint32_t propId, void* context)
 
 /* All times are expressed in milliseconds. */
 #define CONNECT_TIMEOUT     (1000 * 60)
-#define UNMARSHAL_TIMEOUT   (1000 * 5)
 #define SLEEP_TIME          (1000 * 2)
 
 int AJ_Main(void)
@@ -171,7 +170,7 @@ int AJ_Main(void)
             connected = TRUE;
         }
 
-        status = AJ_UnmarshalMsg(&busAttachment, &msg, UNMARSHAL_TIMEOUT);
+        status = AJ_UnmarshalMsg(&busAttachment, &msg, AJ_UNMARSHAL_TIMEOUT);
 
         if (AJ_ERR_TIMEOUT == status) {
             continue;

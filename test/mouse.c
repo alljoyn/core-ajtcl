@@ -156,7 +156,6 @@ void sendClickSignal(AJ_BusAttachment* bus, int pushed)
 
 
 #define CONNECT_TIMEOUT    (1000 * 60)
-#define UNMARSHAL_TIMEOUT  (10)
 
 int AJ_Main(void)
 {
@@ -197,7 +196,7 @@ int AJ_Main(void)
             connected = TRUE;
         }
 
-        status = AJ_UnmarshalMsg(&bus, &msg, UNMARSHAL_TIMEOUT);
+        status = AJ_UnmarshalMsg(&bus, &msg, AJ_UNMARSHAL_TIMEOUT);
         if (status != AJ_OK) {
             if (status == AJ_ERR_TIMEOUT) {
                 AppDoWork(&bus);

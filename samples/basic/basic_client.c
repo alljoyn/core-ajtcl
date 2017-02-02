@@ -79,7 +79,6 @@ static const AJ_Object AppObjects[] = {
 #define BASIC_CLIENT_CAT AJ_PRX_MESSAGE_ID(0, 0, 2)
 
 #define CONNECT_TIMEOUT    (1000 * 60)
-#define UNMARSHAL_TIMEOUT  (1000 * 5)
 #define METHOD_TIMEOUT     (100 * 10)
 
 void MakeMethodCall(AJ_BusAttachment* bus, uint32_t sessionId)
@@ -140,7 +139,7 @@ int AJ_Main(void)
             }
         }
 
-        status = AJ_UnmarshalMsg(&bus, &msg, UNMARSHAL_TIMEOUT);
+        status = AJ_UnmarshalMsg(&bus, &msg, AJ_UNMARSHAL_TIMEOUT);
 
         if (AJ_ERR_TIMEOUT == status) {
             continue;

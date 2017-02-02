@@ -122,7 +122,6 @@ uint32_t get_line(char* str, int num, FILE* fp)
 }
 
 #define CONNECT_TIMEOUT    (1000 * 200)
-#define UNMARSHAL_TIMEOUT  (1000 * 5)
 #define METHOD_TIMEOUT     (100 * 10)
 
 static char pingString[] = "Client AllJoyn Lite says Hello AllJoyn!";
@@ -457,7 +456,7 @@ int AJ_Main(void)
             }
         }
 
-        status = AJ_UnmarshalMsg(&bus, &msg, UNMARSHAL_TIMEOUT);
+        status = AJ_UnmarshalMsg(&bus, &msg, AJ_UNMARSHAL_TIMEOUT);
 
         if (AJ_ERR_TIMEOUT == status) {
             AppDoWork();

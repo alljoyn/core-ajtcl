@@ -399,7 +399,6 @@ static AJ_Status AboutPropGetter(AJ_Message* reply, const char* language)
 static const uint32_t suites[] = { AUTH_SUITE_ECDHE_ECDSA, AUTH_SUITE_ECDHE_PSK, AUTH_SUITE_ECDHE_NULL };
 
 #define CONNECT_TIMEOUT    (1000 * 1000)
-#define UNMARSHAL_TIMEOUT  (1000 * 5)
 
 #ifdef MAIN_ALLOWS_ARGS
 int AJ_Main(int ac, char** av)
@@ -472,7 +471,7 @@ int AJ_Main()
             AJ_SetBusLinkTimeout(&bus, 60); // 60 seconds
         }
 
-        status = AJ_UnmarshalMsg(&bus, &msg, UNMARSHAL_TIMEOUT);
+        status = AJ_UnmarshalMsg(&bus, &msg, AJ_UNMARSHAL_TIMEOUT);
         if ((AJ_ERR_TIMEOUT == status) && (AJ_ERR_LINK_TIMEOUT == AJ_BusLinkStateProc(&bus))) {
             status = AJ_ERR_READ;
         }

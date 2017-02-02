@@ -241,7 +241,6 @@ static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, 
 #endif
 
 #define CONNECT_TIMEOUT    (1000 * 200)
-#define UNMARSHAL_TIMEOUT  (1000 * 5)
 #define METHOD_TIMEOUT     (100 * 10)
 
 
@@ -382,7 +381,7 @@ int AJ_Main()
             authStatus = AJ_ERR_NULL;
         }
 
-        status = AJ_UnmarshalMsg(&bus, &msg, UNMARSHAL_TIMEOUT);
+        status = AJ_UnmarshalMsg(&bus, &msg, AJ_UNMARSHAL_TIMEOUT);
         if (status == AJ_ERR_TIMEOUT) {
             status = AppDoWork(&bus, sessionId, peerServiceName);
             continue;

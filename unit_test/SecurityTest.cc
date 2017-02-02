@@ -40,7 +40,6 @@ uint8_t dbgSECURITYTEST = 0;
 #endif
 
 #define CONNECT_TIMEOUT    (1000ul * 15)
-#define UNMARSHAL_TIMEOUT  (1000 * 5)
 #define METHOD_TIMEOUT     (1000 * 10)
 #define PING_TIMEOUT       (1000 * 10)
 

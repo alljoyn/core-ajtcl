@@ -26,7 +26,6 @@ uint8_t dbgSESSIONS_LITE = 0;
 
 #define CONNECT_TIMEOUT    (1000ul * 60)
 #define CONNECT_PAUSE      (1000ul * 10)
-#define UNMARSHAL_TIMEOUT  (1000ul * 5)
 #define METHOD_TIMEOUT     (1000ul * 3)
 
 /// globals
@@ -648,7 +647,7 @@ int AJ_Main()
             }
         }
 
-        status = AJ_UnmarshalMsg(&bus, &msg, UNMARSHAL_TIMEOUT);
+        status = AJ_UnmarshalMsg(&bus, &msg, AJ_UNMARSHAL_TIMEOUT);
         if (status != AJ_OK) {
             if (status == AJ_ERR_TIMEOUT) {
                 AppDoWork();

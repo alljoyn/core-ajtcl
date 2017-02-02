@@ -59,7 +59,7 @@ extern "C" {
 
 
 /* Timeouts */
-#define AJ_UNMARSHAL_TIMEOUT     (100 * 1000)      //unmarshal timeout                                (aj_helper.c + aj_msg.c)
+#define AJ_UNMARSHAL_TIMEOUT     (15 * 1000)       //unmarshal timeout                                (aj_helper.c + aj_msg.c)
 #define AJ_CONNECT_TIMEOUT       (60 * 1000)       //connection timeout                               (aj_helper.c)
 #define AJ_SELECTION_TIMEOUT     (5 * 1000)        //selection  timeout                               (aj_helper.c)
 #define AJ_CONNECT_PAUSE         (10 * 1000)       //how long to pause between failed connects        (aj_helper.c)

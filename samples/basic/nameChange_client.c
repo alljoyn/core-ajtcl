@@ -82,7 +82,6 @@ static const AJ_Object AppObjects[] = {
 #define PRX_SET_PROP    AJ_PRX_MESSAGE_ID(0, 1, AJ_PROP_SET)
 
 #define CONNECT_TIMEOUT    (1000 * 60)
-#define UNMARSHAL_TIMEOUT  (1000 * 5)
 #define METHOD_TIMEOUT     (100 * 10)
 
 AJ_Status SendNewName(AJ_BusAttachment* bus, uint32_t sessionId, char*newName)
@@ -150,7 +149,7 @@ int main(int argc, char*argv[])
                 }
             }
 
-            status = AJ_UnmarshalMsg(&bus, &msg, UNMARSHAL_TIMEOUT);
+            status = AJ_UnmarshalMsg(&bus, &msg, AJ_UNMARSHAL_TIMEOUT);
 
             if (AJ_ERR_TIMEOUT == status) {
                 continue;

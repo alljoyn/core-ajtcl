@@ -243,7 +243,6 @@ static const size_t numsuites = 4;
 
 /* All times are expressed in milliseconds. */
 #define CONNECT_TIMEOUT     (1000 * 60)
-#define UNMARSHAL_TIMEOUT   (1000 * 5)
 #define SLEEP_TIME          (1000 * 2)
 
 int AJ_Main(void)
@@ -293,7 +292,7 @@ int AJ_Main(void)
             }
         }
 
-        status = AJ_UnmarshalMsg(&bus, &msg, UNMARSHAL_TIMEOUT);
+        status = AJ_UnmarshalMsg(&bus, &msg, AJ_UNMARSHAL_TIMEOUT);
 
         if (AJ_ERR_TIMEOUT == status) {
             continue;

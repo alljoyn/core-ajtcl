@@ -113,7 +113,6 @@ static AJ_Object ProxyObjects[] = {
 #define PRX_SET_INT   AJ_PRX_PROPERTY_ID(0, 1, 0)
 
 #define CONNECT_TIMEOUT    (1000 * 200)
-#define UNMARSHAL_TIMEOUT  (1000 * 5)
 #define PING_TIMEOUT       (1000 * 10)
 
 /**
@@ -521,7 +520,7 @@ int AJ_Main()
             AJ_BusSetLinkTimeout(&bus, sessionId, 10 * 1000);
         }
 
-        status = AJ_UnmarshalMsg(&bus, &msg, UNMARSHAL_TIMEOUT);
+        status = AJ_UnmarshalMsg(&bus, &msg, AJ_UNMARSHAL_TIMEOUT);
         if (status != AJ_OK) {
             if (status == AJ_ERR_TIMEOUT) {
                 AppDoWork(&bus, sessionId, g_peerServiceName);
