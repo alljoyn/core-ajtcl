@@ -197,6 +197,7 @@ static AJ_Status ParseIsAt(AJ_IOBuffer* rxBuf, const char* prefix, AJ_Service* s
             service->ipv6port = (p[0] << 8) | p[1];
             p += 2;
             service->addrTypes |= AJ_ADDR_TCP6;
+            service->scope_id = rxBuf->scope_id;
         }
         if (flags & U6_FLAG) {
             memcpy(&service->ipv6Udp, p, sizeof(service->ipv6Udp));
@@ -204,6 +205,7 @@ static AJ_Status ParseIsAt(AJ_IOBuffer* rxBuf, const char* prefix, AJ_Service* s
             service->ipv6portUdp = (p[0] << 8) | p[1];
             p += 2;
             service->addrTypes |= AJ_ADDR_UDP6;
+            service->scope_id = rxBuf->scope_id;
         }
         /*
          * Skip guid if it's present
