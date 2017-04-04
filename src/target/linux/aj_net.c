@@ -4,22 +4,22 @@
 /******************************************************************************
  *    Copyright (c) Open Connectivity Foundation (OCF), AllJoyn Open Source
  *    Project (AJOSP) Contributors and others.
- *    
+ *
  *    SPDX-License-Identifier: Apache-2.0
- *    
+ *
  *    All rights reserved. This program and the accompanying materials are
  *    made available under the terms of the Apache License, Version 2.0
  *    which accompanies this distribution, and is available at
  *    http://www.apache.org/licenses/LICENSE-2.0
- *    
+ *
  *    Copyright (c) Open Connectivity Foundation and Contributors to AllSeen
  *    Alliance. All rights reserved.
- *    
+ *
  *    Permission to use, copy, modify, and/or distribute this software for
  *    any purpose with or without fee is hereby granted, provided that the
  *    above copyright notice and this permission notice appear in all
  *    copies.
- *    
+ *
  *    THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL
  *    WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED
  *    WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE
@@ -28,7 +28,7 @@
  *    PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
  *    TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
  *    PERFORMANCE OF THIS SOFTWARE.
-******************************************************************************/
+ ******************************************************************************/
 
 /**
  * Per-module definition of the current module for debug logging.  Must be defined
@@ -426,18 +426,11 @@ static uint8_t sendToBroadcast(int sock, uint16_t port, AJ_IOBuffer* buf, size_t
             sin_bcast->sin_port = htons(port);
             inet_ntop(AF_INET, &(sin_bcast->sin_addr), addrbuf, sizeof(addrbuf));
             AJ_InfoPrintf(("sendToBroadcast: sending to bcast addr %s\n", addrbuf));
-            if (buf->flags & AJ_IO_BUF_MDNS) {
-                if (RewriteSenderInfo(buf, (struct sockaddr*)sin_bcast) != AJ_OK) {
-                    AJ_WarnPrintf(("AJ_Net_SendTo(): RewriteSenderInfo failed.\n"));
-                } else {
-                    tx = AJ_IO_BUF_AVAIL(buf);
-                    ret = sendto(sock, buf->readPtr, tx, MSG_NOSIGNAL, (struct sockaddr*) sin_bcast, sizeof(struct sockaddr_in));
-                    if (tx == ret) {
-                        sendSucceeded = TRUE;
-                    } else {
-                        AJ_ErrPrintf(("sendToBroadcast(): sendto failed. errno=\"%s\"\n", strerror(errno)));
-                    }
-                }
+            ret = sendto(sock, buf->readPtr, tx, MSG_NOSIGNAL, (struct sockaddr*) sin_bcast, sizeof(struct sockaddr_in));
+            if (tx == ret) {
+                sendSucceeded = TRUE;
+            } else {
+                AJ_ErrPrintf(("sendToBroadcast(): sendto failed. errno=\"%s\"\n", strerror(errno)));
             }
         }
 
@@ -610,25 +603,24 @@ AJ_Status AJ_Net_SendTo(AJ_IOBuffer* buf)
             sin.sin_family = AF_INET;
             sin.sin_port = htons(MDNS_UDP_PORT);
 
-            if (inet_pton(AF_INET, MDNS_IPV4_MULTICAST_GROUP, &sin.sin_addr) == 1) {
-                if (RewriteSenderInfo(buf, (struct sockaddr*)&context->mDnsRecvAddr) != AJ_OK) {
-                    AJ_WarnPrintf(("AJ_Net_SendTo(): RewriteSenderInfo failed.\n"));
-                } else {
-                    tx = AJ_IO_BUF_AVAIL(buf);
+            if (RewriteSenderInfo(buf, (struct sockaddr*)&context->mDnsRecvAddr) != AJ_OK) {
+                AJ_WarnPrintf(("AJ_Net_SendTo(): RewriteSenderInfo failed.\n"));
+            } else {
+                tx = AJ_IO_BUF_AVAIL(buf);
+                if (inet_pton(AF_INET, MDNS_IPV4_MULTICAST_GROUP, &sin.sin_addr) == 1) {
                     ret = sendto(context->mDnsSock, buf->readPtr, tx, MSG_NOSIGNAL, (struct sockaddr*)&sin, sizeof(sin));
                     if (tx == ret) {
                         sendSucceeded = TRUE;
                     } else {
                         AJ_ErrPrintf(("AJ_Net_SendTo(): sendto mDNS IPv4 failed. errno=\"%s\"\n", strerror(errno)));
                     }
+                } else {
+                    AJ_ErrPrintf(("AJ_Net_SendTo(): Invalid mDNS IP address. errno=\"%s\"\n", strerror(errno)));
                 }
-            } else {
-                AJ_ErrPrintf(("AJ_Net_SendTo(): Invalid mDNS IP address. errno=\"%s\"\n", strerror(errno)));
+                if (sendToBroadcast(context->mDnsSock, MDNS_UDP_PORT, buf, tx) == TRUE) {
+                    sendSucceeded = TRUE;
+                } // leave sendSucceeded unchanged if FALSE
             }
-
-            if (sendToBroadcast(context->mDnsSock, MDNS_UDP_PORT, buf, tx) == TRUE) {
-                sendSucceeded = TRUE;
-            } // leave sendSucceeded unchanged if FALSE
         }
 
         if ((context->mDns6Sock != INVALID_SOCKET) && (buf->flags & AJ_IO_BUF_MDNS)) {
