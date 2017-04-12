@@ -54,10 +54,8 @@ uint8_t dbgSIGLITE = 0;
 
 #ifdef SECURE_INTERFACE
 static const char testInterfaceName[] = "$org.alljoyn.alljoyn_test";
-static const char testValuesInterfaceName[] = "$org.alljoyn.alljoyn_test.values";
 #else
 static const char testInterfaceName[] = "org.alljoyn.alljoyn_test";
-static const char testValuesInterfaceName[] = "org.alljoyn.alljoyn_test.values";
 #endif
 
 #if defined (NGNS) || defined (ANNOUNCE_BASED_DISCOVERY)
