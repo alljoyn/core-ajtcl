@@ -319,7 +319,7 @@ AJ_Status TestObsWrite()
         if (nvramHandle != NULL) {
             int sizeRead = AJ_NVRAM_Read(&info, size, nvramHandle);
             status = AJ_NVRAM_Close(nvramHandle);
-            if (sizeRead != sizeRead) {
+            if (sizeRead != size) {
                 status = AJ_ERR_READ;
             }
 #ifdef SHOW_REWRITES
@@ -602,7 +602,7 @@ AJ_Status TestNvramDelete()
             if (nvramHandle != NULL) {
                 int sizeRead = AJ_NVRAM_Read(&emptyInfo, size, nvramHandle);
                 status = AJ_NVRAM_Close(nvramHandle);
-                if (sizeRead != sizeRead) {
+                if (sizeRead != size) {
                     status = AJ_ERR_READ;
                 } else {
                     AJ_AlwaysPrintf(("Read Info values: state=%d, ssid=%s authType=%d pc=%s\n", emptyInfo.state, emptyInfo.ssid, emptyInfo.authType, emptyInfo.pc));
