@@ -172,11 +172,11 @@ ExitConnect:
     return status;
 }
 
-
+#if !(defined(ARDUINO) || defined(__linux) || defined(_WIN32) || defined(__MACH__))
 static const char ssid[] = "AllJoyn";
 static const char passphrase[] = "ajajajaj";
 static const AJ_WiFiSecurityType secType = AJ_WIFI_SECURITY_WPA2;
-
+#endif
 
 int AJ_Main(void)
 {

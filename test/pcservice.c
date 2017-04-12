@@ -65,7 +65,6 @@ uint8_t dbgPROPERTIES_CHANGED = 0;
 static const char ServiceName[] = "org.alljoyn.alljoyn_test.PropertiesChanged";
 static const uint16_t ServicePort = 789;
 static const uint8_t CancelAdvertiseName = FALSE;
-static const uint8_t ReflectSignal = FALSE;
 #define METHOD_TIMEOUT     (1000 * 10)
 
 /*

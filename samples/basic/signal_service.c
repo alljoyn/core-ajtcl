@@ -47,7 +47,6 @@ static char propertyName[128] = "Default name";
  * Static constants.
  */
 static const size_t propertyNameSize = sizeof(propertyName) / sizeof(propertyName[0]);
-static const int ConnectAttempts = 10;
 static const char InterfaceName[] = "org.alljoyn.Bus.signal_sample";
 static const char ServiceName[] = "org.alljoyn.Bus.signal_sample";
 static const char ServicePath[] = "/";
