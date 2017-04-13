@@ -534,11 +534,11 @@ static AJ_Status SecurityGetProperty(AJ_Message* reply, uint32_t id, void* conte
         break;
 
     case AJ_PROPERTY_MANAGED_POLICY_VERSION:
-        status = AJ_PolicyVersion(&version);
+        status = AJ_PolicySerialNumber(&serialNumber);
         if (AJ_OK != status) {
             break;
         }
-        status = AJ_MarshalArgs(reply, "u", version);
+        status = AJ_MarshalArgs(reply, "u", serialNumber);
         break;
 
     case AJ_PROPERTY_MANAGED_POLICY:
@@ -1055,12 +1055,12 @@ AJ_Status AJ_SecurityUpdatePolicyMethod(AJ_Message* msg, AJ_Message* reply)
     AJ_Status status;
     AJ_Policy* policy = NULL;
     AJ_CredField policy_data = { 0, NULL };
-    uint32_t version = 0;
+    uint32_t serialNumber = 0;
 
     AJ_InfoPrintf(("AJ_SecurityUpdatePolicyMethod(msg=%p, reply=%p)\n", msg, reply));
 
-    /* Get current version */
-    status = AJ_PolicyVersion(&version);
+    /* Get current serialNumber */
+    status = AJ_PolicySerialNumber(&serialNumber);
     if (AJ_OK != status) {
         AJ_InfoPrintf(("AJ_SecurityUpdatePolicyMethod(msg=%p, reply=%p): No installed or default policy\n", msg, reply));
     }
@@ -1073,7 +1073,7 @@ AJ_Status AJ_SecurityUpdatePolicyMethod(AJ_Message* msg, AJ_Message* reply)
         goto Exit;
     }
     AJ_ASSERT(policy);
-    if (policy->version <= version) {
+    if (policy->serialNumber <= serialNumber) {
         status = AJ_ERR_SECURITY_POLICY_NOT_NEWER;
         policy_data.data = NULL;
         goto Exit;

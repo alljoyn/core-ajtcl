@@ -121,7 +121,7 @@ typedef struct _AJ_PermissionACL {
 
 typedef struct _AJ_Policy {
     uint16_t specification;            /**< Specification version */
-    uint32_t version;                  /**< Policy version */
+    uint32_t serialNumber;                  /**< Policy serial number */
     AJ_PermissionACL* acls;            /**< ACLs */
 } AJ_Policy;
 
@@ -332,15 +332,15 @@ AJ_Status AJ_PolicyApply(AJ_AuthenticationContext* ctx, const char* name);
 AJ_Status AJ_MembershipApply(X509CertificateChain* root, AJ_ECCPublicKey* issuer, DER_Element* group, const char* name);
 
 /**
- * Get the policy version
+ * Get the policy serial number
  *
- * @param version      The output policy version
+ * @param serialNumbe  The output policy serial number
  *
  * @return
  *          - AJ_OK on success
  *          - AJ_ERR_INVALID otherwise
  */
-AJ_Status AJ_PolicyVersion(uint32_t* version);
+AJ_Status AJ_PolicySerialNumber(uint32_t* serialNumber);
 
 /**
  * Search for the intermediate issuers amongst the stored authorities

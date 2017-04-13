@@ -594,7 +594,7 @@ static void PermissionACLDump(AJ_PermissionACL* acl)
 static void PolicyDump(AJ_Policy* policy)
 {
     if (policy) {
-        AJ_InfoPrintf(("Policy : Specification %x : Version %x\n", policy->specification, policy->version));
+        AJ_InfoPrintf(("Policy : Specification %x : Serial number %x\n", policy->specification, policy->serialNumber));
         PermissionACLDump(policy->acls);
     }
 }
@@ -954,7 +954,7 @@ AJ_Status AJ_PolicyMarshal(const AJ_Policy* policy, AJ_Message* msg)
     if (AJ_OK != status) {
         return status;
     }
-    status = AJ_MarshalArgs(msg, "qu", policy->specification, policy->version);
+    status = AJ_MarshalArgs(msg, "qu", policy->specification, policy->serialNumber);
     if (AJ_OK != status) {
         return status;
     }
@@ -1350,7 +1350,7 @@ AJ_Status AJ_PolicyUnmarshal(AJ_Policy** policy, AJ_Message* msg)
     if (AJ_OK != status) {
         goto Exit;
     }
-    status = AJ_UnmarshalArgs(msg, "qu", &tmp->specification, &tmp->version);
+    status = AJ_UnmarshalArgs(msg, "qu", &tmp->specification, &tmp->serialNumber);
     if (AJ_OK != status) {
         goto Exit;
     }
@@ -1922,17 +1922,17 @@ AJ_Status AJ_MembershipApply(X509CertificateChain* root, AJ_ECCPublicKey* issuer
     return AJ_OK;
 }
 
-AJ_Status AJ_PolicyVersion(uint32_t* version)
+AJ_Status AJ_PolicySerialNumber(uint32_t* serialNumber)
 {
     AJ_Status status;
     Policy* policy = &g_policy;
 
     status = AJ_PolicyLoad();
     if (AJ_OK != status) {
-        AJ_InfoPrintf(("AJ_PolicyVersion(version=%p): Policy not loaded\n", version));
+        AJ_InfoPrintf(("AJ_PolicySerialNumber(serialNumber=%p): Policy not loaded\n", serialNumber));
         return AJ_ERR_INVALID;
     }
-    *version = policy->policy->version;
+    *serialNumber = policy->policy->serialNumber;
     AJ_PolicyUnload();
 
     return AJ_OK;
