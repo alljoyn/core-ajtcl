@@ -54,7 +54,15 @@ uint8_t dbgTARGET_CRYPTO = 0;
 void AJ_RandBytes(uint8_t* rand, uint32_t len)
 {
     HCRYPTPROV hProvider;
-    CryptAcquireContext(&hProvider, 0, 0, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT | CRYPT_SILENT);
-    CryptGenRandom(hProvider, len, rand);
-    CryptReleaseContext(hProvider, 0);
+    if (CryptAcquireContext(&hProvider, 0, 0, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT | CRYPT_SILENT)) {
+        if (!CryptGenRandom(hProvider, len, rand)) {
+            AJ_ErrPrintf(("AJ_RandBytes(): failed to CryptGenRandom\n"));
+        }
+    } else {
+        AJ_ErrPrintf(("AJ_RandBytes(): failed to CryptAcquireContext\n"));
+    }
+
+    if (!CryptReleaseContext(hProvider, 0)) {
+        AJ_ErrPrintf(("AJ_RandBytes(): failed to CryptReleaseContext\n"));
+    }
 }
