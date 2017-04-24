@@ -75,9 +75,10 @@ void AJ_RandBytes(uint8_t* randBuf, uint32_t size)
         status = AES_CTR_DRBG_Generate(&drbgctx, randBuf, size);
         if (AJ_OK != status) {
             // Reseed required
-            AJ_PlatformEntropy(seed, sizeof (seed));
-            AES_CTR_DRBG_Reseed(&drbgctx, seed, sizeof (seed));
-            status = AES_CTR_DRBG_Generate(&drbgctx, randBuf, size);
+            if (0 != AJ_PlatformEntropy(seed, sizeof (seed))) {
+                AES_CTR_DRBG_Reseed(&drbgctx, seed, sizeof (seed));
+                status = AES_CTR_DRBG_Generate(&drbgctx, randBuf, size);
+            }
         }
     } else {
         // This is the first call to initialize
