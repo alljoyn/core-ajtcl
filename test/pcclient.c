@@ -59,14 +59,17 @@ static const uint32_t keyexpiration = 0xFFFFFFFF;
  * To define a secure interface, prepend '$' before the interface name, eg., "$org.alljoyn.alljoyn_test"
  */
 #ifdef SECURE_INTERFACE
-static const char testInterfaceName[] = "$org.alljoyn.alljoyn_test";
 static const char testValuesInterfaceName[] = "$org.alljoyn.alljoyn_test.values";
 #else
-static const char testInterfaceName[] = "org.alljoyn.alljoyn_test";
 static const char testValuesInterfaceName[] = "org.alljoyn.alljoyn_test.values";
 #endif
 
-#if defined(ANNOUNCE_BASED_DISCOVERY) || defined(NGNS)
+#if defined(NGNS)
+#ifdef SECURE_INTERFACE
+static const char testInterfaceName[] = "$org.alljoyn.alljoyn_test";
+#else
+static const char testInterfaceName[] = "org.alljoyn.alljoyn_test";
+#endif
 static const char* testInterfaceNames[] = {
     testInterfaceName,
     testValuesInterfaceName,
@@ -101,7 +104,9 @@ static const AJ_InterfaceDescription testInterfaces[] = {
     NULL
 };
 
+#ifdef ANNOUNCE_BASED_DISCOVERY
 static const char testObj[] = "/org/alljoyn/alljoyn_test/PropertiesChanged";
+#endif
 
 /**
  * Objects implemented by the application

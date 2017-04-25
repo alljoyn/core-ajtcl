@@ -235,7 +235,14 @@ Exit:
     /* Policy no longer needed in memory */
     AJ_PolicyUnload();
     if (peerContext.callback) {
+#if defined(__GNUC__) && (__GNUC__ >= 6)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
         peerContext.callback(peerContext.cbContext, status);
+#if defined(__GNUC__) && (__GNUC__ >= 6)
+#pragma GCC diagnostic pop
+#endif
     }
     AJ_ClearAuthContext();
 }

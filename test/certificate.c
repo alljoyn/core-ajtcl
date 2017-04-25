@@ -228,14 +228,6 @@ static const char pem_x509_11[] = {
     "-----END CERTIFICATE-----"
 };
 
-static const char pem_prv_12[] = {
-    "-----BEGIN EC PRIVATE KEY-----"
-    "MHcCAQEEINiXjrhr3NNV+NYcS9ZHuWGjOYVmK1l4S03QV+vn1mIIoAoGCCqGSM49"
-    "AwEHoUQDQgAEZFf5jgxNc4wJ2qYcuBHcrWsxOXhMgtvyRMfH2ryM6aQPlioY/dnc"
-    "XbWnsfO2FyE8wsdKLPeENJy+8g6p+RPEig=="
-    "-----END EC PRIVATE KEY-----"
-};
-
 static const char pem_x509_12[] = {
     "-----BEGIN CERTIFICATE-----"
     "MIIB2jCCAYGgAwIBAgIBAjAKBggqhkjOPQQDAjANMQswCQYDVQQDDAJjbjAeFw0x"
