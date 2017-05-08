@@ -5,22 +5,22 @@
 /******************************************************************************
  *    Copyright (c) Open Connectivity Foundation (OCF), AllJoyn Open Source
  *    Project (AJOSP) Contributors and others.
- *    
+ *
  *    SPDX-License-Identifier: Apache-2.0
- *    
+ *
  *    All rights reserved. This program and the accompanying materials are
  *    made available under the terms of the Apache License, Version 2.0
  *    which accompanies this distribution, and is available at
  *    http://www.apache.org/licenses/LICENSE-2.0
- *    
+ *
  *    Copyright (c) Open Connectivity Foundation and Contributors to AllSeen
  *    Alliance. All rights reserved.
- *    
+ *
  *    Permission to use, copy, modify, and/or distribute this software for
  *    any purpose with or without fee is hereby granted, provided that the
  *    above copyright notice and this permission notice appear in all
  *    copies.
- *    
+ *
  *    THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL
  *    WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED
  *    WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE
@@ -29,7 +29,7 @@
  *    PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
  *    TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
  *    PERFORMANCE OF THIS SOFTWARE.
-******************************************************************************/
+ ******************************************************************************/
 
 #define AJ_MODULE PROPERTIES_CHANGED
 
@@ -59,14 +59,17 @@ static const uint32_t keyexpiration = 0xFFFFFFFF;
  * To define a secure interface, prepend '$' before the interface name, eg., "$org.alljoyn.alljoyn_test"
  */
 #ifdef SECURE_INTERFACE
-static const char testInterfaceName[] = "$org.alljoyn.alljoyn_test";
 static const char testValuesInterfaceName[] = "$org.alljoyn.alljoyn_test.values";
 #else
-static const char testInterfaceName[] = "org.alljoyn.alljoyn_test";
 static const char testValuesInterfaceName[] = "org.alljoyn.alljoyn_test.values";
 #endif
 
-#if defined(ANNOUNCE_BASED_DISCOVERY) || defined(NGNS)
+#if defined(NGNS)
+#ifdef SECURE_INTERFACE
+static const char testInterfaceName[] = "$org.alljoyn.alljoyn_test";
+#else
+static const char testInterfaceName[] = "org.alljoyn.alljoyn_test";
+#endif
 static const char* testInterfaceNames[] = {
     testInterfaceName,
     testValuesInterfaceName,
@@ -101,7 +104,9 @@ static const AJ_InterfaceDescription testInterfaces[] = {
     NULL
 };
 
+#ifdef ANNOUNCE_BASED_DISCOVERY
 static const char testObj[] = "/org/alljoyn/alljoyn_test/PropertiesChanged";
+#endif
 
 /**
  * Objects implemented by the application

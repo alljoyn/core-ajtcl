@@ -7,22 +7,22 @@
 /******************************************************************************
  *    Copyright (c) Open Connectivity Foundation (OCF), AllJoyn Open Source
  *    Project (AJOSP) Contributors and others.
- *    
+ *
  *    SPDX-License-Identifier: Apache-2.0
- *    
+ *
  *    All rights reserved. This program and the accompanying materials are
  *    made available under the terms of the Apache License, Version 2.0
  *    which accompanies this distribution, and is available at
  *    http://www.apache.org/licenses/LICENSE-2.0
- *    
+ *
  *    Copyright (c) Open Connectivity Foundation and Contributors to AllSeen
  *    Alliance. All rights reserved.
- *    
+ *
  *    Permission to use, copy, modify, and/or distribute this software for
  *    any purpose with or without fee is hereby granted, provided that the
  *    above copyright notice and this permission notice appear in all
  *    copies.
- *    
+ *
  *    THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL
  *    WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED
  *    WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE
@@ -31,7 +31,7 @@
  *    PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
  *    TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
  *    PERFORMANCE OF THIS SOFTWARE.
-******************************************************************************/
+ ******************************************************************************/
 
 #include <ajtcl/aj_crypto.h>
 #include <ajtcl/aj_crypto_ecc.h>
@@ -226,16 +226,7 @@ typedef struct {
 
 static bigval_t const big_zero = { { 0, 0, 0, 0, 0, 0, 0 } };
 static bigval_t const big_one = { { 1, 0, 0, 0, 0, 0, 0 } };
-static affine_point_t const affine_infinity = { { { 0, 0, 0, 0, 0, 0, 0 } },
-                                                { { 0, 0, 0, 0, 0, 0, 0 } },
-                                                B_TRUE };
-static jacobian_point_t const jacobian_infinity = { { { 1, 0, 0, 0, 0, 0, 0 } },
-                                                    { { 1, 0, 0, 0, 0, 0, 0 } },
-                                                    { { 0, 0, 0, 0, 0, 0, 0 } } };
 static bigval_t const modulusP256 = { { m1, m1, m1, 0, 0, 0, 1, m1, 0 } };
-static bigval_t const b_P256 =
-{ { 0x27d2604b, 0x3bce3c3e, 0xcc53b0f6, 0x651d06b0,
-    0x769886bc, 0xb3ebbd55, 0xaa3a93e7, 0x5ac635d8, 0x00000000 } };
 static bigval_t const orderP256 =
 { { 0xfc632551, 0xf3b9cac2, 0xa7179e84, 0xbce6faad,
     0xffffffff, 0xffffffff, 0x00000000, 0xffffffff,
@@ -254,18 +245,9 @@ static dblbigval_t const orderDBL256 =
 #endif /* ECDSA */
 
 
-static affine_point_t const baseP256 = {
-    { { 0xd898c296, 0xf4a13945, 0x2deb33a0, 0x77037d81,
-        0x63a440f2, 0xf8bce6e5, 0xe12c4247, 0x6b17d1f2 } },
-    { { 0x37bf51f5, 0xcbb64068, 0x6b315ece, 0x2bce3357,
-        0x7c0f9e16, 0x8ee7eb4a, 0xfe1a7f9b, 0x4fe342e2 } },
-    B_FALSE
-};
 #define modulusP modulusP256
 #define orderP orderP256
 #define orderDBL orderDBL256
-#define base_point baseP256
-#define curve_b b_P256
 
 
 
