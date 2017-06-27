@@ -53,6 +53,8 @@
 #include <ajtcl/aj_authorisation.h>
 #include <ajtcl/aj_security.h>
 
+#include <signal.h>
+
 /**
  * Turn on per-module debug printing by setting this variable to non-zero value
  * (usually in debugger).
@@ -66,6 +68,8 @@ static const char ServiceName[] = "org.alljoyn.svclite";
 static const uint16_t ServicePort = 24;
 static const uint8_t CancelAdvertiseName = FALSE;
 static const uint8_t ReflectSignal = FALSE;
+static AJ_BusAttachment s_bus;
+static uint8_t s_connected = FALSE;
 
 /*
  * An application property to SET or GET
@@ -409,6 +413,16 @@ static const uint32_t suites[] = { AUTH_SUITE_ECDHE_ECDSA, AUTH_SUITE_ECDHE_PSK,
 #define CONNECT_TIMEOUT    (1000 * 1000)
 #define UNMARSHAL_TIMEOUT  (1000 * 5)
 
+/** Signal handler */
+static void SigIntHandler(int sig)
+{
+    ((void)(sig));
+    if (s_connected) {
+        AJ_Disconnect(&s_bus);
+    }
+    exit(0);
+}
+
 #ifdef MAIN_ALLOWS_ARGS
 int AJ_Main(int ac, char** av)
 #else
@@ -416,12 +430,13 @@ int AJ_Main()
 #endif
 {
     AJ_Status status = AJ_OK;
-    AJ_BusAttachment bus;
-    uint8_t connected = FALSE;
     uint32_t sessionId = 0;
 #if defined(SECURE_INTERFACE) || defined(SECURE_OBJECT)
     uint8_t claim = FALSE;
 #endif
+
+    /* Install SIGINT handler */
+    signal(SIGINT, SigIntHandler);
 
     /*
      * One time initialization before calling any other AllJoyn APIs
@@ -447,17 +462,18 @@ int AJ_Main()
     while (TRUE) {
         AJ_Message msg;
 
-        if (!connected) {
-            status = AJ_StartService(&bus, NULL, CONNECT_TIMEOUT, FALSE, ServicePort, ServiceName, AJ_NAME_REQ_DO_NOT_QUEUE, NULL);
+        if (!s_connected) {
+            status = AJ_StartService(&s_bus, NULL, CONNECT_TIMEOUT, FALSE, ServicePort, ServiceName, AJ_NAME_REQ_DO_NOT_QUEUE, NULL);
             if (status != AJ_OK) {
+                AJ_AlwaysPrintf(("StartService returned %d, retrying...\n", status));
                 continue;
             }
-            AJ_InfoPrintf(("StartService returned AJ_OK\n"));
-            AJ_InfoPrintf(("Connected to Daemon:%s\n", AJ_GetUniqueName(&bus)));
+            AJ_AlwaysPrintf(("StartService returned AJ_OK\n"));
+            AJ_AlwaysPrintf(("Connected to Daemon:%s\n", AJ_GetUniqueName(&s_bus)));
 
-            AJ_SetIdleTimeouts(&bus, 10, 4);
+            AJ_SetIdleTimeouts(&s_bus, 10, 4);
 
-            connected = TRUE;
+            s_connected = TRUE;
 #ifdef SECURE_OBJECT
             status = AJ_SetObjectFlags("/org/alljoyn/alljoyn_test", AJ_OBJ_FLAG_SECURE, 0);
             if (status != AJ_OK) {
@@ -468,20 +484,20 @@ int AJ_Main()
 
 #if defined(SECURE_INTERFACE) || defined(SECURE_OBJECT)
 
-            AJ_BusEnableSecurity(&bus, suites, ArraySize(suites));
-            AJ_BusSetAuthListenerCallback(&bus, AuthListenerCallback);
+            AJ_BusEnableSecurity(&s_bus, suites, ArraySize(suites));
+            AJ_BusSetAuthListenerCallback(&s_bus, AuthListenerCallback);
             AJ_ManifestTemplateSet(rules);
             if (claim) {
-                AJ_SecuritySetClaimConfig(&bus, APP_STATE_CLAIMABLE, CLAIM_CAPABILITY_ECDHE_PSK, 0);
+                AJ_SecuritySetClaimConfig(&s_bus, APP_STATE_CLAIMABLE, CLAIM_CAPABILITY_ECDHE_PSK, 0);
             }
 #endif
 
             /* Configure timeout for the link to the daemon bus */
-            AJ_SetBusLinkTimeout(&bus, 60); // 60 seconds
+            AJ_SetBusLinkTimeout(&s_bus, 60); // 60 seconds
         }
 
-        status = AJ_UnmarshalMsg(&bus, &msg, UNMARSHAL_TIMEOUT);
-        if (AJ_ERR_TIMEOUT == status && AJ_ERR_LINK_TIMEOUT == AJ_BusLinkStateProc(&bus)) {
+        status = AJ_UnmarshalMsg(&s_bus, &msg, UNMARSHAL_TIMEOUT);
+        if (AJ_ERR_TIMEOUT == status && AJ_ERR_LINK_TIMEOUT == AJ_BusLinkStateProc(&s_bus)) {
             status = AJ_ERR_READ;
         }
         if (status != AJ_OK) {
@@ -544,7 +560,7 @@ int AJ_Main()
                     AJ_UnmarshalArgs(&msg, "uu", &id, &reason);
                     AJ_InfoPrintf(("Session lost. ID = %u, reason = %u", id, reason));
                     if (CancelAdvertiseName) {
-                        status = AJ_BusAdvertiseName(&bus, ServiceName, AJ_TRANSPORT_ANY, AJ_BUS_START_ADVERTISING, 0);
+                        status = AJ_BusAdvertiseName(&s_bus, ServiceName, AJ_TRANSPORT_ANY, AJ_BUS_START_ADVERTISING, 0);
                     }
                     status = AJ_ERR_SESSION_LOST;
                 }
@@ -552,7 +568,7 @@ int AJ_Main()
 
             case AJ_SIGNAL_SESSION_JOINED:
                 if (CancelAdvertiseName) {
-                    status = AJ_BusAdvertiseName(&bus, ServiceName, AJ_TRANSPORT_ANY, AJ_BUS_STOP_ADVERTISING, 0);
+                    status = AJ_BusAdvertiseName(&s_bus, ServiceName, AJ_TRANSPORT_ANY, AJ_BUS_STOP_ADVERTISING, 0);
                 }
                 break;
 
@@ -581,7 +597,7 @@ int AJ_Main()
                 if (ReflectSignal) {
                     AJ_Message out;
                     AJ_Arg arg;
-                    AJ_MarshalSignal(&bus, &out, APP_MY_SIGNAL, msg.sender, msg.sessionId, 0, 0);
+                    AJ_MarshalSignal(&s_bus, &out, APP_MY_SIGNAL, msg.sender, msg.sessionId, 0, 0);
                     AJ_MarshalContainer(&out, &arg, AJ_ARG_ARRAY);
                     AJ_MarshalCloseContainer(&out, &arg);
                     AJ_DeliverMsg(&out);
@@ -607,9 +623,9 @@ int AJ_Main()
 
         if ((status == AJ_ERR_READ) || (status == AJ_ERR_LINK_DEAD)) {
             AJ_InfoPrintf(("AllJoyn disconnect\n"));
-            AJ_InfoPrintf(("Disconnected from Daemon:%s\n", AJ_GetUniqueName(&bus)));
-            AJ_Disconnect(&bus);
-            connected = FALSE;
+            AJ_InfoPrintf(("Disconnected from Daemon:%s\n", AJ_GetUniqueName(&s_bus)));
+            AJ_Disconnect(&s_bus);
+            s_connected = FALSE;
             /*
              * Sleep a little while before trying to reconnect
              */
