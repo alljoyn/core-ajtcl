@@ -750,8 +750,8 @@ static uint8_t txDataMCast[475];
 
 static void Mcast6Up(const char* group, uint16_t port, uint8_t mdns, uint16_t recv_port)
 {
-    char iface_buffer[sizeof(IP_ADAPTER_ADDRESSES) * 150];
-    char v4_iface_buffer[sizeof(IP_ADAPTER_ADDRESSES) * 150];
+    char iface_buffer[sizeof(IP_ADAPTER_ADDRESSES) * 25];
+    char v4_iface_buffer[sizeof(IP_ADAPTER_ADDRESSES) * 25];
     PIP_ADAPTER_ADDRESSES interfaces = (PIP_ADAPTER_ADDRESSES) iface_buffer;
     PIP_ADAPTER_ADDRESSES v4_interfaces = (PIP_ADAPTER_ADDRESSES) v4_iface_buffer;
     DWORD num_bytes = sizeof(iface_buffer);
