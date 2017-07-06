@@ -748,10 +748,15 @@ static AJ_Status AJ_Net_RecvFrom(AJ_IOBuffer* buf, uint32_t len, uint32_t timeou
 static uint8_t rxDataMCast[1454];
 static uint8_t txDataMCast[475];
 
+/*
+ * Defines the maximum number of network interfaces that we can have.
+ */
+#define MAX_NUM_IFACES 25
+
 static void Mcast6Up(const char* group, uint16_t port, uint8_t mdns, uint16_t recv_port)
 {
-    char iface_buffer[sizeof(IP_ADAPTER_ADDRESSES) * 150];
-    char v4_iface_buffer[sizeof(IP_ADAPTER_ADDRESSES) * 150];
+    char iface_buffer[sizeof(IP_ADAPTER_ADDRESSES) * MAX_NUM_IFACES];
+    char v4_iface_buffer[sizeof(IP_ADAPTER_ADDRESSES) * MAX_NUM_IFACES];
     PIP_ADAPTER_ADDRESSES interfaces = (PIP_ADAPTER_ADDRESSES) iface_buffer;
     PIP_ADAPTER_ADDRESSES v4_interfaces = (PIP_ADAPTER_ADDRESSES) v4_iface_buffer;
     DWORD num_bytes = sizeof(iface_buffer);
@@ -869,7 +874,7 @@ static void Mcast6Up(const char* group, uint16_t port, uint8_t mdns, uint16_t re
 static void Mcast4Up(const char* group, uint16_t port, uint8_t mdns, uint16_t recv_port)
 {
     int ret = 0;
-    INTERFACE_INFO interfaces[150];
+    INTERFACE_INFO interfaces[MAX_NUM_IFACES];
     DWORD num_bytes, num_ifaces;
     SOCKET tmp_sock;
     uint32_t i = 0;
