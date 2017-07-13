@@ -39,9 +39,7 @@ extern "C" {
 #include <ajtcl/aj_bufio.h>
 #include <ajtcl/aj_crypto.h>
 
-#ifndef NDEBUG
 extern AJ_MutterHook MutterHook;
-#endif
 }
 
 static uint8_t wireBuffer[16 * 1024];
@@ -104,7 +102,7 @@ static const char* testSignature[] = {
     "ya{ss}",
     "yyyyya{ys}"
 };
-#ifndef NDEBUG
+
 static AJ_Status MsgInit(AJ_Message* msg, uint32_t msgId, uint8_t msgType)
 {
     msg->objPath = "/test/mutter";
@@ -114,7 +112,6 @@ static AJ_Status MsgInit(AJ_Message* msg, uint32_t msgId, uint8_t msgType)
     msg->signature = testSignature[msgId];
     return AJ_OK;
 }
-#endif
 
 static const char* const Fruits[] = {
     "apple", "banana", "cherry", "durian", "elderberry", "fig", "grape"
@@ -168,15 +165,11 @@ class MutterTest : public testing::Test {
         const size_t lengthOfShortGUID = 16;
         strncpy(testBus.uniqueName, "DummyNaaaame.N1", lengthOfShortGUID);
 
-#ifndef NDEBUG
         MutterHook = MsgInit;
-#endif
     }
 
     virtual void TearDown() {
-#ifndef NDEBUG
         MutterHook = NULL;
-#endif
     }
 };
 

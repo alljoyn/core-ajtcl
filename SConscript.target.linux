@@ -90,9 +90,16 @@ if env['NO_AUTH']:
 # Debug/Release Variants
 if env['VARIANT'] == 'debug':
     env.Append(CFLAGS = '-g')
+    env.Append(CFLAGS = '-ggdb')
+    env.Append(CXXFLAGS = '-g')
+    env.Append(CXXFLAGS = '-ggdb')
 else:
     env.Append(CFLAGS = '-Os')
     env.Append(LINKFLAGS = '-s')
+
+# Unit test build preprocessor macro
+if ARGUMENTS.get('GTEST_DIR'):
+    env.Append(CPPDEFINES = ['GTEST_ENABLED'])
 
 env['build_shared'] = True
 env['connectivity_options'] = [ 'tcp', 'ardp' ]

@@ -90,13 +90,15 @@ static uint32_t _AJ_GetNVRAMBlockUsedSize(uint8_t* beginAddress, uint8_t* endAdd
     uint16_t* data = (uint16_t*)(beginAddress + SENTINEL_OFFSET);
     uint16_t entryId = 0;
     uint16_t capacity = 0;
-    while ((uint8_t*)data < endAddress && *data != INVALID_DATA) {
-        entryId = *data;
-        capacity = *(data + 1);
-        if (entryId != 0) {
-            size += capacity + ENTRY_HEADER_SIZE;
+    if (NULL != data) {
+        while ((uint8_t*)data < endAddress && *data != INVALID_DATA) {
+            entryId = *data;
+            capacity = *(data + 1);
+            if (entryId != 0) {
+                size += capacity + ENTRY_HEADER_SIZE;
+            }
+            data += (ENTRY_HEADER_SIZE + capacity) >> 1;
         }
-        data += (ENTRY_HEADER_SIZE + capacity) >> 1;
     }
     return size + SENTINEL_OFFSET;
 }
@@ -160,11 +162,13 @@ void AJ_NVRAM_Layout_Print()
         }
         AJ_AlwaysPrintf(("\n"));
         data = (uint16_t*)(_AJ_GetNVBlockBase(blockId) + SENTINEL_OFFSET);
-        while ((uint8_t*)data < _AJ_GetNVBlockEnd(blockId) && *data != INVALID_DATA) {
-            entryId = *data;
-            capacity = *(data + 1);
-            AJ_AlwaysPrintf(("ID = %d, capacity = %d\n", entryId, capacity));
-            data += (ENTRY_HEADER_SIZE + capacity) >> 1;
+        if (NULL != data) {
+            while ((uint8_t*)data < _AJ_GetNVBlockEnd(blockId) && *data != INVALID_DATA) {
+                entryId = *data;
+                capacity = *(data + 1);
+                AJ_AlwaysPrintf(("ID = %d, capacity = %d\n", entryId, capacity));
+                data += (ENTRY_HEADER_SIZE + capacity) >> 1;
+            }
         }
         AJ_AlwaysPrintf(("============ End Block ID = %d ===========\n", blockId));
         if (isOldNVRAMLayout) {
@@ -186,16 +190,18 @@ uint8_t* AJ_FindNVEntry(AJ_NVRAM_Block_Id blockId, uint16_t id)
 
     AJ_InfoPrintf(("AJ_FindNVEntry(id=%d.)\n", id));
 
-    while ((uint8_t*)data < (uint8_t*)_AJ_GetNVBlockEnd(blockId)) {
-        if (*data != id) {
-            capacity = *(data + 1);
-            if (*data == INVALID_DATA) {
-                break;
+    if (NULL != data) {
+        while ((uint8_t*)data < (uint8_t*)_AJ_GetNVBlockEnd(blockId)) {
+            if (*data != id) {
+                capacity = *(data + 1);
+                if (*data == INVALID_DATA) {
+                    break;
+                }
+                data += (ENTRY_HEADER_SIZE + capacity) >> 1;
+            } else {
+                AJ_InfoPrintf(("AJ_FindNVEntry(): data=0x%p\n", data));
+                return (uint8_t*)data;
             }
-            data += (ENTRY_HEADER_SIZE + capacity) >> 1;
-        } else {
-            AJ_InfoPrintf(("AJ_FindNVEntry(): data=0x%p\n", data));
-            return (uint8_t*)data;
         }
     }
     AJ_InfoPrintf(("AJ_FindNVEntry(): data=NULL\n"));
