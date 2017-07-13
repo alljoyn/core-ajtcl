@@ -63,6 +63,10 @@ else:
 
 env['connectivity_options'] = ['tcp', 'ardp']
 
+# Unit test build preprocessor macro
+if os.environ.has_key('GTEST_DIR') or ARGUMENTS.get('GTEST_DIR'):
+    env.Append(CPPDEFINES = ['GTEST_ENABLED'])
+
 # Support running on Win7 and newer Windows versions.
 env.Append(CPPDEFINES = [('_WIN32_WINNT', '_WIN32_WINNT_WIN7')])
 
