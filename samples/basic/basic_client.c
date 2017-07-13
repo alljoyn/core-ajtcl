@@ -213,6 +213,9 @@ int AJ_Main(void)
         }
     }
 
+    if (connected == TRUE) {
+        AJ_Disconnect(&bus);
+    }
     AJ_AlwaysPrintf(("Basic client exiting with status %d.\n", status));
 
     return status;

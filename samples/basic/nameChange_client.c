@@ -204,6 +204,9 @@ int main(int argc, char*argv[])
                 exit(0);
             }
         }
+        if (connected == TRUE) {
+            AJ_Disconnect(&bus);
+        }
     } else {
         AJ_ErrPrintf(("Error. New name not given: nameChange_client [new name].\n"));
     }

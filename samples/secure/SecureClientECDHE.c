@@ -459,6 +459,7 @@ int AJ_Main(void)
         if (authStatus != AJ_ERR_NULL) {
             if (authStatus != AJ_OK) {
                 AJ_Disconnect(&bus);
+                connected = FALSE;
                 break;
             }
             authStatus = AJ_ERR_NULL;
@@ -527,10 +528,14 @@ int AJ_Main(void)
         if ((status == AJ_ERR_READ) || (status == AJ_ERR_WRITE)) {
             AJ_Printf("AllJoyn disconnect.\n");
             AJ_Disconnect(&bus);
+            connected = FALSE;
             break;
         }
     }
 
+    if (connected == TRUE) {
+        AJ_Disconnect(&bus);
+    }
     AJ_Printf("SecureClient EXIT %d.\n", status);
 
     // Clean up certificate chain
