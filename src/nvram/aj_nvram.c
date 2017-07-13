@@ -186,16 +186,18 @@ uint8_t* AJ_FindNVEntry(AJ_NVRAM_Block_Id blockId, uint16_t id)
 
     AJ_InfoPrintf(("AJ_FindNVEntry(id=%d.)\n", id));
 
-    while ((uint8_t*)data < (uint8_t*)_AJ_GetNVBlockEnd(blockId)) {
-        if (*data != id) {
-            capacity = *(data + 1);
-            if (*data == INVALID_DATA) {
-                break;
+    if (NULL != data) {
+        while ((uint8_t*)data < (uint8_t*)_AJ_GetNVBlockEnd(blockId)) {
+            if (*data != id) {
+                capacity = *(data + 1);
+                if (*data == INVALID_DATA) {
+                    break;
+                }
+                data += (ENTRY_HEADER_SIZE + capacity) >> 1;
+            } else {
+                AJ_InfoPrintf(("AJ_FindNVEntry(): data=0x%p\n", data));
+                return (uint8_t*)data;
             }
-            data += (ENTRY_HEADER_SIZE + capacity) >> 1;
-        } else {
-            AJ_InfoPrintf(("AJ_FindNVEntry(): data=0x%p\n", data));
-            return (uint8_t*)data;
         }
     }
     AJ_InfoPrintf(("AJ_FindNVEntry(): data=NULL\n"));

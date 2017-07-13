@@ -1139,7 +1139,6 @@ AJ_Status AJ_LookupMessageId(AJ_Message* msg, uint8_t* secure)
     return AJ_ERR_NO_MATCH;
 }
 
-#ifndef NDEBUG
 /*
  * Validates an index into a NULL terminated array
  */
@@ -1157,7 +1156,6 @@ static uint8_t CheckIndex(const void* ptr, uint8_t idx, size_t stride)
     } while (idx--);
     return TRUE;
 }
-#endif
 
 static AJ_Status UnpackMsgId(uint32_t msgId, const char** objPath, const char** iface, const char** member, uint8_t* secure)
 {
@@ -1168,7 +1166,6 @@ static AJ_Status UnpackMsgId(uint32_t msgId, const char** objPath, const char** 
     const AJ_Object* obj;
     AJ_InterfaceDescription ifc;
 
-#ifndef NDEBUG
     if ((oIndex >= ArraySize(objectLists)) || !CheckIndex(objectLists[oIndex], pIndex, sizeof(AJ_Object))) {
         AJ_ErrPrintf(("UnpackMsgId(): AJ_ERR_INVALID\n"));
         return AJ_ERR_INVALID;
@@ -1183,10 +1180,7 @@ static AJ_Status UnpackMsgId(uint32_t msgId, const char** objPath, const char** 
         AJ_ErrPrintf(("UnpackMsgId(): AJ_ERR_INVALID\n"));
         return AJ_ERR_INVALID;
     }
-#else
-    obj = &objectLists[oIndex][pIndex];
-    ifc = obj->interfaces[iIndex];
-#endif
+
     if (obj->flags & AJ_OBJ_FLAG_DISABLED) {
         return AJ_ERR_INVALID;
     }
@@ -1268,7 +1262,7 @@ AJ_Status AJ_MarshalPropertyArgs(AJ_Message* msg, uint32_t propId)
 /*
  * Hook for unit tests
  */
-#ifndef NDEBUG
+#ifdef GTEST_ENABLED
 AJ_MutterHook MutterHook = NULL;
 #endif
 
@@ -1284,7 +1278,7 @@ AJ_Status AJ_InitMessageFromMsgId(AJ_Message* msg, uint32_t msgId, uint8_t msgTy
     static char msgSignature[64];
     AJ_Status status = AJ_OK;
 
-#ifndef NDEBUG
+#ifdef GTEST_ENABLED
     if (MutterHook) {
         return MutterHook(msg, msgId, msgType);
     }
@@ -1584,7 +1578,7 @@ AJ_Status AJ_IdentifyMessage(AJ_Message* msg)
 {
     AJ_Status status = AJ_ERR_NO_MATCH;
     uint8_t secure = FALSE;
-#ifndef NDEBUG
+#ifdef GTEST_ENABLED
     if (MutterHook) {
         return AJ_OK;
     }
