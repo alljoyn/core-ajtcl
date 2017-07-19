@@ -31,14 +31,17 @@
  ******************************************************************************/
 #define AJ_MODULE BASIC_SERVICE
 
+#include <signal.h>
 #include <stdio.h>
 #include <ajtcl/aj_debug.h>
 #include <ajtcl/alljoyn.h>
 
 #define CONNECT_ATTEMPTS   10
-static const char ServiceName[] = "org.alljoyn.Bus.sample";
-static const char ServicePath[] = "/sample";
-static const uint16_t ServicePort = 25;
+static const char s_serviceName[] = "org.alljoyn.Bus.sample";
+static const char s_servicePath[] = "/sample";
+static const uint16_t s_servicePort = 25;
+static AJ_BusAttachment s_bus;
+static uint8_t s_connected = FALSE;
 
 uint8_t dbgBASIC_SERVICE = 0;
 /**
@@ -46,7 +49,7 @@ uint8_t dbgBASIC_SERVICE = 0;
  *
  * See also .\inc\aj_introspect.h
  */
-static const char* const sampleInterface[] = {
+static const char* const s_sampleInterface[] = {
     "org.alljoyn.Bus.sample",   /* The first entry is the interface name. */
     "?Dummy foo<i",             /* This is just a dummy entry at index 0 for illustration purposes. */
     "?cat inStr1<s inStr2<s outStr>s", /* Method at index 1. */
@@ -56,8 +59,8 @@ static const char* const sampleInterface[] = {
 /**
  * A NULL terminated collection of all interfaces.
  */
-static const AJ_InterfaceDescription sampleInterfaces[] = {
-    sampleInterface,
+static const AJ_InterfaceDescription s_sampleInterfaces[] = {
+    s_sampleInterface,
     NULL
 };
 
@@ -65,20 +68,20 @@ static const AJ_InterfaceDescription sampleInterfaces[] = {
  * Objects implemented by the application. The first member in the AJ_Object structure is the path.
  * The second is the collection of all interfaces at that path.
  */
-static const AJ_Object AppObjects[] = {
-    { ServicePath, sampleInterfaces },
+static const AJ_Object s_appObjects[] = {
+    { s_servicePath, s_sampleInterfaces },
     { NULL }
 };
 
 /*
  * The value of the arguments are the indices of the
- * object path in AppObjects (above), interface in sampleInterfaces (above), and
+ * object path in s_appObjects (above), interface in s_sampleInterfaces (above), and
  * member indices in the interface.
- * The 'cat' index is 1 because the first entry in sampleInterface is the interface name.
+ * The 'cat' index is 1 because the first entry in s_sampleInterface is the interface name.
  * This makes the first index (index 0 of the methods) the second string in
- * sampleInterface[] which, for illustration purposes is a dummy entry.
+ * s_sampleInterface[] which, for illustration purposes is a dummy entry.
  * The index of the method we implement for basic_service, 'cat', is 1 which is the third string
- * in the array of strings sampleInterface[].
+ * in the array of strings s_sampleInterface[].
  *
  * See also .\inc\aj_introspect.h
  */
@@ -120,31 +123,43 @@ static AJ_Status AppHandleCat(AJ_Message* msg)
 #define CONNECT_TIMEOUT     (1000 * 60)
 #define SLEEP_TIME          (1000 * 2)
 
+/* SIGINT signal handler. */
+static void SigIntHandler(int sig)
+{
+    ((void)(sig));
+    if (s_connected) {
+        AJ_Disconnect(&s_bus);
+    }
+    AJ_AlwaysPrintf(("\nbasic_service exiting after SIGINT (OK)\n"));
+    exit(0);
+}
+
 int AJ_Main(void)
 {
     AJ_Status status = AJ_OK;
-    AJ_BusAttachment bus;
-    uint8_t connected = FALSE;
     uint32_t sessionId = 0;
+
+    /* Install SIGINT handler. */
+    signal(SIGINT, SigIntHandler);
 
     /* One time initialization before calling any other AllJoyn APIs. */
     AJ_Initialize();
 
     /* This is for debug purposes and is optional. */
-    AJ_PrintXML(AppObjects);
+    AJ_PrintXML(s_appObjects);
 
-    AJ_RegisterObjects(AppObjects, NULL);
+    AJ_RegisterObjects(s_appObjects, NULL);
 
     while (TRUE) {
         AJ_Message msg;
 
-        if (!connected) {
-            status = AJ_StartService(&bus,
+        if (!s_connected) {
+            status = AJ_StartService(&s_bus,
                                      NULL,
                                      CONNECT_TIMEOUT,
                                      FALSE,
-                                     ServicePort,
-                                     ServiceName,
+                                     s_servicePort,
+                                     s_serviceName,
                                      AJ_NAME_REQ_DO_NOT_QUEUE,
                                      NULL);
 
@@ -153,10 +168,10 @@ int AJ_Main(void)
             }
 
             AJ_InfoPrintf(("StartService returned %d, session_id=%u\n", status, sessionId));
-            connected = TRUE;
+            s_connected = TRUE;
         }
 
-        status = AJ_UnmarshalMsg(&bus, &msg, AJ_UNMARSHAL_TIMEOUT);
+        status = AJ_UnmarshalMsg(&s_bus, &msg, AJ_UNMARSHAL_TIMEOUT);
 
         if (AJ_ERR_TIMEOUT == status) {
             continue;
@@ -198,8 +213,8 @@ int AJ_Main(void)
 
         if ((status == AJ_ERR_READ) || (status == AJ_ERR_WRITE)) {
             AJ_AlwaysPrintf(("AllJoyn disconnect.\n"));
-            AJ_Disconnect(&bus);
-            connected = FALSE;
+            AJ_Disconnect(&s_bus);
+            s_connected = FALSE;
 
             /* Sleep a little while before trying to reconnect. */
             AJ_Sleep(SLEEP_TIME);
