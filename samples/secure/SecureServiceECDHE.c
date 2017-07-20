@@ -31,6 +31,7 @@
  ******************************************************************************/
 #define AJ_MODULE SECURE_SERVICE
 
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -54,18 +55,19 @@ uint8_t dbgSECURE_SERVICE = 1;
 static const uint32_t keyexpiration = 0xFFFFFFFF;
 
 #define CONNECT_ATTEMPTS   10
-static const char ServiceName[] = "org.alljoyn.bus.samples.secure";
-static const char InterfaceName[] = "org.alljoyn.bus.samples.secure.SecureInterface";
-static const char ServicePath[] = "/SecureService";
-static const uint16_t ServicePort = 42;
-
+static const char s_serviceName[] = "org.alljoyn.bus.samples.secure";
+static const char s_interfaceName[] = "org.alljoyn.bus.samples.secure.SecureInterface";
+static const char s_servicePath[] = "/SecureService";
+static const uint16_t s_servicePort = 42;
+static AJ_BusAttachment s_bus;
+static uint8_t s_connected = FALSE;
 
 /**
  * The interface name followed by the method signatures.
  *
  * See also .\inc\aj_introspect.h
  */
-static const char* const secureInterface[] = {
+static const char* const s_secureInterface[] = {
     "$org.alljoyn.bus.samples.secure.SecureInterface",
     "?Ping inStr<s outStr>s",  /* Method at index 0. */
     NULL
@@ -74,8 +76,8 @@ static const char* const secureInterface[] = {
 /**
  * A NULL terminated collection of all interfaces.
  */
-static const AJ_InterfaceDescription secureInterfaces[] = {
-    secureInterface,
+static const AJ_InterfaceDescription s_secureInterfaces[] = {
+    s_secureInterface,
     NULL
 };
 
@@ -83,21 +85,21 @@ static const AJ_InterfaceDescription secureInterfaces[] = {
  * Objects implemented by the application. The first member in the AJ_Object structure is the path.
  * The second is the collection of all interfaces at that path.
  */
-static const AJ_Object AppObjects[] = {
-    { ServicePath, secureInterfaces },
+static const AJ_Object s_appObjects[] = {
+    { s_servicePath, s_secureInterfaces },
     { NULL }
 };
 
-static AJ_PermissionMember members[] = { { "*", AJ_MEMBER_TYPE_ANY, AJ_ACTION_PROVIDE | AJ_ACTION_OBSERVE, NULL } };
-static AJ_PermissionRule rules[] = { { ServicePath, InterfaceName, PRIVILEGED, members, NULL } };
+static AJ_PermissionMember s_members[] = { { "*", AJ_MEMBER_TYPE_ANY, AJ_ACTION_PROVIDE | AJ_ACTION_OBSERVE, NULL } };
+static AJ_PermissionRule s_rules[] = { { s_servicePath, s_interfaceName, PRIVILEGED, s_members, NULL } };
 
 /*
  * The value of the arguments are the indices of the
- * object path in AppObjects (above), interface in sampleInterfaces (above), and
+ * object path in s_appObjects (above), interface in sampleInterfaces (above), and
  * member indices in the interface.
  * The 'ping' index is 0 because the first entry in sampleInterface is the interface name.
  * This makes the first index (index 0 of the methods) the second string in
- * secureInterfaces[].
+ * s_secureInterfaces[].
  *
  * See also .\inc\aj_introspect.h
  */
@@ -138,14 +140,14 @@ static AJ_Status AppHandlePing(AJ_Message* msg)
 
 // Copied from alljoyn/alljoyn_core/unit_test/AuthListenerECDHETest.cc with
 // newlines removed
-static const char pem_prv[] = {
+static const char s_pem_prv[] = {
     "-----BEGIN EC PRIVATE KEY-----"
     "MDECAQEEICCRJMbxSiWUqj4Zs7jFQRXDJdBRPWX6fIVqE1BaXd08oAoGCCqGSM49"
     "AwEH"
     "-----END EC PRIVATE KEY-----"
 };
 
-static const char pem_x509[] = {
+static const char s_pem_x509[] = {
     "-----BEGIN CERTIFICATE-----"
     "MIIBuDCCAV2gAwIBAgIHMTAxMDEwMTAKBggqhkjOPQQDAjBCMRUwEwYDVQQLDAxv"
     "cmdhbml6YXRpb24xKTAnBgNVBAMMIDgxM2FkZDFmMWNiOTljZTk2ZmY5MTVmNTVk"
@@ -160,10 +162,10 @@ static const char pem_x509[] = {
     "-----END CERTIFICATE-----"
 };
 
-static const char psk_hint[] = "<anonymous>";
-static const char psk_char[] = "faaa0af3dd3f1e0379da046a3ab6ca44";
-static const char ecspeke_password[] = "1234";
-static X509CertificateChain* chain = NULL;
+static const char s_psk_hint[] = "<anonymous>";
+static const char s_psk_char[] = "faaa0af3dd3f1e0379da046a3ab6ca44";
+static const char s_ecspeke_password[] = "1234";
+static X509CertificateChain* s_chain = NULL;
 static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, AJ_Credential*cred)
 {
     AJ_Status status = AJ_ERR_INVALID;
@@ -180,8 +182,8 @@ static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, 
     case AUTH_SUITE_ECDHE_SPEKE:
         switch (command) {
         case AJ_CRED_PASSWORD:
-            cred->data = (uint8_t*)ecspeke_password;
-            cred->len = strlen(ecspeke_password);
+            cred->data = (uint8_t*)s_ecspeke_password;
+            cred->len = strlen(s_ecspeke_password);
             cred->expiration = keyexpiration;
             status = AJ_OK;
             break;
@@ -195,15 +197,15 @@ static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, 
     case AUTH_SUITE_ECDHE_PSK:
         switch (command) {
         case AJ_CRED_PUB_KEY:
-            cred->data = (uint8_t*) psk_hint;
-            cred->len = strlen(psk_hint);
+            cred->data = (uint8_t*) s_psk_hint;
+            cred->len = strlen(s_psk_hint);
             cred->expiration = keyexpiration;
             status = AJ_OK;
             break;
 
         case AJ_CRED_PRV_KEY:
-            cred->data = (uint8_t*) psk_char;
-            cred->len = strlen(psk_char);
+            cred->data = (uint8_t*) s_psk_char;
+            cred->len = strlen(s_psk_char);
             cred->expiration = keyexpiration;
             status = AJ_OK;
             break;
@@ -214,7 +216,7 @@ static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, 
         switch (command) {
         case AJ_CRED_PRV_KEY:
             AJ_ASSERT(sizeof (AJ_ECCPrivateKey) == cred->len);
-            status = AJ_DecodePrivateKeyPEM((AJ_ECCPrivateKey*) cred->data, pem_prv);
+            status = AJ_DecodePrivateKeyPEM((AJ_ECCPrivateKey*) cred->data, s_pem_prv);
             cred->expiration = keyexpiration;
             break;
 
@@ -222,12 +224,12 @@ static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, 
             switch (cred->direction) {
             case AJ_CRED_REQUEST:
                 // Free previous certificate chain
-                AJ_X509FreeDecodedCertificateChain(chain);
-                chain = AJ_X509DecodeCertificateChainPEM(pem_x509);
-                if (NULL == chain) {
+                AJ_X509FreeDecodedCertificateChain(s_chain);
+                s_chain = AJ_X509DecodeCertificateChainPEM(s_pem_x509);
+                if (NULL == s_chain) {
                     return AJ_ERR_INVALID;
                 }
-                cred->data = (uint8_t*) chain;
+                cred->data = (uint8_t*) s_chain;
                 cred->expiration = keyexpiration;
                 status = AJ_OK;
                 break;
@@ -251,40 +253,53 @@ static AJ_Status AuthListenerCallback(uint32_t authmechanism, uint32_t command, 
     return status;
 }
 
-static const uint32_t suites[4] = { AUTH_SUITE_ECDHE_ECDSA, AUTH_SUITE_ECDHE_SPEKE, AUTH_SUITE_ECDHE_PSK, AUTH_SUITE_ECDHE_NULL };
-static const size_t numsuites = 4;
+static const uint32_t s_suites[4] = { AUTH_SUITE_ECDHE_ECDSA, AUTH_SUITE_ECDHE_SPEKE, AUTH_SUITE_ECDHE_PSK, AUTH_SUITE_ECDHE_NULL };
+static const size_t s_numsuites = 4;
 
 /* All times are expressed in milliseconds. */
 #define CONNECT_TIMEOUT     (1000 * 60)
 #define SLEEP_TIME          (1000 * 2)
 
+/* SIGINT signal handler. */
+static void SigIntHandler(int sig)
+{
+    ((void)(sig));
+    if (s_connected) {
+        AJ_Disconnect(&s_bus);
+    }
+    AJ_X509FreeDecodedCertificateChain(s_chain);
+    AJ_AlwaysPrintf(("\nSecureServiceECDHE exiting after SIGINT (OK)\n"));
+    exit(0);
+}
+
 int AJ_Main(void)
 {
     AJ_Status status = AJ_OK;
-    AJ_BusAttachment bus;
-    uint8_t connected = FALSE;
     uint32_t sessionId = 0;
     uint16_t state;
     uint16_t capabilities;
     uint16_t info;
 
+    /* Install SIGINT handler. */
+    signal(SIGINT, SigIntHandler);
+
     /* One time initialization before calling any other AllJoyn APIs. */
     AJ_Initialize();
 
     /* This is for debug purposes and is optional. */
-    AJ_PrintXML(AppObjects);
-    AJ_RegisterObjects(AppObjects, NULL);
+    AJ_PrintXML(s_appObjects);
+    AJ_RegisterObjects(s_appObjects, NULL);
 
     while (TRUE) {
         AJ_Message msg;
 
-        if (!connected) {
-            status = AJ_StartService(&bus,
+        if (!s_connected) {
+            status = AJ_StartService(&s_bus,
                                      NULL,
                                      CONNECT_TIMEOUT,
                                      FALSE,
-                                     ServicePort,
-                                     ServiceName,
+                                     s_servicePort,
+                                     s_serviceName,
                                      AJ_NAME_REQ_DO_NOT_QUEUE,
                                      NULL);
 
@@ -293,19 +308,19 @@ int AJ_Main(void)
             }
 
             AJ_InfoPrintf(("StartService returned %d, session_id=%u\n", status, sessionId));
-            connected = TRUE;
+            s_connected = TRUE;
 
-            AJ_BusEnableSecurity(&bus, suites, numsuites);
-            AJ_BusSetAuthListenerCallback(&bus, AuthListenerCallback);
-            AJ_ManifestTemplateSet(rules);
+            AJ_BusEnableSecurity(&s_bus, s_suites, s_numsuites);
+            AJ_BusSetAuthListenerCallback(&s_bus, AuthListenerCallback);
+            AJ_ManifestTemplateSet(s_rules);
             AJ_SecurityGetClaimConfig(&state, &capabilities, &info);
             /* Set app claimable if not already claimed */
             if (APP_STATE_CLAIMED != state) {
-                AJ_SecuritySetClaimConfig(&bus, APP_STATE_CLAIMABLE, CLAIM_CAPABILITY_ECDHE_PSK, 0);
+                AJ_SecuritySetClaimConfig(&s_bus, APP_STATE_CLAIMABLE, CLAIM_CAPABILITY_ECDHE_PSK, 0);
             }
         }
 
-        status = AJ_UnmarshalMsg(&bus, &msg, AJ_UNMARSHAL_TIMEOUT);
+        status = AJ_UnmarshalMsg(&s_bus, &msg, AJ_UNMARSHAL_TIMEOUT);
 
         if (AJ_ERR_TIMEOUT == status) {
             continue;
@@ -318,7 +333,7 @@ int AJ_Main(void)
                     uint16_t port;
                     char* joiner;
                     AJ_UnmarshalArgs(&msg, "qus", &port, &sessionId, &joiner);
-                    if (port == ServicePort) {
+                    if (port == s_servicePort) {
                         status = AJ_BusReplyAcceptSession(&msg, TRUE);
                         AJ_InfoPrintf(("Accepted session session_id=%u joiner=%s\n", sessionId, joiner));
                     } else {
@@ -357,8 +372,8 @@ int AJ_Main(void)
 
         if ((status == AJ_ERR_READ) || (status == AJ_ERR_WRITE)) {
             AJ_Printf("AllJoyn disconnect.\n");
-            AJ_Disconnect(&bus);
-            connected = FALSE;
+            AJ_Disconnect(&s_bus);
+            s_connected = FALSE;
 
             /* Sleep a little while before trying to reconnect. */
             AJ_Sleep(SLEEP_TIME);
@@ -368,7 +383,7 @@ int AJ_Main(void)
     AJ_Printf("Secure service exiting with status 0x%04x.\n", status);
 
     // Clean up certificate chain
-    AJ_X509FreeDecodedCertificateChain(chain);
+    AJ_X509FreeDecodedCertificateChain(s_chain);
     return status;
 }
 

@@ -31,6 +31,7 @@
  ******************************************************************************/
 #define AJ_MODULE EVENTACTION_SERVICE
 
+#include <signal.h>
 #include <stdio.h>
 #include <ajtcl/aj_debug.h>
 #include <ajtcl/aj_guid.h>
@@ -38,10 +39,12 @@
 #include <ajtcl/alljoyn.h>
 
 #define CONNECT_ATTEMPTS   10
-static const char ServiceName[] = "example.alljoyn.Bus.eventaction.sample";
-static const char ServicePath[] = "/eventaction";
-static const uint16_t ServicePort = 50;
-static char buffer[60];
+static const char s_serviceName[] = "example.alljoyn.Bus.eventaction.sample";
+static const char s_servicePath[] = "/eventaction";
+static const uint16_t s_servicePort = 50;
+static char s_buffer[60];
+static AJ_BusAttachment s_bus;
+static uint8_t s_connected = FALSE;
 
 uint8_t dbgEVENTACTION_SERVICE = 0;
 /**
@@ -49,7 +52,7 @@ uint8_t dbgEVENTACTION_SERVICE = 0;
  *
  * See also .\inc\aj_introspect.h
  */
-static const char* const sampleInterface[] = {
+static const char* const s_sampleInterface[] = {
     "example.alljoyn.Bus.eventaction.sample",   /* The first entry is the interface name. */
     "?dummyMethod foo<i",             /* This is just a dummy entry at index 0 for illustration purposes. */
     "?joinMethod inStr1<s inStr2<s outStr>s", /* Method at index 1. */
@@ -58,14 +61,14 @@ static const char* const sampleInterface[] = {
     NULL
 };
 
-static const char* const objDesc[] = { "Sample object description", "ES: Sample object description" };
-static const char* const intfDesc[] = { "Sample interface", "ES: Sample interface" };
-static const char* const joinDesc[] = { "Join two strings and return the result", "ES: Join two strings and return the result" };
-static const char* const joinInArg1Desc[] = { "First part of string", "ES: First part of string" };
-static const char* const joinInArg2Desc[] = { "Second part of string", "ES: Second part of string" };
-static const char* const joinOutArgDesc[] = { "Return result", "ES: Return result" };
-static const char* const someSignalArgDesc[] = { "EN: ", "ES: " };
-static const char* const someSessionlessSignalDesc[] = { "An example sessionless signal", "ES: An example sessionless signal" };
+static const char* const s_objDesc[] = { "Sample object description", "ES: Sample object description" };
+static const char* const s_intfDesc[] = { "Sample interface", "ES: Sample interface" };
+static const char* const s_joinDesc[] = { "Join two strings and return the result", "ES: Join two strings and return the result" };
+static const char* const s_joinInArg1Desc[] = { "First part of string", "ES: First part of string" };
+static const char* const s_joinInArg2Desc[] = { "Second part of string", "ES: Second part of string" };
+static const char* const s_joinOutArgDesc[] = { "Return result", "ES: Return result" };
+static const char* const s_someSignalArgDesc[] = { "EN: ", "ES: " };
+static const char* const s_someSessionlessSignalDesc[] = { "An example sessionless signal", "ES: An example sessionless signal" };
 
 /*
  * AJ_DESCRIPTION_ID(BusObject base ID, Interface index, Member index, Arg index)
@@ -82,21 +85,21 @@ static const char* const someSessionlessSignalDesc[] = { "An example sessionless
 #define SAMPLE_SOMESIGNAL_ARG_DESC          AJ_DESCRIPTION_ID(SAMPLE_OBJECT_ID, 1, 3, 1)
 #define SAMPLE_SOMESESSIONLESSSIGNAL_DESC   AJ_DESCRIPTION_ID(SAMPLE_OBJECT_ID, 1, 4, 0)
 
-static const char* const languages[] = { "en", "es", NULL };
+static const char* const s_languages[] = { "en", "es", NULL };
 
 static const char* MyTranslator(uint32_t descId, const char* lang) {
     uint8_t langIndex;
 
-    /* Compute the location of lang in our languages array */
+    /* Compute the location of lang in our s_languages array */
     langIndex = 0;
-    while (lang && languages[langIndex] != NULL) {
-        if (strlen(lang) > 0 && strcmp(lang, languages[langIndex]) == 0) {
+    while (lang && s_languages[langIndex] != NULL) {
+        if (strlen(lang) > 0 && strcmp(lang, s_languages[langIndex]) == 0) {
             break;
         }
         ++langIndex;
     }
-    /* If all languages in list did not match, then set index to 0 (default) language */
-    if (languages[langIndex] == NULL) {
+    /* If all s_languages in list did not match, then set index to 0 (default) language */
+    if (s_languages[langIndex] == NULL) {
         langIndex = 0;
     }
 
@@ -104,30 +107,30 @@ static const char* MyTranslator(uint32_t descId, const char* lang) {
     switch (descId) {
 
     case SAMPLE_OBJECT_DESC:
-        return objDesc[langIndex];
+        return s_objDesc[langIndex];
 
     case SAMPLE_INTERFACE_DESC:
-        return intfDesc[langIndex];
+        return s_intfDesc[langIndex];
 
     case SAMPLE_JOIN_DESC:
-        return joinDesc[langIndex];
+        return s_joinDesc[langIndex];
 
     case SAMPLE_JOIN_ARG_INSTR1_DESC:
-        return joinInArg1Desc[langIndex];
+        return s_joinInArg1Desc[langIndex];
 
     case SAMPLE_JOIN_ARG_INSTR2_DESC:
-        return joinInArg2Desc[langIndex];
+        return s_joinInArg2Desc[langIndex];
 
     case SAMPLE_JOIN_ARG_OUTSTR_DESC:
-        return joinOutArgDesc[langIndex];
+        return s_joinOutArgDesc[langIndex];
 
     case SAMPLE_SOMESIGNAL_ARG_DESC:
-        strcpy(buffer, someSignalArgDesc[langIndex]);
-        sprintf(buffer + strlen(someSignalArgDesc[langIndex]), "%s", "Some replacement value");
-        return buffer;
+        strcpy(s_buffer, s_someSignalArgDesc[langIndex]);
+        sprintf(s_buffer + strlen(s_someSignalArgDesc[langIndex]), "%s", "Some replacement value");
+        return s_buffer;
 
     case SAMPLE_SOMESESSIONLESSSIGNAL_DESC:
-        return someSessionlessSignalDesc[langIndex];
+        return s_someSessionlessSignalDesc[langIndex];
 
     }
     /* No description set so return NULL */
@@ -143,7 +146,7 @@ static AJ_Status MyAboutPropGetter(AJ_Message* reply, const char* language)
     uint8_t appId[16];
     guidStr[16 * 2] = '\0';
 
-    if ((language != NULL) && (0 != strcmp(language, languages[0])) && (0 != strcmp(language, languages[1])) && (0 != strcmp(language, ""))) {
+    if ((language != NULL) && (0 != strcmp(language, s_languages[0])) && (0 != strcmp(language, s_languages[1])) && (0 != strcmp(language, ""))) {
         /* the language supplied was not supported */
         return AJ_ERR_NO_MATCH;
     }
@@ -192,10 +195,10 @@ static AJ_Status MyAboutPropGetter(AJ_Message* reply, const char* language)
             status = AJ_MarshalContainer(reply, &languageListArray, AJ_ARG_ARRAY);
         }
         if (status == AJ_OK) {
-            status = AJ_MarshalArgs(reply, "s", languages[0]);
+            status = AJ_MarshalArgs(reply, "s", s_languages[0]);
         }
         if (status == AJ_OK) {
-            status = AJ_MarshalArgs(reply, "s", languages[1]);
+            status = AJ_MarshalArgs(reply, "s", s_languages[1]);
         }
         if (status == AJ_OK) {
             status = AJ_MarshalCloseContainer(reply, &languageListArray);
@@ -208,7 +211,7 @@ static AJ_Status MyAboutPropGetter(AJ_Message* reply, const char* language)
         status = AJ_MarshalArgs(reply, "{sv}", AJ_DESCRIPTION_STR, "s", "eventaction_service test app");
     }
     if (status == AJ_OK) {
-        status = AJ_MarshalArgs(reply, "{sv}", AJ_DEFAULT_LANGUAGE_STR, "s", languages[0]);
+        status = AJ_MarshalArgs(reply, "{sv}", AJ_DEFAULT_LANGUAGE_STR, "s", s_languages[0]);
     }
     if (status == AJ_OK) {
         status = AJ_MarshalArgs(reply, "{sv}", AJ_SOFTWARE_VERSION_STR, "s", AJ_GetVersion());
@@ -225,8 +228,8 @@ static AJ_Status MyAboutPropGetter(AJ_Message* reply, const char* language)
 /**
  * A NULL terminated collection of all interfaces.
  */
-static const AJ_InterfaceDescription sampleInterfaces[] = {
-    sampleInterface,
+static const AJ_InterfaceDescription s_sampleInterfaces[] = {
+    s_sampleInterface,
     NULL
 };
 
@@ -234,20 +237,20 @@ static const AJ_InterfaceDescription sampleInterfaces[] = {
  * Objects implemented by the application. The first member in the AJ_Object structure is the path.
  * The second is the collection of all interfaces at that path.
  */
-static const AJ_Object AppObjects[] = {
-    { ServicePath, sampleInterfaces, AJ_OBJ_FLAG_DESCRIBED, NULL },
+static const AJ_Object s_appObjects[] = {
+    { s_servicePath, s_sampleInterfaces, AJ_OBJ_FLAG_DESCRIBED, NULL },
     { NULL }
 };
 
 /*
  * The value of the arguments are the indices of the
- * object path in AppObjects (above), interface in sampleInterfaces (above), and
+ * object path in s_appObjects (above), interface in s_sampleInterfaces (above), and
  * member indices in the interface.
- * The 'cat' index is 1 because the first entry in sampleInterface is the interface name.
+ * The 'cat' index is 1 because the first entry in s_sampleInterface is the interface name.
  * This makes the first index (index 0 of the methods) the second string in
- * sampleInterface[] which, for illustration purposes is a dummy entry.
+ * s_sampleInterface[] which, for illustration purposes is a dummy entry.
  * The index of the method we implement for basic_service, 'cat', is 1 which is the third string
- * in the array of strings sampleInterface[].
+ * in the array of strings s_sampleInterface[].
  *
  * See also .\inc\aj_introspect.h
  */
@@ -279,48 +282,60 @@ static AJ_Status AppHandleCat(AJ_Message* msg)
 #define CONNECT_TIMEOUT     (1000 * 60)
 #define SLEEP_TIME          (1000 * 2)
 
+/* SIGINT signal handler. */
+static void SigIntHandler(int sig)
+{
+    ((void)(sig));
+    if (s_connected) {
+        AJ_Disconnect(&s_bus);
+    }
+    AJ_AlwaysPrintf(("\neventaction_service exiting after SIGINT (OK)\n"));
+    exit(0);
+}
+
 int AJ_Main(void)
 {
     AJ_Status status = AJ_OK;
-    AJ_BusAttachment bus;
-    uint8_t connected = FALSE;
     uint32_t sessionId = 0;
+
+    /* Install SIGINT handler. */
+    signal(SIGINT, SigIntHandler);
 
     /* One time initialization before calling any other AllJoyn APIs. */
     AJ_Initialize();
 
     /* Set the languages and a lookup function so that we can print out the default descriptions in the AJ_PrintXML call */
-    AJ_RegisterDescriptionLanguages(languages);
+    AJ_RegisterDescriptionLanguages(s_languages);
 
-    AJ_RegisterObjectListWithDescriptions(AppObjects, 1, MyTranslator);
+    AJ_RegisterObjectListWithDescriptions(s_appObjects, 1, MyTranslator);
     AJ_AboutRegisterPropStoreGetter(MyAboutPropGetter);
 
     /* This is for debug purposes and is optional. */
     AJ_AlwaysPrintf(("XML with no Descriptions\n"));
-    AJ_PrintXML(AppObjects);
-    AJ_AlwaysPrintf(("XML with Descriptions using language: %s\n", languages[0]));
-    AJ_PrintXMLWithDescriptions(AppObjects, languages[0]);
-    AJ_AlwaysPrintf(("XML with Descriptions using language: %s\n", languages[1]));
-    AJ_PrintXMLWithDescriptions(AppObjects, languages[1]);
+    AJ_PrintXML(s_appObjects);
+    AJ_AlwaysPrintf(("XML with Descriptions using language: %s\n", s_languages[0]));
+    AJ_PrintXMLWithDescriptions(s_appObjects, s_languages[0]);
+    AJ_AlwaysPrintf(("XML with Descriptions using language: %s\n", s_languages[1]));
+    AJ_PrintXMLWithDescriptions(s_appObjects, s_languages[1]);
     AJ_AlwaysPrintf(("XML with empty language\n"));
-    AJ_PrintXMLWithDescriptions(AppObjects, "");
+    AJ_PrintXMLWithDescriptions(s_appObjects, "");
     AJ_AlwaysPrintf(("XML with unsupported language (fr)\n"));
-    AJ_PrintXMLWithDescriptions(AppObjects, "fr");
+    AJ_PrintXMLWithDescriptions(s_appObjects, "fr");
     AJ_AlwaysPrintf(("XML with sublanguage (EN-US)\n"));
-    AJ_PrintXMLWithDescriptions(AppObjects, "EN-US");
+    AJ_PrintXMLWithDescriptions(s_appObjects, "EN-US");
     AJ_AlwaysPrintf(("XML in Unified Format\n"));
-    AJ_PrintXMLWithDescriptions(AppObjects, NULL);
+    AJ_PrintXMLWithDescriptions(s_appObjects, NULL);
 
     while (TRUE) {
         AJ_Message msg;
 
-        if (!connected) {
-            status = AJ_StartService(&bus,
+        if (!s_connected) {
+            status = AJ_StartService(&s_bus,
                                      NULL,
                                      CONNECT_TIMEOUT,
                                      FALSE,
-                                     ServicePort,
-                                     ServiceName,
+                                     s_servicePort,
+                                     s_serviceName,
                                      AJ_NAME_REQ_DO_NOT_QUEUE,
                                      NULL);
 
@@ -329,10 +344,10 @@ int AJ_Main(void)
             }
 
             AJ_InfoPrintf(("StartService returned %d, session_id=%u\n", status, sessionId));
-            connected = TRUE;
+            s_connected = TRUE;
         }
 
-        status = AJ_UnmarshalMsg(&bus, &msg, AJ_UNMARSHAL_TIMEOUT);
+        status = AJ_UnmarshalMsg(&s_bus, &msg, AJ_UNMARSHAL_TIMEOUT);
 
         if (AJ_ERR_TIMEOUT == status) {
             continue;
@@ -374,8 +389,8 @@ int AJ_Main(void)
 
         if ((status == AJ_ERR_READ) || (status == AJ_ERR_WRITE)) {
             AJ_AlwaysPrintf(("AllJoyn disconnect.\n"));
-            AJ_Disconnect(&bus);
-            connected = FALSE;
+            AJ_Disconnect(&s_bus);
+            s_connected = FALSE;
 
             /* Sleep a little while before trying to reconnect. */
             AJ_Sleep(SLEEP_TIME);

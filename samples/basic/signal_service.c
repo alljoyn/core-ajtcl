@@ -31,6 +31,7 @@
  ******************************************************************************/
 #define AJ_MODULE SIGNAL_SERVICE
 
+#include <signal.h>
 #include <stdio.h>
 #include <ajtcl/aj_debug.h>
 #include <ajtcl/alljoyn.h>
@@ -40,25 +41,26 @@ uint8_t dbgSIGNAL_SERVICE = 0;
 /**
  * Statics.
  */
-static AJ_BusAttachment busAttachment;
-static char propertyName[128] = "Default name";
+static AJ_BusAttachment s_busAttachment;
+static char s_propertyName[128] = "Default name";
+static uint8_t s_connected = FALSE;
 
 /**
  * Static constants.
  */
-static const size_t propertyNameSize = sizeof(propertyName) / sizeof(propertyName[0]);
-static const char InterfaceName[] = "org.alljoyn.Bus.signal_sample";
-static const char ServiceName[] = "org.alljoyn.Bus.signal_sample";
-static const char ServicePath[] = "/";
-static const uint16_t ServicePort = 25;
+static const size_t s_propertyNameSize = sizeof(s_propertyName) / sizeof(s_propertyName[0]);
+static const char s_interfaceName[] = "org.alljoyn.Bus.signal_sample";
+static const char s_serviceName[] = "org.alljoyn.Bus.signal_sample";
+static const char s_servicePath[] = "/";
+static const uint16_t s_servicePort = 25;
 
 /**
  * The interface name followed by the method signatures.
  *
  * See also .\inc\aj_introspect.h
  */
-static const char* const sampleInterface[] = {
-    InterfaceName,              /* The first entry is the interface name. */
+static const char* const s_sampleInterface[] = {
+    s_interfaceName,              /* The first entry is the interface name. */
     "!nameChanged newName>s",   /* Signal at index 0 with an output string of the new name. */
     "@name=s",                  /* Read/write property of the name. */
     NULL
@@ -67,9 +69,9 @@ static const char* const sampleInterface[] = {
 /**
  * A NULL terminated collection of all interfaces.
  */
-static const AJ_InterfaceDescription sampleInterfaces[] = {
+static const AJ_InterfaceDescription s_sampleInterfaces[] = {
     AJ_PropertiesIface,     /* This must be included for any interface that has properties. */
-    sampleInterface,
+    s_sampleInterface,
     NULL
 };
 
@@ -77,18 +79,18 @@ static const AJ_InterfaceDescription sampleInterfaces[] = {
  * Objects implemented by the application. The first member in the AJ_Object structure is the path.
  * The second is the collection of all interfaces at that path.
  */
-static const AJ_Object AppObjects[] = {
-    { ServicePath, sampleInterfaces },
+static const AJ_Object s_appObjects[] = {
+    { s_servicePath, s_sampleInterfaces },
     { NULL }
 };
 
 /*
  * The value of the arguments are the indices of the
- * object path in AppObjects (above), interface in sampleInterfaces (above), and
+ * object path in s_appObjects (above), interface in s_sampleInterfaces (above), and
  * member indices in the interface.
- * The 'nameChanged' index is 0 because the first entry in sampleInterface is the interface name.
+ * The 'nameChanged' index is 0 because the first entry in s_sampleInterface is the interface name.
  * This makes the first index (index 0 of the methods) the second string in
- * sampleInterface[].
+ * s_sampleInterface[].
  *
  * See also .\inc\aj_introspect.h
  */
@@ -106,11 +108,11 @@ static AJ_Status SendSignal()
 {
     AJ_Message msg;
 
-    AJ_AlwaysPrintf(("Emitting Name Changed Signal. New value for property 'name' is '%s'.\n", propertyName));
+    AJ_AlwaysPrintf(("Emitting Name Changed Signal. New value for property 'name' is '%s'.\n", s_propertyName));
 
     /* For the signal to transmit outside of the current process the session ID must be 0. */
-    AJ_MarshalSignal(&busAttachment, &msg, BASIC_SIGNAL_SERVICE_SIGNAL, NULL, 0, AJ_FLAG_GLOBAL_BROADCAST, 0);
-    AJ_MarshalArgs(&msg, "s", propertyName);
+    AJ_MarshalSignal(&s_busAttachment, &msg, BASIC_SIGNAL_SERVICE_SIGNAL, NULL, 0, AJ_FLAG_GLOBAL_BROADCAST, 0);
+    AJ_MarshalArgs(&msg, "s", s_propertyName);
 
     return AJ_DeliverMsg(&msg);
 }
@@ -120,7 +122,7 @@ static AJ_Status GetName(AJ_Message* replyMsg, uint32_t propId, void* context)
     AJ_Status status = AJ_ERR_UNEXPECTED;
 
     if (propId == BASIC_SIGNAL_SERVICE_NAME_ID) {
-        status = AJ_MarshalArgs(replyMsg, "s", propertyName);
+        status = AJ_MarshalArgs(replyMsg, "s", s_propertyName);
     }
 
     return status;
@@ -133,9 +135,9 @@ static AJ_Status SetName(AJ_Message* replyMsg, uint32_t propId, void* context)
     if (propId == BASIC_SIGNAL_SERVICE_NAME_ID) {
         char*string;
         AJ_UnmarshalArgs(replyMsg, "s", &string);
-        strncpy(propertyName, string, propertyNameSize);
-        propertyName[propertyNameSize - 1] = '\0';
-        AJ_AlwaysPrintf(("Set 'name' property was called changing name to '%s'.\n", propertyName));
+        strncpy(s_propertyName, string, s_propertyNameSize);
+        s_propertyName[s_propertyNameSize - 1] = '\0';
+        AJ_AlwaysPrintf(("Set 'name' property was called changing name to '%s'.\n", s_propertyName));
         status = AJ_OK;
     }
 
@@ -148,29 +150,42 @@ static AJ_Status SetName(AJ_Message* replyMsg, uint32_t propId, void* context)
 #define CONNECT_TIMEOUT     (1000 * 60)
 #define SLEEP_TIME          (1000 * 2)
 
+/* SIGINT signal handler. */
+static void SigIntHandler(int sig)
+{
+    ((void)(sig));
+    if (s_connected) {
+        AJ_Disconnect(&s_busAttachment);
+    }
+    AJ_AlwaysPrintf(("\nsignal_service exiting after SIGINT (OK)\n"));
+    exit(0);
+}
+
 int AJ_Main(void)
 {
     AJ_Status status = AJ_OK;
-    uint8_t connected = FALSE;
+
+    /* Install SIGINT handler. */
+    signal(SIGINT, SigIntHandler);
 
     /* One time initialization before calling any other AllJoyn APIs. */
     AJ_Initialize();
 
     /* This is for debug purposes and is optional. */
-    AJ_PrintXML(AppObjects);
+    AJ_PrintXML(s_appObjects);
 
-    AJ_RegisterObjects(AppObjects, NULL);
+    AJ_RegisterObjects(s_appObjects, NULL);
 
     while (TRUE) {
         AJ_Message msg;
 
-        if (!connected) {
-            status = AJ_StartService(&busAttachment,
+        if (!s_connected) {
+            status = AJ_StartService(&s_busAttachment,
                                      NULL,
                                      CONNECT_TIMEOUT,
                                      FALSE,
-                                     ServicePort,
-                                     ServiceName,
+                                     s_servicePort,
+                                     s_serviceName,
                                      AJ_NAME_REQ_DO_NOT_QUEUE,
                                      NULL);
 
@@ -179,10 +194,10 @@ int AJ_Main(void)
             }
 
             AJ_InfoPrintf(("StartService returned %d\n", status));
-            connected = TRUE;
+            s_connected = TRUE;
         }
 
-        status = AJ_UnmarshalMsg(&busAttachment, &msg, AJ_UNMARSHAL_TIMEOUT);
+        status = AJ_UnmarshalMsg(&s_busAttachment, &msg, AJ_UNMARSHAL_TIMEOUT);
 
         if (AJ_ERR_TIMEOUT == status) {
             continue;
@@ -235,8 +250,8 @@ int AJ_Main(void)
 
         if ((status == AJ_ERR_READ) || (status == AJ_ERR_WRITE)) {
             AJ_AlwaysPrintf(("AllJoyn disconnect.\n"));
-            AJ_Disconnect(&busAttachment);
-            connected = FALSE;
+            AJ_Disconnect(&s_busAttachment);
+            s_connected = FALSE;
 
             /* Sleep a little while before trying to reconnect. */
             AJ_Sleep(SLEEP_TIME);
