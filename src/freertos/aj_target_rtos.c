@@ -59,7 +59,7 @@
  * Turn on per-module debug printing by setting this variable to non-zero value
  * (usually in debugger).
  */
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
 uint8_t dbgTARGET_RTOS = 0;
 #endif
 
@@ -457,7 +457,7 @@ void vApplicationStackOverflowHook(xTaskHandle pxTask, signed char*pcTaskName)
     ;
 }
 
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
 
 /*
  * This is not intended, nor required to be particularly efficient.  If you want

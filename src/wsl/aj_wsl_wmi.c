@@ -52,7 +52,7 @@
  * Turn on per-module debug printing by setting this variable to non-zero value
  * (usually in debugger).
  */
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
 uint8_t dbgWSL_WMI = 5;
 #endif
 
@@ -73,7 +73,7 @@ uint32_t AJ_WSL_SOCKET_HANDLE_INVALID = UINT32_MAX;
 
 struct AJ_TaskHandle* AJ_WSL_MBoxListenHandle;
 
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
 const char* WSL_WorkItemText(uint32_t status);
 #endif
 /*
@@ -619,7 +619,7 @@ void AJ_WSL_WMI_FreeWorkItem(wsl_work_item* item)
     }
 }
 
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
 #define AJ_CASE_NETWORK(_status) case AJ_WSL_WORKITEM(AJ_WSL_WORKITEM_NETWORK, _status): return # _status
 #define AJ_CASE_SOCKET(_status) case AJ_WSL_WORKITEM(AJ_WSL_WORKITEM_SOCKET, _status): return # _status
 #define AJ_CASE_GENERIC(_status) case _status: return # _status

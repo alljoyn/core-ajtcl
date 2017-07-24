@@ -35,7 +35,8 @@
 
 uint8_t dbgDEBUG = 0;
 
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
+
 
 #include <ajtcl/aj_target.h>
 #include <ajtcl/aj_util.h>
@@ -155,7 +156,7 @@ uint8_t dbgALL = 0;
 
 const char* AJ_StatusText(AJ_Status status)
 {
-#ifdef NDEBUG
+#ifndef AJ_DEBUG_BUILD
     /* Expectation is that thin client status codes will NOT go beyond 255 */
     static char code[4];
 

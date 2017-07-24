@@ -41,7 +41,7 @@
 #include <ajtcl/aj_msg.h>
 #include <ajtcl/aj_debug.h>
 
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
 uint8_t dbgWSL_MARSHAL = 5;
 #endif
 

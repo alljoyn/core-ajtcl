@@ -47,14 +47,14 @@
  * Turn on per-module debug printing by setting this variable to non-zero value
  * (usually in debugger).
  */
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
 uint8_t dbgMALLOC = 0;
 #endif
 
 typedef struct {
     void* endOfPool; /* Address of end of this pool */
     void* freeList;  /* Free list for this pool */
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
     uint16_t use;    /* Number of entries in use */
     uint16_t hwm;    /* High-water mark */
     uint16_t max;    /* Max allocation from this pool */
@@ -127,7 +127,7 @@ AJ_Status AJ_PoolInit(void* heap, size_t heapSz, const AJ_HeapConfig* poolConfig
          * Save end of pool pointer for use by AJ_PoolFree
          */
         p->endOfPool = (void*)heapEnd;
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
         p->use = 0;
         p->hwm = 0;
         p->max = 0;
@@ -167,7 +167,7 @@ void* AJ_PoolAlloc(size_t sz)
             }
             AJ_InfoPrintf(("AJ_PoolAlloc pool[%d] allocated %d\n", heapConfig[i].size, (int)sz));
             p->freeList = block->next;
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
             ++p->use;
             p->hwm = max(p->use, p->hwm);
             p->max = max(p->max, sz);
@@ -196,7 +196,7 @@ void AJ_PoolFree(void* mem)
                 block->next = (MemBlock*)p->freeList;
                 p->freeList = block;
                 AJ_InfoPrintf(("AJ_PoolFree pool[%d]\n", heapConfig[i].size));
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
                 --p->use;
 #endif
                 break;
@@ -235,7 +235,7 @@ void* AJ_PoolRealloc(void* mem, size_t newSz)
                          */
                         block->next = (MemBlock*)p->freeList;
                         p->freeList = block;
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
                         --p->use;
 #endif
                     }
@@ -251,7 +251,7 @@ void* AJ_PoolRealloc(void* mem, size_t newSz)
     return NULL;
 }
 
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
 void AJ_PoolDump(void)
 {
     uint8_t i;
