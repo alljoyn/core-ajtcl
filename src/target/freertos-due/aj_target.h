@@ -69,7 +69,7 @@ extern "C" {
 #define HOST_IS_BIG_ENDIAN     0
 #define HOST_ENDIANESS          AJ_LITTLE_ENDIAN
 
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
 extern uint8_t dbgCONFIGUREME;
 extern uint8_t dbgINIT;
 extern uint8_t dbgNET;

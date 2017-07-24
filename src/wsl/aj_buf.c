@@ -51,11 +51,11 @@ extern "C" {
  * Turn on per-module debug printing by setting this variable to non-zero value
  * (usually in debugger).
  */
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
 uint8_t dbgBUFLIST = 0;
 #endif
 
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
 AJ_BUFLIST_FUNC_TABLE AJ_BUFLIST_OPS;
 #endif
 void AJ_BufList_ModuleInit()
@@ -63,12 +63,12 @@ void AJ_BufList_ModuleInit()
     /*
      * Configure the indirection table with the default functions
      */
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
     AJ_BUFLIST_OPS.readByteFromWire = &AJ_BufListReadByteFromWire_Simulated;
     AJ_BUFLIST_OPS.writeToWire = &AJ_BufListWriteToWire_Simulated;
 #endif
 }
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
 //DEBUG data: simulate SPI read/write using a fixed buffer
 AJ_BUF_WIREBUFFER toTarget;
 AJ_BUF_WIREBUFFER fromTarget;
@@ -274,14 +274,14 @@ AJ_EXPORT void AJ_BufListCopyBytes(AJ_BufList* list, uint16_t count, uint8_t* us
 }
 
 //DEBUG function
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
 void AJ_BufListWriteToWire_Simulated(AJ_BufNode* node, AJ_BUF_WIREBUFFER* target)
 {
     uint16_t iter = 0;
     memcpy(target->fakeWireWrite, node->buffer, node->length);
     target->fakeWireWrite += node->length;
 
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
     if (AJ_DbgLevel > AJ_DEBUG_INFO) {
         while (iter < node->length) {
             AJ_AlwaysPrintf(("%02x ", node->buffer[iter]));
@@ -381,7 +381,7 @@ void AJ_BufListPrintDumpContinuous(AJ_BufList* list)
     }
     AJ_AlwaysPrintf(("\n"));
 }
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
 //DEBUG function: print node header info
 void AJ_BufListIterateOnWire(AJ_BufNodeFuncWireBuf nodeFunc, AJ_BufList* list, AJ_BUF_WIREBUFFER* wire)
 {

@@ -124,7 +124,7 @@ typedef struct {
     uint16_t r;
 } TestNestedStruct;
 
-#ifdef GTEST_ENABLED
+#ifdef AJ_DEBUG_BUILD
 static AJ_Status MsgInit(AJ_Message* msg, uint32_t msgId, uint8_t msgType)
 {
     msg->objPath = "/test/mutter";
@@ -210,10 +210,10 @@ int AJ_Main()
     /*
      * Set the hook
      */
-#ifdef GTEST_ENABLED
+#ifdef AJ_DEBUG_BUILD
     MutterHook = MsgInit;
 #else
-    AJ_AlwaysPrintf(("mutter only works when GTEST_DIR is defined.\n"));
+    AJ_AlwaysPrintf(("mutter only works in debug build.\n"));
     return -1;
 #endif
 
