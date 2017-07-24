@@ -192,6 +192,9 @@ if env.has_key('DEBUG_RESTRICT'):
 if env['VARIANT'] == 'release' and env['NDEBUG'] == 'defined':
     env.Append(CPPDEFINES = [ 'NDEBUG' ])
 
+if env['VARIANT'] == 'debug':
+    env.Append(CPPDEFINES = [ 'AJ_DEBUG_BUILD' ])
+
 env.Append(CPPDEFINES = [ 'AJ_' + conn for conn in env['connectivity'] ])
 
 #######################################################

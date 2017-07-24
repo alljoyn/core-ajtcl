@@ -80,7 +80,7 @@ int AJ_SetLogFile(const char* file, uint32_t maxLen);
 
 void AJ_Printf(const char* fmat, ...);
 
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
 extern uint8_t dbgCONFIGUREME;
 extern uint8_t dbgINIT;
 extern uint8_t dbgNET;

@@ -51,7 +51,7 @@
  * Logger definition
  */
 
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
 #ifndef ER_DEBUG_AJSVCAPP
 #define ER_DEBUG_AJSVCAPP 0
 #endif

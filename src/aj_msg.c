@@ -64,7 +64,7 @@
  * Turn on per-module debug printing by setting this variable to non-zero value
  * (usually in debugger).
  */
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
 uint8_t dbgMSG = 0;
 #endif
 
@@ -260,7 +260,7 @@ size_t AJ_GetTypeSize(char typeId)
 /*
  * Checks that the current message is closed
  */
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
 static AJ_Message* currentMsg = NULL;
 #endif
 
@@ -786,7 +786,7 @@ AJ_Status AJ_CloseMsg(AJ_Message* msg)
         }
 
         memset(msg, 0, sizeof(AJ_Message));
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
         currentMsg = NULL;
 #endif
     }
@@ -1284,7 +1284,7 @@ AJ_Status AJ_UnmarshalMsg(AJ_BusAttachment* bus, AJ_Message* msg, uint32_t timeo
     if (status != AJ_OK) {
         return status;
     }
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
     /*
      * Check that messages are getting closed
      */

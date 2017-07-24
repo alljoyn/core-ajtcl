@@ -75,7 +75,7 @@ typedef unsigned long long uint64_t;  /** 64-bit unsigned integer */
 #define AJ_Printf(fmat, ...) \
     do { printf(fmat, ## __VA_ARGS__); fflush(stdout); } while (0)
 
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
 
 extern uint8_t dbgCONFIGUREME;
 extern uint8_t dbgINIT;

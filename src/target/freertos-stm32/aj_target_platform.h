@@ -87,7 +87,7 @@ typedef enum {
 
 int printf(const char* fmat, ...);
 
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
 #define AJ_Printf(fmat, ...) \
     do { \
         AJ_EnterCriticalRegion(); \

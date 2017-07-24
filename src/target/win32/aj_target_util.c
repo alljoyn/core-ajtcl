@@ -177,7 +177,7 @@ void AJ_MemZeroSecure(void* s, size_t n)
     SecureZeroMemory(s, n);
 }
 
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
 
 /*
  * This is not intended, nor required to be particularly efficient.  If you want

@@ -48,7 +48,7 @@
  * Turn on per-module debug printing by setting this variable to non-zero value
  * (usually in debugger).
  */
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
 #ifndef ER_DEBUG_AJSVCALL
 #define ER_DEBUG_AJSVCALL 0
 #endif
