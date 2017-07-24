@@ -51,7 +51,7 @@
  * Turn on per-module debug printing by setting this variable to non-zero value
  * (usually in debugger).
  */
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
 uint8_t dbgINTROSPECT = 0;
 #endif
 
@@ -717,7 +717,7 @@ static AJ_Status GenXML(XMLWriterFunc XMLWriter, void* context, const AJ_ObjectI
  * explicity turn on XML printing.  We just default it to on as long as we are
  * in a debug build.
  */
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
 
 static void PrintXML(void* context, const char* str, uint32_t len)
 {
@@ -1388,7 +1388,7 @@ AJ_Status AJ_IdentifyProperty(AJ_Message* msg, const char* iface, const char* pr
     const AJ_Object* obj;
     AJ_InterfaceDescription desc;
 
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
     if ((oIndex >= ArraySize(objectLists)) || !CheckIndex(objectLists[oIndex], pIndex, sizeof(AJ_Object))) {
         status = AJ_ERR_INVALID;
         AJ_ErrPrintf(("AJ_IdentifyProperty(): %s\n", AJ_StatusText(status)));

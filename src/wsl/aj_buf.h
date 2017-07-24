@@ -157,7 +157,7 @@ uint16_t AJ_BufListLengthOnWire(AJ_BufList* list);
  */
 uint32_t AJ_BufListGetSize(AJ_BufList* list);
 
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
 //DEBUG data: simulate SPI read/write using a fixed buffer
 typedef struct _AJ_BUF_WIREBUFFER {
     uint8_t fakeWireBuffer[512];

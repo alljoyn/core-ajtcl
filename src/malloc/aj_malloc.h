@@ -130,7 +130,7 @@ void AJ_PoolFree(void* mem);
  */
 void* AJ_PoolRealloc(void* mem, size_t newSz);
 
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
 void AJ_PoolDump(void);
 #else
 #define AJ_PoolDump()

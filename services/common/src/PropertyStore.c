@@ -48,7 +48,7 @@
 #include <ajtcl/aj_creds.h>
 #include <ajtcl/aj_config.h>
 
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
 extern AJ_EXPORT uint8_t dbgAJSVCAPP;
 #endif
 

@@ -44,7 +44,7 @@
  * Turn on per-module debug printing by setting this variable to non-zero value
  * (usually in debugger).
  */
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
 uint8_t dbgTARGET_NVRAM = 0;
 #endif
 
@@ -158,14 +158,14 @@ uint32_t _AJ_GetNVBlockSize(AJ_NVRAM_Block_Id blockId)
 
 void _AJ_NV_Write(AJ_NVRAM_Block_Id blockId, void* dest, const void* buf, uint16_t size, uint8_t isCompact)
 {
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
     AJ_Status status = AJ_OK;
 #endif
     memcpy(dest, buf, size);
     if (!isCompact) {
         nvStorages[blockId].isCompact = FALSE;
     }
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
     status =
 #endif
     _AJ_StoreNVToFile(blockId);
@@ -174,11 +174,11 @@ void _AJ_NV_Write(AJ_NVRAM_Block_Id blockId, void* dest, const void* buf, uint16
 
 void _AJ_NV_Move(AJ_NVRAM_Block_Id blockId, void* dest, const void* buf, uint16_t size)
 {
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
     AJ_Status status = AJ_OK;
 #endif
     memmove(dest, buf, size);
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
     status =
 #endif
     _AJ_StoreNVToFile(blockId);
@@ -192,12 +192,12 @@ void _AJ_NV_Read(void* src, void* buf, uint16_t size)
 
 static void _AJ_NV_Clear(uint8_t idx)
 {
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
     AJ_Status status = AJ_OK;
 #endif
     memset(nvStorages[idx].blockStart, INVALID_DATA_BYTE, nvStorages[idx].blockSize);
     *((uint32_t*)(nvStorages[idx].blockStart)) = AJ_NV_SENTINEL;
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
     status =
 #endif
     _AJ_StoreNVToFile(idx);

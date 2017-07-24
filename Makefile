@@ -342,7 +342,7 @@ release: DEFINES += -DNDEBUG
 release: all
 
 Debug: debug
-#debug: FLAGS += -g3
+debug: FLAGS += -DAJ_DEBUG_BUILD 
 debug: all
 
 
