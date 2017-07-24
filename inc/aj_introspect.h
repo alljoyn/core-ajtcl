@@ -561,11 +561,11 @@ AJ_MemberType AJ_GetMemberType(uint32_t identifier, const char** member, uint8_t
  *
  * @param objs        A NULL terminated array of object info structs.
  */
-#ifdef NDEBUG
-#define AJ_PrintXML(objs)
-#else
+#ifdef AJ_DEBUG_BUILD
 AJ_EXPORT
 void AJ_PrintXML(const AJ_Object* objs);
+#else
+#define AJ_PrintXML(objs)
 #endif
 
 /**
@@ -574,11 +574,11 @@ void AJ_PrintXML(const AJ_Object* objs);
  * @param objs        A NULL terminated array of object info structs.
  * @param languageTag The language that descriptions should be returned in if supported, else default lang used
  */
-#ifdef NDEBUG
-#define AJ_PrintXMLWithDescriptions(...)
-#else
+#ifdef AJ_DEBUG_BUILD
 AJ_EXPORT
 void AJ_PrintXMLWithDescriptions(const AJ_Object* objs, const char* languageTag);
+#else
+#define AJ_PrintXMLWithDescriptions(...)
 #endif
 
 /**

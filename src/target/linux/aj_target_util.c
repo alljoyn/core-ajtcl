@@ -63,7 +63,7 @@ void AJ_Sleep(uint32_t ms)
 
 }
 
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
 AJ_Status _AJ_GetDebugTime(AJ_Time* timer)
 {
     static int useEpoch = -1;
@@ -258,7 +258,7 @@ uint8_t AJ_StopReadFromStdIn()
     return FALSE;
 }
 
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
 
 /*
  * This is not intended, nor required to be particularly efficient.  If you want

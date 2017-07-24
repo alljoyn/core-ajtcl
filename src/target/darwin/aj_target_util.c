@@ -251,7 +251,7 @@ uint8_t AJ_StopReadFromStdIn()
     return FALSE;
 }
 
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
 
 /*
  * This is not intended, nor required to be particularly efficient.  If you want

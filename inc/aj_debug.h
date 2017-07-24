@@ -72,8 +72,7 @@
  *     uint8_t dbgALL = 1;
  * @endcode
  *
- * After the changes are made, do a debug build (NDEBUG must be set to false to
- * allow any logging above the warning level).  Debug logging will now be
+ * After the changes are made, do a debug build.  Debug logging will now be
  * enabled for all modules.  When a Thin Client program is run, the system will
  * begin logging debug messages to the device console formatted as:
  *
@@ -193,7 +192,7 @@ extern "C" {
         AJ_Printf msg; \
     } while (0)
 
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
 
 /**
  * Dump message name and content. if body is true, dump raw data
@@ -270,9 +269,9 @@ int _AJ_DbgHeader(AJ_DebugLevel level, const char* file, int line);
 #define MKVAR(x, y) CONCAT(x, y)
 
 /**
- * Print a message in a fashion similar to other conditional log outputs and
- * include time stamp, file and line number (unless NDEBUG is defined).
- * When NDEBUG is defined, the behavior is identical to AJ_AlwaysPrintf.
+ * Print a message for a debug build in a fashion similar to other conditional
+ * log outputs and include time stamp, file and line number.
+ * For release build, the behavior is identical to AJ_AlwaysPrintf.
  * This macro is intended for use in test application code where the timing of
  * events needs to be recorded in an optimized build (release mode) even when
  * other debug prints have been suppressed.
@@ -378,7 +377,7 @@ int _AJ_DbgHeader(AJ_DebugLevel level, const char* file, int line);
 /**
  * Macro used to avoid the need for a local variable just for an assert. Using a local
  * variable just for assert, instead of this macro, can cause compiler warnings on
- * NDEBUG builds.
+ * release builds.
  * Example: AJ_VERIFY(foo() == 0); instead of {int local = foo(); AJ_ASSERT(local == 0);}
  *
  * @param _cmd  Statement to be executed on both types of builds, and asserted just

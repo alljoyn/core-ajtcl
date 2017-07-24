@@ -47,7 +47,7 @@
 #include <ajtcl/aj_wifi_ctrl.h>
 #include <ajtcl/aj_guid.h>
 
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
 AJ_EXPORT uint8_t dbgNETBUSSAMPLE = 0;
 #endif
 

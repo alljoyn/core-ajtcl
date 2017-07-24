@@ -97,7 +97,7 @@
 
 typedef spi_status_t aj_spi_status;
 
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
 #define AJ_Printf(fmat, ...) \
     do { \
         AJ_EnterCriticalRegion(); \
