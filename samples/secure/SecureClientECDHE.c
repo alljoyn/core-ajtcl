@@ -329,6 +329,20 @@ void AuthCallback(const void* context, AJ_Status status)
 }
 
 #ifdef MAIN_ALLOWS_ARGS
+static void print_usage() {
+    AJ_Printf("SecureClientECDHE [-noekus] {-e|-ek} <encryption suites>\n"
+              "-noekus\n"
+              "   For ECDHE_ECDSA, present a Security 1.0-style certificate chain without EKUs\n"
+              "   For all other auth suites, this option has no effect.\n"
+              "-e <encryption suites>\n"
+              "   Specify one or more encryption suites to use: ECDHE_ECDSA, ECDHE_PSK, or ECDHE_NULL\n"
+              "   Encryption suites should be listed in desired order of attempting, separated by spaces.\n"
+              "-ek <encryption suites>\n"
+              "    Same as -e, except that any existing authentication keys are cleared. This \n"
+              "    will ensure a new key exchange occurs.\n"
+              "-e or -ek must be the last option on the command line.\n");
+}
+
 int AJ_Main(int ac, char** av)
 #else
 int AJ_Main(void)
@@ -349,6 +363,11 @@ int AJ_Main(void)
     uint8_t clearkeys = FALSE;
 
 #ifdef MAIN_ALLOWS_ARGS
+    if (ac == 1) {
+        print_usage();
+        return AJ_ERR_END_OF_DATA;
+    }
+
     ac--;
     av++;
     /*
@@ -357,7 +376,11 @@ int AJ_Main(void)
     while (ac) {
         if (0 == strncmp(*av, "-noekus", 7)) {
             noekus = TRUE;
-            ac--;
+            if (--ac == 0) {
+                //-noekus must be followed with -e|-ek
+                print_usage();
+                return AJ_ERR_END_OF_DATA;
+            }
             av++;
         } else if (0 == strncmp(*av, "-e", 2)) {
             if (0 == strncmp(*av, "-ek", 3)) {
@@ -384,17 +407,7 @@ int AJ_Main(void)
                 av++;
             }
         } else {
-            AJ_Printf("SecureClientECDHE [-noekus] [-e|-ek] <encryption suites>\n"
-                      "-noekus\n"
-                      "   For ECDHE_ECDSA, present a Security 1.0-style certificate chain without EKUs\n"
-                      "   For all other auth suites, this option has no effect.\n"
-                      "-e <encryption suites>\n"
-                      "   Specify one or more encryption suites to use: ECDHE_ECDSA, ECDHE_PSK, or ECDHE_NULL\n"
-                      "   Encryption suites should be listed in desired order of attempting, separated by spaces.\n"
-                      "-ek <encryption suites>\n"
-                      "    Same as -e, except that any existing authentication keys are cleared. This \n"
-                      "    will ensure a new key exchange occurs.\n"
-                      "-e or -ek must be the last option on the command line.\n");
+            print_usage();
             return AJ_ERR_NULL;
         }
     }
