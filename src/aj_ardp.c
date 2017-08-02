@@ -47,7 +47,7 @@ extern "C" {
 #include <ajtcl/aj_debug.h>
 #include <ajtcl/aj_util.h>
 
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
 uint8_t dbgARDP = 0;
 #endif
 
@@ -465,7 +465,7 @@ static AJ_Status DataTimerHandler(ArdpSBuf* sBuf)
 
     do {
 
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
         uint32_t seq = ntohl(*(uint32_t*)((uint8_t*)sBuf->data + SEQ_OFFSET));
 #endif
 

@@ -98,7 +98,7 @@ void ram_diag();
     do { printf(fmat, ## __VA_ARGS__); } while (0)
 
 
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
 
 extern uint8_t dbgCONFIGUREME;
 extern uint8_t dbgINIT;

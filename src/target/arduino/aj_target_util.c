@@ -192,7 +192,7 @@ char* AJ_GetCmdLine(char* buf, size_t num)
     }
 }
 
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
 
 uint8_t dbgCONFIGUREME = 0;
 uint8_t dbgNET = 0;

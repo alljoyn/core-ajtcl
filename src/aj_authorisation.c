@@ -53,7 +53,7 @@
  * Turn on per-module debug printing by setting this variable to non-zero value
  * (usually in debugger).
  */
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
 uint8_t dbgAUTHORISATION = 0;
 #endif
 
@@ -526,7 +526,7 @@ void AJ_ManifestTemplateSet(AJ_PermissionRule* manifest)
     g_manifestRules = manifest;
 }
 
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
 static void PermissionMemberDump(AJ_PermissionMember* member)
 {
     while (member) {
@@ -1420,7 +1420,7 @@ AJ_Status AJ_PolicyLoad(void)
         goto Exit;
     }
 
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
     PolicyDump(g_policy.policy);
 #endif
 
@@ -1672,7 +1672,7 @@ AJ_Status AJ_ManifestApply(AJ_Manifest* manifest, const char* name, AJ_Authentic
         return AJ_ERR_ACCESS;
     }
 
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
     ManifestDump(manifest);
 #endif
 
@@ -1681,7 +1681,7 @@ AJ_Status AJ_ManifestApply(AJ_Manifest* manifest, const char* name, AJ_Authentic
         acc = PermissionRuleAccess(manifest->rules, acm, peer, FALSE);
         /* Manifest permissions are stored in the most significant part of the byte */
         acc <<= 4;
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
         if (acc) {
             AJ_InfoPrintf(("Access: 0x%08X %s %s %s %x\n", acm->id, acm->obj, acm->ifn, acm->mbr, acc));
         }
@@ -1790,7 +1790,7 @@ AJ_Status AJ_PolicyApply(AJ_AuthenticationContext* ctx, const char* name)
                         /* We don't receive a manifest, so switch those bits on too */
                         acc |= (acc << 4);
                     }
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
                     if (acc) {
                         AJ_InfoPrintf(("Access: 0x%08X %s %s %s %x\n", acm->id, acm->obj, acm->ifn, acm->mbr, acc));
                     }
@@ -1906,7 +1906,7 @@ AJ_Status AJ_MembershipApply(X509CertificateChain* root, AJ_ECCPublicKey* issuer
                 acm = g_access;
                 while (acm) {
                     acc = PermissionRuleAccess(acl->rules, acm, peer, FALSE);
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
                     if (acc) {
                         AJ_InfoPrintf(("Access: 0x%08X %s %s %s %x\n", acm->id, acm->obj, acm->ifn, acm->mbr, acc));
                     }

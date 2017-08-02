@@ -48,7 +48,7 @@ extern "C" {
 #include <ajtcl/aj_peer.h>
 }
 
-#ifndef NDEBUG
+#ifdef AJ_DEBUG_BUILD
 uint8_t dbgSECURITYTEST = 0;
 #endif
 
