@@ -1876,6 +1876,10 @@ AJ_Status AJ_UnmarshalContainer(AJ_Message* msg, AJ_Arg* arg, uint8_t typeId)
 
 AJ_Status AJ_UnmarshalCloseContainer(AJ_Message* msg, AJ_Arg* arg)
 {
+    if ((NULL == msg) || (NULL == arg) || (NULL == arg->sigPtr)) {
+        return AJ_ERR_NULL;
+    }
+
     AJ_ASSERT(TYPE_FLAG(arg->typeId) & AJ_CONTAINER);
     AJ_ASSERT(msg->outer == arg);
 
@@ -2471,9 +2475,14 @@ AJ_Status AJ_MarshalContainer(AJ_Message* msg, AJ_Arg* arg, uint8_t typeId)
 
 AJ_Status AJ_MarshalCloseContainer(AJ_Message* msg, AJ_Arg* arg)
 {
-    AJ_IOBuffer* ioBuf = &msg->bus->sock.tx;
     AJ_Status status = AJ_OK;
+    AJ_IOBuffer* ioBuf;
 
+    if ((NULL == msg) || (NULL == arg) || (NULL == arg->sigPtr)) {
+        return AJ_ERR_NULL;
+    }
+
+    ioBuf = &msg->bus->sock.tx;
     AJ_ASSERT(TYPE_FLAG(arg->typeId) & AJ_CONTAINER);
     AJ_ASSERT(msg->outer == arg);
 
