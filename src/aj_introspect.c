@@ -1262,7 +1262,7 @@ AJ_Status AJ_MarshalPropertyArgs(AJ_Message* msg, uint32_t propId)
 /*
  * Hook for unit tests
  */
-#ifdef GTEST_ENABLED
+#if defined(GTEST_ENABLED) || defined(AJ_DEBUG_BUILD)
 AJ_MutterHook MutterHook = NULL;
 #endif
 
@@ -1278,7 +1278,7 @@ AJ_Status AJ_InitMessageFromMsgId(AJ_Message* msg, uint32_t msgId, uint8_t msgTy
     static char msgSignature[64];
     AJ_Status status = AJ_OK;
 
-#ifdef GTEST_ENABLED
+#if defined(GTEST_ENABLED) || defined(AJ_DEBUG_BUILD)
     if (MutterHook) {
         return MutterHook(msg, msgId, msgType);
     }
@@ -1578,7 +1578,7 @@ AJ_Status AJ_IdentifyMessage(AJ_Message* msg)
 {
     AJ_Status status = AJ_ERR_NO_MATCH;
     uint8_t secure = FALSE;
-#ifdef GTEST_ENABLED
+#if defined(GTEST_ENABLED) || defined(AJ_DEBUG_BUILD)
     if (MutterHook) {
         return AJ_OK;
     }
