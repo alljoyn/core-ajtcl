@@ -863,9 +863,13 @@ static void Mcast6Up(const char* group, uint16_t port, uint8_t mdns, uint16_t re
         new_mcast_sock.has_mcast6 = TRUE;
 
         if (new_mcast_sock.sock != INVALID_SOCKET) {
-            NumMcastSocks++;
-            McastSocks = realloc(McastSocks, NumMcastSocks * sizeof(mcast_info_t));
-            memcpy(&McastSocks[NumMcastSocks - 1], &new_mcast_sock, sizeof(mcast_info_t));
+            McastSocks = AJ_Realloc(McastSocks, (NumMcastSocks + 1) * sizeof(mcast_info_t));
+            if (McastSocks != NULL) {
+                ++NumMcastSocks;
+                memcpy(&McastSocks[NumMcastSocks - 1], &new_mcast_sock, sizeof(mcast_info_t));
+            } else {
+                AJ_ErrPrintf(("%s(): AJ_Realloc() returned NULL\n", __FUNCTION__));
+            }
         }
     }
 }
@@ -986,9 +990,13 @@ static void Mcast4Up(const char* group, uint16_t port, uint8_t mdns, uint16_t re
         }
 
         if (new_mcast_sock.sock != INVALID_SOCKET) {
-            NumMcastSocks++;
-            McastSocks = realloc(McastSocks, NumMcastSocks * sizeof(mcast_info_t));
-            memcpy(&McastSocks[NumMcastSocks - 1], &new_mcast_sock, sizeof(mcast_info_t));
+            McastSocks = AJ_Realloc(McastSocks, (NumMcastSocks + 1) * sizeof(mcast_info_t));
+            if (McastSocks != NULL) {
+                ++NumMcastSocks;
+                memcpy(&McastSocks[NumMcastSocks - 1], &new_mcast_sock, sizeof(mcast_info_t));
+            } else {
+                AJ_ErrPrintf(("%s(): AJ_Realloc() returned NULL\n", __FUNCTION__));
+            }
         }
     }
 }
@@ -1005,9 +1013,13 @@ static void PushMcastRecvSock(SOCKET newSocket, int family)
     new_mcast_sock.is_mdns = FALSE;
     new_mcast_sock.is_mdnsrecv = TRUE;
 
-    NumMcastSocks++;
-    McastSocks = realloc(McastSocks, NumMcastSocks * sizeof(mcast_info_t));
-    memcpy(&McastSocks[NumMcastSocks - 1], &new_mcast_sock, sizeof(mcast_info_t));
+    McastSocks = AJ_Realloc(McastSocks, (NumMcastSocks + 1) * sizeof(mcast_info_t));
+    if (McastSocks != NULL) {
+        ++NumMcastSocks;
+        memcpy(&McastSocks[NumMcastSocks - 1], &new_mcast_sock, sizeof(mcast_info_t));
+    } else {
+        AJ_ErrPrintf(("%s(): AJ_Realloc() returned NULL\n", __FUNCTION__));
+    }
 }
 
 static SOCKET MDns4RecvUp()
