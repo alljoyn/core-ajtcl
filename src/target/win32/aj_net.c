@@ -863,9 +863,15 @@ static void Mcast6Up(const char* group, uint16_t port, uint8_t mdns, uint16_t re
         new_mcast_sock.has_mcast6 = TRUE;
 
         if (new_mcast_sock.sock != INVALID_SOCKET) {
-            NumMcastSocks++;
-            McastSocks = realloc(McastSocks, NumMcastSocks * sizeof(mcast_info_t));
-            memcpy(&McastSocks[NumMcastSocks - 1], &new_mcast_sock, sizeof(mcast_info_t));
+            McastSocks = AJ_Realloc(McastSocks, (NumMcastSocks + 1) * sizeof(mcast_info_t));
+            if (McastSocks != NULL) {
+                ++NumMcastSocks;
+                memcpy(&McastSocks[NumMcastSocks - 1], &new_mcast_sock, sizeof(mcast_info_t));
+            } else {
+                closesocket(new_mcast_sock.sock);
+                new_mcast_sock.sock = INVALID_SOCKET;
+                AJ_ErrPrintf(("%s(): AJ_Realloc() returned NULL\n", __FUNCTION__));
+            }
         }
     }
 }
@@ -986,14 +992,20 @@ static void Mcast4Up(const char* group, uint16_t port, uint8_t mdns, uint16_t re
         }
 
         if (new_mcast_sock.sock != INVALID_SOCKET) {
-            NumMcastSocks++;
-            McastSocks = realloc(McastSocks, NumMcastSocks * sizeof(mcast_info_t));
-            memcpy(&McastSocks[NumMcastSocks - 1], &new_mcast_sock, sizeof(mcast_info_t));
+            McastSocks = AJ_Realloc(McastSocks, (NumMcastSocks + 1) * sizeof(mcast_info_t));
+            if (McastSocks != NULL) {
+                ++NumMcastSocks;
+                memcpy(&McastSocks[NumMcastSocks - 1], &new_mcast_sock, sizeof(mcast_info_t));
+            } else {
+                closesocket(new_mcast_sock.sock);
+                new_mcast_sock.sock = INVALID_SOCKET;
+                AJ_ErrPrintf(("%s(): AJ_Realloc() returned NULL\n", __FUNCTION__));
+            }
         }
     }
 }
 
-static void PushMcastRecvSock(SOCKET newSocket, int family)
+static uint8_t PushMcastRecvSock(SOCKET newSocket, int family)
 {
     mcast_info_t new_mcast_sock;
 
@@ -1005,9 +1017,15 @@ static void PushMcastRecvSock(SOCKET newSocket, int family)
     new_mcast_sock.is_mdns = FALSE;
     new_mcast_sock.is_mdnsrecv = TRUE;
 
-    NumMcastSocks++;
-    McastSocks = realloc(McastSocks, NumMcastSocks * sizeof(mcast_info_t));
-    memcpy(&McastSocks[NumMcastSocks - 1], &new_mcast_sock, sizeof(mcast_info_t));
+    McastSocks = AJ_Realloc(McastSocks, (NumMcastSocks + 1) * sizeof(mcast_info_t));
+    if (McastSocks != NULL) {
+        ++NumMcastSocks;
+        memcpy(&McastSocks[NumMcastSocks - 1], &new_mcast_sock, sizeof(mcast_info_t));
+        return TRUE;
+    } else {
+        AJ_ErrPrintf(("%s(): AJ_Realloc() returned NULL\n", __FUNCTION__));
+    }
+    return FALSE;
 }
 
 static SOCKET MDns4RecvUp()
@@ -1039,7 +1057,10 @@ static SOCKET MDns4RecvUp()
         return tmp_sock;
     }
 
-    PushMcastRecvSock(tmp_sock, AF_INET);
+    if (PushMcastRecvSock(tmp_sock, AF_INET) == FALSE) {
+        closesocket(tmp_sock);
+        tmp_sock = INVALID_SOCKET;
+    }
     return tmp_sock;
 }
 
@@ -1073,7 +1094,10 @@ static SOCKET MDns6RecvUp()
         return tmp_sock;
     }
 
-    PushMcastRecvSock(tmp_sock, AF_INET6);
+    if (PushMcastRecvSock(tmp_sock, AF_INET6) == FALSE) {
+        closesocket(tmp_sock);
+        tmp_sock = INVALID_SOCKET;
+    }
     return tmp_sock;
 }
 
