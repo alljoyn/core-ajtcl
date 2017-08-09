@@ -584,7 +584,7 @@ void AJ_PrintXMLWithDescriptions(const AJ_Object* objs, const char* languageTag)
 /**
  * Hook for unit testing marshal/unmarshal
  */
-#ifdef GTEST_ENABLED
+#if defined(GTEST_ENABLED) || defined(AJ_DEBUG_BUILD)
 typedef AJ_Status (*AJ_MutterHook)(AJ_Message* msg, uint32_t msgId, uint8_t msgType);
 #endif
 
