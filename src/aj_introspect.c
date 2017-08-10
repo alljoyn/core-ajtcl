@@ -215,20 +215,20 @@ static const char* GetDescription(AJ_DescriptionLookupFunc descLookup, uint32_t 
     return descLookup(descId, languageTag);
 }
 
-static boolean_t IsDescriptionAvailable(AJ_DescriptionLookupFunc descLookup, uint32_t descId)
+static uint8_t IsDescriptionAvailable(AJ_DescriptionLookupFunc descLookup, uint32_t descId)
 {
     size_t idx;
     if (descLookup == NULL || languageList == NULL) {
-        return B_FALSE;
+        return FALSE;
     }
 
     for (idx = 0; languageList[idx] != NULL; idx++) {
         if (descLookup(descId, languageList[idx]) != NULL) {
-            return B_TRUE;
+            return TRUE;
         }
     }
 
-    return B_FALSE;
+    return FALSE;
 }
 
 static void XMLWriteDescription(XMLWriterFunc XMLWriter, void* context, uint8_t level, const char* description, const char* languageTag)
@@ -346,7 +346,7 @@ static AJ_Status ExpandInterfaces(XMLWriterFunc XMLWriter, void* context, const 
             uint8_t attr;
             uint8_t isSessionless = FALSE;
             uint32_t memberDescId = 0;
-            boolean_t descriptionAvailable = B_FALSE;
+            uint8_t descriptionAvailable = FALSE;
 
             /* Increase index since we start at 1 */
             ++memberIndex;
@@ -422,7 +422,7 @@ static AJ_Status ExpandInterfaces(XMLWriterFunc XMLWriter, void* context, const 
                         descriptionAvailable = IsDescriptionAvailable(descLookup, attrDescId);
                     } else {
                         description = GetDescription(descLookup, attrDescId, languageTag);
-                        descriptionAvailable = (description != NULL) ? B_TRUE : B_FALSE;
+                        descriptionAvailable = (description != NULL) ? TRUE : FALSE;
                     }
                     if (descriptionAvailable) {
                         dir += 3;
@@ -445,7 +445,7 @@ static AJ_Status ExpandInterfaces(XMLWriterFunc XMLWriter, void* context, const 
                 descriptionAvailable = IsDescriptionAvailable(descLookup, memberDescId);
             } else {
                 description = GetDescription(descLookup, memberDescId, languageTag);
-                descriptionAvailable = (description != NULL) ? B_TRUE : B_FALSE;
+                descriptionAvailable = (description != NULL) ? TRUE : FALSE;
             }
             if (descriptionAvailable) {
                 if (memberType == PROPERTY) {
@@ -596,7 +596,7 @@ static AJ_Status GenXML(XMLWriterFunc XMLWriter, void* context, const AJ_ObjectI
     AJ_Status status = AJ_OK;
     const AJ_Object* obj;
     AJ_DescriptionLookupFunc descLookup = NULL;
-    boolean_t unifiedFormat = (languageTag == NULL) ? B_TRUE : B_FALSE;
+    uint8_t unifiedFormat = (languageTag == NULL) ? TRUE : FALSE;
 
     if (objIter == NULL) {
         obj = virtualObject;
@@ -674,7 +674,7 @@ static AJ_Status GenXML(XMLWriterFunc XMLWriter, void* context, const AJ_ObjectI
                  * If there is a child check that this is the first instance of this child.
                  */
                 if (child && (FirstInstance(obj->path, child, len) == childObj)) {
-                    boolean_t descriptionAvailable = B_FALSE;
+                    uint8_t descriptionAvailable = FALSE;
                     uint32_t descId = (childObjectIter.n - 1) << 24;
                     if (childObjectIter.l < AJ_MAX_OBJECT_LISTS) {
                         descLookup = descriptionLookups[childObjectIter.l];
@@ -686,7 +686,7 @@ static AJ_Status GenXML(XMLWriterFunc XMLWriter, void* context, const AJ_ObjectI
                         descriptionAvailable = IsDescriptionAvailable(descLookup, descId);
                     } else {
                         description = GetDescription(descLookup, descId, languageTag);
-                        descriptionAvailable = (description != NULL) ? B_TRUE : B_FALSE;
+                        descriptionAvailable = (description != NULL) ? TRUE : FALSE;
                     }
                     if (descriptionAvailable) {
                         XMLWriteTag(XMLWriter, context, nodeOpen, nameAttr, child, len, FALSE);
