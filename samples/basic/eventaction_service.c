@@ -285,7 +285,7 @@ static AJ_Status AppHandleCat(AJ_Message* msg)
 /* SIGINT signal handler. */
 static void SigIntHandler(int sig)
 {
-    ((void)(sig));
+    AJ_UNUSED(sig);
     if (s_connected) {
         AJ_Disconnect(&s_bus);
     }

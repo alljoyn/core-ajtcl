@@ -153,7 +153,7 @@ static AJ_Status SetName(AJ_Message* replyMsg, uint32_t propId, void* context)
 /* SIGINT signal handler. */
 static void SigIntHandler(int sig)
 {
-    ((void)(sig));
+    AJ_UNUSED(sig);
     if (s_connected) {
         AJ_Disconnect(&s_busAttachment);
     }

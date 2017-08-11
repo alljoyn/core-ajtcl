@@ -263,7 +263,7 @@ static const size_t s_numsuites = 4;
 /* SIGINT signal handler. */
 static void SigIntHandler(int sig)
 {
-    ((void)(sig));
+    AJ_UNUSED(sig);
     if (s_connected) {
         AJ_Disconnect(&s_bus);
     }

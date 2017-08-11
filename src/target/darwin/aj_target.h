@@ -84,6 +84,8 @@ extern uint8_t dbgTARGET_UTIL;
 
 #define AJ_ASSERT(x) assert(x)
 
+#define AJ_UNUSED(x) ((void)(x))
+
 /*
  * AJ_Reboot() is a NOOP on this platform
  */
