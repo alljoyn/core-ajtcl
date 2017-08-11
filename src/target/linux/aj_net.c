@@ -425,7 +425,16 @@ static uint8_t sendToBroadcast(int sock, uint16_t port, AJ_IOBuffer* buf, size_t
 
             sin_bcast->sin_port = htons(port);
             inet_ntop(AF_INET, &(sin_bcast->sin_addr), addrbuf, sizeof(addrbuf));
-            AJ_InfoPrintf(("sendToBroadcast: sending to bcast addr %s\n", addrbuf));
+            if (port == MDNS_UDP_PORT) {
+                ((struct sockaddr_in*)(addr->ifa_addr))->sin_port = ((MCastContext*)buf->context)->mDnsRecvAddr.sin_port;
+                if (RewriteSenderInfo(buf, addr->ifa_addr) != AJ_OK) {
+                    AJ_WarnPrintf(("sendToBroadcast(): RewriteSenderInfo failed.\n"));
+                    addr = addr->ifa_next;
+                    continue;
+                }
+                tx = AJ_IO_BUF_AVAIL(buf);
+            }
+            AJ_InfoPrintf(("sendToBroadcast(): sending to bcast addr %s\n", addrbuf));
             ret = sendto(sock, buf->readPtr, tx, MSG_NOSIGNAL, (struct sockaddr*) sin_bcast, sizeof(struct sockaddr_in));
             if (tx == ret) {
                 sendSucceeded = TRUE;
@@ -617,10 +626,11 @@ AJ_Status AJ_Net_SendTo(AJ_IOBuffer* buf)
                 } else {
                     AJ_ErrPrintf(("AJ_Net_SendTo(): Invalid mDNS IP address. errno=\"%s\"\n", strerror(errno)));
                 }
-                if (sendToBroadcast(context->mDnsSock, MDNS_UDP_PORT, buf, tx) == TRUE) {
-                    sendSucceeded = TRUE;
-                } // leave sendSucceeded unchanged if FALSE
             }
+
+            if (sendToBroadcast(context->mDnsSock, MDNS_UDP_PORT, buf, tx) == TRUE) {
+                sendSucceeded = TRUE;
+            } // leave sendSucceeded unchanged if FALSE
         }
 
         if ((context->mDns6Sock != INVALID_SOCKET) && (buf->flags & AJ_IO_BUF_MDNS)) {
