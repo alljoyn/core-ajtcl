@@ -764,13 +764,13 @@ static void Mcast6Up(const char* group, uint16_t port, uint8_t mdns, uint16_t re
 
     // Get the IPv6 adapter addresses
     if (ERROR_SUCCESS != GetAdaptersAddresses(AF_INET6, GAA_FLAG_SKIP_MULTICAST | GAA_FLAG_SKIP_ANYCAST | GAA_FLAG_SKIP_DNS_SERVER, NULL, interfaces, &num_bytes)) {
-        AJ_ErrPrintf(("Mcast6Up(): GetAdaptersAddresses for IPv6 failed. WSAGetLastError()=0x%x\n", WSAGetLastError()));
+        AJ_ErrPrintf(("%s(): GetAdaptersAddresses for IPv6 failed. WSAGetLastError()=0x%x\n", __FUNCTION__, WSAGetLastError()));
         return;
     }
 
     // Get the IPv4 adapter addresses
     if (ERROR_SUCCESS != GetAdaptersAddresses(AF_INET, GAA_FLAG_SKIP_MULTICAST | GAA_FLAG_SKIP_ANYCAST | GAA_FLAG_SKIP_DNS_SERVER, NULL, v4_interfaces, &num_bytes)) {
-        AJ_ErrPrintf(("Mcast6Up(): GetAdaptersAddresses for IPv4 failed. WSAGetLastError()=0x%x\n", WSAGetLastError()));
+        AJ_ErrPrintf(("%s(): GetAdaptersAddresses for IPv4 failed. WSAGetLastError()=0x%x\n", __FUNCTION__, WSAGetLastError()));
         return;
     }
 
@@ -805,21 +805,21 @@ static void Mcast6Up(const char* group, uint16_t port, uint8_t mdns, uint16_t re
         }
 
         if (!new_mcast_sock.v4Addr.sin_addr.s_addr) {
-            AJ_ErrPrintf(("Mcast6Up(): IPV4 address not found for interface %u\n", interfaces->Ipv6IfIndex));
+            AJ_ErrPrintf(("%s(): IPV4 address not found for interface %u\n", __FUNCTION__, interfaces->Ipv6IfIndex));
             continue;
         }
 
         // create a socket
         new_mcast_sock.sock = socket(AF_INET6, SOCK_DGRAM, 0);
         if (new_mcast_sock.sock == INVALID_SOCKET) {
-            AJ_ErrPrintf(("Mcast6Up(): socket() failed. WSAGetLastError()=0x%x\n", WSAGetLastError()));
+            AJ_ErrPrintf(("%s(): socket() failed. WSAGetLastError()=0x%x\n", __FUNCTION__, WSAGetLastError()));
             continue;
         }
 
         ret = setsockopt(new_mcast_sock.sock, SOL_SOCKET, SO_REUSEADDR, (char*) &reuse, sizeof(reuse));
 
         if (ret != 0) {
-            AJ_ErrPrintf(("MCast6Up(): setsockopt(SO_REUSEADDR) failed. errno=\"%s\", status=AJ_ERR_READ\n", strerror(errno)));
+            AJ_ErrPrintf(("%s(): setsockopt(SO_REUSEADDR) failed. errno=\"%s\", status=AJ_ERR_READ\n", __FUNCTION__, strerror(errno)));
             closesocket(new_mcast_sock.sock);
             new_mcast_sock.sock = INVALID_SOCKET;
             continue;
@@ -831,8 +831,14 @@ static void Mcast6Up(const char* group, uint16_t port, uint8_t mdns, uint16_t re
 
         // bind the socket to the supplied port
         memset(&addr, 0, sizeof(struct sockaddr_in6));
-        if (mdns) {
+        if (mdns == TRUE) {
             addr.sin6_addr = in6addr_any;
+            ret = setsockopt(new_mcast_sock.sock, IPPROTO_IPV6, IPV6_MULTICAST_IF, (const char*)(&(interfaces->Ipv6IfIndex)),
+                             sizeof(interfaces->Ipv6IfIndex));
+            if (ret != 0) {
+                AJ_WarnPrintf(("%s(): setsockopt(IPV6_MULTICAST_IF) failed for interface index %d. WSAGetLastError()=0x%x\n",
+                               __FUNCTION__, interfaces->Ipv6IfIndex, WSAGetLastError()));
+            }
         } else {
             memcpy(&addr, interfaces->FirstUnicastAddress->Address.lpSockaddr, sizeof(struct sockaddr_in6));
         }
@@ -841,7 +847,7 @@ static void Mcast6Up(const char* group, uint16_t port, uint8_t mdns, uint16_t re
 
         ret = bind(new_mcast_sock.sock, (struct sockaddr*) &addr, sizeof(struct sockaddr_in6));
         if (ret == SOCKET_ERROR) {
-            AJ_ErrPrintf(("Mcast6Up(): bind() failed. WSAGetLastError()=0x%x\n", WSAGetLastError()));
+            AJ_ErrPrintf(("%s(): bind() failed. WSAGetLastError()=0x%x\n", __FUNCTION__, WSAGetLastError()));
             closesocket(new_mcast_sock.sock);
             new_mcast_sock.sock = INVALID_SOCKET;
             continue;
@@ -854,7 +860,7 @@ static void Mcast6Up(const char* group, uint16_t port, uint8_t mdns, uint16_t re
 
         ret = setsockopt(new_mcast_sock.sock, IPPROTO_IPV6, IPV6_ADD_MEMBERSHIP, (char*) &mreq6, sizeof(mreq6));
         if (ret == SOCKET_ERROR) {
-            AJ_ErrPrintf(("Mcast6Up(): setsockopt(IP_ADD_MEMBERSHIP) failed. WSAGetLastError()=0x%x\n", WSAGetLastError()));
+            AJ_ErrPrintf(("%s(): setsockopt(IP_ADD_MEMBERSHIP) failed. WSAGetLastError()=0x%x\n", __FUNCTION__, WSAGetLastError()));
             closesocket(new_mcast_sock.sock);
             new_mcast_sock.sock = INVALID_SOCKET;
             continue;
@@ -888,15 +894,14 @@ static void Mcast4Up(const char* group, uint16_t port, uint8_t mdns, uint16_t re
 
     tmp_sock = socket(AF_INET, SOCK_DGRAM, 0);
     if (tmp_sock == INVALID_SOCKET) {
-        AJ_ErrPrintf(("Mcast4Up(): socket failed. WSAGetLastError()=0x%x\n", WSAGetLastError()));
+        AJ_ErrPrintf(("%s(): socket failed. WSAGetLastError()=0x%x\n", __FUNCTION__, WSAGetLastError()));
         return;
     }
 
     if (SOCKET_ERROR == WSAIoctl(tmp_sock, SIO_GET_INTERFACE_LIST, 0, 0, &interfaces, sizeof(interfaces), &num_bytes, 0, 0)) {
-        AJ_ErrPrintf(("Mcast4Up(): WSAIoctl failed. WSAGetLastError()=0x%x\n", WSAGetLastError()));
+        AJ_ErrPrintf(("%s(): WSAIoctl failed. WSAGetLastError()=0x%x\n", __FUNCTION__, WSAGetLastError()));
         return;
     }
-
 
     closesocket(tmp_sock);
     num_ifaces = num_bytes / sizeof(INTERFACE_INFO);
@@ -923,14 +928,14 @@ static void Mcast4Up(const char* group, uint16_t port, uint8_t mdns, uint16_t re
         // create a socket
         new_mcast_sock.sock = socket(AF_INET, SOCK_DGRAM, 0);
         if (new_mcast_sock.sock == INVALID_SOCKET) {
-            AJ_ErrPrintf(("Mcast4Up(): socket() failed. WSAGetLastError()=0x%x\n", WSAGetLastError()));
+            AJ_ErrPrintf(("%s(): socket() failed. WSAGetLastError()=0x%x\n", __FUNCTION__, WSAGetLastError()));
             continue;
         }
 
         ret = setsockopt(new_mcast_sock.sock, SOL_SOCKET, SO_REUSEADDR, (char*) &reuse, sizeof(reuse));
 
         if (ret != 0) {
-            AJ_ErrPrintf(("MCast4Up(): setsockopt(SO_REUSEADDR) failed. errno=\"%s\", status=AJ_ERR_READ\n", strerror(errno)));
+            AJ_ErrPrintf(("%s(): setsockopt(SO_REUSEADDR) failed. errno=\"%s\", status=AJ_ERR_READ\n", __FUNCTION__, strerror(errno)));
             closesocket(new_mcast_sock.sock);
             new_mcast_sock.sock = INVALID_SOCKET;
             continue;
@@ -942,7 +947,7 @@ static void Mcast4Up(const char* group, uint16_t port, uint8_t mdns, uint16_t re
             int bcast = 1;
             ret = setsockopt(new_mcast_sock.sock, SOL_SOCKET, SO_BROADCAST, (void*) &bcast, sizeof(bcast));
             if (ret != 0) {
-                AJ_ErrPrintf(("Mcast4Up(): setsockopt(SO_BROADCAST) failed. WSAGetLastError()=0x%x\n", WSAGetLastError()));
+                AJ_ErrPrintf(("%s(): setsockopt(SO_BROADCAST) failed. WSAGetLastError()=0x%x\n", __FUNCTION__, WSAGetLastError()));
                 closesocket(new_mcast_sock.sock);
                 new_mcast_sock.sock = INVALID_SOCKET;
                 continue;
@@ -963,14 +968,18 @@ static void Mcast4Up(const char* group, uint16_t port, uint8_t mdns, uint16_t re
             // need to bind to INADDR_ANY for mdns
             if (mdns == TRUE) {
                 sin.sin_addr.s_addr = INADDR_ANY;
+                ret = setsockopt(new_mcast_sock.sock, IPPROTO_IP, IP_MULTICAST_IF, (const char*)(&(new_mcast_sock.v4Addr.sin_addr)), sizeof(new_mcast_sock.v4Addr.sin_addr));
+                if (ret != 0) {
+                    AJ_WarnPrintf(("%s(): setsockopt(IP_MULTICAST_IF) failed. WSAGetLastError()=0x%x\n", __FUNCTION__, WSAGetLastError()));
+                }
             } else {
                 memcpy(&sin, addr, sizeof(struct sockaddr_in));
             }
-            AJ_InfoPrintf(("MCast4Up(): Binding to port %d and group %s\n", port, group));
+            AJ_InfoPrintf(("%s(): Binding to port %d and group %s\n", __FUNCTION__, port, group));
 
             ret = bind(new_mcast_sock.sock, (struct sockaddr*) &sin, sizeof(sin));
             if (ret == SOCKET_ERROR) {
-                AJ_ErrPrintf(("Mcast4Up(): bind() failed. WSAGetLastError()=0x%x\n", WSAGetLastError()));
+                AJ_ErrPrintf(("%s(): bind() failed. WSAGetLastError()=0x%x\n", __FUNCTION__, WSAGetLastError()));
                 closesocket(new_mcast_sock.sock);
                 new_mcast_sock.sock = INVALID_SOCKET;
                 continue;
@@ -982,7 +991,7 @@ static void Mcast4Up(const char* group, uint16_t port, uint8_t mdns, uint16_t re
             memcpy(&mreq.imr_interface, &sin.sin_addr, sizeof(struct in_addr));
             ret = setsockopt(new_mcast_sock.sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char*) &mreq, sizeof(mreq));
             if (ret == SOCKET_ERROR) {
-                AJ_ErrPrintf(("Mcast4Up(): setsockopt(IP_ADD_MEMBERSHIP) failed. WSAGetLastError()=0x%x\n", WSAGetLastError()));
+                AJ_ErrPrintf(("%s(): setsockopt(IP_ADD_MEMBERSHIP) failed. WSAGetLastError()=0x%x\n", __FUNCTION__, WSAGetLastError()));
                 closesocket(new_mcast_sock.sock);
                 new_mcast_sock.sock = INVALID_SOCKET;
                 continue;
