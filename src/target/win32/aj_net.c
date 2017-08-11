@@ -831,8 +831,12 @@ static void Mcast6Up(const char* group, uint16_t port, uint8_t mdns, uint16_t re
 
         // bind the socket to the supplied port
         memset(&addr, 0, sizeof(struct sockaddr_in6));
-        if (mdns) {
+        if (mdns == TRUE) {
             addr.sin6_addr = in6addr_any;
+            ret = setsockopt(new_mcast_sock.sock, IPPROTO_IPV6, IP_MULTICAST_IF, (const char*)(&(interfaces->IfIndex)), sizeof(interfaces->IfIndex));
+            if (ret != 0) {
+                AJ_WarnPrintf(("MCast6Up(): setsockopt(IP_MULTICAST_IF) failed for interface index %d. WSAGetLastError()=0x%x\n", interfaces->IfIndex, WSAGetLastError()));
+            }
         } else {
             memcpy(&addr, interfaces->FirstUnicastAddress->Address.lpSockaddr, sizeof(struct sockaddr_in6));
         }
@@ -896,7 +900,6 @@ static void Mcast4Up(const char* group, uint16_t port, uint8_t mdns, uint16_t re
         AJ_ErrPrintf(("Mcast4Up(): WSAIoctl failed. WSAGetLastError()=0x%x\n", WSAGetLastError()));
         return;
     }
-
 
     closesocket(tmp_sock);
     num_ifaces = num_bytes / sizeof(INTERFACE_INFO);
@@ -963,6 +966,10 @@ static void Mcast4Up(const char* group, uint16_t port, uint8_t mdns, uint16_t re
             // need to bind to INADDR_ANY for mdns
             if (mdns == TRUE) {
                 sin.sin_addr.s_addr = INADDR_ANY;
+                ret = setsockopt(new_mcast_sock.sock, IPPROTO_IP, IP_MULTICAST_IF, (const char*)(&(new_mcast_sock.v4Addr.sin_addr)), sizeof(new_mcast_sock.v4Addr.sin_addr));
+                if (ret != 0) {
+                    AJ_WarnPrintf(("Mcast4Up(): setsockopt(IP_MULTICAST_IF) failed. WSAGetLastError()=0x%x\n", WSAGetLastError()));
+                }
             } else {
                 memcpy(&sin, addr, sizeof(struct sockaddr_in));
             }
