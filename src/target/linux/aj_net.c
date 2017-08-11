@@ -425,7 +425,15 @@ static uint8_t sendToBroadcast(int sock, uint16_t port, AJ_IOBuffer* buf, size_t
 
             sin_bcast->sin_port = htons(port);
             inet_ntop(AF_INET, &(sin_bcast->sin_addr), addrbuf, sizeof(addrbuf));
-            AJ_InfoPrintf(("sendToBroadcast: sending to bcast addr %s\n", addrbuf));
+            if (port == MDNS_UDP_PORT) {
+                ((struct sockaddr_in*)(addr->ifa_addr))->sin_port = ((MCastContext*)buf->context)->mDnsRecvAddr.sin_port;
+                if (RewriteSenderInfo(buf, addr->ifa_addr)  != AJ_OK) {
+                    AJ_WarnPrintf(("sendToBroadcast(): RewriteSenderInfo failed.\n"));
+                    addr = addr->ifa_next;
+                    continue;
+                }
+            }
+            AJ_InfoPrintf(("sendToBroadcast(): sending to bcast addr %s\n", addrbuf));
             ret = sendto(sock, buf->readPtr, tx, MSG_NOSIGNAL, (struct sockaddr*) sin_bcast, sizeof(struct sockaddr_in));
             if (tx == ret) {
                 sendSucceeded = TRUE;
