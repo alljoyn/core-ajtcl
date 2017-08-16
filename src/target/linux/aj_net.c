@@ -124,13 +124,13 @@ typedef struct {
     int mDns6Sock;
     int mDnsRecvSock;
     int mDns6RecvSock;
-    struct sockaddr_in mDnsRecvAddr;
-    struct sockaddr_in6 mDns6RecvAddr;
+    in_port_t mDnsIPv4RecvPort;
+    in_port_t mDnsIPv6RecvPort;
     int scope_id;
 } MCastContext;
 
 static NetContext netContext = { INVALID_SOCKET, INVALID_SOCKET };
-static MCastContext mCastContext = { INVALID_SOCKET, INVALID_SOCKET, INVALID_SOCKET, INVALID_SOCKET };
+static MCastContext mCastContext = { INVALID_SOCKET, INVALID_SOCKET, INVALID_SOCKET, INVALID_SOCKET, INVALID_SOCKET, INVALID_SOCKET, 0, 0 };
 
 #ifdef AJ_ARDP
 /**
@@ -407,6 +407,89 @@ void AJ_Net_Disconnect(AJ_NetSocket* netSock)
     }
 }
 
+static uint8_t sendToMulticast(int sock, AJ_IOBuffer* buf, size_t tx, uint8_t isIPv6)
+{
+    ssize_t ret = -1;
+    uint8_t sendSucceeded = FALSE;
+    struct ifaddrs* addrs;
+    struct ifaddrs* addr;
+    struct sockaddr_in sin;
+    struct sockaddr_in6 sin6;
+    char addrbuf[INET6_ADDRSTRLEN];
+
+    if (isIPv6) {
+        if (1 != inet_pton(AF_INET6, MDNS_IPV6_MULTICAST_GROUP, &(sin6.sin6_addr))) {
+            AJ_ErrPrintf(("sendToMulticast(): Invalid mDNS IPv6 address. errno=\"%s\"\n", strerror(errno)));
+            return FALSE;
+        }
+    } else {
+        if (1 != inet_pton(AF_INET, MDNS_IPV4_MULTICAST_GROUP, &(sin.sin_addr))) {
+            AJ_ErrPrintf(("sendToMulticast(): Invalid mDNS IPv4 address. errno=\"%s\"\n", strerror(errno)));
+            return FALSE;
+        }
+    }
+
+    sin6.sin6_family = AF_INET6;
+    sin6.sin6_flowinfo = 0;
+    sin6.sin6_scope_id = 0;
+    sin6.sin6_port = htons(MDNS_UDP_PORT);
+    sin.sin_family = AF_INET;
+    sin.sin_port = htons(MDNS_UDP_PORT);
+
+    getifaddrs(&addrs);
+    addr = addrs;
+
+    while (addr != NULL) {
+        if ((addr->ifa_addr != NULL) && (addr->ifa_flags & IFF_UP) && (addr->ifa_flags & IFF_RUNNING) &&
+            !(addr->ifa_flags & IFF_LOOPBACK) && (addr->ifa_addr->sa_family == (isIPv6 ? AF_INET6 : AF_INET))) {
+
+            if (isIPv6) {
+                uint32_t index = if_nametoindex(addr->ifa_name);
+                if (0 != setsockopt(sock, IPPROTO_IPV6, IPV6_MULTICAST_IF, (const char*)(&index), sizeof(index))) {
+                    AJ_WarnPrintf(("sendToMulticast(): setsockopt(IPV6_MULTICAST_IF) failed for index %d. errno=\"%s\"\n", index, strerror(errno)));
+                }
+            } else {
+                if (0 != setsockopt(sock, IPPROTO_IP, IP_MULTICAST_IF, (const char*)(&((struct sockaddr_in*)addr->ifa_addr)->sin_addr), sizeof(in_addr_t))) {
+                    AJ_WarnPrintf(("sendToMulticast(): setsockopt(IP_MULTICAST_IF) failed. errno=\"%s\"\n", strerror(errno)));
+                }
+            }
+
+            if (isIPv6) {
+                inet_ntop(addr->ifa_addr->sa_family, &((struct sockaddr_in6*)addr->ifa_addr)->sin6_addr, addrbuf, sizeof(addrbuf));
+                ((struct sockaddr_in6*)addr->ifa_addr)->sin6_port = ((MCastContext*)buf->context)->mDnsIPv6RecvPort;
+            } else {
+                inet_ntop(addr->ifa_addr->sa_family, &((struct sockaddr_in*)addr->ifa_addr)->sin_addr, addrbuf, sizeof(addrbuf));
+                ((struct sockaddr_in*)addr->ifa_addr)->sin_port = ((MCastContext*)buf->context)->mDnsIPv4RecvPort;
+            }
+
+            if (RewriteSenderInfo(buf, addr->ifa_addr) != AJ_OK) {
+                AJ_ErrPrintf(("sendToMulticast(): RewriteSenderInfo failed.\n"));
+                addr = addr->ifa_next;
+                continue;
+            }
+            tx = AJ_IO_BUF_AVAIL(buf);
+
+            AJ_InfoPrintf(("sendToMulticast(): sending to mcast addr %s\n", addrbuf));
+
+            if (isIPv6) {
+                ret = sendto(sock, buf->readPtr, tx, MSG_NOSIGNAL, (struct sockaddr*) &sin6, sizeof(sin6));
+            } else {
+                ret = sendto(sock, buf->readPtr, tx, MSG_NOSIGNAL, (struct sockaddr*) &sin, sizeof(sin));
+            }
+            if (tx == ret) {
+                sendSucceeded = TRUE;
+            } else {
+                AJ_ErrPrintf(("sendToMulticast(): sendto failed. errno=\"%s\"\n", strerror(errno)));
+            }
+        }
+
+        addr = addr->ifa_next;
+    }
+
+    freeifaddrs(addrs);
+    return sendSucceeded;
+}
+
 static uint8_t sendToBroadcast(int sock, uint16_t port, AJ_IOBuffer* buf, size_t tx)
 {
     ssize_t ret = -1;
@@ -419,13 +502,22 @@ static uint8_t sendToBroadcast(int sock, uint16_t port, AJ_IOBuffer* buf, size_t
 
     while (addr != NULL) {
         // only care about IPV4
-        if (addr->ifa_addr != NULL && addr->ifa_addr->sa_family == AF_INET && (addr->ifa_flags & IFF_UP) && (addr->ifa_flags & IFF_RUNNING)) {
+        if ((addr->ifa_addr != NULL) && (addr->ifa_addr->sa_family == AF_INET) && (addr->ifa_flags & IFF_UP) && (addr->ifa_flags & IFF_RUNNING)) {
             char addrbuf[INET_ADDRSTRLEN];
             struct sockaddr_in* sin_bcast = (struct sockaddr_in*) addr->ifa_ifu.ifu_broadaddr;
 
             sin_bcast->sin_port = htons(port);
             inet_ntop(AF_INET, &(sin_bcast->sin_addr), addrbuf, sizeof(addrbuf));
-            AJ_InfoPrintf(("sendToBroadcast: sending to bcast addr %s\n", addrbuf));
+            if (port == MDNS_UDP_PORT) {
+                ((struct sockaddr_in*)addr->ifa_addr)->sin_port = ((MCastContext*)buf->context)->mDnsIPv4RecvPort;
+                if (RewriteSenderInfo(buf, addr->ifa_addr) != AJ_OK) {
+                    AJ_ErrPrintf(("sendToBroadcast(): RewriteSenderInfo failed.\n"));
+                    addr = addr->ifa_next;
+                    continue;
+                }
+                tx = AJ_IO_BUF_AVAIL(buf);
+            }
+            AJ_InfoPrintf(("sendToBroadcast(): sending to bcast addr %s\n", addrbuf));
             ret = sendto(sock, buf->readPtr, tx, MSG_NOSIGNAL, (struct sockaddr*) sin_bcast, sizeof(struct sockaddr_in));
             if (tx == ret) {
                 sendSucceeded = TRUE;
@@ -599,51 +691,15 @@ AJ_Status AJ_Net_SendTo(AJ_IOBuffer* buf)
 
     if (tx > 0) {
         if ((context->mDnsSock != INVALID_SOCKET) && (buf->flags & AJ_IO_BUF_MDNS)) {
-            struct sockaddr_in sin;
-            sin.sin_family = AF_INET;
-            sin.sin_port = htons(MDNS_UDP_PORT);
+            sendSucceeded = sendToMulticast(context->mDnsSock, buf, tx, FALSE);
 
-            if (RewriteSenderInfo(buf, (struct sockaddr*)&context->mDnsRecvAddr) != AJ_OK) {
-                AJ_WarnPrintf(("AJ_Net_SendTo(): RewriteSenderInfo failed.\n"));
-            } else {
-                tx = AJ_IO_BUF_AVAIL(buf);
-                if (inet_pton(AF_INET, MDNS_IPV4_MULTICAST_GROUP, &sin.sin_addr) == 1) {
-                    ret = sendto(context->mDnsSock, buf->readPtr, tx, MSG_NOSIGNAL, (struct sockaddr*)&sin, sizeof(sin));
-                    if (tx == ret) {
-                        sendSucceeded = TRUE;
-                    } else {
-                        AJ_ErrPrintf(("AJ_Net_SendTo(): sendto mDNS IPv4 failed. errno=\"%s\"\n", strerror(errno)));
-                    }
-                } else {
-                    AJ_ErrPrintf(("AJ_Net_SendTo(): Invalid mDNS IP address. errno=\"%s\"\n", strerror(errno)));
-                }
-                if (sendToBroadcast(context->mDnsSock, MDNS_UDP_PORT, buf, tx) == TRUE) {
-                    sendSucceeded = TRUE;
-                } // leave sendSucceeded unchanged if FALSE
-            }
+            if (sendToBroadcast(context->mDnsSock, MDNS_UDP_PORT, buf, tx) == TRUE) {
+                sendSucceeded = TRUE;
+            } // leave sendSucceeded unchanged if FALSE
         }
 
         if ((context->mDns6Sock != INVALID_SOCKET) && (buf->flags & AJ_IO_BUF_MDNS)) {
-            struct sockaddr_in6 sin6;
-            sin6.sin6_family = AF_INET6;
-            sin6.sin6_flowinfo = 0;
-            sin6.sin6_scope_id = 0;
-            sin6.sin6_port = htons(MDNS_UDP_PORT);
-            if (inet_pton(AF_INET6, MDNS_IPV6_MULTICAST_GROUP, &sin6.sin6_addr) == 1) {
-                if (RewriteSenderInfo(buf, (struct sockaddr*)&context->mDns6RecvAddr) != AJ_OK) {
-                    AJ_WarnPrintf(("AJ_Net_SendTo(): RewriteSenderInfo failed.\n"));
-                } else {
-                    tx = AJ_IO_BUF_AVAIL(buf);
-                    ret = sendto(context->mDns6Sock, buf->readPtr, tx, MSG_NOSIGNAL, (struct sockaddr*) &sin6, sizeof(sin6));
-                    if (tx == ret) {
-                        sendSucceeded = TRUE;
-                    } else {
-                        AJ_ErrPrintf(("AJ_Net_SendTo(): sendto mDNS IPv6 failed. errno=\"%s\"\n", strerror(errno)));
-                    }
-                }
-            } else {
-                AJ_ErrPrintf(("AJ_Net_SendTo(): Invalid mDNS IPv6 address. errno=\"%s\"\n", strerror(errno)));
-            }
+            sendSucceeded = sendToMulticast(context->mDns6Sock, buf, tx, TRUE);
         }
 
         if (!sendSucceeded) {
@@ -920,77 +976,6 @@ ExitError:
     return INVALID_SOCKET;
 }
 
-static uint8_t chooseMDnsRecvAddr(sa_family_t family, MCastContext* mcast_info)
-{
-    struct ifaddrs* addrs;
-    struct ifaddrs* addr;
-    FILE* f;
-    char line[100];
-    char* saveptr;
-    char* iface;
-    char defIface[IFNAMSIZ + 1] = { 0 };
-    char* dest;
-    char* metricStr;
-    int metric;
-    int defMetric = INT_MAX;
-    char addrbuf[INET6_ADDRSTRLEN];
-    /* Grab the interface for the default route */
-    f = fopen("/proc/net/route", "r");
-    if (NULL != f) {
-        while (NULL != fgets(line, sizeof(line), f)) {
-            iface = strtok_r(line, " \t", &saveptr);  /* Iface */
-            dest = strtok_r(NULL, " \t", &saveptr);   /* Destination */
-            metricStr = strtok_r(NULL, " \t", &saveptr);  /* Gateway */
-            metricStr = strtok_r(NULL, " \t", &saveptr);  /* Flags */
-            metricStr = strtok_r(NULL, " \t", &saveptr);  /* Use */
-            metricStr = strtok_r(NULL, " \t", &saveptr);  /* Metric */
-
-            if ((NULL != iface)  && (NULL != dest)) {
-                if (0 == strcmp(dest, "00000000")) {
-                    metric = atoi(metricStr);
-                    if (metric < defMetric) {
-                        defMetric = metric;
-                        strncpy(defIface, iface, IFNAMSIZ);
-                    }
-                }
-            }
-        }
-        fclose(f);
-    } else {
-        AJ_WarnPrintf(("Unable to open /proc/net/route\n"));
-    }
-    getifaddrs(&addrs);
-    addr = addrs;
-    while (addr != NULL) {
-        // Choose the interface that is enabled and matches the best default route otherwise
-        // Choose first address from the given family that is not LOOPBACK and is enabled
-        if (addr->ifa_addr != NULL &&
-            (addr->ifa_addr->sa_family == family)  &&
-            !(addr->ifa_flags & IFF_LOOPBACK) && (addr->ifa_flags & IFF_UP) && (addr->ifa_flags & IFF_RUNNING)) {
-            /* Select this interface if we do not have a default route or
-               this interface has the default route */
-            if ((defIface[0] == 0) || (strcmp(defIface, addr->ifa_name) == 0)) {
-                if (addr->ifa_addr->sa_family == AF_INET) {
-                    if (inet_ntop(addr->ifa_addr->sa_family, &((struct sockaddr_in*)addr->ifa_addr)->sin_addr, addrbuf, sizeof(addrbuf)) != NULL) {
-                        memcpy(&(mcast_info->mDnsRecvAddr), addr->ifa_addr, sizeof(struct sockaddr_in));
-                        freeifaddrs(addrs);
-                        return TRUE;
-                    }
-                } else if (addr->ifa_addr->sa_family == AF_INET6) {
-                    if (inet_ntop(addr->ifa_addr->sa_family, &((struct sockaddr_in6*)addr->ifa_addr)->sin6_addr, addrbuf, sizeof(addrbuf)) != NULL) {
-                        memcpy(&(mcast_info->mDns6RecvAddr), addr->ifa_addr, sizeof(struct sockaddr_in6));
-                        freeifaddrs(addrs);
-                        return TRUE;
-                    }
-                }
-            }
-        }
-        addr = addr->ifa_next;
-    }
-    freeifaddrs(addrs);
-    return FALSE;
-}
-
 static int MDns4RecvUp()
 {
     int ret;
@@ -1069,7 +1054,6 @@ AJ_Status AJ_Net_MCastUp(AJ_MCastSocket* mcastSock)
     struct sockaddr_storage addrBuf;
     socklen_t addrLen = sizeof(addrBuf);
     struct sockaddr_in* sin;
-    char ipStr[INET6_ADDRSTRLEN];
     AJ_Status statusIPv4 = AJ_ERR_READ;
     AJ_Status statusIPv6 = AJ_ERR_READ;
 
@@ -1083,17 +1067,13 @@ AJ_Status AJ_Net_MCastUp(AJ_MCastSocket* mcastSock)
             AJ_ErrPrintf(("AJ_Net_MCastUp(): getsockname for mDnsRecvSock failed, errno=\"%s\"\n", strerror(errno)));
             break;
         }
-        if (chooseMDnsRecvAddr(AF_INET, &mCastContext) == FALSE) {
-            AJ_ErrPrintf(("AJ_Net_MCastUp(): no mDNS IPv4 recv address\n"));
-            break;
-        }
+
         statusIPv4 = AJ_OK;
         sin = (struct sockaddr_in*) &addrBuf;
-        mCastContext.mDnsRecvAddr.sin_port = sin->sin_port;
+        mCastContext.mDnsIPv4RecvPort = sin->sin_port;
 
-        if (inet_ntop(AF_INET, &(mCastContext.mDnsRecvAddr.sin_addr), ipStr, INET_ADDRSTRLEN) != NULL) {
-            AJ_InfoPrintf(("AJ_Net_MCastUp(): mDNS IPv4 recv on %s port %d\n", ipStr, mCastContext.mDnsRecvAddr.sin_port));
-        }
+        AJ_InfoPrintf(("AJ_Net_MCastUp(): mDNS IPv4 recv on INADDR_ANY port %d\n", ntohs(mCastContext.mDnsIPv4RecvPort)));
+
         mCastContext.mDnsSock = MCastUp4(MDNS_IPV4_MULTICAST_GROUP, MDNS_UDP_PORT);
     } while (0);
 
@@ -1114,18 +1094,14 @@ AJ_Status AJ_Net_MCastUp(AJ_MCastSocket* mcastSock)
             AJ_ErrPrintf(("AJ_Net_MCastUp(): getsockname for mDns6RecvSock failed, errno=\"%s\"\n", strerror(errno)));
             break;
         }
-        if (chooseMDnsRecvAddr(AF_INET6, &mCastContext) == FALSE) {
-            AJ_ErrPrintf(("AJ_Net_MCastUp(): no mDNS IPv6 recv address\n"));
-            break;
-        }
+
         statusIPv6 = AJ_OK;
         // The offsets of the sockaddr_in and the sockaddr_in6 port are the same so we cheat
         sin = (struct sockaddr_in*) &addrBuf;
-        mCastContext.mDns6RecvAddr.sin6_port = sin->sin_port;
+        mCastContext.mDnsIPv6RecvPort = sin->sin_port;
 
-        if (inet_ntop(AF_INET6, &(mCastContext.mDns6RecvAddr.sin6_addr), ipStr, INET6_ADDRSTRLEN) != NULL) {
-            AJ_InfoPrintf(("AJ_Net_MCastUp(): mDNS IPv6 recv on %s port %d\n", ipStr, mCastContext.mDns6RecvAddr.sin6_port));
-        }
+        AJ_InfoPrintf(("AJ_Net_MCastUp(): mDNS IPv6 recv on in6addr_any port %d\n", ntohs(mCastContext.mDnsIPv6RecvPort)));
+
         mCastContext.mDns6Sock = MCastUp6(MDNS_IPV6_MULTICAST_GROUP, MDNS_UDP_PORT);
     } while (0);
 
